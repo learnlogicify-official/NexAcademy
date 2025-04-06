@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Icons } from "@/components/icons";
+import { useToast } from "@/components/ui/use-toast";
 
 export function SignUpForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +46,12 @@ export function SignUpForm() {
         const data = await response.json();
         throw new Error(data.message || "Something went wrong");
       }
+
+      toast({
+        title: "Account created successfully!",
+        description: "You can now sign in with your credentials.",
+        duration: 5000,
+      });
 
       router.push("/auth/signin");
     } catch (error) {

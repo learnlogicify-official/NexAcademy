@@ -124,42 +124,42 @@ export function Dashboard() {
       </div>
 
       {/* Featured Course Card */}
-      <Card className="overflow-hidden border border-[#2d2d2d] bg-[#1a1a1a] shadow-md">
+      <Card className="overflow-hidden border shadow-md">
         <div className="flex flex-col md:flex-row">
           <div className="relative h-48 w-full md:h-auto md:w-1/3 lg:w-1/4">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0091FF]/80 to-[#0091FF]/40 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/40 flex items-center justify-center">
               <Code className="h-16 w-16 text-white" />
             </div>
           </div>
           <div className="flex flex-1 flex-col p-6">
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <Badge className="mb-2 bg-[#0091FF] text-white">Featured Course</Badge>
-                <h2 className="text-2xl font-bold text-white">{pythonBasicsCourse.title}</h2>
-                <p className="mt-1 text-gray-300">{pythonBasicsCourse.description}</p>
+                <Badge className="mb-2 bg-primary text-primary-foreground">Featured Course</Badge>
+                <h2 className="text-2xl font-bold">{pythonBasicsCourse.title}</h2>
+                <p className="mt-1 text-muted-foreground">{pythonBasicsCourse.description}</p>
               </div>
-              <Badge variant="outline" className="bg-[#252525] text-white border-[#3a3a3a]">
+              <Badge variant="outline" className="bg-muted">
                 {pythonBasicsCourse.level}
               </Badge>
             </div>
 
             <div className="mt-auto space-y-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-300">Progress</span>
-                <span className="text-white">{pythonBasicsCourse.progress}%</span>
+                <span className="text-muted-foreground">Progress</span>
+                <span className="text-foreground">{pythonBasicsCourse.progress}%</span>
               </div>
               <Progress value={pythonBasicsCourse.progress} className="h-2" />
 
               <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-1.5 text-gray-300">
-                  <BookOpenCheck className="h-4 w-4 text-[#0091FF]" />
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <BookOpenCheck className="h-4 w-4 text-primary" />
                   <span>
                     {pythonBasicsCourse.modules.filter((m) => m.status === "Completed").length} of{" "}
                     {pythonBasicsCourse.modules.length} modules completed
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-gray-300">
-                  <Trophy className="h-4 w-4 text-[#0091FF]" />
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Trophy className="h-4 w-4 text-primary" />
                   <span>
                     {pythonBasicsCourse.xpEarned} / {pythonBasicsCourse.totalXP} XP
                   </span>
@@ -167,16 +167,16 @@ export function Dashboard() {
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-300">
+                <div className="text-sm text-muted-foreground">
                   {pythonBasicsCourse.lastModuleTitle ? (
                     <span>
-                      Continue from: <span className="text-white">{pythonBasicsCourse.lastModuleTitle}</span>
+                      Continue from: <span className="text-foreground">{pythonBasicsCourse.lastModuleTitle}</span>
                     </span>
                   ) : (
                     <span>Start your learning journey</span>
                   )}
                 </div>
-                <Button onClick={handleContinueCourse} className="gap-1.5 bg-[#0091FF] hover:bg-[#0080e0]">
+                <Button onClick={handleContinueCourse} className="gap-1.5">
                   {pythonBasicsCourse.progress > 0 ? "Continue Learning" : "Start Learning"}
                   <ChevronRight className="h-4 w-4" />
                 </Button>

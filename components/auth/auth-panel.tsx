@@ -184,7 +184,7 @@ export function AuthPanel() {
                 NexAcademy
               </motion.h1>
               <motion.p 
-                className="text-xl font-medium text-black tracking-wide"
+                className="text-xl font-medium text-foreground tracking-wide"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
@@ -203,7 +203,7 @@ export function AuthPanel() {
           >
             <div className="relative bg-gradient-to-br from-primary/20 to-primary/5 p-10 rounded-xl backdrop-blur-sm border border-white/10 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <span className="absolute top-4 left-6 text-4xl leading-none text-primary/30 font-serif">"</span>
-              <blockquote className="text-lg font-normal text-black/90 leading-relaxed tracking-wide">
+              <blockquote className="text-lg font-normal text-foreground/90 leading-relaxed tracking-wide">
                 The best way to predict the future is to create it. At NexAcademy, we're not just teaching code - we're shaping the next generation of tech innovators.
               </blockquote>
               <span className="absolute bottom-4 right-6 text-4xl leading-none text-primary/30 font-serif">"</span>
@@ -214,8 +214,8 @@ export function AuthPanel() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
-              <p className="text-lg font-semibold text-black tracking-wide">Alex Chen</p>
-              <p className="text-sm font-normal text-black/80 tracking-wide">CTO & Co-founder, NexAcademy</p>
+              <p className="text-lg font-semibold text-foreground tracking-wide">Alex Chen</p>
+              <p className="text-sm font-normal text-foreground/80 tracking-wide">CTO & Co-founder, NexAcademy</p>
             </motion.div>
           </motion.div>
         </motion.div>
