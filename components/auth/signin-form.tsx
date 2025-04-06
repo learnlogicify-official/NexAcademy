@@ -7,37 +7,49 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Icons } from "@/components/icons";
+import Link from "next/link";
 
 export function SignInForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Clear error when user starts typing
+    if (error) setError(null);
+  };
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const formData = new FormData(event.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
     try {
       const result = await signIn("credentials", {
-        email,
-        password,
+        email: formData.email,
+        password: formData.password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError(result.error);
         return;
       }
 
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (error) {
       setError("Something went wrong. Please try again.");
+      console.error("Sign-in error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +58,9 @@ export function SignInForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {error && (
-        <div className="text-sm text-red-500 text-center">{error}</div>
+        <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-100 rounded-md text-center">
+          {error}
+        </div>
       )}
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
@@ -59,17 +73,29 @@ export function SignInForm() {
           autoComplete="email"
           autoCorrect="off"
           disabled={isLoading}
+          value={formData.email}
+          onChange={handleInputChange}
           required
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           name="password"
           type="password"
           autoComplete="current-password"
           disabled={isLoading}
+          value={formData.password}
+          onChange={handleInputChange}
           required
         />
       </div>
@@ -77,7 +103,7 @@ export function SignInForm() {
         {isLoading && (
           <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
         )}
-        Sign In
+        {isLoading ? "Signing in..." : "Sign In"}
       </Button>
     </form>
   );

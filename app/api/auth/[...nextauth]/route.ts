@@ -15,33 +15,42 @@ const handler = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+          console.log("Missing credentials");
+          throw new Error("Please enter both email and password");
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email,
+            },
+          });
 
-        if (!user) {
-          throw new Error("Invalid credentials");
+          if (!user) {
+            console.log("User not found:", credentials.email);
+            throw new Error("Invalid email or password");
+          }
+
+          const isValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isValid) {
+            console.log("Invalid password for user:", credentials.email);
+            throw new Error("Invalid email or password");
+          }
+
+          console.log("Authentication successful for:", credentials.email);
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          };
+        } catch (error) {
+          console.error("Authentication error:", error);
+          throw error;
         }
-
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isValid) {
-          throw new Error("Invalid credentials");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
       },
     }),
   ],
@@ -58,7 +67,7 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (token) {
+      if (token && session.user) {
         session.user.id = token.id as string;
       }
       return session;
@@ -67,6 +76,7 @@ const handler = NextAuth({
   session: {
     strategy: "jwt",
   },
+  debug: true, // Enable debug messages
 });
 
 export { handler as GET, handler as POST }; 

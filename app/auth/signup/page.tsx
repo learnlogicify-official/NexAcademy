@@ -3,9 +3,8 @@
 import { Icons } from "@/components/icons";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { SignUpForm } from "@/components/auth/signup-form";
 
 export default function SignUpPage() {
   return (
@@ -25,39 +24,7 @@ export default function SignUpPage() {
           </div>
 
           {/* Sign Up Form */}
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                placeholder="John Doe"
-                type="text"
-                autoCapitalize="words"
-                autoComplete="name"
-                autoCorrect="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                placeholder="name@example.com"
-                type="email"
-                autoCapitalize="none"
-                autoComplete="email"
-                autoCorrect="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-              />
-            </div>
-            <Button className="w-full">Create Account</Button>
-          </div>
+          <SignUpForm />
 
           {/* Divider */}
           <div className="relative my-6">
