@@ -50,12 +50,11 @@ export function SignInForm() {
         return;
       }
 
-      enqueueSnackbar("Signed in successfully!", { variant: "success" });
-      // Add a small delay to ensure the message is shown before redirect
-      setTimeout(() => {
-        router.push("/dashboard");
-        router.refresh();
-      }, 500);
+      if (result?.ok) {
+        enqueueSnackbar("Signed in successfully!", { variant: "success" });
+        // Use window.location for a full page reload
+        window.location.href = "/dashboard";
+      }
     } catch (error) {
       enqueueSnackbar("An error occurred. Please try again.", { variant: "error" });
     } finally {
