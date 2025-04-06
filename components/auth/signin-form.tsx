@@ -66,19 +66,9 @@ export function SignInForm() {
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
-      const result = await signIn("google", {
-        redirect: false,
+      await signIn("google", {
+        callbackUrl: "/dashboard",
       });
-
-      if (result?.error) {
-        enqueueSnackbar(result.error, { variant: "error" });
-        return;
-      }
-
-      if (result?.ok) {
-        enqueueSnackbar("Signed in successfully!", { variant: "success" });
-        window.location.href = "/dashboard";
-      }
     } catch (error) {
       enqueueSnackbar("An error occurred. Please try again.", { variant: "error" });
     } finally {
