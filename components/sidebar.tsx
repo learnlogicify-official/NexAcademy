@@ -15,10 +15,15 @@ import {
   Settings,
   User,
   X,
+  LogOut,
+  Users,
+  BarChart,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useMobile } from "@/hooks/use-mobile"
+import { useSession } from "next-auth/react"
+import { Role } from "@/lib/validations/role"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   open?: boolean
@@ -36,7 +41,9 @@ export function Sidebar({
   ...props
 }: SidebarProps) {
   const pathname = usePathname()
+  const { data: session } = useSession()
   const isMobile = useMobile()
+  const isAdmin = session?.user?.role === "ADMIN"
 
   const mainRoutes = [
     {
@@ -129,6 +136,19 @@ export function Sidebar({
                 {!collapsed && <span>{route.name}</span>}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-md px-3 text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  pathname === "/admin" && "bg-accent text-accent-foreground",
+                  collapsed && "justify-center px-0",
+                )}
+              >
+                <Settings className="h-5 w-5" />
+                {!collapsed && <span>Site Administration</span>}
+              </Link>
+            )}
           </nav>
         </ScrollArea>
         <div className="border-t py-4">

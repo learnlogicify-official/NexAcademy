@@ -9,14 +9,20 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
+/// Valid roles for users:
+/// - STUDENT: Default role for new users
+/// - MANAGER: Can manage courses and users
+/// - ADMIN: Full system access
+/// - INSTRUCTOR: Can create and edit courses
+/// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
 enum Role {
-  ADMIN
   STUDENT
   MANAGER
+  ADMIN
   INSTRUCTOR
   NON_EDITING_INSTRUCTOR
 }
@@ -26,9 +32,17 @@ model User {
   email         String    @unique
   password      String
   name          String?
+  /// @enum {STUDENT|MANAGER|ADMIN|INSTRUCTOR|NON_EDITING_INSTRUCTOR}
+  /// - STUDENT: Default role for new users
+  /// - MANAGER: Can manage courses and users
+  /// - ADMIN: Full system access
+  /// - INSTRUCTOR: Can create and edit courses
+  /// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
   role          Role      @default(STUDENT)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   resetToken    String?   @unique
   resetTokenExp DateTime?
+
+  @@index([role])
 }
