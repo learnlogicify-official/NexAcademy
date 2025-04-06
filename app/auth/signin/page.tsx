@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Icons } from "@/components/icons";
@@ -15,6 +15,7 @@ export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { enqueueSnackbar } = useSnackbar();
+  const hasShownMessage = useRef(false);
 
   useEffect(() => {
     if (session) {
@@ -24,11 +25,19 @@ export default function SignInPage() {
 
   useEffect(() => {
     const success = searchParams.get("success");
-    if (success === "account_created") {
-      enqueueSnackbar("Account created successfully! Please sign in with your credentials.", {
-        variant: "success",
-        autoHideDuration: 5000,
-      });
+    if (success && !hasShownMessage.current) {
+      hasShownMessage.current = true;
+      if (success === "account_created") {
+        enqueueSnackbar("Account created successfully! Please sign in with your credentials.", {
+          variant: "success",
+          autoHideDuration: 5000,
+        });
+      } else if (success === "signed_out") {
+        enqueueSnackbar("Signed out successfully!", {
+          variant: "success",
+          autoHideDuration: 3000,
+        });
+      }
     }
   }, [searchParams, enqueueSnackbar]);
 
