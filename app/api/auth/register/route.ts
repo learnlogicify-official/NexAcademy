@@ -1,16 +1,24 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, role = "STUDENT" } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
         { message: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate role
+    const validRoles = ["ADMIN", "STUDENT", "MANAGER", "INSTRUCTOR", "NON_EDITING_INSTRUCTOR"];
+    if (!validRoles.includes(role)) {
+      return NextResponse.json(
+        { message: "Invalid role" },
         { status: 400 }
       );
     }
@@ -32,11 +40,15 @@ export async function POST(req: Request) {
       data: {
         email,
         password: hashedPassword,
+        role: role as Prisma.UserCreateInput["role"],
       },
     });
 
     return NextResponse.json(
-      { message: "User created successfully" },
+      { 
+        message: "User created successfully",
+        role: user.role
+      },
       { status: 201 }
     );
   } catch (error) {

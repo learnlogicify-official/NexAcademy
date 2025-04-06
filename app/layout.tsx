@@ -1,15 +1,15 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { cn } from "@/lib/utils"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "@/components/providers/auth-provider"
+import { NotistackProvider } from "@/components/providers/snackbar-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "NexAcademy - Gamified LMS Dashboard",
-  description: "A modern learning management system with gamification features",
+  title: "NexAcademy",
+  description: "Gamified Learning Management System",
 }
 
 export default function RootLayout({
@@ -19,19 +19,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.className)}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
+      <body className={inter.className}>
+        <AuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <NotistackProvider>
+              {children}
+            </NotistackProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   )
 }
-
-import './globals.css'

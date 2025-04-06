@@ -1,12 +1,37 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Icons } from "@/components/icons";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { SignInForm } from "@/components/auth/signin-form";
+import { useSnackbar } from "notistack";
 
 export default function SignInPage() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { enqueueSnackbar } = useSnackbar();
+
+  useEffect(() => {
+    if (session) {
+      router.push("/dashboard");
+    }
+  }, [session, router]);
+
+  useEffect(() => {
+    const success = searchParams.get("success");
+    if (success === "account_created") {
+      enqueueSnackbar("Account created successfully! Please sign in with your credentials.", {
+        variant: "success",
+        autoHideDuration: 5000,
+      });
+    }
+  }, [searchParams, enqueueSnackbar]);
+
   return (
     <>
       {/* Left Panel */}
