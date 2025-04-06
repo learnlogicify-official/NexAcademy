@@ -1,58 +1,53 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
+import { Role, isValidRole } from "@/lib/validations/role";
 
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.log("Missing credentials");
-          throw new Error("Please enter both email and password");
+          throw new Error("Invalid credentials");
         }
 
-        try {
-          const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email,
-            },
-          });
-
-          if (!user) {
-            console.log("User not found:", credentials.email);
-            throw new Error("Invalid email or password");
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
           }
+        });
 
-          const isValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
-
-          if (!isValid) {
-            console.log("Invalid password for user:", credentials.email);
-            throw new Error("Invalid email or password");
-          }
-
-          console.log("Authentication successful for:", credentials.email);
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          };
-        } catch (error) {
-          console.error("Authentication error:", error);
-          throw error;
+        if (!user || !user.password) {
+          throw new Error("Invalid credentials");
         }
-      },
-    }),
+
+        const isCorrectPassword = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isCorrectPassword) {
+          throw new Error("Invalid credentials");
+        }
+
+        if (!isValidRole(user.role)) {
+          throw new Error("Invalid user role");
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        };
+      }
+    })
   ],
   pages: {
     signIn: "/auth/signin",
@@ -62,13 +57,13 @@ const handler = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
+      if (session?.user) {
+        session.user.role = token.role as Role;
       }
       return session;
     },
@@ -76,7 +71,25 @@ const handler = NextAuth({
   session: {
     strategy: "jwt",
   },
-  debug: true, // Enable debug messages
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development"
 });
 
-export { handler as GET, handler as POST }; 
+export { handler as GET, handler as POST };
+
+// Update the session and user types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+      role: Role;
+    };
+  }
+
+  interface User {
+    role: Role;
+  }
+} 

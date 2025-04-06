@@ -18,22 +18,22 @@
  * TO MAINTAIN CONSISTENCY IN THE AUTHENTICATION FLOW.
  */
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Icons } from "@/components/icons";
+import { useSnackbar } from "notistack";
+import { SignInForm } from "@/components/auth/signin-form";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
+import { Icons } from "@/components/icons";
 import Link from "next/link";
-import { SignInForm } from "@/components/auth/signin-form";
-import { useSnackbar } from "notistack";
+import Loading from "@/app/loading";
 
-export default function SignInPage() {
+function SignInContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { enqueueSnackbar } = useSnackbar();
-  const hasShownMessage = useRef(false);
 
   useEffect(() => {
     if (session) {
@@ -43,19 +43,8 @@ export default function SignInPage() {
 
   useEffect(() => {
     const success = searchParams.get("success");
-    if (success && !hasShownMessage.current) {
-      hasShownMessage.current = true;
-      if (success === "account_created") {
-        enqueueSnackbar("Account created successfully! Please sign in with your credentials.", {
-          variant: "success",
-          autoHideDuration: 5000,
-        });
-      } else if (success === "signed_out") {
-        enqueueSnackbar("Signed out successfully!", {
-          variant: "success",
-          autoHideDuration: 3000,
-        });
-      }
+    if (success === "signed_out") {
+      enqueueSnackbar("Signed out successfully!", { variant: "success" });
     }
   }, [searchParams, enqueueSnackbar]);
 
@@ -116,5 +105,13 @@ export default function SignInPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <SignInContent />
+    </Suspense>
   );
 } 
