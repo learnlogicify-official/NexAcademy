@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, role = "STUDENT" } = await req.json();
+    const { email, password, name, role = "STUDENT" } = await req.json();
 
-    if (!email || !password) {
+    if (!email || !password || !name) {
       return NextResponse.json(
-        { message: "Email and password are required" },
+        { message: "Email, password, and name are required" },
         { status: 400 }
       );
     }
@@ -39,8 +38,9 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         email,
+        name,
         password: hashedPassword,
-        role: role as Prisma.UserCreateInput["role"],
+        role,
       },
     });
 

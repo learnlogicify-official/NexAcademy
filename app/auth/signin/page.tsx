@@ -1,5 +1,23 @@
 "use client";
 
+/**
+ * Sign In Page
+ * 
+ * This is a core authentication page that should not be modified without careful consideration.
+ * The page follows a consistent layout pattern with:
+ * - Left panel: AuthPanel component (shared across auth pages)
+ * - Right panel: Sign in form and related content
+ * 
+ * Key features:
+ * - Automatic redirect to dashboard if user is already signed in
+ * - Success notifications for account creation and sign out
+ * - Social sign-in options (Google and GitHub)
+ * - Link to sign up page for new users
+ * 
+ * DO NOT MODIFY THIS PAGE WITHOUT UPDATING THE CORRESPONDING SIGN-UP PAGE
+ * TO MAINTAIN CONSISTENCY IN THE AUTHENTICATION FLOW.
+ */
+
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";

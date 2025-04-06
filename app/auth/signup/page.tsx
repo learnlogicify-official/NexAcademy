@@ -1,5 +1,22 @@
 "use client";
 
+/**
+ * Sign Up Page
+ * 
+ * This is a core authentication page that should not be modified without careful consideration.
+ * The page follows a consistent layout pattern with:
+ * - Left panel: AuthPanel component (shared across auth pages)
+ * - Right panel: Sign up form and related content
+ * 
+ * Key features:
+ * - Account creation form
+ * - Social sign-up options (Google and GitHub)
+ * - Link to sign in page for existing users
+ * 
+ * DO NOT MODIFY THIS PAGE WITHOUT UPDATING THE CORRESPONDING SIGN-IN PAGE
+ * TO MAINTAIN CONSISTENCY IN THE AUTHENTICATION FLOW.
+ */
+
 import { Icons } from "@/components/icons";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
