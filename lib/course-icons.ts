@@ -32,8 +32,8 @@ export function getCourseTheme(title: string, tags: string[] = []): CourseTheme 
   if (allText.includes("python")) {
     return {
       icon: FileCode,
-      color: "text-yellow-500",
-      bgColor: "bg-yellow-500/10",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
     }
   }
 
@@ -41,8 +41,8 @@ export function getCourseTheme(title: string, tags: string[] = []): CourseTheme 
   if (allText.includes("javascript") || allText.includes("js")) {
     return {
       icon: Braces,
-      color: "text-yellow-400",
-      bgColor: "bg-yellow-400/10",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
     }
   }
 
@@ -50,8 +50,8 @@ export function getCourseTheme(title: string, tags: string[] = []): CourseTheme 
   if (allText.includes("react")) {
     return {
       icon: Atom,
-      color: "text-blue-400",
-      bgColor: "bg-blue-400/10",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
     }
   }
 
