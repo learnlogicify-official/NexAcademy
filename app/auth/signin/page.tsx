@@ -18,7 +18,7 @@
  * TO MAINTAIN CONSISTENCY IN THE AUTHENTICATION FLOW.
  */
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useSnackbar } from "notistack";
@@ -34,6 +34,7 @@ function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { enqueueSnackbar } = useSnackbar();
+  const messageShownRef = useRef(false);
 
   useEffect(() => {
     if (session) {
@@ -43,8 +44,13 @@ function SignInContent() {
 
   useEffect(() => {
     const success = searchParams.get("success");
-    if (success === "signed_out") {
-      enqueueSnackbar("Signed out successfully!", { variant: "success" });
+    if (success && !messageShownRef.current) {
+      messageShownRef.current = true;
+      if (success === "signed_out") {
+        enqueueSnackbar("Signed out successfully!", { variant: "success" });
+      } else if (success === "account_created") {
+        enqueueSnackbar("Account created successfully! Please sign in.", { variant: "success" });
+      }
     }
   }, [searchParams, enqueueSnackbar]);
 
