@@ -1,10 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
-import { Role, isValidRole } from "@/lib/validations/role";
+import { Role } from "@prisma/client";
+import { JWT } from "next-auth/jwt";
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -36,7 +37,12 @@ const handler = NextAuth({
           throw new Error("Invalid credentials");
         }
 
-        if (!isValidRole(user.role)) {
+        console.log('User from DB:', user);
+        console.log('User role from DB:', user.role);
+        console.log('Role type from DB:', typeof user.role);
+
+        // Ensure the role is a valid Role enum value
+        if (!Object.values(Role).includes(user.role)) {
           throw new Error("Invalid user role");
         }
 
@@ -51,29 +57,43 @@ const handler = NextAuth({
   ],
   pages: {
     signIn: "/auth/signin",
-    signUp: "/auth/signup",
     error: "/auth/error",
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account }: { token: JWT; user?: any; account?: any }) {
+      console.log('JWT Callback - User:', user);
+      console.log('JWT Callback - Token before:', token);
+      
+      // Initial sign in
+      if (account && user) {
+        token.id = user.id;
         token.role = user.role;
       }
+      
+      console.log('JWT Callback - Token after:', token);
       return token;
     },
-    async session({ session, token }) {
-      if (session?.user) {
+    async session({ session, token }: { session: any; token: JWT }) {
+      console.log('Session Callback - Token:', token);
+      console.log('Session Callback - Session before:', session);
+      
+      if (token) {
+        session.user.id = token.id as string;
         session.user.role = token.role as Role;
       }
+      
+      console.log('Session Callback - Session after:', session);
       return session;
     },
   },
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development"
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
 
@@ -90,6 +110,7 @@ declare module "next-auth" {
   }
 
   interface User {
+    id: string;
     role: Role;
   }
 } 
