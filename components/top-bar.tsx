@@ -15,6 +15,7 @@ import { useMobile } from "@/hooks/use-mobile"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -23,10 +24,16 @@ interface TopBarProps {
 export function TopBar({ onMenuClick }: TopBarProps) {
   const isMobile = useMobile()
   const router = useRouter()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   const handleSignOut = async () => {
-    await signOut({ redirect: false })
-    router.push("/auth/signin")
+    setIsSigningOut(true)
+    try {
+      await signOut({ redirect: false })
+      router.push("/auth/signin?success=signed_out")
+    } finally {
+      setIsSigningOut(false)
+    }
   }
 
   return (
@@ -87,9 +94,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <span>Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+              <span>{isSigningOut ? "Signing out..." : "Log out"}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
