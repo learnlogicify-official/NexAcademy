@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Bell, Menu, LogOut, Settings, User } from "lucide-react"
 import { useMobile } from "@/hooks/use-mobile"
+import { ThemeSwitcher } from "@/components/theme-switcher"
+import { signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -19,6 +22,12 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick }: TopBarProps) {
   const isMobile = useMobile()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await signOut({ redirect: false })
+    router.push("/auth/signin")
+  }
 
   return (
     <header className="flex h-16 items-center justify-between border-b px-4 bg-card">
@@ -36,6 +45,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <div className="text-xs font-medium">Level 12</div>
           <div className="text-xs text-muted-foreground">2400 XP</div>
         </div>
+
+        <ThemeSwitcher />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -76,7 +87,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <span>Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>

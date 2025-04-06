@@ -3,9 +3,8 @@
 import { Icons } from "@/components/icons";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { SignInForm } from "@/components/auth/signin-form";
 
 export default function SignInPage() {
   return (
@@ -25,36 +24,7 @@ export default function SignInPage() {
           </div>
 
           {/* Sign In Form */}
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                placeholder="name@example.com"
-                type="email"
-                autoCapitalize="none"
-                autoComplete="email"
-                autoCorrect="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="/auth/forgot-password"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-              />
-            </div>
-            <Button className="w-full">Sign In</Button>
-          </div>
+          <SignInForm />
 
           {/* Divider */}
           <div className="relative my-6">
