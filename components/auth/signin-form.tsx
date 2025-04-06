@@ -51,8 +51,11 @@ export function SignInForm() {
       }
 
       enqueueSnackbar("Signed in successfully!", { variant: "success" });
-      router.push("/dashboard");
-      router.refresh();
+      // Add a small delay to ensure the message is shown before redirect
+      setTimeout(() => {
+        router.push("/dashboard");
+        router.refresh();
+      }, 500);
     } catch (error) {
       enqueueSnackbar("An error occurred. Please try again.", { variant: "error" });
     } finally {
