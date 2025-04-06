@@ -89,7 +89,15 @@ const activities = [
   },
 ]
 
-export function Dashboard() {
+interface DashboardProps {
+  user: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+}
+
+export function Dashboard({ user }: DashboardProps) {
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
@@ -104,11 +112,14 @@ export function Dashboard() {
     router.push(`/courses/${pythonBasicsCourse.id}`)
   }
 
+  // Get the user's full name, falling back to email if name is not available
+  const displayName = user.name || user.email?.split('@')[0] || 'there'
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back, Jamie</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Welcome back, {displayName}</h1>
           <p className="text-muted-foreground">Here's what's happening with your learning journey</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
