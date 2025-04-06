@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Icons } from "@/components/icons";
 import Link from "next/link";
+import { useSnackbar } from "notistack";
 
 export function SignInForm() {
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -45,8 +47,18 @@ export function SignInForm() {
         return;
       }
 
+      // Redirect first
       router.push("/dashboard");
       router.refresh();
+
+      // Show success message after a short delay to ensure redirect has started
+      setTimeout(() => {
+        enqueueSnackbar("Signed in successfully!", {
+          variant: "success",
+          autoHideDuration: 3000,
+        });
+      }, 500);
+
     } catch (error) {
       setError("Something went wrong. Please try again.");
       console.error("Sign-in error:", error);

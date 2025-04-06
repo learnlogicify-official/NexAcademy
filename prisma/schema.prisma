@@ -13,11 +13,20 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+enum Role {
+  ADMIN
+  STUDENT
+  MANAGER
+  INSTRUCTOR
+  NON_EDITING_INSTRUCTOR
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
   password      String
   name          String?
+  role          Role      @default(STUDENT)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   resetToken    String?   @unique
