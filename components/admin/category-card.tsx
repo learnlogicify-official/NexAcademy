@@ -26,9 +26,11 @@ interface CategoryCardProps {
     visibility: "SHOW" | "HIDE";
   };
   onDelete: () => void;
+  onEdit?: () => void;
+  onVisibilityChange?: () => void;
 }
 
-export function CategoryCard({ category, onDelete }: CategoryCardProps) {
+export function CategoryCard({ category, onDelete, onEdit, onVisibilityChange }: CategoryCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);

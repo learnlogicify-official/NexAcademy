@@ -10,18 +10,33 @@ const categorySchema = z.object({
   visibility: z.enum(["SHOW", "HIDE"]),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const categories = await prisma.category.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        createdAt: "desc",
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "9");
+    const skip = (page - 1) * limit;
+
+    const [categories, total] = await Promise.all([
+      prisma.category.findMany({
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.category.count(),
+    ]);
+
+    return NextResponse.json({
+      categories,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     });
-
-    return NextResponse.json(categories);
   } catch (error) {
     console.error("Error fetching categories:", error);
     return NextResponse.json(
