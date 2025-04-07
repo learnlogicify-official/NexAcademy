@@ -98,6 +98,14 @@ export function CategoryFormModal({
         description: "Category created successfully",
       });
 
+      // Reset form and editor
+      form.reset({
+        name: "",
+        description: "",
+        visibility: "SHOW",
+      });
+      editor?.commands.setContent("");
+
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -111,8 +119,21 @@ export function CategoryFormModal({
     }
   }
 
+  // Reset form when modal is closed
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      form.reset({
+        name: "",
+        description: "",
+        visibility: "SHOW",
+      });
+      editor?.commands.setContent("");
+    }
+    onOpenChange(open);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create Category</DialogTitle>

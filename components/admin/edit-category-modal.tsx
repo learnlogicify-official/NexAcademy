@@ -10,8 +10,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -22,7 +20,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -36,12 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Code, Quote } from "lucide-react";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group";
-import { Loader2 } from "lucide-react";
-import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -69,10 +60,7 @@ export function EditCategoryModal({
   onSuccess,
   onLoadingChange,
 }: EditCategoryModalProps) {
-  const [name, setName] = useState(category.name);
-  const [description, setDescription] = useState(category.description);
-  const [visibility, setVisibility] = useState<"SHOW" | "HIDE">(category.visibility);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const editor = useEditor({
@@ -110,9 +98,8 @@ export function EditCategoryModal({
     }
   }, [open, category, form, editor]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
     onLoadingChange(true);
 
     try {
@@ -121,11 +108,7 @@ export function EditCategoryModal({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          description,
-          visibility,
-        }),
+        body: JSON.stringify(values),
       });
 
       if (!response.ok) {
@@ -137,8 +120,8 @@ export function EditCategoryModal({
         description: "Category updated successfully",
       });
 
-      onSuccess();
       onOpenChange(false);
+      onSuccess();
     } catch (error) {
       toast({
         title: "Error",
@@ -146,75 +129,132 @@ export function EditCategoryModal({
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
       onLoadingChange(false);
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Edit Category</DialogTitle>
-          <DialogDescription>
-            Make changes to your category here. Click save when you're done.
-          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter category name"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter category description"
-                rows={3}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Visibility</Label>
-              <div className="flex items-center space-x-2">
-                <RadioGroup
-                  value={visibility}
-                  onValueChange={(value) => setVisibility(value as "SHOW" | "HIDE")}
-                  className="flex"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="SHOW" id="show" />
-                    <Label htmlFor="show">Show</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="HIDE" id="hide" />
-                    <Label htmlFor="hide">Hide</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save changes"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter category name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </Button>
-          </DialogFooter>
-        </form>
+            />
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visibility</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visibility" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="SHOW">Show</SelectItem>
+                      <SelectItem value="HIDE">Hide</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <div className="border rounded-md p-2 min-h-[200px]">
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editor?.chain().focus().toggleBold().run()}
+                        >
+                          Bold
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editor?.chain().focus().toggleItalic().run()}
+                        >
+                          Italic
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                        >
+                          Bullet List
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                        >
+                          Numbered List
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
+                        >
+                          <Code className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                        >
+                          <Quote className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <EditorContent editor={editor} />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
