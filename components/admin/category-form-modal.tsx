@@ -21,24 +21,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Code, Quote } from "lucide-react";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
-const formSchema = z.object({
+const categoryFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  description: z.string().optional(),
-  visibility: z.enum(["SHOW", "HIDE"]),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  isVisible: z.boolean().default(true),
 });
+
+type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 
 interface CategoryFormModalProps {
   open: boolean;
@@ -54,39 +45,24 @@ export function CategoryFormModal({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Link.configure({
-        openOnClick: false,
-      }),
-      Image,
-    ],
-    content: "",
-    onUpdate: ({ editor }) => {
-      const content = editor.getHTML();
-      form.setValue("description", content === "<p></p>" ? "" : content);
-    },
-  });
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<CategoryFormValues>({
+    resolver: zodResolver(categoryFormSchema),
     defaultValues: {
       name: "",
       description: "",
-      visibility: "SHOW",
+      isVisible: true,
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
+  const onSubmit = async (data: CategoryFormValues) => {
     try {
+      setIsLoading(true);
       const response = await fetch("/api/categories", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -98,54 +74,35 @@ export function CategoryFormModal({
         description: "Category created successfully",
       });
 
-      // Reset form and editor
-      form.reset({
-        name: "",
-        description: "",
-        visibility: "SHOW",
-      });
-      editor?.commands.setContent("");
-
-      onOpenChange(false);
+      form.reset();
       onSuccess();
+      onOpenChange(false);
     } catch (error) {
+      console.error("Error creating category:", error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Failed to create category",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  }
-
-  // Reset form when modal is closed
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      form.reset({
-        name: "",
-        description: "",
-        visibility: "SHOW",
-      });
-      editor?.commands.setContent("");
-    }
-    onOpenChange(open);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Category</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category Name</FormLabel>
+                  <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter category name" {...field} />
                   </FormControl>
@@ -153,27 +110,7 @@ export function CategoryFormModal({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="visibility"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Visibility</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select visibility" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SHOW">Show</SelectItem>
-                      <SelectItem value="HIDE">Hide</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
             <FormField
               control={form.control}
               name="description"
@@ -181,74 +118,28 @@ export function CategoryFormModal({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <div className="border rounded-md p-2 min-h-[200px]">
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editor?.chain().focus().toggleBold().run()}
-                        >
-                          Bold
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editor?.chain().focus().toggleItalic().run()}
-                        >
-                          Italic
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                        >
-                          Bullet List
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-                        >
-                          Numbered List
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-                        >
-                          <Code className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-                        >
-                          <Quote className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <EditorContent editor={editor} />
-                    </div>
+                    <RichTextEditor
+                      content={field.value}
+                      onChange={field.onChange}
+                      placeholder="Enter category description..."
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="flex justify-end space-x-2">
+
+            <div className="flex justify-end gap-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                disabled={isLoading}
               >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Creating..." : "Create Category"}
+                {isLoading ? "Creating..." : "Create"}
               </Button>
             </div>
           </form>
