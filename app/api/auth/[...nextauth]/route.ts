@@ -2,12 +2,12 @@ import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const authOptions: AuthOptions = {
+export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -53,6 +53,20 @@ const authOptions: AuthOptions = {
   session: {
     strategy: "jwt",
   },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = token.role as Role;
+      }
+      return session;
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);
@@ -73,6 +87,13 @@ declare module "next-auth" {
 
   interface User {
     id: string;
+    role: Role;
+  }
+}
+
+// Update the JWT type
+declare module "next-auth/jwt" {
+  interface JWT {
     role: Role;
   }
 } 

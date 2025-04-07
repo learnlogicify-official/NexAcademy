@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { isValidRole } from "@/lib/validations/role";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, name, role = "STUDENT" } = await req.json();
+    const body = await req.json();
+    const { email, password, name, role } = body;
 
-    // Validate required fields
-    if (!email || !password || !name) {
+    if (!email || !password || !name || !role) {
       return NextResponse.json(
-        { error: "Email, password, and name are required" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Validate role
     if (!isValidRole(role)) {
       return NextResponse.json(
         { error: "Invalid role specified" },
@@ -23,9 +22,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (existingUser) {
@@ -35,27 +33,32 @@ export async function POST(req: Request) {
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const user = await prisma.user.create({
       data: {
         email,
-        password: hashedPassword,
         name,
-        role
-      }
+        password: hashedPassword,
+        role,
+      },
     });
 
     return NextResponse.json(
-      { message: "User created successfully", userId: user.id },
+      {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json(
-      { error: "Something went wrong" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

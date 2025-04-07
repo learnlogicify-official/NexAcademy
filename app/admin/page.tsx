@@ -3,9 +3,6 @@ import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import { Role } from "@prisma/client";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { AdminHeader } from "../../components/admin/AdminHeader";
-import { AdminSidebar } from "../../components/admin/AdminSidebar";
-import { useMobile } from "../../hooks/use-mobile";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
