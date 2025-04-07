@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useSnackbar } from "notistack";
+import { Role } from "@prisma/client";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -60,12 +61,13 @@ export function SignUpForm() {
           name: values.name,
           email: values.email,
           password: values.password,
+          role: Role.STUDENT, // Default role for new users
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Something went wrong");
+        throw new Error(error.error || "Something went wrong");
       }
 
       router.push("/auth/signin?success=account_created");
