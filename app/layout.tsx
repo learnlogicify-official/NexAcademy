@@ -1,15 +1,13 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/components/providers/auth-provider"
-import { NotistackProvider } from "@/components/providers/snackbar-provider"
+import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "NexAcademy",
-  description: "Gamified Learning Management System",
+  description: "Gamified LMS Dashboard",
 }
 
 export default function RootLayout({
@@ -20,18 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <NotistackProvider>
-              {children}
-            </NotistackProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

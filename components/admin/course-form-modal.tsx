@@ -38,6 +38,7 @@ import {
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCategories } from "@/hooks/use-categories";
 
 const courseFormSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
@@ -77,7 +78,7 @@ export function CourseFormModal({
   onSuccess,
   course,
 }: CourseFormModalProps) {
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const { data: categories, isLoading: isLoadingCategories } = useCategories();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -93,26 +94,6 @@ export function CourseFormModal({
       isVisible: course?.isVisible ?? true,
     },
   });
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch("/api/categories");
-        if (!response.ok) throw new Error("Failed to fetch categories");
-        const data = await response.json();
-        setCategories(data.categories);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch categories",
-          variant: "destructive",
-        });
-      }
-    };
-
-    fetchCategories();
-  }, [toast]);
 
   const onSubmit = async (data: CourseFormValues) => {
     try {
@@ -309,8 +290,8 @@ export function CourseFormModal({
                 <FormItem>
                   <FormLabel>Category</FormLabel>
                   <Select
+                    value={field.value}
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -318,11 +299,15 @@ export function CourseFormModal({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
+                      {isLoadingCategories ? (
+                        <SelectItem value="" disabled>Loading categories...</SelectItem>
+                      ) : (
+                        categories?.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
