@@ -10,15 +10,29 @@ export default function AdminLayoutClient({
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useMobile();
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminHeader />
-      <div className="flex">
-        <AdminSidebar />
-        <main className="flex-1 p-8">{children}</main>
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Sidebar */}
+      <AdminSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        className="w-72 shrink-0"
+      />
+
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <AdminHeader onMenuClick={() => setSidebarOpen(true)} />
+
+        {/* Main Area */}
+        <main className="flex-1 overflow-auto">
+          <div className="container mx-auto p-6 lg:p-8">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

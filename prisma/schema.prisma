@@ -27,6 +27,11 @@ enum Role {
   NON_EDITING_INSTRUCTOR
 }
 
+enum Visibility {
+  SHOW
+  HIDE
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -45,4 +50,28 @@ model User {
   resetTokenExp DateTime?
 
   @@index([role])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  description String?    @default("")
+  visibility  Visibility @default(SHOW)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  courses     Course[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId])
 }
