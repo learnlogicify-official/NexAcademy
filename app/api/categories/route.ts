@@ -15,17 +15,28 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "9");
+    const search = searchParams.get("search") || "";
     const skip = (page - 1) * limit;
+
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
 
     const [categories, total] = await Promise.all([
       prisma.category.findMany({
+        where,
         skip,
         take: limit,
         orderBy: {
           createdAt: "desc",
         },
       }),
-      prisma.category.count(),
+      prisma.category.count({ where }),
     ]);
 
     return NextResponse.json({

@@ -25,8 +25,11 @@ export default function AdminCategoriesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [isPageLoading, setIsPageLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  const itemsPerPage = 9;
 
   useEffect(() => {
     fetchCategories(currentPage);
@@ -34,12 +37,14 @@ export default function AdminCategoriesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
+    fetchCategories(1);
   }, [searchQuery]);
 
   const fetchCategories = async (page: number) => {
     try {
+      setIsPageLoading(true);
       console.log("[ADMIN] Fetching categories...");
-      const response = await fetch(`/api/categories?page=${page}&limit=9`);
+      const response = await fetch(`/api/categories?page=${page}&limit=${itemsPerPage}&search=${searchQuery}`);
       
       if (!response.ok) {
         throw new Error("Failed to fetch categories");
@@ -58,23 +63,21 @@ export default function AdminCategoriesPage() {
         variant: "destructive",
       });
       setIsLoading(false);
+    } finally {
+      setIsPageLoading(false);
     }
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-    fetchCategories(newPage);
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1);
-    // TODO: Implement search API endpoint
   };
 
-  const filteredCategories = categories.filter((category) =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const paginatedCategories = categories;
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+  };
 
   const handleDelete = () => {
     fetchCategories(currentPage);
@@ -86,6 +89,34 @@ export default function AdminCategoriesPage() {
 
   const handleVisibilityChange = () => {
     fetchCategories(currentPage);
+  };
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <Button
+          key={i}
+          variant={i === currentPage ? "default" : "outline"}
+          size="sm"
+          onClick={() => handlePageChange(i)}
+          disabled={isPageLoading}
+          className={i === currentPage ? "bg-primary text-primary-foreground" : ""}
+        >
+          {i}
+        </Button>
+      );
+    }
+
+    return pages;
   };
 
   return (
@@ -115,10 +146,23 @@ export default function AdminCategoriesPage() {
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
         </div>
+      ) : paginatedCategories.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <p className="text-lg font-medium">
+            {searchQuery
+              ? `No categories found matching "${searchQuery}"`
+              : "No categories found"}
+          </p>
+          {searchQuery && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Try adjusting your search or create a new category
+            </p>
+          )}
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCategories.map((category) => (
+            {paginatedCategories.map((category) => (
               <CategoryCard
                 key={category.id}
                 category={category}
@@ -135,18 +179,16 @@ export default function AdminCategoriesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || isPageLoading}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm">
-                Page {currentPage} of {totalPages}
-              </span>
+              {renderPageNumbers()}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || isPageLoading}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
