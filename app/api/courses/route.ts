@@ -33,10 +33,32 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "9");
+    const search = searchParams.get("search") || "";
+    const category = searchParams.get("category") || "";
+    const visibility = searchParams.get("visibility") || "";
     const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { subtitle: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    if (category && category !== "all") {
+      where.categoryId = category;
+    }
+
+    if (visibility && visibility !== "all") {
+      where.isVisible = visibility === "true";
+    }
 
     const [courses, total] = await Promise.all([
       prisma.course.findMany({
+        where,
         skip,
         take: limit,
         include: {
@@ -51,7 +73,7 @@ export async function GET(request: Request) {
           createdAt: "desc",
         },
       }),
-      prisma.course.count(),
+      prisma.course.count({ where }),
     ]);
 
     return NextResponse.json({
