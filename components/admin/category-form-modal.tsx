@@ -20,13 +20,20 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { useSnackbar } from "notistack";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const categoryFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  isVisible: z.boolean().default(true),
+  description: z.string().optional().default(""),
+  visibility: z.enum(["SHOW", "HIDE"]).default("SHOW"),
 });
 
 type CategoryFormValues = z.infer<typeof categoryFormSchema>;
@@ -43,14 +50,14 @@ export function CategoryFormModal({
   onSuccess,
 }: CategoryFormModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { enqueueSnackbar } = useSnackbar();
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
       name: "",
       description: "",
-      isVisible: true,
+      visibility: "SHOW",
     },
   });
 
@@ -66,23 +73,27 @@ export function CategoryFormModal({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create category");
+        let errorMessage = "Failed to create category";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      toast({
-        title: "Success",
-        description: "Category created successfully",
-      });
+      enqueueSnackbar("Category created successfully", { variant: "success" });
 
       form.reset();
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating category:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create category",
-        variant: "destructive",
+      enqueueSnackbar(error instanceof Error ? error.message : "Failed to create category", { 
+        variant: "error",
+        autoHideDuration: 5000 // Show error messages longer
       });
     } finally {
       setIsLoading(false);
@@ -124,6 +135,31 @@ export function CategoryFormModal({
                       placeholder="Enter category description..."
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visibility</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visibility" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="SHOW">Show</SelectItem>
+                      <SelectItem value="HIDE">Hide</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

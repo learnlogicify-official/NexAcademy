@@ -20,7 +20,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -28,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { useSnackbar } from "notistack";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -36,9 +35,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCategories } from "@/hooks/use-categories";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 
 const courseFormSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
@@ -51,7 +52,7 @@ const courseFormSchema = z.object({
     required_error: "End date is required",
   }),
   categoryId: z.string().min(1, "Category is required"),
-  isVisible: z.boolean().default(true),
+  visibility: z.enum(["SHOW", "HIDE"]).default("SHOW"),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -68,7 +69,7 @@ interface CourseFormModalProps {
     startDate: string;
     endDate: string;
     categoryId: string;
-    isVisible: boolean;
+    visibility: "SHOW" | "HIDE";
   };
 }
 
@@ -80,7 +81,7 @@ export function CourseFormModal({
 }: CourseFormModalProps) {
   const { data: categories, isLoading: isLoadingCategories } = useCategories();
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { enqueueSnackbar } = useSnackbar();
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -91,9 +92,19 @@ export function CourseFormModal({
       startDate: course?.startDate ? new Date(course.startDate) : undefined,
       endDate: course?.endDate ? new Date(course.endDate) : undefined,
       categoryId: course?.categoryId || "",
-      isVisible: course?.isVisible ?? true,
+      visibility: course?.visibility || "SHOW",
     },
   });
+
+  useEffect(() => {
+    if (open && !isLoadingCategories && (!categories || categories.length === 0)) {
+      enqueueSnackbar("Please add a category first before creating a course", {
+        variant: "warning",
+        autoHideDuration: 5000,
+      });
+      onOpenChange(false);
+    }
+  }, [open, isLoadingCategories, categories, enqueueSnackbar, onOpenChange]);
 
   const onSubmit = async (data: CourseFormValues) => {
     try {
@@ -116,25 +127,29 @@ export function CourseFormModal({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save course");
+        let errorMessage = "Failed to save course";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      toast({
-        title: "Success",
-        description: course
-          ? "Course updated successfully"
-          : "Course created successfully",
-      });
+      enqueueSnackbar(
+        course ? "Course updated successfully" : "Course created successfully",
+        { variant: "success" }
+      );
 
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving course:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save course",
-        variant: "destructive",
-      });
+      enqueueSnackbar(
+        error instanceof Error ? error.message : "Failed to save course",
+        { variant: "error", autoHideDuration: 5000 }
+      );
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +157,7 @@ export function CourseFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {course ? "Edit Course" : "Create New Course"}
@@ -185,10 +200,10 @@ export function CourseFormModal({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Enter course description"
-                      className="min-h-[100px]"
-                      {...field}
+                    <RichTextEditor
+                      content={field.value}
+                      onChange={field.onChange}
+                      placeholder="Enter course description..."
                     />
                   </FormControl>
                   <FormMessage />
@@ -202,38 +217,12 @@ export function CourseFormModal({
                 name="startDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Start Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date() || date > form.getValues("endDate")
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormLabel>Start Date & Time</FormLabel>
+                    <DateTimePicker
+                      date={field.value}
+                      onChange={field.onChange}
+                      maxDate={form.getValues("endDate")}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -244,39 +233,12 @@ export function CourseFormModal({
                 name="endDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>End Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < form.getValues("startDate") ||
-                            date < new Date()
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormLabel>End Date & Time</FormLabel>
+                    <DateTimePicker
+                      date={field.value}
+                      onChange={field.onChange}
+                      minDate={form.getValues("startDate")}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -300,14 +262,41 @@ export function CourseFormModal({
                     </FormControl>
                     <SelectContent>
                       {isLoadingCategories ? (
-                        <SelectItem value="" disabled>Loading categories...</SelectItem>
+                        <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                      ) : !categories || !Array.isArray(categories) || categories.length === 0 ? (
+                        <SelectItem value="no-categories" disabled>No categories available</SelectItem>
                       ) : (
-                        categories?.map((category) => (
+                        categories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.name}
                           </SelectItem>
                         ))
                       )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visibility</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visibility" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="SHOW">Show</SelectItem>
+                      <SelectItem value="HIDE">Hide</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

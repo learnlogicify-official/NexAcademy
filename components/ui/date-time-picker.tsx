@@ -1,30 +1,21 @@
 "use client";
 
+import * as React from "react";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface DateTimePickerProps {
-  date: Date;
-  onChange: (date: Date) => void;
-  label?: string;
-  className?: string;
+  date: Date | undefined;
+  onChange: (date: Date | undefined) => void;
   minDate?: Date;
   maxDate?: Date;
 }
@@ -32,66 +23,76 @@ interface DateTimePickerProps {
 export function DateTimePicker({
   date,
   onChange,
-  label,
-  className,
   minDate,
   maxDate,
 }: DateTimePickerProps) {
-  const handleTimeChange = (time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    const newDate = new Date(date);
-    newDate.setHours(hours, minutes);
-    onChange(newDate);
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date);
+  const [time, setTime] = React.useState<string>("00:00");
+
+  React.useEffect(() => {
+    if (date) {
+      setSelectedDate(date);
+      setTime(format(date, "HH:mm"));
+    }
+  }, [date]);
+
+  const handleDateSelect = (newDate: Date | undefined) => {
+    if (newDate) {
+      const [hours, minutes] = time.split(":").map(Number);
+      newDate.setHours(hours, minutes, 0, 0);
+      setSelectedDate(newDate);
+      onChange(newDate);
+    }
   };
 
-  const handleDateChange = (newDate: Date | undefined) => {
-    if (newDate) {
-      const updatedDate = new Date(newDate);
-      updatedDate.setHours(date.getHours(), date.getMinutes());
-      onChange(updatedDate);
+  const handleTimeChange = (newTime: string) => {
+    setTime(newTime);
+    if (selectedDate) {
+      const [hours, minutes] = newTime.split(":").map(Number);
+      const newDate = new Date(selectedDate);
+      newDate.setHours(hours, minutes, 0, 0);
+      onChange(newDate);
     }
   };
 
   return (
-    <div className={cn("grid gap-2", className)}>
-      {label && <Label>{label}</Label>}
+    <div className="flex flex-col gap-2 w-full">
       <div className="flex gap-2">
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               className={cn(
-                "w-[240px] justify-start text-left font-normal",
-                !date && "text-muted-foreground"
+                "w-full justify-start text-left font-normal",
+                !selectedDate && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {date ? format(date, "PPP") : <span>Pick a date</span>}
+              {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
-              selected={date}
-              onSelect={handleDateChange}
-              initialFocus
+              selected={selectedDate}
+              onSelect={handleDateSelect}
               disabled={(date) => {
                 if (minDate && date < minDate) return true;
                 if (maxDate && date > maxDate) return true;
                 return false;
               }}
+              initialFocus
             />
           </PopoverContent>
         </Popover>
-        <div className="relative">
-          <Input
-            type="time"
-            value={format(date, "HH:mm")}
-            onChange={(e) => handleTimeChange(e.target.value)}
-            className="w-[120px]"
-          />
-          <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        </div>
+      </div>
+      <div className="flex gap-2">
+        <Input
+          type="time"
+          value={time}
+          onChange={(e) => handleTimeChange(e.target.value)}
+          className="w-full"
+        />
       </div>
     </div>
   );
