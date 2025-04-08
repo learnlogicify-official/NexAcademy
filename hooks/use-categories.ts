@@ -8,12 +8,23 @@ interface Category {
   updatedAt: string;
 }
 
+interface CategoriesResponse {
+  categories: Category[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 async function fetchCategories() {
   const response = await fetch("/api/categories");
   if (!response.ok) {
     throw new Error("Failed to fetch categories");
   }
-  return response.json();
+  const data: CategoriesResponse = await response.json();
+  return data.categories;
 }
 
 export function useCategories() {

@@ -20,13 +20,20 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { useSnackbar } from "notistack";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const categoryFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  isVisible: z.boolean().default(true),
+  description: z.string().optional().default(""),
+  visibility: z.enum(["SHOW", "HIDE"]).default("SHOW"),
 });
 
 type CategoryFormValues = z.infer<typeof categoryFormSchema>;
@@ -35,11 +42,12 @@ interface EditCategoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  onLoadingChange?: (loading: boolean) => void;
   category: {
     id: string;
     name: string;
     description: string;
-    isVisible: boolean;
+    visibility: "SHOW" | "HIDE";
   };
 }
 
@@ -47,23 +55,26 @@ export function EditCategoryModal({
   open,
   onOpenChange,
   onSuccess,
+  onLoadingChange,
   category,
 }: EditCategoryModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { enqueueSnackbar } = useSnackbar();
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
       name: category.name,
       description: category.description,
-      isVisible: category.isVisible,
+      visibility: category.visibility,
     },
   });
 
   const onSubmit = async (data: CategoryFormValues) => {
     try {
       setIsLoading(true);
+      if (onLoadingChange) onLoadingChange(true);
+
       const response = await fetch(`/api/categories/${category.id}`, {
         method: "PATCH",
         headers: {
@@ -73,25 +84,30 @@ export function EditCategoryModal({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update category");
+        let errorMessage = "Failed to update category";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      toast({
-        title: "Success",
-        description: "Category updated successfully",
-      });
+      enqueueSnackbar("Category updated successfully", { variant: "success" });
 
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Error updating category:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update category",
-        variant: "destructive",
+      enqueueSnackbar(error instanceof Error ? error.message : "Failed to update category", { 
+        variant: "error",
+        autoHideDuration: 5000 // Show error messages longer
       });
     } finally {
       setIsLoading(false);
+      if (onLoadingChange) onLoadingChange(false);
     }
   };
 
@@ -130,6 +146,31 @@ export function EditCategoryModal({
                       placeholder="Enter category description..."
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visibility</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visibility" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="SHOW">Show</SelectItem>
+                      <SelectItem value="HIDE">Hide</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
