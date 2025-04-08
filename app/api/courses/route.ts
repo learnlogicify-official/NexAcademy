@@ -6,13 +6,43 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { title, subtitle, description, startDate, endDate, categoryId, isVisible = true } = body;
 
+    // Validate required fields
+    if (!title || !subtitle || !description || !startDate || !endDate || !categoryId) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Validate dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid date format" },
+        { status: 400 }
+      );
+    }
+
+    // Check if category exists
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!category) {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      );
+    }
+
     const course = await prisma.course.create({
       data: {
         title,
         subtitle,
         description,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: start,
+        endDate: end,
         categoryId,
         isVisible,
       },
@@ -24,7 +54,10 @@ export async function POST(req: Request) {
     return NextResponse.json(course);
   } catch (error) {
     console.error("[COURSE_POST]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create course" },
+      { status: 500 }
+    );
   }
 }
 
