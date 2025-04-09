@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { CourseFormModal } from "@/components/admin/course-form-modal";
+import { AddCourseModal } from "@/components/admin/add-course-modal";
 import { CourseCard } from "@/components/admin/course-card";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
@@ -281,7 +281,7 @@ export default function AdminCoursesPage() {
         </>
       )}
 
-      <CourseFormModal
+      <AddCourseModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onSuccess={() => {
