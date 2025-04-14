@@ -33,6 +33,8 @@ import {
 import {
   DndContext,
   DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -91,6 +93,21 @@ interface SortableModuleItemProps {
   onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>, moduleId: string) => void;
   onSubmoduleKeyPress: (e: React.KeyboardEvent<HTMLInputElement>, submoduleId: string) => void;
   setIsDeleting: (value: { type: 'module' | 'submodule'; id: string } | null) => void;
+  children?: React.ReactNode;
+}
+
+interface SortableSubmoduleItemProps {
+  submodule: Submodule;
+  moduleId: string;
+  editingSubmoduleId: string | null;
+  editingSubmoduleTitle: string;
+  isDeleting: { type: 'module' | 'submodule'; id: string } | null;
+  onStartEditingSubmodule: (submoduleId: string, currentTitle: string) => void;
+  onSubmoduleEdit: (submoduleId: string) => void;
+  onSubmoduleDelete: (submoduleId: string) => void;
+  onSubmoduleTitleChange: (value: string) => void;
+  onSubmoduleKeyPress: (e: React.KeyboardEvent<HTMLInputElement>, submoduleId: string) => void;
+  setIsDeleting: (value: { type: 'module' | 'submodule'; id: string } | null) => void;
 }
 
 function SortableModuleItem({
@@ -116,6 +133,7 @@ function SortableModuleItem({
   onKeyPress,
   onSubmoduleKeyPress,
   setIsDeleting,
+  children,
 }: SortableModuleItemProps) {
   const {
     attributes,
@@ -124,7 +142,13 @@ function SortableModuleItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: module.id });
+  } = useSortable({ 
+    id: module.id,
+    data: {
+      type: 'module',
+      module,
+    }
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -233,92 +257,146 @@ function SortableModuleItem({
                 Add Submodule
               </Button>
             </div>
-            <div className="pl-6 space-y-2">
-              {module.submodules.map((submodule) => (
-                <div
-                  key={submodule.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1 h-auto"
-                      onClick={() => onToggleSubmodule(submodule.id)}
-                    >
-                      {expandedSubmodules.has(submodule.id) ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    {editingSubmoduleId === submodule.id ? (
-                      <Input
-                        value={editingSubmoduleTitle}
-                        onChange={(e) => onSubmoduleTitleChange(e.target.value)}
-                        onKeyDown={(e) => onSubmoduleKeyPress(e, submodule.id)}
-                        onBlur={() => onSubmoduleEdit(submodule.id)}
-                        className="h-8 w-[200px]"
-                        autoFocus
-                      />
-                    ) : (
-                      <>
-                        <span>{submodule.title}</span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-1 h-auto"
-                            onClick={() => onStartEditingSubmodule(submodule.id, submodule.title)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog open={isDeleting?.type === 'submodule' && isDeleting.id === submodule.id}>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-1 h-auto text-destructive"
-                                onClick={() => setIsDeleting({ type: 'submodule', id: submodule.id })}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Submodule</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this submodule? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel onClick={() => setIsDeleting(null)}>
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => {
-                                    onSubmoduleDelete(submodule.id);
-                                    setIsDeleting(null);
-                                  }}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SortableContext
+              items={module.submodules.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="pl-6 space-y-2">
+                {module.submodules.map((submodule) => (
+                  <SortableSubmoduleItem
+                    key={submodule.id}
+                    submodule={submodule}
+                    moduleId={module.id}
+                    editingSubmoduleId={editingSubmoduleId}
+                    editingSubmoduleTitle={editingSubmoduleTitle}
+                    isDeleting={isDeleting}
+                    onStartEditingSubmodule={onStartEditingSubmodule}
+                    onSubmoduleEdit={onSubmoduleEdit}
+                    onSubmoduleDelete={onSubmoduleDelete}
+                    onSubmoduleTitleChange={onSubmoduleTitleChange}
+                    onSubmoduleKeyPress={onSubmoduleKeyPress}
+                    setIsDeleting={setIsDeleting}
+                  />
+                ))}
+              </div>
+            </SortableContext>
           </div>
         </CardContent>
       )}
     </Card>
+  );
+}
+
+function SortableSubmoduleItem({
+  submodule,
+  moduleId,
+  editingSubmoduleId,
+  editingSubmoduleTitle,
+  isDeleting,
+  onStartEditingSubmodule,
+  onSubmoduleEdit,
+  onSubmoduleDelete,
+  onSubmoduleTitleChange,
+  onSubmoduleKeyPress,
+  setIsDeleting,
+}: SortableSubmoduleItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: submodule.id,
+    data: {
+      type: 'submodule',
+      moduleId,
+      submodule,
+    }
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+    >
+      <div className="flex items-center gap-2 flex-1">
+        <div
+          className="p-2 cursor-grab active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        {editingSubmoduleId === submodule.id ? (
+          <Input
+            value={editingSubmoduleTitle}
+            onChange={(e) => onSubmoduleTitleChange(e.target.value)}
+            onKeyDown={(e) => onSubmoduleKeyPress(e, submodule.id)}
+            onBlur={() => onSubmoduleEdit(submodule.id)}
+            className="h-8 w-[200px]"
+            autoFocus
+          />
+        ) : (
+          <>
+            <span className="flex-1">{submodule.title}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-1 h-auto"
+                onClick={() => onStartEditingSubmodule(submodule.id, submodule.title)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <AlertDialog open={isDeleting?.type === 'submodule' && isDeleting.id === submodule.id}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 h-auto text-destructive"
+                    onClick={() => setIsDeleting({ type: 'submodule', id: submodule.id })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Submodule</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this submodule? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsDeleting(null)}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        onSubmoduleDelete(submodule.id);
+                        setIsDeleting(null);
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -331,6 +409,11 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
   const [editingSubmoduleTitle, setEditingSubmoduleTitle] = useState("");
   const [isDeleting, setIsDeleting] = useState<{ type: 'module' | 'submodule'; id: string } | null>(null);
   const { toast } = useToast();
+  const [activeSubmodule, setActiveSubmodule] = useState<{
+    id: string;
+    moduleId: string;
+    order: number;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -590,12 +673,32 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const activeData = active.data.current;
+    
+    if (activeData?.type === 'submodule') {
+      setActiveSubmodule({
+        id: active.id as string,
+        moduleId: activeData.moduleId,
+        order: activeData.submodule.order,
+      });
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const oldIndex = modules.findIndex((m) => m.id === active.id);
-      const newIndex = modules.findIndex((m) => m.id === over.id);
+    if (!over) return;
+
+    const activeData = active.data.current;
+    const overData = over.data.current;
+
+    if (activeData?.type === 'module' && active.id !== over.id) {
+      const activeModule = modules.find((m) => m.id === active.id);
+      const overModule = modules.find((m) => m.id === over.id);
+      
+      if (!activeModule || !overModule) return;
 
       try {
         const response = await fetch(`/api/modules/reorder`, {
@@ -605,25 +708,15 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
           },
           body: JSON.stringify({
             moduleId: active.id,
-            oldOrder: oldIndex,
-            newOrder: newIndex,
-            courseId: courseId
+            oldOrder: activeModule.order,
+            newOrder: overModule.order,
+            courseId,
           }),
         });
 
-        const contentType = response.headers.get("content-type");
-        let errorMessage = "Failed to reorder module";
-
         if (!response.ok) {
-          if (contentType && contentType.includes("application/json")) {
-            const data = await response.json().catch(() => null);
-            if (data && data.message) {
-              errorMessage = data.message;
-            }
-          } else {
-            errorMessage = await response.text().catch(() => errorMessage);
-          }
-          throw new Error(errorMessage);
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.message || "Failed to reorder module");
         }
 
         toast({
@@ -640,7 +733,55 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
           variant: "destructive",
         });
       }
+    } else if (activeData?.type === 'submodule' && activeSubmodule) {
+      const targetModuleId = overData?.type === 'submodule' 
+        ? overData.moduleId 
+        : over.id as string;
+
+      const targetModule = modules.find(m => m.id === targetModuleId);
+      if (!targetModule) return;
+
+      const newOrder = overData?.type === 'submodule'
+        ? overData.submodule.order
+        : targetModule.submodules.length;
+
+      try {
+        const response = await fetch(`/api/submodules/reorder`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            submoduleId: activeSubmodule.id,
+            oldOrder: activeSubmodule.order,
+            newOrder,
+            sourceModuleId: activeSubmodule.moduleId,
+            targetModuleId,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.message || "Failed to reorder submodule");
+        }
+
+        toast({
+          title: "Success",
+          description: "Submodule order updated successfully",
+        });
+
+        onModuleUpdate();
+      } catch (error) {
+        console.error("Error reordering submodule:", error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to reorder submodule",
+          variant: "destructive",
+        });
+      }
     }
+
+    setActiveSubmodule(null);
   };
 
   return (
@@ -656,6 +797,7 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <SortableContext
@@ -688,7 +830,33 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
                 onKeyPress={handleKeyPress}
                 onSubmoduleKeyPress={handleSubmoduleKeyPress}
                 setIsDeleting={setIsDeleting}
-              />
+              >
+                {expandedModules.has(module.id) && (
+                  <SortableContext
+                    items={module.submodules.map(s => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="pl-6 space-y-2">
+                      {module.submodules.map((submodule) => (
+                        <SortableSubmoduleItem
+                          key={submodule.id}
+                          submodule={submodule}
+                          moduleId={module.id}
+                          editingSubmoduleId={editingSubmoduleId}
+                          editingSubmoduleTitle={editingSubmoduleTitle}
+                          isDeleting={isDeleting}
+                          onStartEditingSubmodule={startEditingSubmodule}
+                          onSubmoduleEdit={handleSubmoduleEdit}
+                          onSubmoduleDelete={handleSubmoduleDelete}
+                          onSubmoduleTitleChange={setEditingSubmoduleTitle}
+                          onSubmoduleKeyPress={handleSubmoduleKeyPress}
+                          setIsDeleting={setIsDeleting}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                )}
+              </SortableModuleItem>
             ))}
           </div>
         </SortableContext>
