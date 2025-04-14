@@ -408,6 +408,7 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
   const [editingSubmoduleId, setEditingSubmoduleId] = useState<string | null>(null);
   const [editingSubmoduleTitle, setEditingSubmoduleTitle] = useState("");
   const [isDeleting, setIsDeleting] = useState<{ type: 'module' | 'submodule'; id: string } | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
   const { toast } = useToast();
   const [activeSubmodule, setActiveSubmodule] = useState<{
     id: string;
@@ -694,13 +695,15 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
     const activeData = active.data.current;
     const overData = over.data.current;
 
-    if (activeData?.type === 'module' && active.id !== over.id) {
-      const activeModule = modules.find((m) => m.id === active.id);
-      const overModule = modules.find((m) => m.id === over.id);
-      
-      if (!activeModule || !overModule) return;
+    setIsReordering(true);
 
-      try {
+    try {
+      if (activeData?.type === 'module' && active.id !== over.id) {
+        const activeModule = modules.find((m) => m.id === active.id);
+        const overModule = modules.find((m) => m.id === over.id);
+        
+        if (!activeModule || !overModule) return;
+
         const response = await fetch(`/api/modules/reorder`, {
           method: "PATCH",
           headers: {
@@ -725,27 +728,18 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
         });
 
         onModuleUpdate();
-      } catch (error) {
-        console.error("Error reordering module:", error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to reorder module",
-          variant: "destructive",
-        });
-      }
-    } else if (activeData?.type === 'submodule' && activeSubmodule) {
-      const targetModuleId = overData?.type === 'submodule' 
-        ? overData.moduleId 
-        : over.id as string;
+      } else if (activeData?.type === 'submodule' && activeSubmodule) {
+        const targetModuleId = overData?.type === 'submodule' 
+          ? overData.moduleId 
+          : over.id as string;
 
-      const targetModule = modules.find(m => m.id === targetModuleId);
-      if (!targetModule) return;
+        const targetModule = modules.find(m => m.id === targetModuleId);
+        if (!targetModule) return;
 
-      const newOrder = overData?.type === 'submodule'
-        ? overData.submodule.order
-        : targetModule.submodules.length;
+        const newOrder = overData?.type === 'submodule'
+          ? overData.submodule.order
+          : targetModule.submodules.length;
 
-      try {
         const response = await fetch(`/api/submodules/reorder`, {
           method: "PATCH",
           headers: {
@@ -771,17 +765,18 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
         });
 
         onModuleUpdate();
-      } catch (error) {
-        console.error("Error reordering submodule:", error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to reorder submodule",
-          variant: "destructive",
-        });
       }
+    } catch (error) {
+      console.error("Error reordering:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to reorder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReordering(false);
+      setActiveSubmodule(null);
     }
-
-    setActiveSubmodule(null);
   };
 
   return (
@@ -861,6 +856,15 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
           </div>
         </SortableContext>
       </DndContext>
+
+      {isReordering && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="flex flex-col items-center gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-sm text-muted-foreground">Reordering...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
