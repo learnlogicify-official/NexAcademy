@@ -70,6 +70,7 @@ interface CourseFormModalProps {
     endDate: string;
     categoryId: string;
     visibility: "SHOW" | "HIDE";
+    thumbnail?: string;
   };
 }
 
@@ -86,15 +87,39 @@ export function CourseFormModal({
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
-      title: course?.title || "",
-      subtitle: course?.subtitle || "",
-      description: course?.description || "",
-      startDate: course?.startDate ? new Date(course.startDate) : undefined,
-      endDate: course?.endDate ? new Date(course.endDate) : undefined,
-      categoryId: course?.categoryId || "",
-      visibility: course?.visibility || "SHOW",
+      title: "",
+      subtitle: "",
+      description: "",
+      startDate: undefined,
+      endDate: undefined,
+      categoryId: "",
+      visibility: "SHOW",
     },
   });
+
+  useEffect(() => {
+    if (course) {
+      form.reset({
+        title: course.title,
+        subtitle: course.subtitle,
+        description: course.description,
+        startDate: new Date(course.startDate),
+        endDate: new Date(course.endDate),
+        categoryId: course.categoryId,
+        visibility: course.visibility,
+      });
+    } else {
+      form.reset({
+        title: "",
+        subtitle: "",
+        description: "",
+        startDate: undefined,
+        endDate: undefined,
+        categoryId: "",
+        visibility: "SHOW",
+      });
+    }
+  }, [course, form]);
 
   useEffect(() => {
     if (open && !isLoadingCategories && (!categories || categories.length === 0)) {

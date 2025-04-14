@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { title, subtitle, description, startDate, endDate, categoryId, isVisible = true } = body;
+    const { title, subtitle, description, startDate, endDate, categoryId, visibility = "SHOW" } = body;
 
     // Validate required fields
     if (!title || !subtitle || !description || !startDate || !endDate || !categoryId) {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         startDate: start,
         endDate: end,
         categoryId,
-        isVisible,
+        visibility,
       },
       include: {
         category: true,
@@ -85,8 +85,8 @@ export async function GET(request: Request) {
       where.categoryId = category;
     }
 
-    if (visibility && visibility !== "all") {
-      where.isVisible = visibility === "true";
+    if (visibility && visibility !== "all" && (visibility === "SHOW" || visibility === "HIDE")) {
+      where.visibility = visibility;
     }
 
     const [courses, total] = await Promise.all([
@@ -110,7 +110,13 @@ export async function GET(request: Request) {
     ]);
 
     return NextResponse.json({
-      courses,
+      courses: courses.map(course => ({
+        ...course,
+        startDate: course.startDate.toISOString(),
+        endDate: course.endDate.toISOString(),
+        createdAt: course.createdAt.toISOString(),
+        updatedAt: course.updatedAt.toISOString(),
+      })),
       pagination: {
         total,
         page,

@@ -11,7 +11,7 @@ const courseSchema = z.object({
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
   categoryId: z.string().min(1, "Category is required"),
-  isVisible: z.boolean(),
+  visibility: z.enum(["SHOW", "HIDE"]),
 });
 
 export async function PATCH(
@@ -21,7 +21,14 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please sign in" },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized: Only admins can update courses" },
         { status: 403 }
@@ -38,7 +45,31 @@ export async function PATCH(
 
     const body = await req.json();
     const validatedData = courseSchema.parse(body);
-    const { title, subtitle, description, startDate, endDate, categoryId, isVisible } = validatedData;
+    const { title, subtitle, description, startDate, endDate, categoryId, visibility } = validatedData;
+
+    // Check if the course exists
+    const existingCourse = await prisma.course.findUnique({
+      where: { id },
+    });
+
+    if (!existingCourse) {
+      return NextResponse.json(
+        { error: "Course not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check if the category exists
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!category) {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      );
+    }
 
     const course = await prisma.course.update({
       where: { id },
@@ -48,8 +79,12 @@ export async function PATCH(
         description,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        categoryId,
-        isVisible,
+        visibility,
+        category: {
+          connect: {
+            id: categoryId
+          }
+        }
       },
     });
 
@@ -57,8 +92,16 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid request data", details: error.errors },
+        { error: "Validation error", details: error.errors },
         { status: 400 }
+      );
+    }
+
+    if (error instanceof Error) {
+      console.error("Error updating course:", error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
       );
     }
 

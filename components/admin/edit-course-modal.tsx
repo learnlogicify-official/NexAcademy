@@ -52,7 +52,7 @@ const courseFormSchema = z.object({
     required_error: "End date is required",
   }),
   categoryId: z.string().min(1, "Category is required"),
-  isVisible: z.boolean().default(true),
+  visibility: z.enum(["SHOW", "HIDE"]),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -69,7 +69,7 @@ interface EditCourseModalProps {
     startDate: string;
     endDate: string;
     categoryId: string;
-    isVisible: boolean;
+    visibility: "SHOW" | "HIDE";
   };
 }
 
@@ -92,7 +92,7 @@ export function EditCourseModal({
       startDate: new Date(course.startDate),
       endDate: new Date(course.endDate),
       categoryId: course.categoryId,
-      isVisible: course.isVisible,
+      visibility: course.visibility,
     },
   });
 
@@ -111,8 +111,10 @@ export function EditCourseModal({
         }),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to update course");
+        throw new Error(responseData.error || "Failed to update course");
       }
 
       toast({
@@ -126,7 +128,7 @@ export function EditCourseModal({
       console.error("Error updating course:", error);
       toast({
         title: "Error",
-        description: "Failed to update course",
+        description: error instanceof Error ? error.message : "Failed to update course",
         variant: "destructive",
       });
     } finally {
@@ -263,13 +265,13 @@ export function EditCourseModal({
 
               <FormField
                 control={form.control}
-                name="isVisible"
+                name="visibility"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Visibility</FormLabel>
                     <Select
-                      onValueChange={(value) => field.onChange(value === "true")}
-                      value={field.value ? "true" : "false"}
+                      onValueChange={field.onChange}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -277,8 +279,8 @@ export function EditCourseModal({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="true">Show</SelectItem>
-                        <SelectItem value="false">Hide</SelectItem>
+                        <SelectItem value="SHOW">Show</SelectItem>
+                        <SelectItem value="HIDE">Hide</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -15,8 +15,14 @@ interface Course {
   description: string;
   startDate: string;
   endDate: string;
+  visibility: "SHOW" | "HIDE";
   categoryId: string;
-  isVisible: boolean;
+  category: {
+    id: string;
+    name: string;
+  };
+  createdAt: string;
+  updatedAt: string;
   modules: Module[];
 }
 
