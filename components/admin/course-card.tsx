@@ -81,6 +81,7 @@ interface CourseCardProps {
   onDelete?: (courseId: string) => void;
   onContinue?: (courseId: string) => void;
   onToggleVisibility?: (courseId: string, visibility: "SHOW" | "HIDE") => void;
+  onView?: (courseId: string) => void;
 }
 
 const getCourseIcon = (title: string) => {
@@ -346,6 +347,7 @@ export function CourseCard({
   onDelete,
   onContinue,
   onToggleVisibility,
+  onView,
 }: CourseCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -411,22 +413,28 @@ export function CourseCard({
         <CardDescription className="mt-2">{course.subtitle}</CardDescription>
         <div className="mt-4 flex items-center justify-between">
           <Badge variant="secondary">{course.category?.name}</Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onToggleVisibility?.(course.id, course.visibility === "SHOW" ? "HIDE" : "SHOW")}
-          >
-            {course.visibility === "SHOW" ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-          </Button>
+          <Badge variant={course.visibility === "SHOW" ? "default" : "secondary"}>
+            {course.visibility === "SHOW" ? "Visible" : "Hidden"}
+          </Badge>
         </div>
       </CardContent>
       <CardFooter className="border-t p-4">
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-2">
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onView?.(course.id)}
+              className="flex items-center gap-2"
+            >
+              <BookOpen className="h-4 w-4" />
+              View Course
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               onClick={() => onEdit?.(course)}
+              title="Edit Course"
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -434,6 +442,7 @@ export function CourseCard({
               variant="ghost"
               size="icon"
               onClick={() => setIsDeleteDialogOpen(true)}
+              title="Delete Course"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

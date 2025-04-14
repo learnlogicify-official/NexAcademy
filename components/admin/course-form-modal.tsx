@@ -87,18 +87,18 @@ export function CourseFormModal({
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
-      title: "",
-      subtitle: "",
-      description: "",
-      startDate: undefined,
-      endDate: undefined,
-      categoryId: "",
-      visibility: "SHOW",
+      title: course?.title || "",
+      subtitle: course?.subtitle || "",
+      description: course?.description || "",
+      startDate: course?.startDate ? new Date(course.startDate) : undefined,
+      endDate: course?.endDate ? new Date(course.endDate) : undefined,
+      categoryId: course?.categoryId || "",
+      visibility: course?.visibility || "SHOW",
     },
   });
 
   useEffect(() => {
-    if (course) {
+    if (course && categories) {
       form.reset({
         title: course.title,
         subtitle: course.subtitle,
@@ -108,28 +108,8 @@ export function CourseFormModal({
         categoryId: course.categoryId,
         visibility: course.visibility,
       });
-    } else {
-      form.reset({
-        title: "",
-        subtitle: "",
-        description: "",
-        startDate: undefined,
-        endDate: undefined,
-        categoryId: "",
-        visibility: "SHOW",
-      });
     }
-  }, [course, form]);
-
-  useEffect(() => {
-    if (open && !isLoadingCategories && (!categories || categories.length === 0)) {
-      enqueueSnackbar("Please add a category first before creating a course", {
-        variant: "warning",
-        autoHideDuration: 5000,
-      });
-      onOpenChange(false);
-    }
-  }, [open, isLoadingCategories, categories, enqueueSnackbar, onOpenChange]);
+  }, [course, categories, form]);
 
   const onSubmit = async (data: CourseFormValues) => {
     try {
@@ -279,6 +259,7 @@ export function CourseFormModal({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
+                    disabled={isLoadingCategories}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -288,7 +269,7 @@ export function CourseFormModal({
                     <SelectContent>
                       {isLoadingCategories ? (
                         <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                      ) : !categories || !Array.isArray(categories) || categories.length === 0 ? (
+                      ) : !categories || categories.length === 0 ? (
                         <SelectItem value="no-categories" disabled>No categories available</SelectItem>
                       ) : (
                         categories.map((category) => (
