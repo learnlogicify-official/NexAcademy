@@ -3,21 +3,22 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const total = await prisma.course.count();
-    const active = await prisma.course.count({
-      where: { isVisible: true },
-    });
-    const inactive = await prisma.course.count({
-      where: { isVisible: false },
-    });
+    const [visibleCourses, hiddenCourses] = await Promise.all([
+      prisma.course.count({
+        where: { visibility: "SHOW" },
+      }),
+      prisma.course.count({
+        where: { visibility: "HIDE" },
+      }),
+    ]);
 
     return NextResponse.json({
-      total,
-      active,
-      inactive,
+      visible: visibleCourses,
+      hidden: hiddenCourses,
+      total: visibleCourses + hiddenCourses,
     });
   } catch (error) {
-    console.error("Error fetching course stats:", error);
+    console.error("[COURSES_STATS]", error);
     return NextResponse.json(
       { error: "Failed to fetch course stats" },
       { status: 500 }

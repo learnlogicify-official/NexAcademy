@@ -23,10 +23,10 @@ import {
   Eye,
   EyeOff,
   ChevronRight,
-  BarChart2
+  BarChart2,
+  Pencil
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { EditCourseModal } from "./edit-course-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +47,13 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CourseCardProps {
   course: {
@@ -56,18 +63,24 @@ interface CourseCardProps {
     description: string;
     startDate: string;
     endDate: string;
-    progress?: number;
-    isVisible?: boolean;
-    category: {
+    enrolledUsers?: number;
+    visibility: "SHOW" | "HIDE";
+    categoryId: string;
+    category?: {
       id: string;
       name: string;
     };
+    instructor?: {
+      name: string;
+      image?: string;
+    };
+    thumbnail?: string;
   };
   variant?: "admin" | "student";
-  onEdit?: () => void;
-  onDelete?: () => void;
-  onContinue?: () => void;
-  onVisibilityChange?: (isVisible: boolean) => void;
+  onEdit?: (course: CourseCardProps["course"]) => void;
+  onDelete?: (courseId: string) => void;
+  onContinue?: (courseId: string) => void;
+  onToggleVisibility?: (courseId: string, visibility: "SHOW" | "HIDE") => void;
 }
 
 const getCourseIcon = (title: string) => {
@@ -294,161 +307,89 @@ const getPatternStyle = (title: string) => {
   return patterns[randomIndex];
 };
 
-export function CourseCard({ course, variant = "admin", onEdit, onDelete, onContinue, onVisibilityChange }: CourseCardProps) {
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+const getDefaultThumbnail = (title: string): string | undefined => {
+  const lowerTitle = title.toLowerCase();
+  
+  // Use more reliable image URLs
+  if (lowerTitle.includes('javascript')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/javascript/javascript.png';
+  }
+  if (lowerTitle.includes('react')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/react/react.png';
+  }
+  if (lowerTitle.includes('python')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/python/python.png';
+  }
+  if (lowerTitle.includes('web')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/html/html.png';
+  }
+  if (lowerTitle.includes('mobile')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/android/android.png';
+  }
+  if (lowerTitle.includes('data')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/sql/sql.png';
+  }
+  if (lowerTitle.includes('cloud')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/aws/aws.png';
+  }
+  if (lowerTitle.includes('ai') || lowerTitle.includes('machine learning')) {
+    return 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/tensorflow/tensorflow.png';
+  }
+  
+  return undefined;
+};
+
+export function CourseCard({
+  course,
+  variant = "admin",
+  onEdit,
+  onDelete,
+  onContinue,
+  onToggleVisibility,
+}: CourseCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const { toast } = useToast();
+
+  const handleDelete = async () => {
+    if (onDelete) {
+      try {
+        await onDelete(course.id);
+        toast({
+          title: "Success",
+          description: "Course deleted successfully",
+        });
+        setIsDeleteDialogOpen(false);
+      } catch (error) {
+        console.error("Error deleting course:", error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to delete course",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   const Icon = getCourseIcon(course.title);
   const pattern = getPatternStyle(course.title);
 
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true);
-      const response = await fetch(`/api/courses/${course.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete course");
-      }
-
-      toast({
-        title: "Success",
-        description: "Course deleted successfully",
-      });
-      onDelete?.();
-    } catch (error) {
-      console.error("Error deleting course:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete course",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setIsDeleteDialogOpen(false);
-    }
-  };
-
-  const handleVisibilityChange = async (newVisibility: boolean) => {
-    try {
-      setIsUpdatingVisibility(true);
-      const response = await fetch(`/api/courses/${course.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isVisible: newVisibility }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update course visibility");
-      }
-
-      onVisibilityChange?.(newVisibility);
-      toast({
-        title: "Success",
-        description: `Course is now ${newVisibility ? "visible" : "hidden"}`,
-      });
-    } catch (error) {
-      console.error("Error updating course visibility:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update course visibility",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingVisibility(false);
-    }
-  };
-
   if (variant === "student") {
     return (
-      <Card className="group relative overflow-hidden bg-gradient-to-br from-background via-card to-muted hover:shadow-xl transition-all duration-300 border-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500" />
-        <CardContent className="relative p-6">
-          <div className="flex flex-col gap-6">
-            <div className="flex items-start gap-4">
-              <div className="relative">
-                <div className="absolute -inset-3 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
-                <div className="relative p-3 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-2xl">
-                  <Icon className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xl font-semibold tracking-tight">
-                    {course.title}
-                  </h3>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 relative z-10"
-                      onClick={() => setIsEditModalOpen(true)}
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive relative z-10"
-                      onClick={() => setIsDeleteDialogOpen(true)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <div className="flex items-center gap-0.5">
-                      <Star className="h-4 w-4 fill-primary text-primary" />
-                      <span className="text-sm font-medium">4.8</span>
-                    </div>
-                  </div>
-                </div>
-                {course.subtitle && (
-                  <p className="text-sm text-muted-foreground">
-                    {course.subtitle}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <Badge variant="outline" className="bg-gradient-to-r from-primary/20 via-primary/10 to-transparent text-primary border-0 font-medium">
-                  {course.category.name}
-                </Badge>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 text-muted-foreground bg-background/50 px-2 py-1 rounded-full">
-                    <Users className="h-4 w-4" />
-                    <span>125 enrolled</span>
-                  </div>
-                  {!course.isVisible && (
-                    <Badge variant="secondary" className="text-xs">Hidden</Badge>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm mb-1.5">
-                  <span className="text-muted-foreground">Course Progress</span>
-                  <span className="font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">
-                    {course.progress || 0}% Complete
-                  </span>
-                </div>
-                <div className="h-2 w-full bg-gradient-to-r from-muted/30 to-muted/10 rounded-full overflow-hidden backdrop-blur-sm">
-                  <div 
-                    className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(var(--primary),0.4)]"
-                    style={{ width: `${course.progress || 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            <Button 
-              size="lg"
-              className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300"
-              onClick={onContinue}
-            >
-              Continue Learning
+      <Card className="overflow-hidden">
+        <div className="relative h-48">
+          <div className={cn("absolute inset-0", pattern)} />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Icon className="h-16 w-16 text-primary" />
+          </div>
+        </div>
+        <CardContent className="p-6">
+          <CardTitle className="text-xl font-bold">{course.title}</CardTitle>
+          <CardDescription className="mt-2">{course.subtitle}</CardDescription>
+          <div className="mt-4 flex items-center justify-between">
+            <Badge variant="secondary">{course.category?.name}</Badge>
+            <Button variant="ghost" size="sm" onClick={() => onContinue?.(course.id)}>
+              Continue <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </CardContent>
@@ -457,108 +398,48 @@ export function CourseCard({ course, variant = "admin", onEdit, onDelete, onCont
   }
 
   return (
-    <>
-      <Card className="group relative overflow-hidden border-0 h-[240px]">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500" />
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Icon className="h-5 w-5 text-primary" />
-              </div>
-              <div className="min-h-[60px]">
-                <CardTitle className="text-lg font-semibold line-clamp-1">{course.title}</CardTitle>
-                <CardDescription className="text-xs line-clamp-2 text-muted-foreground/80">{course.subtitle}</CardDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 relative z-10"
-                onClick={() => setIsEditModalOpen(true)}
-              >
-                <Edit className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive relative z-10"
-                onClick={() => setIsDeleteDialogOpen(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+    <Card className="overflow-hidden">
+      <div className="relative h-48">
+        <div className={cn("absolute inset-0", pattern)} />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Icon className="h-16 w-16 text-primary" />
+        </div>
+      </div>
+      <CardContent className="p-6">
+        <CardTitle className="text-xl font-bold">{course.title}</CardTitle>
+        <CardDescription className="mt-2">{course.subtitle}</CardDescription>
+        <div className="mt-4 flex items-center justify-between">
+          <Badge variant="secondary">{course.category?.name}</Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleVisibility?.(course.id, course.visibility === "SHOW" ? "HIDE" : "SHOW")}
+          >
+            {course.visibility === "SHOW" ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </Button>
+        </div>
+      </CardContent>
+      <CardFooter className="border-t p-4">
+        <div className="flex w-full items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit?.(course)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent className="pb-3">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-0">
-                {course.category.name}
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "text-xs flex items-center gap-1.5 h-6",
-                  course.isVisible 
-                    ? "bg-green-50 text-green-700 hover:bg-green-100" 
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted/70"
-                )}
-                onClick={() => handleVisibilityChange(!course.isVisible)}
-                disabled={isUpdatingVisibility}
-              >
-                {isUpdatingVisibility ? (
-                  "Updating..."
-                ) : course.isVisible ? (
-                  <>
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>Published</span>
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-3.5 w-3.5" />
-                    <span>Draft</span>
-                  </>
-                )}
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Start Date</span>
-                </div>
-                <p className="font-medium">
-                  {format(new Date(course.startDate), "MMM d, yyyy")}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>End Date</span>
-                </div>
-                <p className="font-medium">
-                  {format(new Date(course.endDate), "MMM d, yyyy")}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span>125 students enrolled</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <EditCourseModal
-        course={course}
-        open={isEditModalOpen}
-        onOpenChange={setIsEditModalOpen}
-        onSuccess={onEdit}
-        onLoadingChange={() => {}}
-      />
+        </div>
+      </CardFooter>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -571,16 +452,10 @@ export function CourseCard({ course, variant = "admin", onEdit, onDelete, onCont
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </Card>
   );
 } 

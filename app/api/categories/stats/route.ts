@@ -3,21 +3,22 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const total = await prisma.category.count();
-    const active = await prisma.category.count({
-      where: { isVisible: true },
-    });
-    const inactive = await prisma.category.count({
-      where: { isVisible: false },
-    });
+    const [visibleCategories, hiddenCategories] = await Promise.all([
+      prisma.category.count({
+        where: { visibility: "SHOW" },
+      }),
+      prisma.category.count({
+        where: { visibility: "HIDE" },
+      }),
+    ]);
 
     return NextResponse.json({
-      total,
-      active,
-      inactive,
+      visible: visibleCategories,
+      hidden: hiddenCategories,
+      total: visibleCategories + hiddenCategories,
     });
   } catch (error) {
-    console.error("Error fetching category stats:", error);
+    console.error("[CATEGORIES_STATS]", error);
     return NextResponse.json(
       { error: "Failed to fetch category stats" },
       { status: 500 }
