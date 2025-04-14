@@ -54,6 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 interface CourseCardProps {
   course: {
@@ -351,6 +352,7 @@ export function CourseCard({
 }: CourseCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleDelete = async () => {
     if (onDelete) {
@@ -424,7 +426,7 @@ export function CourseCard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onView?.(course.id)}
+              onClick={() => router.push(`/admin/courses/${course.id}`)}
               className="flex items-center gap-2"
             >
               <BookOpen className="h-4 w-4" />

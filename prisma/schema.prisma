@@ -64,17 +64,43 @@ model Category {
 }
 
 model Course {
-  id          String     @id @default(cuid())
+  id          String      @id @default(cuid())
   title       String
   subtitle    String
-  description String
+  description String      @db.Text
   startDate   DateTime
   endDate     DateTime
-  visibility  Visibility @default(SHOW)
+  visibility  String      @default("SHOW")
   categoryId  String
-  category    Category   @relation(fields: [categoryId], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  category    Category    @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  modules     Module[]
 
   @@index([categoryId])
+}
+
+model Module {
+  id         String      @id @default(cuid())
+  title      String
+  order      Int
+  courseId   String
+  course     Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submodules Submodule[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([courseId])
+}
+
+model Submodule {
+  id        String   @id @default(cuid())
+  title     String
+  order     Int
+  moduleId  String
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId])
 }
