@@ -102,6 +102,8 @@ interface SortableSubmoduleItemProps {
   editingSubmoduleId: string | null;
   editingSubmoduleTitle: string;
   isDeleting: { type: 'module' | 'submodule'; id: string } | null;
+  expandedSubmodules: Set<string>;
+  onToggleSubmodule: (submoduleId: string) => void;
   onStartEditingSubmodule: (submoduleId: string, currentTitle: string) => void;
   onSubmoduleEdit: (submoduleId: string) => void;
   onSubmoduleDelete: (submoduleId: string) => void;
@@ -270,6 +272,8 @@ function SortableModuleItem({
                     editingSubmoduleId={editingSubmoduleId}
                     editingSubmoduleTitle={editingSubmoduleTitle}
                     isDeleting={isDeleting}
+                    expandedSubmodules={expandedSubmodules}
+                    onToggleSubmodule={onToggleSubmodule}
                     onStartEditingSubmodule={onStartEditingSubmodule}
                     onSubmoduleEdit={onSubmoduleEdit}
                     onSubmoduleDelete={onSubmoduleDelete}
@@ -293,6 +297,8 @@ function SortableSubmoduleItem({
   editingSubmoduleId,
   editingSubmoduleTitle,
   isDeleting,
+  expandedSubmodules,
+  onToggleSubmodule,
   onStartEditingSubmodule,
   onSubmoduleEdit,
   onSubmoduleDelete,
@@ -327,7 +333,7 @@ function SortableSubmoduleItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+      className="flex flex-col gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
     >
       <div className="flex items-center gap-2 flex-1">
         <div
@@ -337,6 +343,18 @@ function SortableSubmoduleItem({
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="p-1 h-auto"
+          onClick={() => onToggleSubmodule(submodule.id)}
+        >
+          {expandedSubmodules.has(submodule.id) ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </Button>
         {editingSubmoduleId === submodule.id ? (
           <Input
             value={editingSubmoduleTitle}
@@ -396,6 +414,13 @@ function SortableSubmoduleItem({
           </>
         )}
       </div>
+      {expandedSubmodules.has(submodule.id) && (
+        <div className="pl-12 space-y-2">
+          <div className="p-4 rounded-lg bg-muted/30">
+            <p className="text-sm text-muted-foreground">Submodule content will go here</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -840,6 +865,8 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
                           editingSubmoduleId={editingSubmoduleId}
                           editingSubmoduleTitle={editingSubmoduleTitle}
                           isDeleting={isDeleting}
+                          expandedSubmodules={expandedSubmodules}
+                          onToggleSubmodule={toggleSubmodule}
                           onStartEditingSubmodule={startEditingSubmodule}
                           onSubmoduleEdit={handleSubmoduleEdit}
                           onSubmoduleDelete={handleSubmoduleDelete}
