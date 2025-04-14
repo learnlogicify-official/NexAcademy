@@ -103,6 +103,7 @@ export default function AdminCoursesPage() {
       console.log("[ADMIN] Fetched courses:", data.courses.length);
       setCourses(data.courses);
       setTotalPages(data.pagination.totalPages);
+      
       setIsLoading(false);
     } catch (error) {
       console.error("[ADMIN] Error in fetchCourses:", error);
