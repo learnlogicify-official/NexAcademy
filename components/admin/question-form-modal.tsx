@@ -95,8 +95,9 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
     },
   });
 
-  const toBool = (value: string | boolean): boolean => {
+  const toBool = (value: string | boolean | undefined): boolean => {
     if (typeof value === 'boolean') return value;
+    if (!value) return false;
     return value.toLowerCase() === 'true';
   };
 
@@ -119,19 +120,19 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
   const handleSubmit = (data: QuestionFormData) => {
     const submissionData: Question = {
       id: initialData?.id || '',
-      title: data.title,
+      title: data.title || '',
       description: data.description || '',
-      type: data.type,
-      points: data.points,
-      difficulty: data.difficulty,
+      type: data.type || 'MULTIPLE_CHOICE',
+      points: data.points || 1,
+      difficulty: data.difficulty || 'EASY',
       hidden: toBool(data.hidden),
       singleAnswer: toBool(data.singleAnswer),
       shuffleAnswers: toBool(data.shuffleAnswers),
-      folderId: data.folderId,
-      subfolderId: data.subfolderId,
+      folderId: data.folderId || '',
+      subfolderId: data.subfolderId || undefined,
       correctAnswers: initialData?.correctAnswers || [],
-      options,
-      tags: selectedTags,
+      options: options || [],
+      tags: selectedTags || [],
       status: initialData?.status || 'DRAFT',
       version: initialData?.version || 1,
       createdBy: initialData?.createdBy || { name: '', id: '' },
