@@ -104,3 +104,31 @@ model Submodule {
 
   @@index([moduleId])
 }
+
+model Question {
+  id            String   @id @default(cuid())
+  type          String   // "MULTIPLE_CHOICE" or "CODING"
+  question      String
+  options       String[] // For MULTIPLE_CHOICE questions
+  correctAnswer String?  // For MULTIPLE_CHOICE questions
+  testCases     Json?    // For CODING questions
+  expectedOutput String? // For CODING questions
+  folderId      String
+  subfolderId   String?
+  folder        Folder   @relation(fields: [folderId], references: [id])
+  subfolder     Folder?  @relation("SubfolderQuestions", fields: [subfolderId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Folder {
+  id            String     @id @default(cuid())
+  name          String
+  parentId      String?
+  parent        Folder?    @relation("Subfolders", fields: [parentId], references: [id])
+  subfolders    Folder[]   @relation("Subfolders")
+  questions     Question[]
+  subfolderQuestions Question[] @relation("SubfolderQuestions")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
