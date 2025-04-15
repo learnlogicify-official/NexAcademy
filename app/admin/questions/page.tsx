@@ -320,11 +320,13 @@ export default function AdminQuestionsPage() {
   };
 
   const filteredQuestions = questions.filter((question) => {
-    const matchesSearch = question?.title?.toLowerCase()?.includes(searchQuery.toLowerCase()) ?? false;
-    const matchesFolder = !selectedFolder || question.folderId === selectedFolder;
+    const matchesSearch = question?.title?.toLowerCase()?.includes(searchQuery.toLowerCase()) || false;
+    const matchesFolder = !selectedFolder || question?.folderId === selectedFolder;
     const matchesSubfolder =
-      !selectedSubfolder || question.subfolderId === selectedSubfolder;
-    return matchesSearch && matchesFolder && matchesSubfolder;
+      !selectedSubfolder || question?.subfolderId === selectedSubfolder;
+    const matchesVisibility = showHidden || !question?.hidden;
+
+    return matchesSearch && matchesFolder && matchesSubfolder && matchesVisibility;
   });
 
   const handleQuestionSubmit = async (data: Question) => {

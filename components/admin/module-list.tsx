@@ -890,8 +890,8 @@ export function ModuleList({ courseId, modules, onModuleUpdate }: ModuleListProp
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             <p className="text-sm text-muted-foreground">Reordering...</p>
           </div>
-        </div>
-      )}
+          </div>
+        )}
     </div>
   );
 } 
