@@ -115,6 +115,7 @@ model Question {
   expectedOutput String? // For CODING questions
   folderId      String
   subfolderId   String?
+  hidden        Boolean  @default(false)
   folder        Folder   @relation(fields: [folderId], references: [id])
   subfolder     Folder?  @relation("SubfolderQuestions", fields: [subfolderId], references: [id])
   createdAt     DateTime @default(now())

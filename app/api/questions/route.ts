@@ -53,26 +53,30 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { type, question, folderId, subfolderId, options, correctAnswer, testCases, expectedOutput } = data;
+    console.log("Received data:", data);
+
+    const { question, type, folderId, subfolderId, options, correctAnswer, testCases, expectedOutput, hidden } = data;
 
     const newQuestion = await prisma.question.create({
       data: {
-        type,
         question,
+        type,
         folderId,
         subfolderId,
         options: type === "MULTIPLE_CHOICE" ? options : undefined,
         correctAnswer: type === "MULTIPLE_CHOICE" ? correctAnswer : undefined,
         testCases: type === "CODING" ? testCases : undefined,
         expectedOutput: type === "CODING" ? expectedOutput : undefined,
+        hidden: hidden || false,
       },
     });
 
+    console.log("Created question:", newQuestion);
     return NextResponse.json(newQuestion);
   } catch (error) {
     console.error("Error creating question:", error);
     return NextResponse.json(
-      { error: "Failed to create question" },
+      { error: "Failed to create question", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }
