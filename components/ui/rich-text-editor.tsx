@@ -46,15 +46,8 @@ export function RichTextEditor({
       StarterKit,
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: {
-          class: "text-primary hover:underline",
-        },
       }),
-      Image.configure({
-        HTMLAttributes: {
-          class: "rounded-lg",
-        },
-      }),
+      Image,
       Placeholder.configure({
         placeholder,
       }),
@@ -63,12 +56,6 @@ export function RichTextEditor({
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
-    editorProps: {
-      attributes: {
-        class: "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl focus:outline-none min-h-[200px]",
-      },
-    },
-    immediatelyRender: false,
   });
 
   if (!editor) {

@@ -28,8 +28,8 @@ export async function DELETE(
 ) {
   try {
     // First delete all subfolders
-    await prisma.subfolder.deleteMany({
-      where: { folderId: params.id },
+    await prisma.folder.deleteMany({
+      where: { parentId: params.id },
     });
 
     // Then delete the folder
