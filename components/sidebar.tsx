@@ -123,7 +123,7 @@ export function Sidebar({
         <ScrollArea className="flex-1 py-4">
           <nav className="flex flex-col gap-1 px-2">
             {mainRoutes.map((route) => (
-              <Link
+              <Link 
                 key={route.href}
                 href={route.href}
                 className={cn(

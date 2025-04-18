@@ -41,6 +41,7 @@ export function AdminSidebar({ className, open, onClose }: AdminSidebarProps) {
       items: [
         { name: "Categories", href: "/admin/categories", icon: Tag },
         { name: "Courses", href: "/admin/courses", icon: BookOpen },
+        { name: "Question Bank", href: "/admin/questions", icon: FileText },
       ],
     },
     {
