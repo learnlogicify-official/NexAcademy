@@ -7,7 +7,7 @@ export async function GET() {
       include: {
         subfolders: true,
         questions: true,
-        subfolderQuestions: true,
+        parent: true,
       },
       where: {
         parentId: null, // Only get top-level folders
@@ -29,7 +29,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name, parentId } = await request.json();
+    const body = await request.json();
+    const { name, parentId } = body;
 
     const folder = await prisma.folder.create({
       data: {
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
       },
       include: {
         subfolders: true,
+        questions: true,
+        parent: true,
       },
     });
 

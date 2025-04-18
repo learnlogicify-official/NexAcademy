@@ -44,12 +44,15 @@ const formSchema = z.object({
   question: z.string().min(1, 'Question is required'),
   type: z.enum(['MULTIPLE_CHOICE', 'CODING']),
   folderId: z.string().min(1, 'Folder is required'),
-  subfolderId: z.string().optional(),
-  options: z.array(z.string()).optional(),
+  options: z.array(z.string()).default([]),
   correctAnswer: z.string().optional(),
-  testCases: z.array(z.any()).optional(),
+  testCases: z.any().optional(),
   expectedOutput: z.string().optional(),
-  hidden: z.boolean().optional(),
+  hidden: z.boolean().default(false),
+  marks: z.number().min(1, 'Marks must be at least 1').default(1),
+  singleAnswer: z.boolean().default(false),
+  shuffleAnswers: z.boolean().default(false),
+  status: z.enum(['DRAFT', 'READY']).default('DRAFT')
 });
 
 type QuestionFormData = z.infer<typeof formSchema>;
@@ -85,6 +88,10 @@ export function QuestionFormModal({
       type: 'MULTIPLE_CHOICE',
       folderId: '',
       hidden: false,
+      marks: 1,
+      singleAnswer: false,
+      shuffleAnswers: false,
+      status: 'DRAFT'
     },
   });
 
@@ -98,21 +105,58 @@ export function QuestionFormModal({
 
   useEffect(() => {
     if (initialData) {
+      console.log('Initial data received:', initialData);
       const formData = {
         ...initialData,
         hidden: toBool(initialData.hidden),
+        marks: initialData.marks ?? 1,
+        singleAnswer: initialData.singleAnswer ?? false,
+        shuffleAnswers: initialData.shuffleAnswers ?? false,
+        status: initialData.status || 'DRAFT',
+        correctAnswer: initialData.correctAnswer || undefined
       };
       form.reset(formData);
       setSelectedFolder(initialData.folderId || '');
-      setOptions(initialData.options?.map(content => ({ id: Math.random().toString(), content, grade: 0 })) || []);
-      setTestCases(initialData.testCases || []);
+      
+      // Set question content
       setQuestionContent(initialData.question || '');
+      
+      // Set options with correct grade
+      if (initialData.type === 'MULTIPLE_CHOICE' && initialData.options) {
+        const optionsWithGrade = initialData.options.map(content => ({
+          id: Math.random().toString(),
+          content,
+          grade: content === initialData.correctAnswer ? 1 : 0
+        }));
+        setOptions(optionsWithGrade);
+        // Set the correct answer in the form
+        form.setValue('correctAnswer', initialData.correctAnswer || '');
+      } else {
+        setOptions([]);
+        form.setValue('correctAnswer', '');
+      }
+      
+      // Set test cases
+      if (initialData.type === 'CODING' && initialData.testCases) {
+        setTestCases(initialData.testCases.map((testCase: any) => ({
+          input: testCase.input || '',
+          output: testCase.output || '',
+          isHidden: testCase.isHidden || false
+        })));
+      } else {
+        setTestCases([]);
+      }
     } else {
       form.reset({
         question: '',
         type: 'MULTIPLE_CHOICE',
         folderId: '',
         hidden: false,
+        marks: 1,
+        singleAnswer: false,
+        shuffleAnswers: false,
+        status: 'DRAFT',
+        correctAnswer: ''
       });
       setSelectedFolder('');
       setOptions([]);
@@ -127,21 +171,21 @@ export function QuestionFormModal({
     
     try {
       const submissionData = {
-        ...formData,
-        question: formData.question,
-        type: formData.type,
+        question: questionContent,
+        type: formData.type as 'MULTIPLE_CHOICE' | 'CODING',
         folderId: formData.folderId,
-        subfolderId: formData.subfolderId,
-        options: formData.type === 'MULTIPLE_CHOICE' ? options.map(opt => opt.content) : undefined,
-        correctAnswer: formData.type === 'MULTIPLE_CHOICE' ? options.find(opt => opt.grade > 0)?.content : undefined,
+        options: formData.type === 'MULTIPLE_CHOICE' ? options.map(opt => opt.content) : [],
+        correctAnswer: formData.type === 'MULTIPLE_CHOICE' ? options.find(opt => opt.grade > 0)?.content || undefined : undefined,
         testCases: formData.type === 'CODING' ? testCases : undefined,
-        expectedOutput: formData.type === 'CODING' ? testCases[0]?.output : undefined,
-        hidden: formData.hidden || false,
-        id: initialData?.id || '',
-        createdAt: initialData?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        expectedOutput: formData.type === 'CODING' ? testCases[0]?.output || undefined : undefined,
+        hidden: formData.hidden,
+        marks: formData.marks,
+        singleAnswer: formData.singleAnswer,
+        shuffleAnswers: formData.shuffleAnswers,
+        status: formData.status as 'DRAFT' | 'READY'
       };
 
+      console.log('Submitting data:', submissionData);
       onSubmit(submissionData);
       onClose();
     } catch (error) {
@@ -167,134 +211,185 @@ export function QuestionFormModal({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Options</Label>
-          {options.map((option, index) => (
-            <div key={option.id} className="space-y-2 p-4 border rounded-lg">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <RichTextEditor
-                    content={option.content}
-                    onChange={(content) => {
-                      const newOptions = [...options];
-                      newOptions[index].content = content;
-                      setOptions(newOptions);
-                    }}
-                    placeholder="Enter option content..."
-                  />
-                </div>
-                <div className="ml-4 w-32">
-                  <Select
-                    value={option.grade.toString()}
-                    onValueChange={(value) => {
-                      const newOptions = [...options];
-                      newOptions[index].grade = parseFloat(value);
-                      setOptions(newOptions);
+          <Label>Marks</Label>
+          <Input
+            type="number"
+            min="1"
+            value={form.getValues('marks') || 1}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              form.setValue('marks', isNaN(value) ? 1 : value);
+            }}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={form.watch('status')}
+            onValueChange={(value: 'DRAFT' | 'READY') => form.setValue('status', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DRAFT">Draft</SelectItem>
+              <SelectItem value="READY">Ready</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={form.watch('singleAnswer')}
+            onCheckedChange={(checked) => form.setValue('singleAnswer', checked)}
+          />
+          <Label>Single Answer Only</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={form.watch('shuffleAnswers')}
+            onCheckedChange={(checked) => form.setValue('shuffleAnswers', checked)}
+          />
+          <Label>Shuffle Answers</Label>
+        </div>
+      </div>
+
+      {/* Tags Section */}
+      <div className="space-y-2 w-full">
+        <Label>Tags</Label>
+        <div className="flex flex-wrap gap-2">
+          {selectedTags.map((tag) => (
+            <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+              {tag}
+              <button
+                type="button"
+                onClick={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+        <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" className="w-full">
+              <Tag className="mr-2 h-4 w-4" />
+              Add Tags
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0">
+            <Command>
+              <CommandInput placeholder="Search tags..." />
+              <CommandEmpty>No tags found.</CommandEmpty>
+              <CommandGroup>
+                {availableTags.map((tag) => (
+                  <CommandItem
+                    key={tag}
+                    onSelect={() => {
+                      if (!selectedTags.includes(tag)) {
+                        setSelectedTags([...selectedTags, tag]);
+                      }
+                      setIsTagPopoverOpen(false);
                     }}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Grade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">None</SelectItem>
-                      <SelectItem value="100">100%</SelectItem>
-                      <SelectItem value="90">90%</SelectItem>
-                      <SelectItem value="83.33333">83.33333%</SelectItem>
-                      <SelectItem value="75">75%</SelectItem>
-                      <SelectItem value="66.66667">66.66667%</SelectItem>
-                      <SelectItem value="50">50%</SelectItem>
-                      <SelectItem value="40">40%</SelectItem>
-                      <SelectItem value="33.33333">33.33333%</SelectItem>
-                      <SelectItem value="25">25%</SelectItem>
-                      <SelectItem value="20">20%</SelectItem>
-                      <SelectItem value="16.66667">16.66667%</SelectItem>
-                      <SelectItem value="14.28571">14.28571%</SelectItem>
-                      <SelectItem value="12.5">12.5%</SelectItem>
-                      <SelectItem value="11.11111">11.11111%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="-5">-5%</SelectItem>
-                      <SelectItem value="-10">-10%</SelectItem>
-                      <SelectItem value="-16.66667">-16.66667%</SelectItem>
-                      <SelectItem value="-20">-20%</SelectItem>
-                      <SelectItem value="-25">-25%</SelectItem>
-                      <SelectItem value="-33.33333">-33.33333%</SelectItem>
-                      <SelectItem value="-50">-50%</SelectItem>
-                      <SelectItem value="-100">-100%</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    const newOptions = options.filter((_, i) => i !== index);
+                    <Checkbox
+                      checked={selectedTags.includes(tag)}
+                      className="mr-2"
+                    />
+                    {tag}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Options Section */}
+      <div className="space-y-2 w-full">
+        <Label>Options</Label>
+        {options.map((option, index) => (
+          <div key={option.id} className="space-y-2 p-4 border rounded-lg">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <RichTextEditor
+                  content={option.content}
+                  onChange={(content) => {
+                    const newOptions = [...options];
+                    newOptions[index].content = content;
                     setOptions(newOptions);
                   }}
-                  className="ml-2"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                  placeholder="Enter option content..."
+                />
               </div>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOptions([...options, { id: Math.random().toString(), content: '', grade: 0 }])}
-          >
-            Add Option
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Tags</Label>
-          <div className="flex flex-wrap gap-2">
-            {selectedTags.map((tag) => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 ml-1"
-                  onClick={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
+              <div className="ml-4 w-32">
+                <Select
+                  value={option.grade.toString()}
+                  onValueChange={(value) => {
+                    const newOptions = [...options];
+                    newOptions[index].grade = parseFloat(value);
+                    setOptions(newOptions);
+                  }}
                 >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            ))}
-            <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  <Tag className="h-4 w-4 mr-2" />
-                  Add Tag
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0">
-                <Command>
-                  <CommandInput placeholder="Search tags..." />
-                  <CommandEmpty>No tags found.</CommandEmpty>
-                  <CommandGroup>
-                    {availableTags
-                      .filter((tag) => !selectedTags.includes(tag))
-                      .map((tag) => (
-                        <CommandItem
-                          key={tag}
-                          onSelect={() => {
-                            setSelectedTags([...selectedTags, tag]);
-                            setIsTagPopoverOpen(false);
-                          }}
-                        >
-                          {tag}
-                        </CommandItem>
-                      ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">None</SelectItem>
+                    <SelectItem value="100">100%</SelectItem>
+                    <SelectItem value="90">90%</SelectItem>
+                    <SelectItem value="83.33333">83.33333%</SelectItem>
+                    <SelectItem value="75">75%</SelectItem>
+                    <SelectItem value="66.66667">66.66667%</SelectItem>
+                    <SelectItem value="50">50%</SelectItem>
+                    <SelectItem value="40">40%</SelectItem>
+                    <SelectItem value="33.33333">33.33333%</SelectItem>
+                    <SelectItem value="25">25%</SelectItem>
+                    <SelectItem value="20">20%</SelectItem>
+                    <SelectItem value="16.66667">16.66667%</SelectItem>
+                    <SelectItem value="14.28571">14.28571%</SelectItem>
+                    <SelectItem value="12.5">12.5%</SelectItem>
+                    <SelectItem value="11.11111">11.11111%</SelectItem>
+                    <SelectItem value="10">10%</SelectItem>
+                    <SelectItem value="5">5%</SelectItem>
+                    <SelectItem value="-5">-5%</SelectItem>
+                    <SelectItem value="-10">-10%</SelectItem>
+                    <SelectItem value="-16.66667">-16.66667%</SelectItem>
+                    <SelectItem value="-20">-20%</SelectItem>
+                    <SelectItem value="-25">-25%</SelectItem>
+                    <SelectItem value="-33.33333">-33.33333%</SelectItem>
+                    <SelectItem value="-50">-50%</SelectItem>
+                    <SelectItem value="-100">-100%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const newOptions = options.filter((_, i) => i !== index);
+                  setOptions(newOptions);
+                }}
+                className="ml-2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setOptions([...options, { id: Math.random().toString(), content: '', grade: 0 }]);
+          }}
+        >
+          Add Option
+        </Button>
       </div>
     </div>
   );

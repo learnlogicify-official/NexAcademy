@@ -15,6 +15,10 @@ export interface Question {
   testCases?: any[];
   expectedOutput?: string;
   hidden?: boolean;
+  marks?: number;
+  singleAnswer?: boolean;
+  shuffleAnswers?: boolean;
+  status?: 'DRAFT' | 'READY';
   createdAt: string;
   updatedAt: string;
 }
