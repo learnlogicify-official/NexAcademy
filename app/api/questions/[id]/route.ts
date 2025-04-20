@@ -267,11 +267,20 @@ export async function PUT(
             },
             testCases: {
               deleteMany: {},
-              create: (codingQuestion?.testCases || []).map((testCase: any) => ({
-                input: testCase.input,
-                output: testCase.output,
-                isHidden: Boolean(testCase.isHidden)
-              }))
+              create: (codingQuestion?.testCases || []).map((testCase: any) => {
+                // Map type string to boolean fields
+                const isSample = testCase.type === 'sample';
+                const isHidden = testCase.type === 'hidden';
+                
+                return {
+                  input: testCase.input,
+                  output: testCase.output,
+                  isSample: isSample,
+                  isHidden: isHidden,
+                  showOnFailure: Boolean(testCase.showOnFailure),
+                  grade: Number(testCase.grade) || Number(testCase.gradePercentage) || 0
+                };
+              })
             }
           }
         } : undefined

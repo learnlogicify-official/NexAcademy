@@ -82,13 +82,13 @@ interface MCQOption {
   id?: string;
   text: string;
   grade: number;
-  feedback: string;
+  feedback?: string;
 }
 
 interface LanguageOption {
   id?: string;
   language: string;
-  solution: string;
+  solution?: string;
 }
 
 interface TestCase {
@@ -221,7 +221,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
     defaultValues: {
       name: initialData?.name || "",
       questionText: initialData?.mCQQuestion?.questionText || initialData?.codingQuestion?.questionText || "",
-      type: initialData?.type || "MCQ",
+      type: "MCQ",
       status: initialData?.status || "DRAFT",
       folderId: initialData?.folderId || "",
       difficulty: initialData?.mCQQuestion?.difficulty || "MEDIUM",
@@ -230,13 +230,13 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       shuffleChoice: initialData?.mCQQuestion?.shuffleChoice || false,
       generalFeedback: initialData?.mCQQuestion?.generalFeedback || "",
       choiceNumbering: initialData?.mCQQuestion?.choiceNumbering || "abc",
-      options: initialData?.mCQQuestion?.options?.map((option) => ({
+      options: initialData?.mCQQuestion?.options?.map((option: MCQOption) => ({
         text: option.text,
         grade: option.grade,
         feedback: option.feedback || "",
       })) || [],
-      languageOptions: initialData?.codingQuestion?.languageOptions?.map((lang) => lang.language) || [],
-      testCases: initialData?.codingQuestion?.testCases?.map((testCase) => ({
+      languageOptions: initialData?.codingQuestion?.languageOptions?.map((lang: LanguageOption) => lang.language) || [],
+      testCases: initialData?.codingQuestion?.testCases?.map((testCase: TestCase) => ({
         input: testCase.input,
         output: testCase.output,
         isHidden: testCase.isHidden,
@@ -540,15 +540,15 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
         errors.folderId = 'Please select a folder';
       }
       
-      if (data.type === 'MCQ' && data.options.length === 0) {
+      if (data.type === 'MCQ' && (!data.options || data.options.length === 0)) {
         errors.options = 'At least one option is required for MCQ questions';
       }
       
       if (data.type === 'CODING') {
-        if (data.languageOptions.length === 0) {
+        if (!data.languageOptions || data.languageOptions.length === 0) {
           errors.languages = 'At least one programming language must be selected';
         }
-        if (data.testCases.length === 0) {
+        if (!data.testCases || data.testCases.length === 0) {
           errors.testCases = 'At least one test case is required for coding questions';
         }
       }
@@ -558,12 +558,13 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
         return;
       }
       
+      // Call handleSubmit with the validated data
       await handleSubmit(data);
     } catch (error) {
       console.error('Form submission error:', error);
       toast({
         title: "Error",
-        description: "Failed to submit form. Please check all required fields.",
+        description: error instanceof Error ? error.message : "Failed to submit form. Please check all required fields.",
         variant: "destructive",
       });
     }
@@ -608,7 +609,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
         generalFeedback: data.generalFeedback,
         choiceNumbering: data.choiceNumbering,
         mCQQuestion: data.type === 'MCQ' ? {
-          options: data.options?.map(opt => ({
+          options: data.options?.map((opt: MCQOption) => ({
             id: opt.id,
             text: opt.text,
             grade: opt.grade,
@@ -616,12 +617,12 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
           }))
         } : undefined,
         codingQuestion: data.type === 'CODING' ? {
-          languageOptions: data.languageOptions?.map(lang => ({
+          languageOptions: data.languageOptions?.map((lang: LanguageOption) => ({
             id: lang.id,
             language: lang.language,
             solution: lang.solution
           })),
-          testCases: data.testCases?.map(tc => ({
+          testCases: data.testCases?.map((tc: TestCase) => ({
             id: tc.id,
             input: tc.input,
             output: tc.output,
@@ -648,16 +649,16 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
         body: JSON.stringify(submissionData),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        throw new Error(responseData.error || `Failed to ${isUpdate ? 'update' : 'create'} question`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to ${isUpdate ? 'update' : 'create'} question`);
       }
 
+      const responseData = await response.json();
       console.log(`${isUpdate ? 'Update' : 'Create'} successful:`, responseData);
 
-        toast({
-          title: "Success",
+      toast({
+        title: "Success",
         description: `Question ${isUpdate ? 'updated' : 'created'} successfully`,
       });
 
@@ -702,32 +703,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Question Type</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select question type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="MCQ">Multiple Choice</SelectItem>
-                      <SelectItem value="CODING">Coding</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-        />
-      </div>
+          </div>
 
           {/* Folder Selection */}
           <div className="grid gap-4">
@@ -1195,9 +1171,9 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               )}
-              {initialData?.id ? 'Update Question' : 'Create Question'}
+              {initialData?.id ? 'Update MCQ Question' : 'Create MCQ Question'}
             </Button>
-                          </div>
+          </div>
         </form>
         </FormProvider>
       </DialogContent>

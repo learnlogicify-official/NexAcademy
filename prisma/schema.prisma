@@ -134,14 +134,16 @@ enum QuestionDifficulty {
 }
 
 enum ProgrammingLanguage {
-  C
-  CPP
-  JAVA
-  PYTHON2
-  PYTHON3
-  GO
+  PYTHON
   JAVASCRIPT
+  JAVA
+  CPP
+  CSHARP
+  PHP
   RUBY
+  SWIFT
+  GO
+  RUST
 }
 
 model Question {
@@ -224,6 +226,8 @@ model CodingQuestion {
   questionId      String            @unique
   questionText    String
   defaultMark     Float             @default(1.0)
+  difficulty      QuestionDifficulty @default(MEDIUM)
+  isAllOrNothing  Boolean           @default(false)
   languageOptions LanguageOption[]
   testCases       TestCase[]
   question        Question          @relation(fields: [questionId], references: [id])
@@ -253,6 +257,7 @@ model TestCase {
   isSample        Boolean         @default(false)
   isHidden        Boolean         @default(false)
   showOnFailure   Boolean         @default(false)
+  grade           Float           @default(0)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   

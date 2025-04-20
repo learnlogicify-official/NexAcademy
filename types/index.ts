@@ -19,7 +19,17 @@ export interface Folder {
 export type QuestionType = "MCQ" | "CODING"
 export type QuestionStatus = "DRAFT" | "READY"
 export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD"
-export type ProgrammingLanguage = "C" | "CPP" | "JAVA" | "PYTHON2" | "PYTHON3" | "GO" | "JAVASCRIPT" | "RUBY"
+export type ProgrammingLanguage = 
+  | "PYTHON" 
+  | "JAVASCRIPT" 
+  | "JAVA" 
+  | "CPP" 
+  | "CSHARP" 
+  | "PHP" 
+  | "RUBY" 
+  | "SWIFT" 
+  | "GO" 
+  | "RUST"
 
 export interface MCQOption {
   id: string;
