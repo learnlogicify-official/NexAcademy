@@ -1218,27 +1218,38 @@ export function CodingQuestionFormModal({
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select folder">
-                    {folders.find(f => f.id === formData.folderId)?.name || "Select a folder"}
+                    {(() => {
+                      // First try to find the subfolder
+                      for (const folder of folders) {
+                        if (folder.subfolders) {
+                          const subfolder = folder.subfolders.find(sub => sub.id === formData.folderId);
+                          if (subfolder) {
+                            return `${folder.name} / ${subfolder.name}`;
+                          }
+                        }
+                      }
+                      // If not a subfolder, find the main folder
+                      const folder = folders.find(f => f.id === formData.folderId);
+                      return folder?.name || "Select a folder";
+                    })()}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {folders.map((folder) => (
-                    <SelectItem key={folder.id} value={folder.id}>
-                      {folder.subfolders && folder.subfolders.length > 0 ? (
-                        // Parent folder with subfolders
-                        <>
-                          <div>{folder.name}</div>
-                          {folder.subfolders.map(sub => (
-                            <SelectItem key={sub.id} value={sub.id} className="pl-4">
-                              └─ {sub.name}
-                            </SelectItem>
-                          ))}
-                        </>
-                      ) : (
-                        // Regular folder
-                        folder.name
-                      )}
-                    </SelectItem>
+                    <div key={folder.id}>
+                      <SelectItem value={folder.id} className="font-medium">
+                        {folder.name}
+                      </SelectItem>
+                      {folder.subfolders?.map((subfolder) => (
+                        <SelectItem 
+                          key={subfolder.id} 
+                          value={subfolder.id}
+                          className="pl-6"
+                        >
+                          └─ {subfolder.name}
+                        </SelectItem>
+                      ))}
+                    </div>
                   ))}
                 </SelectContent>
               </Select>
