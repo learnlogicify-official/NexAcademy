@@ -52,8 +52,6 @@ interface Question {
   name: string;
   type: 'MCQ' | 'CODING';
   folderId: string;
-  hidden: boolean;
-  marks: number;
   status: 'DRAFT' | 'READY';
   createdAt: string;
   updatedAt: string;
@@ -66,25 +64,20 @@ interface Question {
   };
   content?: string;
   mcqQuestion?: {
-    content: string;
     questionText: string;
     options: Array<{
       text: string;
       grade: number;
       feedback: string;
     }>;
-    correctAnswer: string;
-    singleAnswer: boolean;
-    shuffleAnswers: boolean;
     difficulty: string;
+    defaultMark: number;
     isMultiple: boolean;
     shuffleChoice: boolean;
-    defaultMark: number;
     generalFeedback: string;
-    choiceNumbering: string;
+    choiceNumbering?: string;
   };
   codingQuestion?: {
-    content: string;
     questionText: string;
     languageOptions: Array<{
       language: string;
@@ -545,14 +538,11 @@ export default function AdminQuestionsPage() {
       const mcqData = question.mcqQuestion;
       
       // Get options in the correct format
-      let optionsArray = [];
+      let optionsArray: Array<{ text: string; grade: number; feedback: string }> = [];
       if (Array.isArray(mcqData.options)) {
-        // If options is an array of objects with text and grade
-        if (typeof mcqData.options[0] === 'object' && mcqData.options[0].text) {
+        if (typeof mcqData.options[0] === 'object' && 'text' in mcqData.options[0]) {
           optionsArray = mcqData.options;
-        } 
-        // If options is an array of strings
-        else if (typeof mcqData.options[0] === 'string') {
+        } else if (typeof mcqData.options[0] === 'string') {
           optionsArray = mcqData.options.map((text: string) => ({ 
             text, 
             grade: 0, 
@@ -572,7 +562,7 @@ export default function AdminQuestionsPage() {
         // Make sure the mcqQuestion property exists with all required fields
         mcqQuestion: {
           ...mcqData,
-          questionText: mcqData.questionText || mcqData.content || '',
+          questionText: mcqData.questionText || '',
           options: optionsArray,
         },
       };
@@ -1076,7 +1066,7 @@ export default function AdminQuestionsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="MULTIPLE_CHOICE">Multiple Choice</SelectItem>
+                    <SelectItem value="MCQ">MCQ</SelectItem>
                     <SelectItem value="CODING">Coding</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1207,7 +1197,7 @@ export default function AdminQuestionsPage() {
                         <div dangerouslySetInnerHTML={{ __html: question.content || '' }} />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
+                        <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>
                           {question.type}
                         </Badge>
                       </TableCell>
@@ -1265,7 +1255,7 @@ export default function AdminQuestionsPage() {
                           <div dangerouslySetInnerHTML={{ __html: question.content || '' }} />
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
+                          <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>
                             {question.type}
                           </Badge>
                           <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
@@ -1317,7 +1307,7 @@ export default function AdminQuestionsPage() {
                         <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: question.content || '' }} />
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
+                        <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>
                           {question.type}
                         </Badge>
                         <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>

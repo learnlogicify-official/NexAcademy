@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
     const where: any = {};
 
     if (type) {
-      where.type = type;
+      // Convert MULTIPLE_CHOICE to MCQ for compatibility
+      where.type = type === "MULTIPLE_CHOICE" ? "MCQ" : type;
     }
 
     if (status) {
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     // Transform the results to match the frontend expectations
     const transformedQuestions = questions.map(question => {
-      return {
+      const transformedQuestion = {
         id: question.id,
         name: question.name,
         type: question.type,
@@ -61,20 +62,23 @@ export async function GET(request: NextRequest) {
         folder: question.folder,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
-        // Add content field which is used by the frontend for display
         content: question.mCQQuestion?.questionText || question.codingQuestion?.questionText || question.name,
-        // Format mcqQuestion for frontend
         mcqQuestion: question.mCQQuestion ? {
-          ...question.mCQQuestion,
-          content: question.mCQQuestion.questionText,
-          options: question.mCQQuestion.options.map(opt => opt.text)
+          questionText: question.mCQQuestion.questionText,
+          options: question.mCQQuestion.options,
+          difficulty: question.mCQQuestion.difficulty,
+          defaultMark: question.mCQQuestion.defaultMark,
+          isMultiple: question.mCQQuestion.isMultiple,
+          shuffleChoice: question.mCQQuestion.shuffleChoice,
+          generalFeedback: question.mCQQuestion.generalFeedback
         } : undefined,
-        // Format codingQuestion for frontend
         codingQuestion: question.codingQuestion ? {
-          ...question.codingQuestion,
-          content: question.codingQuestion.questionText
+          questionText: question.codingQuestion.questionText,
+          languageOptions: question.codingQuestion.languageOptions,
+          testCases: question.codingQuestion.testCases
         } : undefined
       };
+      return transformedQuestion;
     });
 
     return NextResponse.json(transformedQuestions);
