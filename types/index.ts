@@ -70,8 +70,21 @@ export interface Question {
   type: QuestionType;
   status: QuestionStatus;
   folderId: string;
+  version: number;
   createdAt: string;
   updatedAt: string;
   mcqQuestion?: MCQQuestion;
   codingQuestion?: CodingQuestion;
+  versions?: QuestionVersion[];
+}
+
+export interface QuestionVersion {
+  id: string;
+  version: number;
+  name: string;
+  type: QuestionType;
+  status: QuestionStatus;
+  createdAt: string;
+  updatedAt: string;
+  content: any; // This will store the full question data at this version
 } 

@@ -39,16 +39,19 @@ export async function GET(request: NextRequest) {
         folder: true,
         mCQQuestion: {
           include: {
-            options: true,
-          },
+            options: true
+          }
         },
         codingQuestion: {
           include: {
             languageOptions: true,
-            testCases: true,
-          },
-        },
+            testCases: true
+          }
+        }
       },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
     // Transform the results to match the frontend expectations
@@ -62,6 +65,7 @@ export async function GET(request: NextRequest) {
         folder: question.folder,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
+        version: question.version,
         content: question.mCQQuestion?.questionText || question.codingQuestion?.questionText || question.name,
         mcqQuestion: question.mCQQuestion ? {
           questionText: question.mCQQuestion.questionText,

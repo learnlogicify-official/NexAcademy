@@ -199,7 +199,6 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Await params to ensure it's properly resolved
     const { id: questionId } = await params;
     
     if (!questionId) {
@@ -254,8 +253,6 @@ export async function PUT(
       }
     });
 
-    console.log('Existing question:', JSON.stringify(existingQuestion, null, 2));
-
     if (!existingQuestion) {
       return NextResponse.json(
         { error: 'Question not found' },
@@ -263,7 +260,25 @@ export async function PUT(
       );
     }
 
-    // Update the question
+    // Create a new version of the question
+    const newVersion = await prisma.questionVersion.create({
+      data: {
+        questionId,
+        version: existingQuestion.version,
+        name: existingQuestion.name,
+        type: existingQuestion.type,
+        status: existingQuestion.status,
+        content: {
+          name: existingQuestion.name,
+          type: existingQuestion.type,
+          status: existingQuestion.status,
+          mCQQuestion: existingQuestion.mCQQuestion,
+          codingQuestion: existingQuestion.codingQuestion
+        }
+      }
+    });
+
+    // Update the question with new data and increment version
     const updatedQuestion = await prisma.question.update({
       where: { id: questionId },
       data: {
@@ -271,6 +286,7 @@ export async function PUT(
         type,
         folderId,
         status,
+        version: existingQuestion.version + 1,
         mCQQuestion: type === 'MCQ' ? {
           update: {
             questionText,
@@ -322,41 +338,17 @@ export async function PUT(
             languageOptions: true,
             testCases: true
           }
+        },
+        versions: {
+          orderBy: {
+            version: 'desc'
+          },
+          take: 5
         }
       }
     });
 
-    console.log('Updated question:', JSON.stringify(updatedQuestion, null, 2));
-
-    // Transform the response to match frontend expectations
-    const transformedQuestion = {
-      ...updatedQuestion,
-      mCQQuestion: updatedQuestion.mCQQuestion ? {
-        ...updatedQuestion.mCQQuestion,
-        options: updatedQuestion.mCQQuestion.options.map(option => ({
-          id: option.id,
-          text: option.text,
-          grade: option.grade || 0,
-          feedback: option.feedback || ''
-        }))
-      } : null,
-      codingQuestion: updatedQuestion.codingQuestion ? {
-        ...updatedQuestion.codingQuestion,
-        testCases: updatedQuestion.codingQuestion.testCases.map(testCase => ({
-          id: testCase.id,
-          input: testCase.input,
-          output: testCase.output,
-          isHidden: testCase.isHidden || false
-        })),
-        languageOptions: updatedQuestion.codingQuestion.languageOptions.map(lang => ({
-          id: lang.id,
-          language: lang.language,
-          solution: lang.solution
-        }))
-      } : null
-    };
-
-    return NextResponse.json(transformedQuestion);
+    return NextResponse.json(updatedQuestion);
   } catch (error) {
     console.error('Error updating question:', error);
     return NextResponse.json(
@@ -371,7 +363,6 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Await params to ensure it's properly resolved
     const { id: questionId } = await params;
 
     // Fetch the question with all related data
@@ -401,6 +392,12 @@ export async function GET(
               }
             }
           }
+        },
+        versions: {
+          orderBy: {
+            version: 'desc'
+          },
+          take: 5
         }
       }
     });
@@ -437,12 +434,18 @@ export async function GET(
           language: lang.language,
           solution: lang.solution
         }))
-      } : null
+      } : null,
+      versions: question.versions.map(version => ({
+        id: version.id,
+        version: version.version,
+        name: version.name,
+        type: version.type,
+        status: version.status,
+        createdAt: version.createdAt,
+        updatedAt: version.updatedAt
+      }))
     };
 
-    // Log the full transformed data including options
-    console.log('Full transformed question data:', JSON.stringify(transformedQuestion, null, 2));
-    
     return NextResponse.json(transformedQuestion);
   } catch (error) {
     console.error("Error fetching question:", error);

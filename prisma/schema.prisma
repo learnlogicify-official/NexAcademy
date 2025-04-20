@@ -149,6 +149,7 @@ model Question {
   name        String
   type        QuestionType
   status      QuestionStatus  @default(DRAFT)
+  version     Int            @default(1)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   
@@ -160,7 +161,26 @@ model Question {
   mCQQuestion MCQQuestion?
   codingQuestion CodingQuestion?
   
+  // Version history
+  versions    QuestionVersion[]
+  
   @@index([folderId])
+}
+
+model QuestionVersion {
+  id          String          @id @default(cuid())
+  questionId  String
+  question    Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  version     Int
+  name        String
+  type        QuestionType
+  status      QuestionStatus
+  content     Json           // Stores the full question data at this version
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([questionId, version])
+  @@index([questionId])
 }
 
 model MCQQuestion {

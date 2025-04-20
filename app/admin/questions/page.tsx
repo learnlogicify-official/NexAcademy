@@ -89,6 +89,7 @@ interface Question {
       isHidden: boolean;
     }>;
   };
+  version: number;
 }
 
 interface Folder {
@@ -1206,7 +1207,11 @@ export default function AdminQuestionsPage() {
                           {question.status || 'DRAFT'}
                         </Badge>
                       </TableCell>
-                      <TableCell>v1</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          v{question.version}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{new Date(question.updatedAt).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -1261,6 +1266,9 @@ export default function AdminQuestionsPage() {
                           <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
                             {question.status || 'DRAFT'}
                           </Badge>
+                          <Badge variant="outline">
+                            v{question.version}
+                          </Badge>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1312,6 +1320,9 @@ export default function AdminQuestionsPage() {
                         </Badge>
                         <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
                           {question.status || 'DRAFT'}
+                        </Badge>
+                        <Badge variant="outline">
+                          v{question.version}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
