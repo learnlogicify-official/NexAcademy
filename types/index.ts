@@ -73,7 +73,8 @@ export interface Question {
   version: number;
   createdAt: string;
   updatedAt: string;
-  mcqQuestion?: MCQQuestion;
+  lastModifiedByName?: string;
+  mCQQuestion?: MCQQuestion;
   codingQuestion?: CodingQuestion;
   versions?: QuestionVersion[];
 }

@@ -32,20 +32,42 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
+import type { Question as QuestionType } from '@/types';
 import { Folder as FolderType } from '@/types';
+import { QuestionRow } from "./QuestionRow";
 
-const questionFormSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  type: z.string().min(1, 'Question type is required'),
-  points: z.number().min(0, 'Points must be non-negative'),
-  difficulty: z.string().min(1, 'Difficulty is required'),
-  hidden: z.boolean(),
-  singleAnswer: z.boolean(),
-  shuffleAnswers: z.boolean(),
-  folderId: z.string().min(1, 'Folder is required'),
-  subfolderId: z.string().optional(),
-});
+interface QuestionFormData {
+  id: string;
+  name: string;
+  type: 'MCQ' | 'CODING';
+  status: 'DRAFT' | 'READY';
+  folderId: string;
+  version: number;
+  questionText: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  defaultMark: number;
+  isMultiple: boolean;
+  shuffleChoice: boolean;
+  generalFeedback: string;
+  choiceNumbering: string;
+  options: {
+    id: string;
+    text: string;
+    grade: number;
+    feedback: string;
+  }[];
+  languageOptions: {
+    id: string;
+    language: string;
+    solution: string;
+  }[];
+  testCases: {
+    id: string;
+    input: string;
+    output: string;
+    isHidden: boolean;
+  }[];
+}
 
 interface Question {
   id: string;
@@ -90,6 +112,7 @@ interface Question {
     }>;
   };
   version: number;
+  lastModifiedByName?: string;
 }
 
 interface Folder {
@@ -133,7 +156,7 @@ const QUESTIONS_PER_PAGE = 10;
 export default function AdminQuestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<QuestionType[]>([]);
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
@@ -148,7 +171,7 @@ export default function AdminQuestionsPage() {
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'table' | 'list' | 'grid'>('table');
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<Question | undefined>();
+  const [editingQuestion, setEditingQuestion] = useState<QuestionFormData | undefined>();
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [isCreateSubfolderModalOpen, setIsCreateSubfolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -166,9 +189,9 @@ export default function AdminQuestionsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [sortField, setSortField] = useState<keyof Question>('createdAt');
+  const [sortField, setSortField] = useState<keyof QuestionType>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
+  const [previewQuestion, setPreviewQuestion] = useState<QuestionType | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
@@ -218,46 +241,17 @@ export default function AdminQuestionsPage() {
       queryParams.append('includeSubcategories', currentFilters?.includeSubcategories ? 'true' : 'false');
 
       const response = await axios.get(`/api/questions?${queryParams.toString()}`);
-      const questions = response.data as Question[];
-      
-      // Update questions state with all required data
-      setQuestions(questions.map(q => ({
-        ...q,
-        content: q.type === 'MCQ' 
-          ? q.mcqQuestion?.questionText || q.mcqQuestion?.content || ''
-          : q.codingQuestion?.questionText || q.codingQuestion?.content || '',
-        status: q.status || 'DRAFT',
-        folder: q.folder || undefined,
-        mcqQuestion: q.type === 'MCQ' ? {
-          ...q.mcqQuestion,
-          questionText: q.mcqQuestion?.questionText || q.mcqQuestion?.content || '',
-          options: q.mcqQuestion?.options?.map(opt => ({
-            text: opt.text || '',
-            grade: opt.grade || 0,
-            feedback: opt.feedback || ''
-          })) || [],
-          difficulty: q.mcqQuestion?.difficulty || 'MEDIUM',
-          defaultMark: q.mcqQuestion?.defaultMark || 1,
-          isMultiple: q.mcqQuestion?.isMultiple || false,
-          shuffleChoice: q.mcqQuestion?.shuffleChoice || false,
-          generalFeedback: q.mcqQuestion?.generalFeedback || ''
-        } : undefined,
-        codingQuestion: q.type === 'CODING' ? {
-          ...q.codingQuestion,
-          questionText: q.codingQuestion?.questionText || q.codingQuestion?.content || '',
-          languageOptions: q.codingQuestion?.languageOptions || [],
-          testCases: q.codingQuestion?.testCases || []
-        } : undefined
-      })));
+      const questions = response.data as QuestionType[];
+      setQuestions(questions);
       
       // Update stats
       const newStats = {
         total: questions.length,
-        ready: questions.filter((q: Question) => q.status === 'READY').length,
-        draft: questions.filter((q: Question) => q.status === 'DRAFT').length,
-        multipleChoice: questions.filter((q: Question) => q.type === 'MCQ').length,
-        coding: questions.filter((q: Question) => q.type === 'CODING').length,
-        byFolder: questions.reduce((acc: Record<string, number>, q: Question) => {
+        ready: questions.filter((q) => q.status === 'READY').length,
+        draft: questions.filter((q) => q.status === 'DRAFT').length,
+        multipleChoice: questions.filter((q) => q.type === 'MCQ').length,
+        coding: questions.filter((q) => q.type === 'CODING').length,
+        byFolder: questions.reduce((acc: Record<string, number>, q) => {
           const folderName = q.folder?.name || 'Uncategorized';
           acc[folderName] = (acc[folderName] || 0) + 1;
           return acc;
@@ -506,89 +500,30 @@ export default function AdminQuestionsPage() {
     }
   };
 
-  const handleEditQuestion = (question: Question) => {
+  const handleEditQuestion = (question: QuestionType) => {
     console.log('Editing question:', question);
     
-    // Log the full question object to help with debugging
-    console.log('Full question object:', JSON.stringify(question, null, 2));
-    
-    // Make sure folderId is explicitly set and logged
-    const questionFolderId = question.folderId;
-    console.log('Question folderId:', questionFolderId);
-    
-    // Deep clone the question to avoid modification issues
-    let formattedQuestion: any = { ...question };
-    
-    // Set up basic question data with explicit folderId set
-    formattedQuestion = {
-      ...formattedQuestion,
+    const formattedQuestion: QuestionFormData = {
       id: question.id,
-      name: question.name || '',
+      name: question.name,
       type: question.type,
-      folderId: questionFolderId,  // Explicitly set folderId
-      status: question.status || 'DRAFT',
-      difficulty: question.difficulty || 'MEDIUM',
-      // The questionText field is expected by the form
-      questionText: question.type === 'MCQ' 
-        ? question.mcqQuestion?.questionText || question.mcqQuestion?.content || ''
-        : question.codingQuestion?.questionText || question.codingQuestion?.content || '',
+      status: question.status,
+      folderId: question.folderId,
+      version: question.version,
+      questionText: question.mcqQuestion?.questionText || question.codingQuestion?.questionText || '',
+      difficulty: question.mcqQuestion?.difficulty || 'MEDIUM',
+      defaultMark: question.mcqQuestion?.defaultMark || 1,
+      isMultiple: question.mcqQuestion?.isMultiple || false,
+      shuffleChoice: question.mcqQuestion?.shuffleChoice || false,
+      generalFeedback: question.mcqQuestion?.generalFeedback || '',
+      choiceNumbering: question.mcqQuestion?.choiceNumbering || 'abc',
+      options: question.mcqQuestion?.options || [],
+      languageOptions: question.codingQuestion?.languageOptions || [],
+      testCases: question.codingQuestion?.testCases || []
     };
-    
-    // Handle MCQ question specific data
-    if (question.type === 'MCQ' && question.mcqQuestion) {
-      const mcqData = question.mcqQuestion;
-      
-      // Get options in the correct format
-      let optionsArray: Array<{ text: string; grade: number; feedback: string }> = [];
-      if (Array.isArray(mcqData.options)) {
-        if (typeof mcqData.options[0] === 'object' && 'text' in mcqData.options[0]) {
-          optionsArray = mcqData.options;
-        } else if (typeof mcqData.options[0] === 'string') {
-          optionsArray = mcqData.options.map((text: string) => ({ 
-            text, 
-            grade: 0, 
-            feedback: '' 
-          }));
-        }
-      }
-      
-      formattedQuestion = {
-        ...formattedQuestion,
-        // Add MCQ specific fields
-        isMultiple: mcqData.isMultiple !== undefined ? mcqData.isMultiple : false,
-        shuffleChoice: mcqData.shuffleChoice !== undefined ? mcqData.shuffleChoice : false,
-        defaultMark: mcqData.defaultMark || 1,
-        generalFeedback: mcqData.generalFeedback || '',
-        choiceNumbering: mcqData.choiceNumbering || 'abc',
-        // Make sure the mcqQuestion property exists with all required fields
-        mcqQuestion: {
-          ...mcqData,
-          questionText: mcqData.questionText || '',
-          options: optionsArray,
-        },
-      };
-    }
-    
-    // Handle CODING question specific data
-    if (question.type === 'CODING' && question.codingQuestion) {
-      const codingData = question.codingQuestion;
-      
-      formattedQuestion = {
-        ...formattedQuestion,
-        // Make sure the codingQuestion property exists with all required fields
-        codingQuestion: {
-          ...codingData,
-          questionText: codingData.questionText || codingData.content || '',
-        },
-        // Extract languageOptions and testCases for direct access
-        languageOptions: codingData.languageOptions || [],
-        testCases: codingData.testCases || [],
-      };
-    }
     
     console.log('Formatted question for form:', formattedQuestion);
     
-    // Set the editingQuestion state and open the modal
     setEditingQuestion(formattedQuestion);
     setIsFormModalOpen(true);
   };
@@ -596,59 +531,33 @@ export default function AdminQuestionsPage() {
   const filteredQuestions = questions.filter((question) => {
     // Search filter
     const matchesSearch = filters.search === "" || 
-      question?.content?.toLowerCase()?.includes(filters.search.toLowerCase()) || 
-      question?.folder?.name?.toLowerCase()?.includes(filters.search.toLowerCase());
+      question.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      question.mcqQuestion?.questionText?.toLowerCase().includes(filters.search.toLowerCase()) || 
+      question.codingQuestion?.questionText?.toLowerCase().includes(filters.search.toLowerCase());
       
     // Category and Subcategory filter
     let matchesCategory = true;
     if (filters.subcategory !== "all") {
-      // If subcategory is selected, check folderId since that's where the subcategory ID is stored
-      matchesCategory = question?.folderId === filters.subcategory;
+      matchesCategory = question.folderId === filters.subcategory;
     } else if (filters.category !== "all") {
-      // If only category is selected, check folderId
       if (filters.includeSubcategories) {
-        // Get all subfolder IDs for the selected category
         const subfolderIds = folders
           .find(f => f.id === filters.category)
           ?.subfolders?.map(s => s.id) || [];
-        
-        // Check if the question belongs to either the category or any of its subcategories
-        matchesCategory = question?.folderId === filters.category || 
-                         subfolderIds.includes(question?.folderId);
+        matchesCategory = question.folderId === filters.category || 
+                         subfolderIds.includes(question.folderId);
       } else {
-        // If includeSubcategories is false, only show questions directly in the category
-        matchesCategory = question?.folderId === filters.category;
+        matchesCategory = question.folderId === filters.category;
       }
     }
 
     // Type filter
-    const matchesType = filters.type === "all" || question?.type === filters.type;
+    const matchesType = filters.type === "all" || question.type === filters.type;
     
     // Status filter
-    const matchesStatus = filters.status === "all" || question?.status === filters.status;
-    
-    // Visibility filter
-    const matchesVisibility = filters.showHidden || !question?.hidden;
+    const matchesStatus = filters.status === "all" || question.status === filters.status;
 
-    console.log('Filtering question:', {
-      id: question.id,
-      folderId: question.folderId,
-      matchesSearch,
-      matchesCategory,
-      matchesType,
-      matchesStatus,
-      matchesVisibility,
-      filters: {
-        category: filters.category,
-        subcategory: filters.subcategory,
-        type: filters.type,
-        status: filters.status,
-        showHidden: filters.showHidden,
-        includeSubcategories: filters.includeSubcategories
-      }
-    });
-
-    return matchesSearch && matchesCategory && matchesType && matchesStatus && matchesVisibility;
+    return matchesSearch && matchesCategory && matchesType && matchesStatus;
   });
 
   // Calculate total pages whenever filtered questions change
@@ -674,10 +583,10 @@ export default function AdminQuestionsPage() {
   };
 
   // Add sorting function
-  const sortQuestions = (questions: Question[]) => {
+  const sortQuestions = (questions: QuestionType[]) => {
     return [...questions].sort((a, b) => {
-      const aValue = a.content || '';
-      const bValue = b.content || '';
+      const aValue = a.mcqQuestion?.questionText || a.codingQuestion?.questionText || a.name;
+      const bValue = b.mcqQuestion?.questionText || b.codingQuestion?.questionText || b.name;
       if (sortDirection === 'asc') {
         return aValue.localeCompare(bValue);
       } else {
@@ -687,13 +596,8 @@ export default function AdminQuestionsPage() {
   };
 
   // Add preview handler
-  const handlePreview = (question: Question) => {
-    setPreviewQuestion({
-      ...question,
-      content: question.type === 'MCQ' ? question.mcqQuestion?.content : question.codingQuestion?.content,
-      options: question.mcqQuestion?.options,
-      correctAnswer: question.mcqQuestion?.correctAnswer
-    });
+  const handlePreview = (question: QuestionType) => {
+    setPreviewQuestion(question);
     setIsPreviewModalOpen(true);
   };
 
@@ -879,7 +783,7 @@ export default function AdminQuestionsPage() {
   useEffect(() => {
     console.log('Filters changed:', {
       filters,
-      questions: questions.map((q: Question) => ({
+      questions: questions.map((q: QuestionType) => ({
         id: q.id,
         folderId: q.folderId,
         subfolderId: q.subfolderId
@@ -1107,6 +1011,39 @@ export default function AdminQuestionsPage() {
                   <Label htmlFor="includeSubcategories">Include subcategories</Label>
                 </div>
 
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Get all the toggle switches for question rows
+                      const tableRows = document.querySelectorAll('.question-row-toggle');
+                      
+                      // Check if most of the questions are already expanded
+                      const expandedCount = Array.from(tableRows).filter((toggle: any) => toggle.checked).length;
+                      const shouldCollapse = expandedCount > tableRows.length / 2;
+                      
+                      // Toggle all questions based on current state
+                      tableRows.forEach((toggle: any) => {
+                        if (shouldCollapse && toggle.checked) {
+                          // Collapse if most are expanded
+                          toggle.click();
+                        } else if (!shouldCollapse && !toggle.checked) {
+                          // Expand if most are collapsed
+                          toggle.click();
+                        }
+                      });
+                    }}
+                    className="flex items-center gap-1"
+                    title="Toggle expansion of all questions"
+                  >
+                    <div className="h-4 w-4">
+                      <ListChecks className="h-4 w-4" />
+                    </div>
+                    <span>Toggle Views</span>
+                  </Button>
+                </div>
+
                 <Button 
                   onClick={applyFilters}
                   className="ml-auto"
@@ -1182,63 +1119,21 @@ export default function AdminQuestionsPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Version</TableHead>
                     <TableHead>Last Modified</TableHead>
+                    <TableHead>Modified By</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortQuestions(paginatedQuestions).map((question) => (
-                    <TableRow key={question.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedQuestions.includes(question.id)}
-                          onCheckedChange={() => handleBulkSelect(question.id)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div dangerouslySetInnerHTML={{ __html: question.content || '' }} />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>
-                          {question.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
-                          {question.status || 'DRAFT'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          v{question.version}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(question.updatedAt).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePreview(question)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditQuestion(question)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteQuestion(question.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <QuestionRow
+                      key={question.id}
+                      question={question}
+                      onSelect={handleBulkSelect}
+                      isSelected={selectedQuestions.includes(question.id)}
+                      onPreview={handlePreview}
+                      onEdit={handleEditQuestion}
+                      onDelete={handleDeleteQuestion}
+                    />
                   ))}
                 </TableBody>
               </Table>

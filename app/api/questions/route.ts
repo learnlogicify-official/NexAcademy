@@ -1,6 +1,8 @@
 import { QuestionType, QuestionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,38 +56,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Transform the results to match the frontend expectations
-    const transformedQuestions = questions.map(question => {
-      const transformedQuestion = {
-        id: question.id,
-        name: question.name,
-        type: question.type,
-        status: question.status,
-        folderId: question.folderId,
-        folder: question.folder,
-        createdAt: question.createdAt,
-        updatedAt: question.updatedAt,
-        version: question.version,
-        content: question.mCQQuestion?.questionText || question.codingQuestion?.questionText || question.name,
-        mcqQuestion: question.mCQQuestion ? {
-          questionText: question.mCQQuestion.questionText,
-          options: question.mCQQuestion.options,
-          difficulty: question.mCQQuestion.difficulty,
-          defaultMark: question.mCQQuestion.defaultMark,
-          isMultiple: question.mCQQuestion.isMultiple,
-          shuffleChoice: question.mCQQuestion.shuffleChoice,
-          generalFeedback: question.mCQQuestion.generalFeedback
-        } : undefined,
-        codingQuestion: question.codingQuestion ? {
-          questionText: question.codingQuestion.questionText,
-          languageOptions: question.codingQuestion.languageOptions,
-          testCases: question.codingQuestion.testCases
-        } : undefined
-      };
-      return transformedQuestion;
-    });
-
-    return NextResponse.json(transformedQuestions);
+    return NextResponse.json(questions);
   } catch (error) {
     console.error("Error fetching questions:", error);
     return NextResponse.json(
@@ -97,6 +68,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     console.log("Request body:", JSON.stringify(body, null, 2));
 
@@ -176,6 +155,10 @@ export async function POST(request: NextRequest) {
         type: body.type,
         status: body.status || "DRAFT",
         folderId: body.folderId,
+        creatorId: session.user.id,
+        creatorName: session.user.name || "Unknown User",
+        lastModifiedBy: session.user.id,
+        lastModifiedByName: session.user.name || "Unknown User"
       };
       
       console.log("Creating question with data:", questionData);

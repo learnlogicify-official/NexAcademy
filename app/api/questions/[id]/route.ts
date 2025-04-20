@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from '@prisma/client';
 import { Question } from '@/types';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function DELETE(
   request: Request,
@@ -79,6 +81,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = params;
     if (!id) {
       return NextResponse.json({ error: 'Question ID is required' }, { status: 400 });
@@ -107,81 +117,28 @@ export async function PATCH(
       throw new Error('Question not found');
     }
 
+    // Update the question with the new data and user information
     const updatedQuestion = await prisma.question.update({
       where: { id },
       data: {
-        type,
-        folder: {
-          connect: {
-            id: folderId
-          }
-        },
-        status: rest.status || 'DRAFT',
-        ...(type === 'MCQ' && {
-          mCQQuestion: {
-            upsert: {
-              create: {
-                questionText: content,
-                defaultMark: rest.defaultMark || 1,
-                difficulty: rest.difficulty || 'EASY',
-                options: {
-                  create: options?.map((option: any) => ({
-                    text: option.text,
-                    grade: option.grade || 0,
-                    feedback: option.feedback || ''
-                  })) || []
-                },
-                isMultiple: singleAnswer || false,
-                shuffleChoice: shuffleAnswers || false,
-                generalFeedback: rest.generalFeedback || ''
-              },
-              update: {
-                questionText: content,
-                defaultMark: rest.defaultMark || 1,
-                difficulty: rest.difficulty || 'EASY',
-                options: {
-                  deleteMany: {},
-                  create: options?.map((option: any) => ({
-                    text: option.text,
-                    grade: option.grade || 0,
-                    feedback: option.feedback || ''
-                  })) || []
-                },
-                isMultiple: singleAnswer || false,
-                shuffleChoice: shuffleAnswers || false,
-                generalFeedback: rest.generalFeedback || ''
-              }
-            }
-          },
-          ...(existingQuestion.type === 'CODING' && {
-            codingQuestion: { delete: true }
-          })
-        }),
-        ...(type === 'CODING' && {
-          codingQuestion: {
-            upsert: {
-              create: {
-                questionText: content
-              },
-              update: {
-                questionText: content
-              }
-            }
-          },
-          ...(existingQuestion.type === 'MCQ' && {
-            mCQQuestion: { delete: true }
-          })
-        })
+        ...rest,
+        folderId,
+        lastModifiedBy: session.user.id,
+        lastModifiedByName: session.user.name || "Unknown User",
+        updatedAt: new Date()
       },
       include: {
-        folder: true,
-        mCQQuestion: {
-          include: {
-            options: true
-          }
-        },
+        mCQQuestion: true,
         codingQuestion: true
       }
+    });
+
+    // Log the update for debugging
+    console.log('Question updated:', {
+      id: updatedQuestion.id,
+      lastModifiedBy: updatedQuestion.lastModifiedBy,
+      lastModifiedByName: updatedQuestion.lastModifiedByName,
+      updatedAt: updatedQuestion.updatedAt
     });
 
     return NextResponse.json(updatedQuestion);
@@ -199,6 +156,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id: questionId } = await params;
     
     if (!questionId) {
@@ -260,25 +225,7 @@ export async function PUT(
       );
     }
 
-    // Create a new version of the question
-    const newVersion = await prisma.questionVersion.create({
-      data: {
-        questionId,
-        version: existingQuestion.version,
-        name: existingQuestion.name,
-        type: existingQuestion.type,
-        status: existingQuestion.status,
-        content: {
-          name: existingQuestion.name,
-          type: existingQuestion.type,
-          status: existingQuestion.status,
-          mCQQuestion: existingQuestion.mCQQuestion,
-          codingQuestion: existingQuestion.codingQuestion
-        }
-      }
-    });
-
-    // Update the question with new data and increment version
+    // Update the question with new data and user information
     const updatedQuestion = await prisma.question.update({
       where: { id: questionId },
       data: {
@@ -286,7 +233,9 @@ export async function PUT(
         type,
         folderId,
         status,
-        version: existingQuestion.version + 1,
+        lastModifiedBy: session.user.id,
+        lastModifiedByName: session.user.name || "Unknown User",
+        updatedAt: new Date(),
         mCQQuestion: type === 'MCQ' ? {
           update: {
             questionText,
@@ -338,14 +287,16 @@ export async function PUT(
             languageOptions: true,
             testCases: true
           }
-        },
-        versions: {
-          orderBy: {
-            version: 'desc'
-          },
-          take: 5
         }
       }
+    });
+
+    // Log the update for debugging
+    console.log('Question updated:', {
+      id: updatedQuestion.id,
+      lastModifiedBy: updatedQuestion.lastModifiedBy,
+      lastModifiedByName: updatedQuestion.lastModifiedByName,
+      updatedAt: updatedQuestion.updatedAt
     });
 
     return NextResponse.json(updatedQuestion);

@@ -152,6 +152,10 @@ model Question {
   version     Int            @default(1)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  creatorId   String         @default("system")
+  creatorName String         @default("System")
+  lastModifiedBy String      @default("system")
+  lastModifiedByName String  @default("System")
   
   // Folder relationship
   folderId    String
@@ -165,6 +169,7 @@ model Question {
   versions    QuestionVersion[]
   
   @@index([folderId])
+  @@index([creatorId])
 }
 
 model QuestionVersion {
