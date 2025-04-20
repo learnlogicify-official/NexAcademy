@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { QuestionDifficulty } from "@prisma/client";
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -47,137 +48,113 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const codingQuestionId = existingQuestion.codingQuestion.id;
     const now = new Date();
 
-    // Use a transaction to ensure all updates are atomic
-    const updatedQuestion = await prisma.$transaction(async (tx) => {
-      // 1. Update the main question
-      const updatedMainQuestion = await tx.question.update({
-        where: { id },
-        data: {
-          name: body.name,
-          status: body.status || "DRAFT",
-          folderId: body.folderId,
-          lastModifiedBy: session.user.id,
-          lastModifiedByName: session.user.name || "Unknown User",
-          updatedAt: now,
+    // First, update the main question
+    await prisma.question.update({
+      where: { id },
+      data: {
+        name: body.name,
+        status: body.status || "DRAFT",
+        folderId: body.folderId,
+        lastModifiedBy: session.user.id,
+        lastModifiedByName: session.user.name || "Unknown User",
+        updatedAt: now,
+      },
+    });
+
+    // Then, update the coding question and its related data
+    const updatedQuestion = await prisma.codingQuestion.update({
+      where: { id: codingQuestionId },
+      data: {
+        questionText: body.questionText,
+        defaultMark: Number(body.defaultMark) || 1,
+        isAllOrNothing: {
+          set: Boolean(body.allOrNothingGrading)
         },
-      });
-
-      // 2. Update the coding question
-      const updatedCodingQuestion = await tx.codingQuestion.update({
-        where: { id: codingQuestionId },
-        data: {
-          questionText: body.questionText,
-          defaultMark: Number(body.defaultMark) || 1,
-          difficulty: body.difficulty || "MEDIUM",
-          updatedAt: now,
+        updatedAt: now,
+        // Update difficulty separately to avoid type issues
+        difficulty: {
+          set: (body.difficulty?.toUpperCase() as QuestionDifficulty) || QuestionDifficulty.MEDIUM
         },
-      });
+        languageOptions: {
+          deleteMany: {},
+          create: (body.languageOptions || []).map((lang: any) => {
+            // Map language string to a valid ProgrammingLanguage enum
+            let mappedLanguage;
+            switch((lang.language || "").toLowerCase()) {
+              case 'python':
+              case 'python2':
+              case 'python3':
+                mappedLanguage = 'PYTHON';
+                break;
+              case 'javascript':
+              case 'js':
+                mappedLanguage = 'JAVASCRIPT';
+                break;
+              case 'java':
+                mappedLanguage = 'JAVA';
+                break;
+              case 'cpp':
+              case 'c++':
+              case 'c':
+                mappedLanguage = 'CPP';
+                break;
+              case 'csharp':
+              case 'c#':
+                mappedLanguage = 'CSHARP';
+                break;
+              case 'php':
+                mappedLanguage = 'PHP';
+                break;
+              case 'ruby':
+                mappedLanguage = 'RUBY';
+                break;
+              case 'swift':
+                mappedLanguage = 'SWIFT';
+                break;
+              case 'go':
+                mappedLanguage = 'GO';
+                break;
+              case 'rust':
+                mappedLanguage = 'RUST';
+                break;
+              default:
+                mappedLanguage = 'PYTHON';
+            }
 
-      // 3. Delete old language options and test cases
-      await tx.languageOption.deleteMany({
-        where: { codingQuestionId },
-      });
-
-      await tx.testCase.deleteMany({
-        where: { codingQuestionId },
-      });
-
-      // 4. Create new language options
-      const languageOptions = (body.languageOptions || []).map((lang: any) => {
-        // Map language string to a valid ProgrammingLanguage enum
-        let mappedLanguage;
-        switch((lang.language || "").toLowerCase()) {
-          case 'python':
-          case 'python2':
-          case 'python3':
-            mappedLanguage = 'PYTHON';
-            break;
-          case 'javascript':
-          case 'js':
-            mappedLanguage = 'JAVASCRIPT';
-            break;
-          case 'java':
-            mappedLanguage = 'JAVA';
-            break;
-          case 'cpp':
-          case 'c++':
-          case 'c':
-            mappedLanguage = 'CPP';
-            break;
-          case 'csharp':
-          case 'c#':
-            mappedLanguage = 'CSHARP';
-            break;
-          case 'php':
-            mappedLanguage = 'PHP';
-            break;
-          case 'ruby':
-            mappedLanguage = 'RUBY';
-            break;
-          case 'swift':
-            mappedLanguage = 'SWIFT';
-            break;
-          case 'go':
-            mappedLanguage = 'GO';
-            break;
-          case 'rust':
-            mappedLanguage = 'RUST';
-            break;
-          default:
-            mappedLanguage = 'PYTHON';
-        }
-
-        return {
-          id: `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          language: mappedLanguage,
-          solution: lang.solution || "",
-          preloadCode: lang.preloadCode || "",
-          codingQuestionId,
-          createdAt: now,
-          updatedAt: now,
-        };
-      });
-
-      await tx.languageOption.createMany({
-        data: languageOptions,
-      });
-
-      // 5. Create new test cases
-      const testCases = (body.testCases || []).map((tc: any) => {
-        const isSample = tc.type === 'sample';
-        const isHidden = tc.type === 'hidden';
-        const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
-
-        return {
-          id: `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          input: tc.input || "",
-          output: tc.output || "",
-          isSample,
-          isHidden,
-          showOnFailure: Boolean(tc.showOnFailure),
-          grade: gradeValue,
-          codingQuestionId,
-          createdAt: now,
-          updatedAt: now,
-        };
-      });
-
-      await tx.testCase.createMany({
-        data: testCases,
-      });
-
-      // Return the updated question with all related data
-      return tx.question.findUnique({
-        where: { id },
-        include: {
-          codingQuestion: {
-            include: {
-              languageOptions: true,
-              testCases: true,
-            },
-          },
+            return {
+              language: mappedLanguage,
+              solution: lang.solution || "",
+              preloadCode: lang.preloadCode || "",
+              createdAt: now,
+              updatedAt: now,
+            };
+          }),
         },
-      });
+        testCases: {
+          deleteMany: {},
+          create: (body.testCases || []).map((tc: any) => {
+            const isSample = tc.type === 'sample';
+            const isHidden = tc.type === 'hidden';
+            const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
+
+            return {
+              input: tc.input || "",
+              output: tc.output || "",
+              isSample,
+              isHidden,
+              showOnFailure: Boolean(tc.showOnFailure),
+              grade: gradeValue,
+              createdAt: now,
+              updatedAt: now,
+            };
+          }),
+        },
+      },
+      include: {
+        languageOptions: true,
+        testCases: true,
+        question: true,
+      },
     });
 
     return NextResponse.json(updatedQuestion);

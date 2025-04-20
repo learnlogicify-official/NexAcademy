@@ -1021,7 +1021,9 @@ export function CodingQuestionFormModal({
         const correctOption = { 
           ...option,
           // Double-check that language is exactly the ID we need (not modified)
-          language: option.language
+          language: option.language,
+          // Preserve the ID if it exists (for editing)
+          id: option.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
         };
         uniqueLanguages.set(option.language, correctOption);
         console.log(`Adding language to submission: ${option.language}`, correctOption);
@@ -1036,7 +1038,7 @@ export function CodingQuestionFormModal({
     const testCases = formData.testCases.map(testCase => {
       console.log(`Test case ${testCase.id} type for submission:`, testCase.type);
       return {
-        id: testCase.id,
+        id: testCase.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         input: testCase.input,
         output: testCase.output,
         type: testCase.type, // Send the type to the API

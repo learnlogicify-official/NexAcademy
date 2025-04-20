@@ -96,6 +96,7 @@
     "recharts": "latest",
     "sonner": "^1.4.0",
     "sqlite3": "^5.1.7",
+    "swr": "^2.3.3",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",

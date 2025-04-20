@@ -537,7 +537,7 @@ export default function AdminQuestionsPage() {
       const isEditing = !!data.id;
       
       // Transform the data based on question type
-      const transformedData = {
+      const transformedData: any = {
         id: data.id, // Include the ID for existing questions
         name: data.name,
         type: data.type,
@@ -562,40 +562,55 @@ export default function AdminQuestionsPage() {
           solution: data.solution || "",
           hints: data.hints || []
         } : undefined,
+        // For coding questions, include properties both in the codingQuestion object AND at the top level
+        // This is because the update API expects them directly in the body
         codingQuestion: data.type === 'CODING' ? {
           questionText: data.questionText,
+          defaultMark: data.defaultMark,
+          difficulty: data.difficulty,
+          isAllOrNothing: data.allOrNothingGrading || false,
           languageOptions: data.languageOptions?.map((lang: any) => ({
-            id: lang.id, // Include ID for existing language options
+            id: lang.id,
             language: lang.language,
             solution: lang.solution || "",
             preloadCode: lang.preloadCode || ""
           })),
           testCases: data.testCases?.map((tc: any) => ({
-            id: tc.id, // Include ID for existing test cases
+            id: tc.id,
             input: tc.input || "",
             output: tc.output || "",
-            type: tc.isHidden ? "hidden" : "sample",
-            gradePercentage: tc.gradePercentage || 0,
-            showOnFailure: tc.showOnFailure || false
-          })),
-          allOrNothingGrading: data.allOrNothingGrading || false,
-          defaultLanguage: data.defaultLanguage || ""
+            isHidden: tc.isHidden || false,
+            isSample: tc.isSample || false,
+            type: tc.isSample ? "sample" : "hidden",
+            grade: tc.gradePercentage || 0
+          }))
         } : undefined
       };
-
-      // Only make the API call if we have all the required data
-      if (data.type === 'MCQ' && (!data.options || data.options.length === 0)) {
-        console.log("Skipping API call - MCQ question has no options");
-        return;
+      
+      // For coding questions, add these properties at the top level as well since the update API expects them there
+      if (data.type === 'CODING') {
+        transformedData.languageOptions = data.languageOptions?.map((lang: any) => ({
+          id: lang.id,
+          language: lang.language,
+          solution: lang.solution || "",
+          preloadCode: lang.preloadCode || ""
+        }));
+        
+        transformedData.testCases = data.testCases?.map((tc: any) => ({
+          id: tc.id,
+          input: tc.input || "",
+          output: tc.output || "",
+          isHidden: tc.isHidden || false,
+          isSample: tc.isSample || false,
+          type: tc.isSample ? "sample" : "hidden",
+          grade: tc.gradePercentage || 0
+        }));
+        
+        transformedData.allOrNothingGrading = data.allOrNothingGrading || false;
       }
-
-      if (data.type === 'CODING' && (!data.languageOptions || data.languageOptions.length === 0)) {
-        console.log("Skipping API call - Coding question has no language options");
-        return;
-      }
-
-      console.log("Making API call with transformed data:", JSON.stringify(transformedData, null, 2));
-
+      
+      console.log("Transformed data for submission:", JSON.stringify(transformedData, null, 2));
+      
       let response;
       
       if (isEditing) {
@@ -604,7 +619,7 @@ export default function AdminQuestionsPage() {
         const endpoint = data.type === "MCQ" 
           ? `/api/questions/mcq/${data.id}`
           : data.type === "CODING"
-          ? `/api/questions/coding/${data.id}`
+          ? `/api/questions/coding/update/${data.id}`
           : `/api/questions/${data.id}`;
           
         response = await axios.put(endpoint, transformedData);
@@ -671,18 +686,19 @@ export default function AdminQuestionsPage() {
         feedback: opt.feedback || ''
       })) || [],
       languageOptions: question.codingQuestion?.languageOptions?.map(lang => ({
-        id: lang.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: lang.id,
         language: lang.language,
         solution: lang.solution || "",
         preloadCode: lang.preloadCode || ""
       })) || [],
       testCases: question.codingQuestion?.testCases?.map(tc => ({
-        id: tc.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: tc.id,
         input: tc.input || "",
         output: tc.output || "",
         isHidden: tc.isHidden || false,
-        type: tc.isHidden ? "hidden" : "sample",
-        gradePercentage: 0,
+        isSample: tc.isSample || false,
+        type: tc.isSample ? "sample" : "hidden",
+        gradePercentage: tc.grade || 0,
         showOnFailure: tc.showOnFailure || false
       })) || [],
       allOrNothingGrading: question.codingQuestion?.isAllOrNothing || false,
@@ -870,7 +886,7 @@ export default function AdminQuestionsPage() {
             ?.subfolders?.map(s => s.id) || [];
           matchesCategory = question.folderId === filters.category || 
                            subfolderIds.includes(question.folderId);
-        } else {
+    } else {
           matchesCategory = question.folderId === filters.category;
         }
       }
