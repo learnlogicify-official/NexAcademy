@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Code, ChevronRight, ChevronDown, Folder, FolderOpen, Copy, CheckCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -120,12 +120,10 @@ const JUDGE0_LANGUAGE_IDS = {
 
 interface TestCaseValidationResult {
   testCaseId: string;
-  input: string;
-  expectedOutput: string;
-  actualOutput: string;
   isMatch: boolean;
-  executionTime?: string;
-  memory?: string;
+  actualOutput: string;
+  executionTime: number;
+  memoryUsage: number;
   error?: string;
 }
 
@@ -261,6 +259,107 @@ print(f"Hello {name}, you are {age} years old!")
   } finally {
     console.log("=== JUDGE0 API TEST SEQUENCE COMPLETED ===");
   }
+};
+
+// Update the ValidationResultsModal component
+const ValidationResultsModal = ({
+  isOpen,
+  onClose,
+  results,
+  testCases,
+  onCopyOutput,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  results: TestCaseValidationResult[];
+  testCases: TestCase[];
+  onCopyOutput: (testCaseId: string, actualOutput: string) => void;
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Test Case Validation Results</DialogTitle>
+          <DialogDescription>
+            Results of validating your test cases against the solution code
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">Status</TableHead>
+                <TableHead>Input</TableHead>
+                <TableHead>Expected Output</TableHead>
+                <TableHead>Actual Output</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {results.map((result, index) => {
+                const testCase = testCases.find(tc => tc.id === result.testCaseId);
+                return (
+                  <TableRow key={result.testCaseId}>
+                    <TableCell>
+                      <div className={`w-3 h-3 rounded-full ${result.isMatch ? 'bg-green-500' : 'bg-red-500'}`} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="p-2 bg-muted rounded-md font-mono text-sm whitespace-pre-wrap">
+                        {testCase?.input}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="p-2 bg-muted rounded-md font-mono text-sm whitespace-pre-wrap">
+                        {testCase?.output}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="p-2 bg-muted rounded-md font-mono text-sm whitespace-pre-wrap">
+                        {result.actualOutput}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onCopyOutput(result.testCaseId, result.actualOutput)}
+                        className="w-full"
+                      >
+                        Copy Output
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          {/* Show any errors in a separate section */}
+          {results.some(r => r.error) && (
+            <div className="mt-4">
+              <h3 className="text-lg font-medium mb-2">Errors</h3>
+              {results.map((result, index) => {
+                if (!result.error) return null;
+                return (
+                  <div key={result.testCaseId} className="p-3 bg-destructive/10 text-destructive rounded-md mb-2">
+                    <div className="font-medium">Test Case {index + 1}</div>
+                    <div className="font-mono text-sm whitespace-pre-wrap mt-1">
+                      {result.error}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 export function CodingQuestionFormModal({
@@ -808,15 +907,38 @@ export function CodingQuestionFormModal({
   // Add a dedicated click handler for the validate button
   const handleValidateClick = () => {
     console.log("Validate button clicked");
+    console.log("Current state:", {
+      isValidating,
+      testCases: formData.testCases.length,
+      defaultLanguage,
+      selectedLanguages,
+      languageOptions: formData.languageOptions
+    });
     
-    // Use setTimeout to ensure the button click handler completes before validation starts
-    setTimeout(() => {
-      console.log("Starting validation...");
-      validateTestCases();
-    }, 100);
+    // Check if we have the minimum requirements
+    if (!defaultLanguage) {
+      toast({
+        title: "Default language not set",
+        description: "Please select a default language",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.testCases.length === 0) {
+      toast({
+        title: "No test cases",
+        description: "Please add at least one test case",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Start validation immediately
+    validateTestCases();
   };
 
-  // Modify the validation function to use our server-side API
+  // Update the validateTestCases function to include the copy functionality
   const validateTestCases = async () => {
     console.log("Starting test case validation via server API...");
     
@@ -831,7 +953,7 @@ export function CodingQuestionFormModal({
     }
 
     // Get the Judge0 language ID first
-    const languageId = JUDGE0_LANGUAGE_IDS[defaultLanguage as keyof typeof JUDGE0_LANGUAGE_IDS];
+    const languageId = JUDGE0_LANGUAGE_IDS[defaultLanguage.toLowerCase() as keyof typeof JUDGE0_LANGUAGE_IDS];
     if (!languageId) {
       toast({
         title: "Unsupported Language",
@@ -913,43 +1035,42 @@ export function CodingQuestionFormModal({
           
           results.push({
             testCaseId: testCase.id,
-            input: testCase.input,
-            expectedOutput,
-            actualOutput,
             isMatch,
-            executionTime: data.time ? `${data.time}s` : "N/A",
-            memory: data.memory ? `${data.memory} KB` : "N/A",
-            error: data.stderr || data.compile_output || ""
+            actualOutput,
+            executionTime: data.time || 0,
+            memoryUsage: data.memory || 0,
+            error: data.stderr || data.compile_output || undefined
           });
         } catch (error) {
-          console.error(`Error validating test case:`, error);
-          
+          console.error("Error validating test case:", error);
           results.push({
             testCaseId: testCase.id,
-            input: testCase.input,
-            expectedOutput: testCase.output,
-            actualOutput: "Execution error",
             isMatch: false,
-            error: error instanceof Error ? error.message : "Unknown error"
+            actualOutput: "",
+            executionTime: 0,
+            memoryUsage: 0,
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       }
-
+      
+      // Update validation results and show the modal
       setValidationResults(results);
       setValidationDialogOpen(true);
       
-      // Show a toast with the summary
-      const passedTests = results.filter(r => r.isMatch).length;
+      // Show summary toast
+      const passedCount = results.filter(r => r.isMatch).length;
+      const totalCount = results.length;
       toast({
-        title: `${passedTests} / ${results.length} tests passed`,
-        variant: passedTests === results.length ? "default" : "destructive",
+        title: "Validation Complete",
+        description: `${passedCount} of ${totalCount} test cases passed`,
+        variant: passedCount === totalCount ? "default" : "destructive",
       });
-
     } catch (error) {
-      console.error("Error validating test cases:", error);
+      console.error("Error in validation:", error);
       toast({
-        title: "Validation failed",
-        description: error instanceof Error ? error.message : "An error occurred",
+        title: "Validation Error",
+        description: error instanceof Error ? error.message : "Failed to validate test cases",
         variant: "destructive",
       });
     } finally {
@@ -957,7 +1078,7 @@ export function CodingQuestionFormModal({
     }
   };
 
-  // Add function to copy actual output to expected output
+  // Add the copy output function
   const copyOutputToExpected = (testCaseId: string, actualOutput: string) => {
     // Update the form data with the new expected output
     setFormData(prev => ({
@@ -1417,7 +1538,7 @@ export function CodingQuestionFormModal({
                   variant="outline" 
                   size="sm" 
                   onClick={handleValidateClick}
-                  disabled={isValidating || formData.testCases.length === 0 || !defaultLanguage}
+                  disabled={isValidating}
                 >
                   {isValidating ? (
                     <>
@@ -1467,7 +1588,6 @@ export function CodingQuestionFormModal({
             )}
 
             {formData.testCases.map((testCase) => {
-              const result = validationResults.find(r => r.testCaseId === testCase.id);
               return (
                 <div key={testCase.id} className="space-y-4 p-4 border rounded-lg">
                   <div className="flex justify-between items-center">
@@ -1557,46 +1677,6 @@ export function CodingQuestionFormModal({
                       <span className="ml-2">%</span>
                     </div>
                   </div>
-
-                  {/* Validation Results */}
-                  {showValidationResults && result && (
-                    <div className={`mt-4 p-3 rounded-md ${result.isMatch ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                      <div className="flex items-center mb-2">
-                        <div className="flex items-center gap-2 font-medium">
-                          {result.isMatch ? (
-                            <CheckCircle className="h-5 w-5 text-green-500" />
-                          ) : (
-                            <XCircle className="h-5 w-5 text-red-500" />
-                          )}
-                          <span>{result.isMatch ? 'Test Passed' : 'Test Failed'}</span>
-                        </div>
-                        {result.executionTime && (
-                          <div className="ml-auto text-sm text-muted-foreground">
-                            Execution Time: {result.executionTime}
-                            {result.memory && ` | Memory: ${result.memory}`}
-                          </div>
-                        )}
-                      </div>
-                      {!result.isMatch && (
-                        <div className="space-y-2">
-                          <div>
-                            <Label className="text-sm">Actual Output:</Label>
-                            <div className="p-2 bg-white rounded border font-mono text-xs whitespace-pre-wrap">
-                              {result.actualOutput || "No output"}
-                            </div>
-                          </div>
-                          {result.error && (
-                            <div>
-                              <Label className="text-sm text-red-500">Error:</Label>
-                              <div className="p-2 bg-white rounded border font-mono text-xs whitespace-pre-wrap text-red-600">
-                                {result.error}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -1646,6 +1726,15 @@ export function CodingQuestionFormModal({
           </div>
         </form>
       </DialogContent>
+
+      {/* Update the ValidationResultsModal with the copy function */}
+      <ValidationResultsModal
+        isOpen={validationDialogOpen}
+        onClose={() => setValidationDialogOpen(false)}
+        results={validationResults}
+        testCases={formData.testCases}
+        onCopyOutput={copyOutputToExpected}
+      />
     </Dialog>
   );
 } 
