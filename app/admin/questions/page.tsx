@@ -77,6 +77,25 @@ interface QuestionFormData {
   }[];
   allOrNothingGrading?: boolean;
   defaultLanguage?: string;
+  codingQuestion?: {
+    languageOptions: {
+      id: string;
+      language: string;
+      solution: string;
+      preloadCode?: string;
+    }[];
+    testCases: {
+      id: string;
+      input: string;
+      output: string;
+      isHidden: boolean;
+      isSample: boolean;
+      gradePercentage?: number;
+      showOnFailure?: boolean;
+    }[];
+    isAllOrNothing: boolean;
+    defaultLanguage: string;
+  };
 }
 
 interface Question {
@@ -567,33 +586,43 @@ export default function AdminQuestionsPage() {
       // For coding questions, add the necessary data directly to the request body
       // since the update API expects it at the top level
       if (data.type === 'CODING') {
-        // Handle language options
-        if (Array.isArray(data.languageOptions)) {
-          transformedData.languageOptions = data.languageOptions.map((lang: any) => ({
-            id: lang.id,
-            language: lang.language,
-            solution: lang.solution || "",
-            preloadCode: lang.preloadCode || ""
-          }));
-        }
+        console.log("Preparing coding question data for submission");
         
-        // Handle test cases
-        if (Array.isArray(data.testCases)) {
-          transformedData.testCases = data.testCases.map((tc: any) => ({
-            id: tc.id,
-            input: tc.input || "",
-            output: tc.output || "",
-            isHidden: tc.isHidden || false,
-            isSample: tc.isSample || false,
-            type: tc.type || (tc.isSample ? "sample" : "hidden"),
-            grade: tc.grade || tc.gradePercentage || 0,
-            showOnFailure: tc.showOnFailure || false
-          }));
-        }
+        // Log full data object to debug
+        console.log("Full data object:", JSON.stringify(data, null, 2));
+        
+        // Check if we have data in the codingQuestion property
+        const codingData = data.codingQuestion || data;
+        
+        // Handle language options - check both potential locations
+        const languageOptions = codingData.languageOptions || data.languageOptions || [];
+        console.log(`Found ${languageOptions.length} language options`);
+        
+        transformedData.languageOptions = languageOptions.map((lang: any) => ({
+          id: lang.id,
+          language: lang.language,
+          solution: lang.solution || "",
+          preloadCode: lang.preloadCode || ""
+        }));
+        
+        // Handle test cases - check both potential locations
+        const testCases = codingData.testCases || data.testCases || [];
+        console.log(`Found ${testCases.length} test cases`);
+        
+        transformedData.testCases = testCases.map((tc: any) => ({
+          id: tc.id,
+          input: tc.input || "",
+          output: tc.output || "",
+          isHidden: tc.isHidden || false,
+          isSample: tc.isSample || false,
+          type: tc.type || (tc.isSample ? "sample" : "hidden"),
+          grade: tc.grade || tc.gradePercentage || 0,
+          showOnFailure: tc.showOnFailure || false
+        }));
         
         // Include other coding-specific properties
-        transformedData.allOrNothingGrading = data.allOrNothingGrading || false;
-        transformedData.defaultLanguage = data.defaultLanguage || "";
+        transformedData.allOrNothingGrading = codingData.isAllOrNothing || data.allOrNothingGrading || false;
+        transformedData.defaultLanguage = codingData.defaultLanguage || data.defaultLanguage || "";
       }
       
       console.log("Transformed data for submission:", JSON.stringify(transformedData, null, 2));
@@ -654,28 +683,34 @@ export default function AdminQuestionsPage() {
   const handleEditQuestion = (question: QuestionType) => {
     console.log('Editing question:', question);
     
-    // Make sure the question has complete data before setting it for editing
-    const languageOptions = question.codingQuestion?.languageOptions?.map(lang => ({
+    // Make sure we're accessing the codingQuestion fields correctly
+    const codingQuestion = question.codingQuestion || {} as any;
+    console.log('Coding question data:', codingQuestion);
+    
+    // Safely extract language options
+    const languageOptions = (codingQuestion.languageOptions || []).map((lang: any) => ({
       id: lang.id,
       language: lang.language,
       solution: lang.solution || "",
       preloadCode: lang.preloadCode || ""
-    })) || [];
+    }));
     
-    const testCases = question.codingQuestion?.testCases?.map(tc => ({
+    // Safely extract test cases
+    const testCases = (codingQuestion.testCases || []).map((tc: any) => ({
       id: tc.id,
       input: tc.input || "",
-      output: tc.output || "",
+      output: tc.output || tc.expectedOutput || "", // Handle both output and expectedOutput fields
       isHidden: tc.isHidden || false,
       isSample: tc.isSample || false,
       type: tc.isSample ? "sample" : "hidden",
       gradePercentage: tc.grade || 0,
       showOnFailure: tc.showOnFailure || false
-    })) || [];
+    }));
     
     console.log('Language options for edit:', languageOptions);
     console.log('Test cases for edit:', testCases);
     
+    // Create the editingQuestion object with all necessary fields
     setEditingQuestion({
       id: question.id,
       name: question.name,
@@ -683,9 +718,9 @@ export default function AdminQuestionsPage() {
       status: question.status || 'DRAFT',
       folderId: question.folderId || '',
       version: question.version || 1,
-      questionText: question.codingQuestion?.questionText || question.mCQQuestion?.questionText || '',
-      difficulty: (question.codingQuestion?.difficulty || question.mCQQuestion?.difficulty || 'MEDIUM') as 'EASY' | 'MEDIUM' | 'HARD',
-      defaultMark: question.codingQuestion?.defaultMark || question.mCQQuestion?.defaultMark || 1,
+      questionText: (question as any).questionText || codingQuestion.questionText || (question.mCQQuestion?.questionText || ''),
+      difficulty: (codingQuestion.difficulty || (question.mCQQuestion?.difficulty || 'MEDIUM')) as 'EASY' | 'MEDIUM' | 'HARD',
+      defaultMark: codingQuestion.defaultMark || (question.mCQQuestion?.defaultMark || 1),
       isMultiple: question.mCQQuestion?.isMultiple || false,
       shuffleChoice: question.mCQQuestion?.shuffleChoice || false,
       generalFeedback: question.mCQQuestion?.generalFeedback || '',
@@ -698,8 +733,14 @@ export default function AdminQuestionsPage() {
       })) || [],
       languageOptions: languageOptions,
       testCases: testCases,
-      allOrNothingGrading: question.codingQuestion?.isAllOrNothing || false,
-      defaultLanguage: question.codingQuestion?.defaultLanguage || ""
+      allOrNothingGrading: codingQuestion.isAllOrNothing || false,
+      defaultLanguage: codingQuestion.defaultLanguage || "",
+      codingQuestion: {
+        languageOptions: languageOptions,
+        testCases: testCases,
+        isAllOrNothing: codingQuestion.isAllOrNothing || false,
+        defaultLanguage: codingQuestion.defaultLanguage || ""
+      }
     });
     
     // Open the appropriate modal based on question type

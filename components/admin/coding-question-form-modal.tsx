@@ -388,6 +388,8 @@ export function CodingQuestionFormModal({
             let type = tc.type || '';
             let isSample = tc.isSample === true;
             let isHidden = tc.isHidden === true;
+            // Ensure showOnFailure is properly initialized as a boolean
+            let showOnFailure = tc.showOnFailure === true;
             
             // If type is specified, use it to set flags
             if (type === 'sample') {
@@ -412,7 +414,9 @@ export function CodingQuestionFormModal({
               id: tc.id,
               type,
               isSample,
-              isHidden
+              isHidden,
+              showOnFailure,
+              originalShowOnFailure: tc.showOnFailure
             });
             
             return {
@@ -423,7 +427,7 @@ export function CodingQuestionFormModal({
               isSample,
               type,
               gradePercentage: tc.gradePercentage || 0,
-              showOnFailure: tc.showOnFailure || false
+              showOnFailure
             };
           })
         }));
@@ -541,6 +545,33 @@ export function CodingQuestionFormModal({
     console.log("Full submission data:", JSON.stringify(submissionData, null, 2));
     console.log("Is this an update operation?", !!initialData?.id);
     
+    // Validate test cases have the correct properties
+    let validTestCases = true;
+    submissionData.testCases.forEach((tc, index) => {
+      console.log(`Validating test case ${index}:`, tc);
+      if (tc.showOnFailure === undefined) {
+        console.error(`Test case ${index} is missing showOnFailure property`);
+        validTestCases = false;
+      }
+      if (tc.isSample === undefined) {
+        console.error(`Test case ${index} is missing isSample property`);
+        validTestCases = false;
+      }
+      if (tc.isHidden === undefined) {
+        console.error(`Test case ${index} is missing isHidden property`);
+        validTestCases = false;
+      }
+    });
+    
+    if (!validTestCases) {
+      toast({
+        title: "Test Case Validation Error",
+        description: "Some test cases are missing required properties",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       // Call the onSubmit callback with the data
       onSubmit(submissionData);
@@ -639,21 +670,25 @@ export function CodingQuestionFormModal({
   };
 
   const addTestCase = () => {
+    console.log("Adding new test case with default values");
+    
+    // Create a test case with explicit boolean values
+    const newTestCase: TestCase = {
+      id: `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      input: "",
+      output: "",
+      type: "sample", // Default to sample for new test cases
+      isSample: true, // Set the flags explicitly as true boolean
+      isHidden: false, // Set the flags explicitly as false boolean
+      gradePercentage: 0,
+      showOnFailure: false // Set to explicit boolean false
+    };
+    
+    console.log("New test case with explicit boolean values:", newTestCase);
+    
     setFormData(prev => ({
       ...prev,
-      testCases: [
-        ...prev.testCases,
-        {
-          id: `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          input: "",
-          output: "",
-          type: "sample", // Default to sample for new test cases
-          isSample: true, // Set the flags explicitly
-          isHidden: false,
-          gradePercentage: 0,
-          showOnFailure: false
-        }
-      ]
+      testCases: [...prev.testCases, newTestCase]
     }));
   };
 
@@ -665,6 +700,14 @@ export function CodingQuestionFormModal({
   };
 
   const updateTestCase = (id: string, field: keyof TestCase, value: any) => {
+    console.log(`Updating test case ${id} field ${field} with value:`, value, `(type: ${typeof value})`);
+    
+    // Ensure boolean fields are set correctly
+    if (field === 'showOnFailure' || field === 'isSample' || field === 'isHidden') {
+      // Convert to explicit boolean
+      value = value === true;
+    }
+    
     setFormData(prev => ({
       ...prev,
       testCases: prev.testCases.map(testCase =>
@@ -673,70 +716,43 @@ export function CodingQuestionFormModal({
     }));
   };
 
-  // Prepare a flat list of all folders and their subfolders
-  const allFolderOptions = React.useMemo(() => {
-    const result: { id: string; name: string; isSubfolder?: boolean; parentName?: string }[] = [];
+  const updateTestCaseShowOnFailure = (id: string, value: boolean) => {
+    console.log(`Explicitly updating showOnFailure for test case ${id} to:`, value, `(type: ${typeof value})`);
+    // Force it to be a strict boolean true or false
+    const boolValue = value === true;
+    console.log(`Converted value: ${boolValue} (${typeof boolValue})`);
     
-    folders.forEach(folder => {
-      // Add the main folder
-      result.push({ id: folder.id, name: folder.name });
-      
-      // Add all subfolders with a reference to their parent
-      if (folder.subfolders && folder.subfolders.length > 0) {
-        folder.subfolders.forEach((subfolder: { id: string; name: string }) => {
-          result.push({
-            id: subfolder.id,
-            name: subfolder.name,
-            isSubfolder: true,
-            parentName: folder.name
+    setFormData(prev => {
+      // Create a new test cases array with the updated value
+      const updatedTestCases = prev.testCases.map(testCase => {
+        if (testCase.id === id) {
+          console.log(`Before update: ${testCase.id}`, {
+            showOnFailure: testCase.showOnFailure,
+            type: typeof testCase.showOnFailure
           });
-        });
-      }
-    });
-    
-    return result;
-  }, [folders]);
-
-  // Function to distribute grades evenly among hidden test cases only
-  const distributeGradesEvenly = () => {
-    if (formData.testCases.length === 0) return;
-    
-    // Filter for hidden test cases
-    const hiddenTestCases = formData.testCases.filter(testCase => testCase.type === "hidden");
-    
-    if (hiddenTestCases.length === 0) {
-      toast({
-        title: "No hidden test cases",
-        description: "Add hidden test cases to distribute grades",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Calculate grade per hidden test case
-    const gradePerTestCase = Math.floor(100 / hiddenTestCases.length);
-    let remainingGrade = 100 - (gradePerTestCase * hiddenTestCases.length);
-    
-    // Create a map of test case IDs to easily identify hidden test cases
-    const hiddenTestCaseIds = new Set(hiddenTestCases.map(tc => tc.id));
-    
-    setFormData(prev => ({
-      ...prev,
-      testCases: prev.testCases.map((testCase, index) => {
-        // If it's a sample test case, set grade to 0
-        if (testCase.type === "sample") {
-          return { ...testCase, gradePercentage: 0 };
+          
+          // Create a new test case object with the updated showOnFailure value
+          const updated = {
+            ...testCase,
+            showOnFailure: boolValue
+          };
+          
+          console.log(`After update: ${updated.id}`, {
+            showOnFailure: updated.showOnFailure,
+            type: typeof updated.showOnFailure
+          });
+          
+          return updated;
         }
-        
-        // If it's a hidden test case, distribute the grade
-        // Add any remaining percentage to the first hidden test case
-        const isFirstHidden = hiddenTestCases[0]?.id === testCase.id;
-        return {
-          ...testCase,
-          gradePercentage: gradePerTestCase + (isFirstHidden ? remainingGrade : 0)
-        };
-      })
-    }));
+        return testCase;
+      });
+      
+      // Return a new form data object with the updated test cases
+      return {
+        ...prev,
+        testCases: updatedTestCases
+      };
+    });
   };
 
   // Add effect to update grade distribution when a test case type changes
@@ -749,6 +765,12 @@ export function CodingQuestionFormModal({
   // Ensure the 'handleTestCaseTypeChange' function correctly updates the test case type
   const handleTestCaseTypeChange = (id: string, type: "sample" | "hidden") => {
     console.log(`Changing test case ${id} type to:`, type);
+    
+    // Get the current test case to preserve its showOnFailure value
+    const currentTestCase = formData.testCases.find(tc => tc.id === id);
+    const currentShowOnFailure = currentTestCase?.showOnFailure === true;
+    
+    console.log(`Current showOnFailure value: ${currentShowOnFailure}`);
     
     // Update the test case type
     updateTestCase(id, "type", type);
@@ -773,6 +795,9 @@ export function CodingQuestionFormModal({
         setTimeout(() => distributeGradesEvenly(), 0);
       }
     }
+    
+    // Make sure the showOnFailure value is preserved
+    updateTestCase(id, "showOnFailure", currentShowOnFailure);
   };
 
   // Add handler to set the default language
@@ -964,6 +989,37 @@ export function CodingQuestionFormModal({
     });
   };
 
+  // Function to distribute grades evenly among the hidden test cases
+  const distributeGradesEvenly = () => {
+    if (!allOrNothingGrading) return;
+    
+    setFormData(prev => {
+      // Get all hidden test cases
+      const hiddenTestCases = prev.testCases.filter(tc => 
+        tc.type === "hidden" || tc.isHidden === true
+      );
+      
+      // Calculate even grade distribution
+      const totalHiddenTests = hiddenTestCases.length;
+      const evenGrade = totalHiddenTests > 0 ? Math.round(100 / totalHiddenTests * 10) / 10 : 0;
+      
+      // Update all test cases with appropriate grades
+      const updatedTestCases = prev.testCases.map(tc => {
+        // Sample test cases get 0, hidden test cases get even distribution
+        if (tc.type === "sample" || tc.isSample === true) {
+          return { ...tc, gradePercentage: 0 };
+        } else {
+          return { ...tc, gradePercentage: evenGrade };
+        }
+      });
+      
+      return {
+        ...prev,
+        testCases: updatedTestCases
+      };
+    });
+  };
+
   // Enhanced version of logFormData to better diagnose issues
   const logFormData = () => {
     console.log("=== DETAILED FORM DATA ===");
@@ -1028,11 +1084,18 @@ export function CodingQuestionFormModal({
       const isSample = type === 'sample' || testCase.isSample === true;
       const isHidden = type === 'hidden' || testCase.isHidden === true;
       
+      // Fix: Explicitly convert showOnFailure to a boolean to ensure it's always a proper boolean
+      // Using double-bang (!!) to force conversion to boolean
+      const showOnFailure = !!testCase.showOnFailure;
+      
       console.log(`Preparing test case for submission:`, {
         id: testCase.id,
         type,
         isSample,
         isHidden,
+        showOnFailure,
+        originalShowOnFailure: testCase.showOnFailure,
+        typeOfOriginal: typeof testCase.showOnFailure,
         gradePercentage: testCase.gradePercentage
       });
       
@@ -1043,15 +1106,16 @@ export function CodingQuestionFormModal({
         type, // Send the type string
         isSample, // Send the boolean flag
         isHidden, // Send the boolean flag
+        showOnFailure, // Send the boolean flag
         gradePercentage: testCase.gradePercentage,
-        showOnFailure: testCase.showOnFailure
       };
     });
     
     // Check if we're editing an existing question
     const isEditing = !!initialData?.id;
+    console.log("Is this an update operation?", isEditing, "Question ID:", initialData?.id);
     
-    return {
+    const result = {
       // Include the ID if we're updating an existing question
       id: initialData?.id, 
       name: formData.name,
@@ -1068,6 +1132,9 @@ export function CodingQuestionFormModal({
       status: initialData?.status || "DRAFT",
       version: initialData?.version || 1
     };
+    
+    console.log("Final submission data:", JSON.stringify(result, null, 2));
+    return result;
   }
   
   // Improved function to add all 10 languages at once
@@ -1151,15 +1218,26 @@ export function CodingQuestionFormModal({
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select folder">
-                    {allFolderOptions.find(f => f.id === formData.folderId)?.name || "Select a folder"}
+                    {folders.find(f => f.id === formData.folderId)?.name || "Select a folder"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {allFolderOptions.map((folder) => (
+                  {folders.map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>
-                      {folder.isSubfolder 
-                        ? `└─ ${folder.name} (in ${folder.parentName})` 
-                        : folder.name}
+                      {folder.subfolders && folder.subfolders.length > 0 ? (
+                        // Parent folder with subfolders
+                        <>
+                          <div>{folder.name}</div>
+                          {folder.subfolders.map(sub => (
+                            <SelectItem key={sub.id} value={sub.id} className="pl-4">
+                              └─ {sub.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      ) : (
+                        // Regular folder
+                        folder.name
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1406,10 +1484,14 @@ export function CodingQuestionFormModal({
                       <div className="flex items-center space-x-2 ml-4">
                         <Checkbox
                           id={`show-on-failure-${testCase.id}`}
-                          checked={testCase.showOnFailure}
-                          onCheckedChange={(checked) => 
-                            updateTestCase(testCase.id, "showOnFailure", !!checked)
-                          }
+                          checked={!!testCase.showOnFailure}
+                          onCheckedChange={(checked) => {
+                            console.log(`Changing showOnFailure for test case ${testCase.id} to:`, checked);
+                            // Convert to boolean explicitly (true or false)
+                            const boolValue = checked === true;
+                            console.log(`Converted value: ${boolValue} (${typeof boolValue})`);
+                            updateTestCaseShowOnFailure(testCase.id, boolValue);
+                          }}
                         />
                         <Label htmlFor={`show-on-failure-${testCase.id}`}>Show on failure</Label>
                       </div>

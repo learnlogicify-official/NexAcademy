@@ -16,6 +16,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const body = await request.json();
     console.log("Update request body:", JSON.stringify(body, null, 2));
+    console.log("Language options in request:", body.languageOptions?.length || 0, "options");
+    console.log("Test cases in request:", body.testCases?.length || 0, "cases");
+    
+    if (!body.languageOptions || body.languageOptions.length === 0) {
+      console.log("ERROR: Missing or empty languageOptions in the request body");
+    }
+    
+    if (!body.testCases || body.testCases.length === 0) {
+      console.log("ERROR: Missing or empty testCases in the request body");
+    }
 
     const { id } = params;
     if (!id) {
@@ -72,7 +82,143 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Debug language options and test cases from the request
     console.log("Language options from request:", body.languageOptions?.length || 0);
+    if (body.languageOptions && body.languageOptions.length > 0) {
+      console.log("First language option:", JSON.stringify(body.languageOptions[0], null, 2));
+    }
+    
     console.log("Test cases from request:", body.testCases?.length || 0);
+    if (body.testCases && body.testCases.length > 0) {
+      console.log("First test case:", JSON.stringify(body.testCases[0], null, 2));
+    }
+
+    // Prepare language options and test cases for update
+    const languageOptionsToCreate = (body.languageOptions || []).map((lang: any) => {
+      // Map language string to a valid ProgrammingLanguage enum
+      let mappedLanguage;
+      switch((lang.language || "").toLowerCase()) {
+        case 'python':
+        case 'python2':
+        case 'python3':
+          mappedLanguage = 'PYTHON';
+          break;
+        case 'javascript':
+        case 'js':
+          mappedLanguage = 'JAVASCRIPT';
+          break;
+        case 'java':
+          mappedLanguage = 'JAVA';
+          break;
+        case 'cpp':
+        case 'c++':
+        case 'c':
+          mappedLanguage = 'CPP';
+          break;
+        case 'csharp':
+        case 'c#':
+          mappedLanguage = 'CSHARP';
+          break;
+        case 'php':
+          mappedLanguage = 'PHP';
+          break;
+        case 'ruby':
+          mappedLanguage = 'RUBY';
+          break;
+        case 'swift':
+          mappedLanguage = 'SWIFT';
+          break;
+        case 'go':
+          mappedLanguage = 'GO';
+          break;
+        case 'rust':
+          mappedLanguage = 'RUST';
+          break;
+        default:
+          mappedLanguage = 'PYTHON';
+      }
+
+      console.log(`Mapping language ${lang.language} to ${mappedLanguage}`);
+      
+      return {
+        language: mappedLanguage,
+        solution: lang.solution || "",
+        preloadCode: lang.preloadCode || "",
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
+    
+    console.log(`Prepared ${languageOptionsToCreate.length} language options for update`);
+    
+    // Prepare test cases for update
+    const testCasesToCreate = (body.testCases || []).map((tc: any, index: number) => {
+      // First, determine test case type from explicit type field or from isSample/isHidden flags
+      let isSample = false;
+      let isHidden = false;
+      
+      // Check the type field first (string-based approach)
+      if (tc.type === 'sample') {
+        isSample = true;
+        isHidden = false;
+      } else if (tc.type === 'hidden') {
+        isSample = false;
+        isHidden = true;
+      } 
+      // If no valid type, fallback to boolean flags
+      else if (tc.isSample === true) {
+        isSample = true;
+        isHidden = false;
+      } else if (tc.isHidden === true) {
+        isSample = false; 
+        isHidden = true;
+      }
+      
+      // Default to hidden if no valid type information is provided
+      if (!isSample && !isHidden) {
+        console.log(`No valid type for test case ${index}, defaulting to hidden`);
+        isHidden = true;
+      }
+      
+      const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
+
+      console.log(`Processing test case ${index}:`, {
+        input: tc.input?.substring(0, 20) + "...",
+        type: tc.type,
+        isSample: isSample,
+        isHidden: isHidden,
+        originalIsSample: tc.isSample,
+        originalIsHidden: tc.isHidden,
+        showOnFailure: tc.showOnFailure,
+        grade: gradeValue
+      });
+      
+      // Log detailed information about the showOnFailure value to debug the issue
+      console.log(`Processing test case ${index} showOnFailure:`, {
+        originalValue: tc.showOnFailure,
+        typeOfOriginal: typeof tc.showOnFailure,
+        stringValue: String(tc.showOnFailure),
+        booleanConversion: Boolean(tc.showOnFailure),
+        equalToTrue: tc.showOnFailure === true,
+        equalToTrueString: tc.showOnFailure === 'true',
+        objectKeys: tc.showOnFailure && typeof tc.showOnFailure === 'object' ? Object.keys(tc.showOnFailure) : 'not an object'
+      });
+      
+      // Use Boolean() directly to convert the value properly
+      const showOnFailureValue = Boolean(tc.showOnFailure);
+      console.log(`Show on failure final value: ${showOnFailureValue} (${typeof showOnFailureValue})`);
+      
+      return {
+        input: tc.input || "",
+        output: tc.output || "",
+        isSample,
+        isHidden,
+        showOnFailure: showOnFailureValue,
+        grade: gradeValue,
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
+    
+    console.log(`Prepared ${testCasesToCreate.length} test cases for update`);
 
     // Then, update the coding question and its related data
     const updatedQuestion = await prisma.codingQuestion.update({
@@ -90,114 +236,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         },
         languageOptions: {
           deleteMany: {},
-          create: (body.languageOptions || []).map((lang: any) => {
-            // Map language string to a valid ProgrammingLanguage enum
-            let mappedLanguage;
-            switch((lang.language || "").toLowerCase()) {
-              case 'python':
-              case 'python2':
-              case 'python3':
-                mappedLanguage = 'PYTHON';
-                break;
-              case 'javascript':
-              case 'js':
-                mappedLanguage = 'JAVASCRIPT';
-                break;
-              case 'java':
-                mappedLanguage = 'JAVA';
-                break;
-              case 'cpp':
-              case 'c++':
-              case 'c':
-                mappedLanguage = 'CPP';
-                break;
-              case 'csharp':
-              case 'c#':
-                mappedLanguage = 'CSHARP';
-                break;
-              case 'php':
-                mappedLanguage = 'PHP';
-                break;
-              case 'ruby':
-                mappedLanguage = 'RUBY';
-                break;
-              case 'swift':
-                mappedLanguage = 'SWIFT';
-                break;
-              case 'go':
-                mappedLanguage = 'GO';
-                break;
-              case 'rust':
-                mappedLanguage = 'RUST';
-                break;
-              default:
-                mappedLanguage = 'PYTHON';
-            }
-
-            console.log(`Mapping language ${lang.language} to ${mappedLanguage}`);
-            
-            return {
-              language: mappedLanguage,
-              solution: lang.solution || "",
-              preloadCode: lang.preloadCode || "",
-              createdAt: now,
-              updatedAt: now,
-            };
-          }),
+          create: languageOptionsToCreate,
         },
         testCases: {
           deleteMany: {},
-          create: (body.testCases || []).map((tc: any) => {
-            // First, determine test case type from explicit type field or from isSample/isHidden flags
-            let isSample = false;
-            let isHidden = false;
-            
-            // Check the type field first (string-based approach)
-            if (tc.type === 'sample') {
-              isSample = true;
-              isHidden = false;
-            } else if (tc.type === 'hidden') {
-              isSample = false;
-              isHidden = true;
-            } 
-            // If no valid type, fallback to boolean flags
-            else if (tc.isSample === true) {
-              isSample = true;
-              isHidden = false;
-            } else if (tc.isHidden === true) {
-              isSample = false; 
-              isHidden = true;
-            }
-            
-            // Default to hidden if no valid type information is provided
-            if (!isSample && !isHidden) {
-              console.log(`No valid type for test case, defaulting to hidden`);
-              isHidden = true;
-            }
-            
-            const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
-
-            console.log(`Processing test case:`, {
-              input: tc.input?.substring(0, 20) + "...",
-              type: tc.type,
-              isSample: isSample,
-              isHidden: isHidden,
-              originalIsSample: tc.isSample,
-              originalIsHidden: tc.isHidden,
-              grade: gradeValue
-            });
-            
-            return {
-              input: tc.input || "",
-              output: tc.output || "",
-              isSample,
-              isHidden,
-              showOnFailure: Boolean(tc.showOnFailure),
-              grade: gradeValue,
-              createdAt: now,
-              updatedAt: now,
-            };
-          }),
+          create: testCasesToCreate,
         },
       },
       include: {
