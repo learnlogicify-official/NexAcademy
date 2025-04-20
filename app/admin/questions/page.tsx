@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon } from "lucide-react";
-import QuestionFormModal from "@/components/admin/question-form-modal";
+import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon, Folder as FolderIcon, ChevronDown } from "lucide-react";
+import { QuestionFormModal } from "@/components/admin/question-form-modal";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { z } from "zod";
@@ -32,6 +32,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
+import { Folder as FolderType } from '@/types';
 
 const questionFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -48,28 +49,53 @@ const questionFormSchema = z.object({
 
 interface Question {
   id: string;
-  question: string;
-  type: 'MULTIPLE_CHOICE' | 'CODING';
+  name: string;
+  type: 'MCQ' | 'CODING';
   folderId: string;
-  subfolderId?: string;
-  options: string[];
-  correctAnswer?: string;
-  testCases?: any;
-  expectedOutput?: string;
   hidden: boolean;
   marks: number;
-  singleAnswer: boolean;
-  shuffleAnswers: boolean;
   status: 'DRAFT' | 'READY';
   createdAt: string;
   updatedAt: string;
   folder?: {
+    id: string;
     name: string;
+    parentId: string | null;
+    createdAt: string;
+    updatedAt: string;
   };
-  subfolder?: {
-    name: string;
+  content?: string;
+  mcqQuestion?: {
+    content: string;
+    questionText: string;
+    options: Array<{
+      text: string;
+      grade: number;
+      feedback: string;
+    }>;
+    correctAnswer: string;
+    singleAnswer: boolean;
+    shuffleAnswers: boolean;
+    difficulty: string;
+    isMultiple: boolean;
+    shuffleChoice: boolean;
+    defaultMark: number;
+    generalFeedback: string;
+    choiceNumbering: string;
   };
-  preview?: string;
+  codingQuestion?: {
+    content: string;
+    questionText: string;
+    languageOptions: Array<{
+      language: string;
+      solution: string;
+    }>;
+    testCases: Array<{
+      input: string;
+      output: string;
+      isHidden: boolean;
+    }>;
+  };
 }
 
 interface Folder {
@@ -82,11 +108,20 @@ interface Folder {
 }
 
 interface QuestionSubmitData extends Partial<Question> {
-  status?: 'DRAFT' | 'READY';
-  version?: number;
-  marks?: number;
+  name?: string;
+  content: string;
+  type: 'MCQ' | 'CODING';
+  folderId: string;
+  options?: string[];
+  correctAnswer?: string;
   singleAnswer?: boolean;
   shuffleAnswers?: boolean;
+  status?: 'DRAFT' | 'READY';
+  marks?: number;
+  hidden?: boolean;
+  difficulty?: string;
+  languageOptions?: any[];
+  testCases?: any[];
 }
 
 interface FilterState {
@@ -105,7 +140,7 @@ export default function AdminQuestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<FolderType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -125,7 +160,7 @@ export default function AdminQuestionsPage() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newSubfolderName, setNewSubfolderName] = useState("");
   const [selectedFolderForSubfolder, setSelectedFolderForSubfolder] = useState<string | null>(null);
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [editingFolder, setEditingFolder] = useState<FolderType | null>(null);
   const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
   const [updatedFolderName, setUpdatedFolderName] = useState("");
   const [showSubcategories, setShowSubcategories] = useState(true);
@@ -163,11 +198,13 @@ export default function AdminQuestionsPage() {
     showHidden: false,
     includeSubcategories: false
   });
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchQuestions(filters);
     fetchFolders();
-  }, []);
+  }, [filters]);
 
   const fetchQuestions = async (currentFilters?: FilterState) => {
     try {
@@ -186,24 +223,54 @@ export default function AdminQuestionsPage() {
       if (currentFilters?.showHidden) queryParams.append('showHidden', 'true');
       queryParams.append('includeSubcategories', currentFilters?.includeSubcategories ? 'true' : 'false');
 
-      console.log('Fetching questions with params:', {
-        category: currentFilters?.category,
-        subcategory: currentFilters?.subcategory,
-        includeSubcategories: currentFilters?.includeSubcategories,
-        queryParams: Object.fromEntries(queryParams.entries())
-      });
-
       const response = await axios.get(`/api/questions?${queryParams.toString()}`);
-      const questions = response.data;
-      console.log('Received questions:', {
-        count: questions.length,
-        sample: questions.slice(0, 2).map((q: Question) => ({
-          id: q.id,
-          folderId: q.folderId,
-          folder: q.folder
-        }))
-      });
-      setQuestions(questions);
+      const questions = response.data as Question[];
+      
+      // Update questions state with all required data
+      setQuestions(questions.map(q => ({
+        ...q,
+        content: q.type === 'MCQ' 
+          ? q.mcqQuestion?.questionText || q.mcqQuestion?.content || ''
+          : q.codingQuestion?.questionText || q.codingQuestion?.content || '',
+        status: q.status || 'DRAFT',
+        folder: q.folder || undefined,
+        mcqQuestion: q.type === 'MCQ' ? {
+          ...q.mcqQuestion,
+          questionText: q.mcqQuestion?.questionText || q.mcqQuestion?.content || '',
+          options: q.mcqQuestion?.options?.map(opt => ({
+            text: opt.text || '',
+            grade: opt.grade || 0,
+            feedback: opt.feedback || ''
+          })) || [],
+          difficulty: q.mcqQuestion?.difficulty || 'MEDIUM',
+          defaultMark: q.mcqQuestion?.defaultMark || 1,
+          isMultiple: q.mcqQuestion?.isMultiple || false,
+          shuffleChoice: q.mcqQuestion?.shuffleChoice || false,
+          generalFeedback: q.mcqQuestion?.generalFeedback || ''
+        } : undefined,
+        codingQuestion: q.type === 'CODING' ? {
+          ...q.codingQuestion,
+          questionText: q.codingQuestion?.questionText || q.codingQuestion?.content || '',
+          languageOptions: q.codingQuestion?.languageOptions || [],
+          testCases: q.codingQuestion?.testCases || []
+        } : undefined
+      })));
+      
+      // Update stats
+      const newStats = {
+        total: questions.length,
+        ready: questions.filter((q: Question) => q.status === 'READY').length,
+        draft: questions.filter((q: Question) => q.status === 'DRAFT').length,
+        multipleChoice: questions.filter((q: Question) => q.type === 'MCQ').length,
+        coding: questions.filter((q: Question) => q.type === 'CODING').length,
+        byFolder: questions.reduce((acc: Record<string, number>, q: Question) => {
+          const folderName = q.folder?.name || 'Uncategorized';
+          acc[folderName] = (acc[folderName] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+      };
+      setStats(newStats);
+      
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
@@ -313,7 +380,7 @@ export default function AdminQuestionsPage() {
     }
   };
 
-  const handleEditFolder = async (folder: Folder) => {
+  const handleEditFolder = async (folder: FolderType) => {
     setEditingFolder(folder);
     setIsEditFolderModalOpen(true);
   };
@@ -421,107 +488,124 @@ export default function AdminQuestionsPage() {
     }
   };
 
-  const handleFormSubmit = async (data: QuestionSubmitData) => {
+  const handleFormSubmit = async (data: any) => {
     try {
-      if (editingQuestion?.id) {
-        const { 
-          question, 
-          type, 
-          folderId, 
-          subfolderId, 
-          options, 
-          correctAnswer, 
-          testCases, 
-          expectedOutput,
-          marks,
-          singleAnswer,
-          shuffleAnswers,
-          status,
-          version,
-          hidden
-        } = data;
+      console.log('Form data received in handleFormSubmit:', data);
+      
+      // We don't need to do anything special here anymore as the form modal 
+      // component is now handling both create and update operations directly
 
-        // Validate required fields
-        if (!folderId) {
-          throw new Error('Folder is required');
-        }
-
-        const updateData = {
-          question,
-          type,
-          folderId,
-          subfolderId,
-          options,
-          correctAnswer,
-          testCases,
-          expectedOutput,
-          marks,
-          singleAnswer,
-          shuffleAnswers,
-          status: status || 'DRAFT',
-          version: version || 1,
-          hidden: hidden ?? false
-        };
-
-        await axios.patch(`/api/questions/${editingQuestion.id}`, updateData);
-      } else {
-        // Create new question
-        const createData = {
-          question: data.question,
-          type: data.type,
-          folderId: data.folderId,
-          subfolderId: data.subfolderId || null,
-          options: data.options || [],
-          correctAnswer: data.correctAnswer || null,
-          testCases: data.testCases || null,
-          expectedOutput: data.expectedOutput || null,
-          status: data.status || 'DRAFT',
-          singleAnswer: data.singleAnswer || false,
-          shuffleAnswers: data.shuffleAnswers || false,
-          hidden: data.hidden || false,
-          marks: data.marks || 1
-        };
-
-        console.log('Creating question with data:', createData);
-        try {
-          const response = await axios.post('/api/questions', createData);
-          if (response.status === 200) {
-            toast({
-              title: "Success",
-              description: "Question created successfully",
-            });
-          }
-        } catch (error) {
-          console.error('Error creating question:', error);
-          toast({
-            title: "Error",
-            description: error instanceof Error ? error.message : "Failed to create question",
-            variant: "destructive",
-          });
-          throw error; // Re-throw to prevent further execution
-        }
-      }
-      await fetchQuestions();
+      // Just pass the result back to refresh the UI
+      toast({
+        title: "Success",
+        description: data.id ? "Question updated successfully" : "Question created successfully",
+      });
       setIsFormModalOpen(false);
+      fetchQuestions(filters);
     } catch (error) {
-      console.error('Error saving question:', error);
+      console.error('Error with question:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save question. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to process question",
         variant: "destructive",
       });
     }
   };
 
   const handleEditQuestion = (question: Question) => {
-    setEditingQuestion(question);
+    console.log('Editing question:', question);
+    
+    // Log the full question object to help with debugging
+    console.log('Full question object:', JSON.stringify(question, null, 2));
+    
+    // Make sure folderId is explicitly set and logged
+    const questionFolderId = question.folderId;
+    console.log('Question folderId:', questionFolderId);
+    
+    // Deep clone the question to avoid modification issues
+    let formattedQuestion: any = { ...question };
+    
+    // Set up basic question data with explicit folderId set
+    formattedQuestion = {
+      ...formattedQuestion,
+      id: question.id,
+      name: question.name || '',
+      type: question.type,
+      folderId: questionFolderId,  // Explicitly set folderId
+      status: question.status || 'DRAFT',
+      difficulty: question.difficulty || 'MEDIUM',
+      // The questionText field is expected by the form
+      questionText: question.type === 'MCQ' 
+        ? question.mcqQuestion?.questionText || question.mcqQuestion?.content || ''
+        : question.codingQuestion?.questionText || question.codingQuestion?.content || '',
+    };
+    
+    // Handle MCQ question specific data
+    if (question.type === 'MCQ' && question.mcqQuestion) {
+      const mcqData = question.mcqQuestion;
+      
+      // Get options in the correct format
+      let optionsArray = [];
+      if (Array.isArray(mcqData.options)) {
+        // If options is an array of objects with text and grade
+        if (typeof mcqData.options[0] === 'object' && mcqData.options[0].text) {
+          optionsArray = mcqData.options;
+        } 
+        // If options is an array of strings
+        else if (typeof mcqData.options[0] === 'string') {
+          optionsArray = mcqData.options.map((text: string) => ({ 
+            text, 
+            grade: 0, 
+            feedback: '' 
+          }));
+        }
+      }
+      
+      formattedQuestion = {
+        ...formattedQuestion,
+        // Add MCQ specific fields
+        isMultiple: mcqData.isMultiple !== undefined ? mcqData.isMultiple : false,
+        shuffleChoice: mcqData.shuffleChoice !== undefined ? mcqData.shuffleChoice : false,
+        defaultMark: mcqData.defaultMark || 1,
+        generalFeedback: mcqData.generalFeedback || '',
+        choiceNumbering: mcqData.choiceNumbering || 'abc',
+        // Make sure the mcqQuestion property exists with all required fields
+        mcqQuestion: {
+          ...mcqData,
+          questionText: mcqData.questionText || mcqData.content || '',
+          options: optionsArray,
+        },
+      };
+    }
+    
+    // Handle CODING question specific data
+    if (question.type === 'CODING' && question.codingQuestion) {
+      const codingData = question.codingQuestion;
+      
+      formattedQuestion = {
+        ...formattedQuestion,
+        // Make sure the codingQuestion property exists with all required fields
+        codingQuestion: {
+          ...codingData,
+          questionText: codingData.questionText || codingData.content || '',
+        },
+        // Extract languageOptions and testCases for direct access
+        languageOptions: codingData.languageOptions || [],
+        testCases: codingData.testCases || [],
+      };
+    }
+    
+    console.log('Formatted question for form:', formattedQuestion);
+    
+    // Set the editingQuestion state and open the modal
+    setEditingQuestion(formattedQuestion);
     setIsFormModalOpen(true);
   };
 
   const filteredQuestions = questions.filter((question) => {
     // Search filter
     const matchesSearch = filters.search === "" || 
-      question?.question?.toLowerCase()?.includes(filters.search.toLowerCase()) || 
+      question?.content?.toLowerCase()?.includes(filters.search.toLowerCase()) || 
       question?.folder?.name?.toLowerCase()?.includes(filters.search.toLowerCase());
       
     // Category and Subcategory filter
@@ -601,20 +685,24 @@ export default function AdminQuestionsPage() {
   // Add sorting function
   const sortQuestions = (questions: Question[]) => {
     return [...questions].sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      
+      const aValue = a.content || '';
+      const bValue = b.content || '';
       if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
+        return aValue.localeCompare(bValue);
       } else {
-        return aValue < bValue ? 1 : -1;
+        return bValue.localeCompare(aValue);
       }
     });
   };
 
   // Add preview handler
   const handlePreview = (question: Question) => {
-    setPreviewQuestion(question);
+    setPreviewQuestion({
+      ...question,
+      content: question.type === 'MCQ' ? question.mcqQuestion?.content : question.codingQuestion?.content,
+      options: question.mcqQuestion?.options,
+      correctAnswer: question.mcqQuestion?.correctAnswer
+    });
     setIsPreviewModalOpen(true);
   };
 
@@ -627,33 +715,28 @@ export default function AdminQuestionsPage() {
   };
 
   const handleBulkAction = async () => {
+    if (!bulkAction || selectedQuestions.length === 0) return;
+
     try {
       if (bulkAction === 'delete') {
         await Promise.all(selectedQuestions.map(id => handleDeleteQuestion(id)));
-        toast({
-          title: "Success",
-          description: "Selected questions deleted successfully",
-        });
       } else if (bulkAction === 'changeStatus') {
         await Promise.all(selectedQuestions.map(id => 
           axios.patch(`/api/questions/${id}`, { status: bulkStatus })
         ));
-        toast({
-          title: "Success",
-          description: `Selected questions status changed to ${bulkStatus}`,
-        });
       } else if (bulkAction === 'moveToFolder') {
         await Promise.all(selectedQuestions.map(id => 
           axios.patch(`/api/questions/${id}`, { folderId: bulkFolderId })
         ));
-        toast({
-          title: "Success",
-          description: "Selected questions moved successfully",
-        });
       }
+
+      toast({
+        title: "Success",
+        description: "Bulk action completed successfully",
+      });
       setSelectedQuestions([]);
       setIsBulkActionModalOpen(false);
-      fetchQuestions();
+      fetchQuestions(filters);
     } catch (error) {
       console.error('Error performing bulk action:', error);
       toast({
@@ -663,24 +746,6 @@ export default function AdminQuestionsPage() {
       });
     }
   };
-
-  useEffect(() => {
-    if (questions.length > 0) {
-      const newStats = {
-        total: questions.length,
-        ready: questions.filter(q => q.status === 'READY').length,
-        draft: questions.filter(q => q.status === 'DRAFT').length,
-        multipleChoice: questions.filter(q => q.type === 'MULTIPLE_CHOICE').length,
-        coding: questions.filter(q => q.type === 'CODING').length,
-        byFolder: questions.reduce((acc, q) => {
-          const folderName = q.folder?.name || 'Uncategorized';
-          acc[folderName] = (acc[folderName] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-      };
-      setStats(newStats);
-    }
-  }, [questions]);
 
   // Add handler for filter changes
   const handleFilterChange = (key: keyof FilterState, value: any) => {
@@ -712,7 +777,7 @@ export default function AdminQuestionsPage() {
   const handleExport = async () => {
     try {
       const data = filteredQuestions.map(q => ({
-        question: q.question,
+        question: q.content,
         type: q.type,
         status: q.status,
         category: q.folder?.name,
@@ -744,22 +809,24 @@ export default function AdminQuestionsPage() {
 
   // Update the category/subcategory selection handler
   const handleCategoryChange = (value: string) => {
-    console.log('Category/Subcategory selection changed:', {
-      value,
-      currentIncludeSubcategories: pendingFilters.includeSubcategories
-    });
-    if (!value.startsWith('sub_')) {
+    // Parse the selected value to determine if it's a category or subcategory
+    if (value.startsWith('sub_')) {
+      // It's a subcategory selection
+      const [_, categoryId, subcategoryId] = value.split('_');
+      console.log('Selected subcategory:', {value, categoryId, subcategoryId});
+      
+      setPendingFilters(prev => ({
+        ...prev,
+        category: categoryId,
+        subcategory: subcategoryId
+      }));
+    } else {
+      // It's a category selection or "all"
+      console.log('Selected category:', value);
       setPendingFilters(prev => ({
         ...prev,
         category: value,
         subcategory: 'all'
-      }));
-    } else {
-      const [_, folderId, subfolderId] = value.split('_');
-      setPendingFilters(prev => ({
-        ...prev,
-        category: folderId,
-        subcategory: subfolderId
       }));
     }
   };
@@ -768,8 +835,34 @@ export default function AdminQuestionsPage() {
   const applyFilters = () => {
     console.log('Applying filters:', {
       pendingFilters,
-      currentFilters: filters
+      currentFilters: filters,
+      folders: folders.map(f => ({
+        id: f.id,
+        name: f.name,
+        subfolders: f.subfolders?.map(s => ({id: s.id, name: s.name}))
+      }))
     });
+    
+    // Check if subcategory exists in the selected category
+    if (pendingFilters.subcategory !== 'all' && pendingFilters.category !== 'all') {
+      const selectedCategory = folders.find(f => f.id === pendingFilters.category);
+      const subcategoryExists = selectedCategory?.subfolders?.some(s => s.id === pendingFilters.subcategory);
+      
+      console.log('Validating subcategory selection:', {
+        categoryId: pendingFilters.category,
+        subcategoryId: pendingFilters.subcategory,
+        categoryFound: !!selectedCategory,
+        subcategoryExists,
+        subfolders: selectedCategory?.subfolders
+      });
+      
+      if (!subcategoryExists) {
+        console.warn('Selected subcategory not found in the category, resetting to "all"');
+        setPendingFilters(prev => ({...prev, subcategory: 'all'}));
+        return;
+      }
+    }
+    
     setFilters(pendingFilters);
     fetchQuestions(pendingFilters);
   };
@@ -802,6 +895,44 @@ export default function AdminQuestionsPage() {
       }))
     });
   }, [filters, questions]);
+
+  const toggleFolder = (folderId: string) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(folderId)) {
+      newExpanded.delete(folderId);
+    } else {
+      newExpanded.add(folderId);
+    }
+    setExpandedFolders(newExpanded);
+  };
+
+  const renderFolder = (folder: FolderType, level: number = 0) => {
+    const isExpanded = expandedFolders.has(folder.id);
+    const isSelected = selectedFolder === folder.id;
+    
+    return (
+      <div key={folder.id} className="w-full">
+        <div 
+          className={`flex items-center gap-2 p-2 hover:bg-accent cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
+          style={{ paddingLeft: `${level * 20 + 8}px` }}
+          onClick={() => setSelectedFolder(folder.id)}
+        >
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFolder(folder.id);
+            }}
+            className="p-1 hover:bg-accent rounded"
+          >
+            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+          <FolderIcon className="h-4 w-4" />
+          <span className="text-sm">{folder.name}</span>
+        </div>
+        {isExpanded && folder.subfolders.map(subfolder => renderFolder(subfolder, level + 1))}
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto py-6 bg-background">
@@ -838,387 +969,519 @@ export default function AdminQuestionsPage() {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
+          <Dialog open={isFormModalOpen} onOpenChange={(open) => {
+            setIsFormModalOpen(open);
+            // Clear editing question when dialog is closed or opened
+            if (!open) {
+              setEditingQuestion(undefined);
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingQuestion(undefined)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Question
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>{editingQuestion ? "Edit Question" : "Create New Question"}</DialogTitle>
+              </DialogHeader>
+              <QuestionFormModal
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
+                onSubmit={handleFormSubmit}
+                initialData={editingQuestion}
+                folders={folders}
+                subfolders={[]}
+                onAddFolder={handleCreateFolder}
+                onAddSubfolder={handleCreateSubfolder}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      {/* Filters Section */}
-      <div className="bg-card rounded-lg shadow p-6 mb-6 text-card-foreground">
-        <div className="space-y-4">
-          {/* Search Input */}
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search questions..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-8"
-                />
+      <Tabs defaultValue="questions" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="folders">Folders</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="questions">
+          {/* Filters Section */}
+          <div className="bg-card rounded-lg shadow p-6 mb-6 text-card-foreground">
+            <div className="space-y-4">
+              {/* Search Input */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search questions..."
+                      value={filters.search}
+                      onChange={(e) => handleFilterChange('search', e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Controls */}
+              <div className="grid grid-cols-3 gap-4">
+                <Select 
+                  value={pendingFilters.subcategory !== 'all' 
+                    ? `sub_${pendingFilters.category}_${pendingFilters.subcategory}`
+                    : pendingFilters.category}
+                  onValueChange={handleCategoryChange}
+                >
+                  <SelectTrigger className="w-[300px]">
+                    <SelectValue placeholder="Select Category/Subcategory">
+                      {pendingFilters.subcategory !== 'all' 
+                        ? `${folders.find(f => f.id === pendingFilters.category)?.name || ''} > ${
+                            folders.find(f => f.id === pendingFilters.category)
+                              ?.subfolders.find(s => s.id === pendingFilters.subcategory)?.name || ''
+                          }`
+                        : pendingFilters.category === 'all'
+                          ? 'All Categories'
+                          : folders.find(f => f.id === pendingFilters.category)?.name || 'All Categories'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {folders.map((folder) => (
+                      <div key={folder.id}>
+                        <SelectItem value={folder.id}>
+                          📁 {folder.name}
+                        </SelectItem>
+                        {folder.subfolders?.map((subfolder) => (
+                          <SelectItem 
+                            key={subfolder.id} 
+                            value={`sub_${folder.id}_${subfolder.id}`}
+                            className="pl-6"
+                          >
+                            └─ 📄 {subfolder.name}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={pendingFilters.type}
+                  onValueChange={(value) => setPendingFilters(prev => ({ ...prev, type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="MULTIPLE_CHOICE">Multiple Choice</SelectItem>
+                    <SelectItem value="CODING">Coding</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={pendingFilters.status}
+                  onValueChange={(value) => setPendingFilters(prev => ({ ...prev, status: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="DRAFT">Draft</SelectItem>
+                    <SelectItem value="READY">Ready</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Additional Options */}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="showHidden"
+                    checked={pendingFilters.showHidden}
+                    onCheckedChange={(checked) => setPendingFilters(prev => ({ ...prev, showHidden: checked }))}
+                  />
+                  <Label htmlFor="showHidden">Show hidden questions</Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="includeSubcategories"
+                    checked={pendingFilters.includeSubcategories}
+                    onCheckedChange={(checked) => setPendingFilters(prev => ({ ...prev, includeSubcategories: checked }))}
+                  />
+                  <Label htmlFor="includeSubcategories">Include subcategories</Label>
+                </div>
+
+                <Button 
+                  onClick={applyFilters}
+                  className="ml-auto"
+                >
+                  Apply Filters
+                </Button>
+              </div>
+
+              {/* Active Filters */}
+              {activeFilters.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {activeFilters.map((filter, index) => (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {filter}
+                      <X
+                        className="h-3 w-3 cursor-pointer"
+                        onClick={() => {
+                          const [key] = filter.toLowerCase().split(':');
+                          handleFilterChange(key as keyof FilterState, 'all');
+                        }}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* Filter Actions */}
+              <div className="flex justify-between items-center pt-4">
+                <Button
+                  variant="outline"
+                  onClick={clearFilters}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Clear filters
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  {isLoading ? (
+                    <span>Loading questions...</span>
+                  ) : (
+                    <span>
+                      Showing {filteredQuestions.length} questions
+                      {filters.category !== 'all' && filters.category && 
+                        ` in ${folders.find(f => f.id === filters.category)?.name || 'category'}`}
+                      {filters.subcategory !== 'all' && filters.subcategory && 
+                        ` > ${folders.find(f => f.id === filters.category)?.subfolders.find(s => s.id === filters.subcategory)?.name || 'subcategory'}`}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Filter Controls */}
-          <div className="grid grid-cols-3 gap-4">
-            <Select 
-              value={pendingFilters.subcategory !== 'all' 
-                ? `sub_${pendingFilters.category}_${pendingFilters.subcategory}`
-                : pendingFilters.category}
-              onValueChange={handleCategoryChange}
-            >
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder="Select Category/Subcategory">
-                  {pendingFilters.subcategory !== 'all' 
-                    ? folders
-                        .find(f => f.id === pendingFilters.category)
-                        ?.subfolders.find(s => s.id === pendingFilters.subcategory)
-                        ?.name
-                    : folders.find(f => f.id === pendingFilters.category)?.name || 'All Categories'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {folders.map((folder) => (
-                  <div key={folder.id}>
-                    <SelectItem value={folder.id}>
-                      📁 {folder.name}
-                    </SelectItem>
-                    {folder.subfolders?.map((subfolder) => (
-                      <SelectItem 
-                        key={subfolder.id} 
-                        value={`sub_${folder.id}_${subfolder.id}`}
-                        className="pl-6"
-                      >
-                        └─ 📄 {subfolder.name}
-                      </SelectItem>
-                    ))}
-                  </div>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={pendingFilters.type}
-              onValueChange={(value) => setPendingFilters(prev => ({ ...prev, type: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="MULTIPLE_CHOICE">Multiple Choice</SelectItem>
-                <SelectItem value="CODING">Coding</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={pendingFilters.status}
-              onValueChange={(value) => setPendingFilters(prev => ({ ...prev, status: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="READY">Ready</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Additional Options */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="showHidden"
-                checked={pendingFilters.showHidden}
-                onCheckedChange={(checked) => setPendingFilters(prev => ({ ...prev, showHidden: checked }))}
-              />
-              <Label htmlFor="showHidden">Show hidden questions</Label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                id="includeSubcategories"
-                checked={pendingFilters.includeSubcategories}
-                onCheckedChange={(checked) => setPendingFilters(prev => ({ ...prev, includeSubcategories: checked }))}
-              />
-              <Label htmlFor="includeSubcategories">Include subcategories</Label>
-            </div>
-
-            <Button 
-              onClick={applyFilters}
-              className="ml-auto"
-            >
-              Apply Filters
-            </Button>
-          </div>
-
-          {/* Active Filters */}
-          {activeFilters.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="flex items-center gap-1"
-                >
-                  {filter}
-                  <X
-                    className="h-3 w-3 cursor-pointer"
-                    onClick={() => {
-                      const [key] = filter.toLowerCase().split(':');
-                      handleFilterChange(key as keyof FilterState, 'all');
-                    }}
-                  />
-                </Badge>
-              ))}
+          {/* Questions Display */}
+          {viewMode === 'table' && (
+            <div className="bg-card rounded-lg shadow text-card-foreground">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-muted/50">
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={selectedQuestions.length === paginatedQuestions.length}
+                        onCheckedChange={(checked) => {
+                          setSelectedQuestions(checked ? paginatedQuestions.map(q => q.id) : []);
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead>Question</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Version</TableHead>
+                    <TableHead>Last Modified</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortQuestions(paginatedQuestions).map((question) => (
+                    <TableRow key={question.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedQuestions.includes(question.id)}
+                          onCheckedChange={() => handleBulkSelect(question.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div dangerouslySetInnerHTML={{ __html: question.content || '' }} />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
+                          {question.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
+                          {question.status || 'DRAFT'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>v1</TableCell>
+                      <TableCell>{new Date(question.updatedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePreview(question)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditQuestion(question)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteQuestion(question.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
 
-          {/* Filter Actions */}
-          <div className="flex justify-between items-center pt-4">
-            <Button
-              variant="outline"
-              onClick={clearFilters}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Clear filters
-            </Button>
+          {viewMode === 'list' && (
+            <div className="bg-card rounded-lg shadow text-card-foreground">
+              <div className="p-4 space-y-4">
+                {sortQuestions(paginatedQuestions).map((question) => (
+                  <div key={question.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedQuestions.includes(question.id)}
+                            onCheckedChange={() => handleBulkSelect(question.id)}
+                          />
+                          <div dangerouslySetInnerHTML={{ __html: question.content || '' }} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
+                            {question.type}
+                          </Badge>
+                          <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
+                            {question.status || 'DRAFT'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handlePreview(question)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditQuestion(question)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteQuestion(question.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'grid' && (
+            <div className="bg-card rounded-lg shadow text-card-foreground">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                {sortQuestions(paginatedQuestions).map((question) => (
+                  <div key={question.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedQuestions.includes(question.id)}
+                          onCheckedChange={() => handleBulkSelect(question.id)}
+                        />
+                        <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: question.content || '' }} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
+                          {question.type}
+                        </Badge>
+                        <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
+                          {question.status || 'DRAFT'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handlePreview(question)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditQuestion(question)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteQuestion(question.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pagination */}
+          <div className="p-4 border-t border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-gray-700">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="text-sm text-muted-foreground">
-              Showing {filteredQuestions.length} questions
-              {filters.category !== 'all' && ` in ${folders.find(f => f.id === filters.category)?.name}`}
-              {filters.subcategory !== 'all' && ` > ${folders.find(f => f.id === filters.category)?.subfolders.find(s => s.id === filters.subcategory)?.name}`}
+              Showing {paginatedQuestions.length} of {filteredQuestions.length} questions
             </div>
           </div>
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* Questions Display */}
-      {viewMode === 'table' && (
-        <div className="bg-card rounded-lg shadow text-card-foreground">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-muted/50">
-                <TableHead className="w-[50px]">
-                  <Checkbox
-                    checked={selectedQuestions.length === paginatedQuestions.length}
-                    onCheckedChange={(checked) => {
-                      setSelectedQuestions(checked ? paginatedQuestions.map(q => q.id) : []);
-                    }}
-                  />
-                </TableHead>
-                <TableHead>Question</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Last Modified</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortQuestions(paginatedQuestions).map((question) => (
-                <TableRow key={question.id} className="hover:bg-muted/50">
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedQuestions.includes(question.id)}
-                      onCheckedChange={() => handleBulkSelect(question.id)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div dangerouslySetInnerHTML={{ __html: question.question }} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
-                      {question.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
-                      {question.status || 'DRAFT'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>v1</TableCell>
-                  <TableCell>{new Date(question.updatedAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handlePreview(question)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditQuestion(question)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteQuestion(question.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {viewMode === 'list' && (
-        <div className="bg-card rounded-lg shadow text-card-foreground">
-          <div className="p-4 space-y-4">
-            {sortQuestions(paginatedQuestions).map((question) => (
-              <div key={question.id} className="border rounded-lg p-4 hover:bg-muted/50">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selectedQuestions.includes(question.id)}
-                        onCheckedChange={() => handleBulkSelect(question.id)}
-                      />
-                      <div dangerouslySetInnerHTML={{ __html: question.question }} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
-                        {question.type}
-                      </Badge>
-                      <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
-                        {question.status || 'DRAFT'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handlePreview(question)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditQuestion(question)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteQuestion(question.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+        <TabsContent value="folders">
+          <div className="bg-card rounded-lg shadow p-6 mb-6 text-card-foreground">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Folder Management</h2>
+              <div className="flex gap-2">
+                <Button onClick={() => setIsCreateFolderModalOpen(true)}>
+                  <FolderIcon className="mr-2 h-4 w-4" />
+                  Create Folder
+                </Button>
+                <Button onClick={() => setIsCreateSubfolderModalOpen(true)}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Create Subfolder
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
 
-      {viewMode === 'grid' && (
-        <div className="bg-card rounded-lg shadow text-card-foreground">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-            {sortQuestions(paginatedQuestions).map((question) => (
-              <div key={question.id} className="border rounded-lg p-4 hover:bg-muted/50">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={selectedQuestions.includes(question.id)}
-                      onCheckedChange={() => handleBulkSelect(question.id)}
-                    />
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: question.question }} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={question.type === 'MULTIPLE_CHOICE' ? 'default' : 'secondary'}>
-                      {question.type}
-                    </Badge>
-                    <Badge variant={question.status === 'READY' ? 'default' : 'secondary'}>
-                      {question.status || 'DRAFT'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handlePreview(question)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditQuestion(question)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteQuestion(question.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <div className="space-y-4">
+              {folders.map((folder) => renderFolder(folder))}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Pagination */}
-      <div className="p-4 border-t border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-gray-700">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          Showing {paginatedQuestions.length} of {filteredQuestions.length} questions
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
-      <QuestionFormModal
-        isOpen={isFormModalOpen}
-        onClose={() => {
-          setIsFormModalOpen(false);
-          setEditingQuestion(undefined);
-        }}
-        onSubmit={handleFormSubmit}
-        initialData={editingQuestion}
-        folders={folders}
-        subfolders={folders.flatMap(folder => folder.subfolders)}
-        onAddFolder={handleCreateFolder}
-        onAddSubfolder={handleCreateSubfolder}
-      />
+      {/* Remove the duplicate QuestionFormModal here */}
+
+      {/* Create Folder Modal */}
+      <Dialog open={isCreateFolderModalOpen} onOpenChange={setIsCreateFolderModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="folderName">Folder Name</Label>
+              <Input
+                id="folderName"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Enter folder name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateFolderModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateFolder}>
+              Create Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Subfolder Modal */}
+      <Dialog open={isCreateSubfolderModalOpen} onOpenChange={setIsCreateSubfolderModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Subfolder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Parent Folder</Label>
+              <Select
+                value={selectedFolderForSubfolder || ''}
+                onValueChange={setSelectedFolderForSubfolder}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select parent folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subfolderName">Subfolder Name</Label>
+              <Input
+                id="subfolderName"
+                value={newSubfolderName}
+                onChange={(e) => setNewSubfolderName(e.target.value)}
+                placeholder="Enter subfolder name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateSubfolderModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSubfolder} disabled={!selectedFolderForSubfolder || !newSubfolderName.trim()}>
+              Create Subfolder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Folder Modal */}
       <Dialog open={isEditFolderModalOpen} onOpenChange={setIsEditFolderModalOpen}>
@@ -1228,8 +1491,9 @@ export default function AdminQuestionsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Folder Name</Label>
+              <Label htmlFor="editFolderName">Folder Name</Label>
               <Input
+                id="editFolderName"
                 value={updatedFolderName}
                 onChange={(e) => setUpdatedFolderName(e.target.value)}
                 placeholder="Enter folder name"
@@ -1240,58 +1504,43 @@ export default function AdminQuestionsPage() {
             <Button variant="outline" onClick={() => setIsEditFolderModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateFolder}>Update</Button>
+            <Button onClick={handleUpdateFolder}>
+              Update Folder
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Question Preview Modal */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Question Preview</DialogTitle>
           </DialogHeader>
-          {previewQuestion && (
-            <div className="space-y-4">
-              <div className="prose max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: previewQuestion.question }} />
-              </div>
-              {previewQuestion.type === 'MULTIPLE_CHOICE' && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Options:</h4>
-                  <div className="grid gap-2">
-                    {previewQuestion.options.map((option, index) => (
-                      <div
-                        key={index}
-                        className={`p-2 rounded border ${
-                          option === previewQuestion.correctAnswer
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-gray-50'
-                        }`}
-                      >
-                        <div dangerouslySetInnerHTML={{ __html: option }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {previewQuestion.type === 'CODING' && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Test Cases:</h4>
-                  <div className="space-y-2">
-                    {previewQuestion.testCases?.map((testCase: any, index: number) => (
-                      <div key={index} className="p-2 rounded border bg-gray-50">
-                        <div className="font-medium">Input:</div>
-                        <pre className="mt-1">{testCase.input}</pre>
-                        <div className="font-medium mt-2">Expected Output:</div>
-                        <pre className="mt-1">{testCase.output}</pre>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+          <div className="space-y-4">
+            <div className="prose max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: previewQuestion?.content || '' }} />
             </div>
-          )}
+            {previewQuestion?.type === 'MCQ' && previewQuestion.options && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Options:</h4>
+                <div className="grid gap-2">
+                  {previewQuestion.options.map((option, index) => (
+                    <div
+                      key={index}
+                      className={`p-2 rounded ${
+                        option === previewQuestion.correctAnswer
+                          ? 'bg-green-100 dark:bg-green-900'
+                          : 'bg-gray-100 dark:bg-gray-800'
+                      }`}
+                    >
+                      {option}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -4,16 +4,14 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   try {
     const folders = await prisma.folder.findMany({
-      include: {
-        subfolders: true,
-        questions: true,
-        parent: true,
-      },
       where: {
         parentId: null, // Only get top-level folders
       },
+      include: {
+        subfolders: true
+      },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
@@ -29,18 +27,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { name, parentId } = body;
+    const { name } = await request.json();
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Folder name is required" },
+        { status: 400 }
+      );
+    }
 
     const folder = await prisma.folder.create({
       data: {
         name,
-        parentId,
-      },
-      include: {
-        subfolders: true,
-        questions: true,
-        parent: true,
       },
     });
 

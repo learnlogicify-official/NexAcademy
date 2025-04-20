@@ -1,63 +1,104 @@
-"use client";
-
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { useToast } from '@/components/ui/use-toast';
+import { useForm, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, ListChecks, Tag, X, Folder, FolderOpen, Loader2 } from 'lucide-react';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from "@/components/ui/checkbox";
-import { FormField, FormItem, FormLabel } from "@/components/ui/form";
-import { Form } from "@/components/ui/form";
-import { Question, Folder as FolderType, Subfolder as SubfolderType } from '@/types';
+import { PlusCircle, Trash2, X, Edit, Plus } from 'lucide-react';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormProvider } from 'react-hook-form';
+
+const questionFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  questionText: z.string().min(1, 'Question text is required'),
+  type: z.enum(['MCQ', 'CODING']),
+  status: z.enum(['DRAFT', 'READY']),
+  folderId: z.string().min(1, 'Folder is required'),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']),
+  defaultMark: z.number().min(0),
+  isMultiple: z.boolean(),
+  shuffleChoice: z.boolean(),
+  generalFeedback: z.string(),
+  choiceNumbering: z.string(),
+  options: z.array(z.object({
+    id: z.string().optional(),
+    text: z.string(),
+    grade: z.number(),
+    feedback: z.string()
+  })).optional(),
+  languageOptions: z.array(z.object({
+    id: z.string().optional(),
+    language: z.string(),
+    solution: z.string()
+  })).optional(),
+  testCases: z.array(z.object({
+    id: z.string().optional(),
+    input: z.string(),
+    output: z.string(),
+    isHidden: z.boolean()
+  })).optional()
+});
+
+type QuestionFormData = z.infer<typeof questionFormSchema>;
 
 interface QuestionFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: Partial<Question>) => void;
-  initialData?: Partial<Question>;
-  folders: FolderType[];
-  subfolders: SubfolderType[];
-  onAddFolder: (name: string) => void;
-  onAddSubfolder: (folderId: string, name: string) => void;
+  onSubmit: (data: any) => void;
+  initialData?: any;
+  folders: any[];
+  subfolders: any[];
+  onAddFolder: (folderName: string) => void;
+  onAddSubfolder: (folderName: string, parentId: string) => void;
 }
 
-interface Option {
-  id: string;
-  content: string;
+// Define interfaces for language options and test cases
+interface MCQOption {
+  id?: string;
+  text: string;
   grade: number;
+  feedback: string;
 }
 
-const formSchema = z.object({
-  question: z.string().min(1, 'Question is required'),
-  type: z.enum(['MULTIPLE_CHOICE', 'CODING']),
-  folderId: z.string().min(1, 'Folder is required'),
-  options: z.array(z.string()).default([]),
-  correctAnswer: z.string().optional(),
-  testCases: z.any().optional(),
-  expectedOutput: z.string().optional(),
-  hidden: z.boolean().default(false),
-  marks: z.number().min(1, 'Marks must be at least 1').default(1),
-  singleAnswer: z.boolean().default(false),
-  shuffleAnswers: z.boolean().default(false),
-  status: z.enum(['DRAFT', 'READY']).default('DRAFT')
-});
+interface LanguageOption {
+  id?: string;
+  language: string;
+  solution: string;
+}
 
-type QuestionFormData = z.infer<typeof formSchema>;
+interface TestCase {
+  id?: string;
+  input: string;
+  output: string;
+  isHidden: boolean;
+}
 
-export function QuestionFormModal({
+export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
@@ -65,505 +106,1103 @@ export function QuestionFormModal({
   folders,
   subfolders,
   onAddFolder,
-  onAddSubfolder,
-}: QuestionFormModalProps) {
+  onAddSubfolder
+}) => {
   const { toast } = useToast();
-  const [options, setOptions] = useState<Option[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<string>('');
-  const [testCases, setTestCases] = useState<Array<{ input: string; output: string; isHidden: boolean }>>([]);
-  const [questionContent, setQuestionContent] = useState<string>('');
-  const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
-  const [availableTags] = useState<string[]>([
-    'JavaScript', 'Python', 'Java', 'C++', 'Algorithms',
-    'Data Structures', 'Web Development', 'Database',
-    'System Design', 'Frontend', 'Backend', 'DevOps'
-  ]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [options, setOptions] = useState<any[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [testCases, setTestCases] = useState<any[]>([]);
+  const [newOption, setNewOption] = useState({ text: '', grade: 0 });
+  const [editorKey, setEditorKey] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  // Add this new function to handle grade normalization
+  const normalizeGradeValue = (value: any): number => {
+    console.log('Normalizing grade value:', value, typeof value);
+    
+    if (value === undefined || value === null) {
+      return 0;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof value === 'string') {
+      // Remove any percentage signs
+      const cleanValue = value.replace('%', '');
+      const parsed = parseFloat(cleanValue);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    
+    // If it's a number
+    if (typeof value === 'number') {
+      // If it's between 0 and 1, convert to percentage
+      if (value > 0 && value <= 1) {
+        return value * 100;
+      }
+      return value;
+    }
+    
+    return 0;
+  };
+  
+  // Grade percentage options using actual percentage values
+  const gradeOptions = [
+    { value: 0, label: "None" },
+    { value: 100, label: "100%" },
+    { value: 90, label: "90%" },
+    { value: 83.33333, label: "83.33333%" },
+    { value: 80, label: "80%" },
+    { value: 75, label: "75%" },
+    { value: 70, label: "70%" },
+    { value: 66.66667, label: "66.66667%" },
+    { value: 60, label: "60%" },
+    { value: 50, label: "50%" },
+    { value: 40, label: "40%" },
+    { value: 33.33333, label: "33.33333%" },
+    { value: 30, label: "30%" },
+    { value: 25, label: "25%" },
+    { value: 20, label: "20%" },
+    { value: 16.66667, label: "16.66667%" },
+    { value: 14.28571, label: "14.28571%" },
+    { value: 12.5, label: "12.5%" },
+    { value: 11.11111, label: "11.11111%" },
+    { value: 10, label: "10%" },
+    { value: 5, label: "5%" },
+    { value: -5, label: "-5%" },
+    { value: -10, label: "-10%" },
+    { value: -11.11111, label: "-11.11111%" },
+    { value: -12.5, label: "-12.5%" },
+    { value: -14.28571, label: "-14.28571%" },
+    { value: -16.66667, label: "-16.66667%" },
+    { value: -20, label: "-20%" },
+    { value: -25, label: "-25%" },
+    { value: -30, label: "-30%" },
+    { value: -33.33333, label: "-33.33333%" },
+    { value: -40, label: "-40%" },
+    { value: -50, label: "-50%" },
+    { value: -60, label: "-60%" },
+    { value: -66.66667, label: "-66.66667%" },
+    { value: -70, label: "-70%" },
+    { value: -75, label: "-75%" },
+    { value: -80, label: "-80%" },
+    { value: -83.33333, label: "-83.33333%" },
+    { value: -90, label: "-90%" },
+    { value: -100, label: "-100%" }
+  ];
+  
+  // Prepare a flat list of all folders and their subfolders
+  const allFolderOptions = React.useMemo(() => {
+    const result: { id: string; name: string; isSubfolder?: boolean; parentName?: string }[] = [];
+    
+    folders.forEach(folder => {
+      // Add the main folder
+      result.push({ id: folder.id, name: folder.name });
+      
+      // Add all subfolders with a reference to their parent
+      if (folder.subfolders && folder.subfolders.length > 0) {
+        folder.subfolders.forEach((subfolder: { id: string; name: string }) => {
+          result.push({
+            id: subfolder.id,
+            name: subfolder.name,
+            isSubfolder: true,
+            parentName: folder.name
+          });
+        });
+      }
+    });
+    
+    return result;
+  }, [folders]);
+  
   const form = useForm<QuestionFormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(questionFormSchema),
     defaultValues: {
-      question: '',
-      type: 'MULTIPLE_CHOICE',
-      folderId: '',
-      hidden: false,
-      marks: 1,
-      singleAnswer: false,
-      shuffleAnswers: false,
-      status: 'DRAFT'
+      name: initialData?.name || "",
+      questionText: initialData?.mCQQuestion?.questionText || initialData?.codingQuestion?.questionText || "",
+      type: initialData?.type || "MCQ",
+      status: initialData?.status || "DRAFT",
+      folderId: initialData?.folderId || "",
+      difficulty: initialData?.mCQQuestion?.difficulty || "MEDIUM",
+      defaultMark: initialData?.mCQQuestion?.defaultMark || initialData?.codingQuestion?.defaultMark || 1,
+      isMultiple: initialData?.mCQQuestion?.isMultiple || false,
+      shuffleChoice: initialData?.mCQQuestion?.shuffleChoice || false,
+      generalFeedback: initialData?.mCQQuestion?.generalFeedback || "",
+      choiceNumbering: initialData?.mCQQuestion?.choiceNumbering || "abc",
+      options: initialData?.mCQQuestion?.options?.map((option) => ({
+        text: option.text,
+        grade: option.grade,
+        feedback: option.feedback || "",
+      })) || [],
+      languageOptions: initialData?.codingQuestion?.languageOptions?.map((lang) => lang.language) || [],
+      testCases: initialData?.codingQuestion?.testCases?.map((testCase) => ({
+        input: testCase.input,
+        output: testCase.output,
+        isHidden: testCase.isHidden,
+      })) || [],
     },
+    mode: "onChange",
   });
 
-  const questionType = form.watch('type');
-
-  const toBool = (value: string | boolean | undefined): boolean => {
-    if (typeof value === 'boolean') return value;
-    if (!value) return false;
-    return value.toLowerCase() === 'true';
-  };
-
+  // Add a useEffect to handle initial data changes
   useEffect(() => {
     if (initialData) {
-      console.log('Initial data received:', initialData);
-      const formData = {
-        ...initialData,
-        hidden: toBool(initialData.hidden),
-        marks: initialData.marks ?? 1,
-        singleAnswer: initialData.singleAnswer ?? false,
-        shuffleAnswers: initialData.shuffleAnswers ?? false,
-        status: initialData.status || 'DRAFT',
-        correctAnswer: initialData.correctAnswer || undefined
-      };
-      form.reset(formData);
-      setSelectedFolder(initialData.folderId || '');
-      
-      // Set question content
-      setQuestionContent(initialData.question || '');
-      
-      // Set options with correct grade
-      if (initialData.type === 'MULTIPLE_CHOICE' && initialData.options) {
-        const optionsWithGrade = initialData.options.map(content => ({
-          id: Math.random().toString(),
-          content,
-          grade: content === initialData.correctAnswer ? 1 : 0
-        }));
-        setOptions(optionsWithGrade);
-        // Set the correct answer in the form
-        form.setValue('correctAnswer', initialData.correctAnswer || '');
-      } else {
-        setOptions([]);
-        form.setValue('correctAnswer', '');
-      }
-      
-      // Set test cases
-      if (initialData.type === 'CODING' && initialData.testCases) {
-        setTestCases(initialData.testCases.map((testCase: any) => ({
-          input: testCase.input || '',
-          output: testCase.output || '',
-          isHidden: testCase.isHidden || false
-        })));
-      } else {
-        setTestCases([]);
-      }
-    } else {
-      form.reset({
-        question: '',
-        type: 'MULTIPLE_CHOICE',
-        folderId: '',
-        hidden: false,
-        marks: 1,
-        singleAnswer: false,
-        shuffleAnswers: false,
-        status: 'DRAFT',
-        correctAnswer: ''
+      console.log('Setting initial data:', initialData);
+      const questionText = initialData.mCQQuestion?.questionText || initialData.codingQuestion?.questionText || '';
+      console.log('Setting question text:', questionText);
+      form.setValue('questionText', questionText, { 
+        shouldValidate: true, 
+        shouldDirty: true,
+        shouldTouch: true
       });
-      setSelectedFolder('');
-      setOptions([]);
-      setTestCases([]);
-      setQuestionContent('');
     }
   }, [initialData, form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = form.getValues();
+  // Add a watch for question text changes
+  const questionText = form.watch('questionText');
+  
+  // Memoize the validation trigger function
+  const triggerValidation = useCallback(() => {
+    console.log('Question text changed:', questionText);
+    form.trigger('questionText');
+  }, [questionText]); // Only depend on questionText
+
+  useEffect(() => {
+    triggerValidation();
+  }, [triggerValidation]); // Only depend on the memoized function
+
+  const { watch } = form;
+  const questionType = watch('type');
+  const formOptions = watch('options') || [];
+  const formLanguageOptions = watch('languageOptions') || [];
+  const formTestCases = watch('testCases') || [];
+
+  // Update the processOptionGrade function to handle more cases
+  const processOptionGrade = (rawGrade: any): number => {
+    console.log(`Processing option grade (${typeof rawGrade}):`, rawGrade);
     
+    // Handle null or undefined
+    if (rawGrade === null || rawGrade === undefined) {
+      console.log('Null/undefined grade, defaulting to 0');
+      return 0;
+    }
+    
+    // Handle boolean values
+    if (typeof rawGrade === 'boolean') {
+      console.log('Boolean grade value:', rawGrade);
+      return rawGrade ? 100 : 0;
+    }
+    
+    // Handle string values
+    if (typeof rawGrade === 'string') {
+      // Remove any whitespace and % signs
+      const cleanValue = rawGrade.trim().replace('%', '');
+      
+      // Handle empty strings
+      if (!cleanValue) {
+        console.log('Empty string grade, defaulting to 0');
+        return 0;
+      }
+      
+      // Parse the numeric value
+      const parsedValue = parseFloat(cleanValue);
+      if (isNaN(parsedValue)) {
+        console.log('Invalid numeric string, defaulting to 0');
+        return 0;
+      }
+      
+      // If value is between 0 and 1, treat as decimal percentage
+      if (parsedValue > 0 && parsedValue <= 1) {
+        console.log('Converting decimal to percentage:', parsedValue * 100);
+        return parsedValue * 100;
+      }
+      
+      console.log('Using parsed numeric value:', parsedValue);
+      return parsedValue;
+    }
+    
+    // Handle numeric values
+    if (typeof rawGrade === 'number') {
+      // Handle NaN
+      if (isNaN(rawGrade)) {
+        console.log('NaN grade value, defaulting to 0');
+        return 0;
+      }
+      
+      // If value is between 0 and 1, treat as decimal percentage
+      if (rawGrade > 0 && rawGrade <= 1) {
+        console.log('Converting decimal to percentage:', rawGrade * 100);
+        return rawGrade * 100;
+      }
+      
+      console.log('Using numeric value as is:', rawGrade);
+      return rawGrade;
+    }
+    
+    // For any other type, default to 0
+    console.log('Unhandled grade type, defaulting to 0');
+    return 0;
+  };
+
+  // Update the useEffect hook where options are processed
+  useEffect(() => {
+    const fetchQuestionDetails = async () => {
+      if (initialData?.id) {
+        try {
+          const response = await fetch(`/api/questions/${initialData.id}`);
+          if (!response.ok) {
+            throw new Error('Failed to fetch question details');
+          }
+          const questionData = await response.json();
+          
+          console.log('Fetched question data:', questionData);
+          
+          // Set basic question data
+          form.setValue('name', questionData.name || '');
+          form.setValue('type', questionData.type);
+          form.setValue('folderId', questionData.folderId);
+          form.setValue('status', questionData.status || 'DRAFT');
+          
+          if (questionData.type === 'MCQ' && questionData.mCQQuestion) {
+            console.log('Setting MCQ question text:', questionData.mCQQuestion.questionText);
+            // Set MCQ specific data
+            form.setValue('questionText', questionData.mCQQuestion.questionText || '');
+            form.setValue('difficulty', questionData.mCQQuestion.difficulty || 'MEDIUM');
+            form.setValue('defaultMark', questionData.mCQQuestion.defaultMark || 1);
+            form.setValue('isMultiple', questionData.mCQQuestion.isMultiple || false);
+            form.setValue('shuffleChoice', questionData.mCQQuestion.shuffleChoice || false);
+            form.setValue('generalFeedback', questionData.mCQQuestion.generalFeedback || '');
+            form.setValue('choiceNumbering', questionData.mCQQuestion.choiceNumbering || 'abc');
+            
+            // Set options if they exist
+            if (questionData.mCQQuestion.options && Array.isArray(questionData.mCQQuestion.options)) {
+              const formattedOptions = questionData.mCQQuestion.options.map((opt: any) => ({
+                id: opt.id,
+                text: opt.text || '',
+                grade: opt.grade || 0,
+                feedback: opt.feedback || ''
+              }));
+              form.setValue('options', formattedOptions);
+            }
+          } else if (questionData.type === 'CODING' && questionData.codingQuestion) {
+            console.log('Setting Coding question text:', questionData.codingQuestion.questionText);
+            // Set coding specific data
+            form.setValue('questionText', questionData.codingQuestion.questionText || '');
+            form.setValue('defaultMark', questionData.codingQuestion.defaultMark || 1);
+            
+            // Set language options if they exist
+            if (questionData.codingQuestion.languageOptions && Array.isArray(questionData.codingQuestion.languageOptions)) {
+              const formattedLanguageOptions = questionData.codingQuestion.languageOptions.map((opt: any) => ({
+                id: opt.id,
+                language: opt.language || '',
+                solution: opt.solution || ''
+              }));
+              form.setValue('languageOptions', formattedLanguageOptions);
+            }
+            
+            // Set test cases if they exist
+            if (questionData.codingQuestion.testCases && Array.isArray(questionData.codingQuestion.testCases)) {
+              const formattedTestCases = questionData.codingQuestion.testCases.map((tc: any) => ({
+              id: tc.id,
+              input: tc.input || '',
+                output: tc.output || '',
+              isHidden: tc.isHidden || false
+            }));
+              form.setValue('testCases', formattedTestCases);
+          }
+        }
+        
+          // Log the form values after setting them
+          console.log('Form values after setting:', form.getValues());
+      } catch (error) {
+          console.error('Error fetching question details:', error);
+        toast({
+          title: "Error",
+            description: "Failed to load question details",
+          variant: "destructive",
+        });
+      }
+      }
+    };
+
+    fetchQuestionDetails();
+  }, [initialData, form, toast]);
+
+  // Update the addOption function
+  const addOption = () => {
+    if (!newOption.text.trim()) {
+      toast({
+        title: "Error",
+        description: "Option text cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const currentOptions = form.getValues('options') || [];
+    const newOptionData = {
+      id: undefined, // Will be set by the server
+      text: newOption.text,
+      grade: newOption.grade,
+      feedback: ''
+    };
+
+    form.setValue('options', [...currentOptions, newOptionData]);
+    setNewOption({ text: '', grade: 0 }); // Reset the new option form
+    setEditorKey(prev => prev + 1); // Force re-render of the editor
+  };
+
+  // Remove an option from the MCQ question
+  const removeOption = (index: number) => {
+    form.setValue('options', formOptions.filter((_, i) => i !== index));
+  };
+
+  // Update an option
+  const updateOption = (index: number, field: keyof MCQOption, value: any) => {
+    const updatedOptions = [...formOptions];
+    if (field === 'grade') {
+      value = Number(value);
+    }
+    updatedOptions[index] = { ...updatedOptions[index], [field]: value };
+    form.setValue('options', updatedOptions);
+  };
+
+  // Enhanced display for option grade value in SelectValue
+  // This key function will accurately display the grade in the dropdown
+  const getGradeDisplayValue = (grade: number) => {
+    // Ensure the grade is a number
+    const numericGrade = typeof grade === 'string' ? parseFloat(grade) : grade;
+    
+    if (isNaN(numericGrade)) {
+      console.log(`Invalid grade value: ${grade}, defaulting to "None"`);
+      return "None";
+    }
+    
+    // Find exact match first in our grade options
+    const exactMatch = gradeOptions.find(g => Math.abs(g.value - numericGrade) < 0.001);
+    if (exactMatch) {
+      console.log(`Found exact/close grade match for ${numericGrade}: ${exactMatch.label}`);
+      return exactMatch.label;
+    }
+    
+    // Special handling for 100%
+    if (Math.abs(numericGrade - 100) < 0.001 || Math.abs(numericGrade - 1) < 0.001) {
+      console.log(`Special case for 100% grade: ${numericGrade}`);
+      return "100%";
+    }
+    
+    // Otherwise show raw value
+    console.log(`Using raw grade value for ${numericGrade}: ${numericGrade}%`);
+    return `${numericGrade}%`;
+  };
+
+  // Add a new test case for coding questions
+  const addTestCase = () => {
+    const newTestCase: TestCase = {
+      input: '',
+      output: '',
+      isHidden: false
+    };
+    form.setValue('testCases', [...formTestCases, newTestCase]);
+  };
+
+  // Remove a test case
+  const removeTestCase = (index: number) => {
+    form.setValue('testCases', formTestCases.filter((_, i) => i !== index));
+  };
+
+  // Update a test case
+  const updateTestCase = (index: number, field: keyof TestCase, value: any) => {
+    const updatedTestCases = [...formTestCases];
+    updatedTestCases[index] = { ...updatedTestCases[index], [field]: value };
+    form.setValue('testCases', updatedTestCases);
+  };
+
+  // Update the onFormSubmit function
+  const onFormSubmit = async (data: QuestionFormData) => {
     try {
+      // Clear any previous errors
+      setFormErrors({});
+      
+      // Validate required fields
+      const errors: Record<string, string> = {};
+      
+      if (!data.name?.trim()) {
+        errors.name = 'Question name is required';
+      }
+      
+      if (!data.questionText?.trim()) {
+        errors.questionText = 'Question text is required';
+      }
+      
+      if (!data.folderId) {
+        errors.folderId = 'Please select a folder';
+      }
+      
+      if (data.type === 'MCQ' && data.options.length === 0) {
+        errors.options = 'At least one option is required for MCQ questions';
+      }
+      
+      if (data.type === 'CODING') {
+        if (data.languageOptions.length === 0) {
+          errors.languages = 'At least one programming language must be selected';
+        }
+        if (data.testCases.length === 0) {
+          errors.testCases = 'At least one test case is required for coding questions';
+        }
+      }
+      
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        return;
+      }
+      
+      await handleSubmit(data);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit form. Please check all required fields.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async (data: QuestionFormData) => {
+    try {
+      setIsLoading(true);
+      
+      // Validate required arrays based on question type
+      if (data.type === 'MCQ') {
+        const options = data.options || [];
+        if (options.length === 0) {
+          throw new Error('At least one option is required for MCQ questions');
+        }
+      }
+      
+      if (data.type === 'CODING') {
+        const languageOptions = data.languageOptions || [];
+        const testCases = data.testCases || [];
+        
+        if (languageOptions.length === 0) {
+          throw new Error('At least one programming language must be selected');
+        }
+        if (testCases.length === 0) {
+          throw new Error('At least one test case is required for coding questions');
+        }
+      }
+
+      // Prepare the data for submission
       const submissionData = {
-        question: questionContent,
-        type: formData.type as 'MULTIPLE_CHOICE' | 'CODING',
-        folderId: formData.folderId,
-        options: formData.type === 'MULTIPLE_CHOICE' ? options.map(opt => opt.content) : [],
-        correctAnswer: formData.type === 'MULTIPLE_CHOICE' ? options.find(opt => opt.grade > 0)?.content || undefined : undefined,
-        testCases: formData.type === 'CODING' ? testCases : undefined,
-        expectedOutput: formData.type === 'CODING' ? testCases[0]?.output || undefined : undefined,
-        hidden: formData.hidden,
-        marks: formData.marks,
-        singleAnswer: formData.singleAnswer,
-        shuffleAnswers: formData.shuffleAnswers,
-        status: formData.status as 'DRAFT' | 'READY'
+        name: data.name,
+        questionText: data.questionText,
+        type: data.type,
+        folderId: data.folderId,
+        status: data.status,
+        difficulty: data.difficulty,
+        defaultMark: data.defaultMark,
+        isMultiple: data.isMultiple,
+        shuffleChoice: data.shuffleChoice,
+        generalFeedback: data.generalFeedback,
+        choiceNumbering: data.choiceNumbering,
+        mCQQuestion: data.type === 'MCQ' ? {
+          options: data.options?.map(opt => ({
+            id: opt.id,
+            text: opt.text,
+            grade: opt.grade,
+            feedback: opt.feedback
+          }))
+        } : undefined,
+        codingQuestion: data.type === 'CODING' ? {
+          languageOptions: data.languageOptions?.map(lang => ({
+            id: lang.id,
+            language: lang.language,
+            solution: lang.solution
+          })),
+          testCases: data.testCases?.map(tc => ({
+            id: tc.id,
+            input: tc.input,
+            output: tc.output,
+            isHidden: tc.isHidden
+          }))
+        } : undefined
       };
 
-      console.log('Submitting data:', submissionData);
-      onSubmit(submissionData);
+      console.log('Submitting data:', JSON.stringify(submissionData, null, 2));
+
+      // Determine if we're creating or updating
+      const isUpdate = !!initialData?.id;
+      const url = isUpdate 
+        ? `/api/questions/${initialData.id}`
+        : '/api/questions';
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      // Make the API call
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.error || `Failed to ${isUpdate ? 'update' : 'create'} question`);
+      }
+
+      console.log(`${isUpdate ? 'Update' : 'Create'} successful:`, responseData);
+
+        toast({
+          title: "Success",
+        description: `Question ${isUpdate ? 'updated' : 'created'} successfully`,
+      });
+
+      onSubmit(responseData);
       onClose();
     } catch (error) {
       console.error('Error submitting form:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to submit question',
-        variant: 'destructive',
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit form",
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const renderMCQForm = () => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Question Content</Label>
-        <RichTextEditor
-          content={questionContent}
-          onChange={setQuestionContent}
-          placeholder="Enter your question here..."
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{initialData ? 'Edit Question' : 'Create Question'}</DialogTitle>
+        </DialogHeader>
+        <FormProvider {...form}>
+        <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-6">
+          {/* Basic Question Info */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Question Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Enter question name" 
+                      {...field} 
+                      className={formErrors.name ? "border-destructive" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage>{formErrors.name}</FormMessage>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Question Type</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select question type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="MCQ">Multiple Choice</SelectItem>
+                      <SelectItem value="CODING">Coding</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Marks</Label>
-          <Input
-            type="number"
-            min="1"
-            value={form.getValues('marks') || 1}
-            onChange={(e) => {
-              const value = parseInt(e.target.value);
-              form.setValue('marks', isNaN(value) ? 1 : value);
-            }}
+          {/* Folder Selection */}
+          <div className="grid gap-4">
+            <FormField
+              control={form.control}
+              name="folderId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Folder</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      console.log(`Folder selected: ${value}`);
+                      field.onChange(value);
+                    }}
+                    value={field.value || ''}
+                    defaultValue={field.value || ''}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a folder">
+                          {allFolderOptions.find(f => f.id === field.value)?.name || "Select a folder"}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {allFolderOptions.map((folder) => (
+                        <SelectItem key={folder.id} value={folder.id}>
+                          {folder.isSubfolder 
+                            ? `└─ ${folder.name} (in ${folder.parentName})` 
+                            : folder.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
           />
         </div>
-        <div className="space-y-2">
-          <Label>Status</Label>
+
+          {/* Question Text */}
+          <FormField
+            control={form.control}
+            name="questionText"
+              render={({ field }) => {
+                const questionText = form.watch('questionText');
+                const error = form.formState.errors.questionText;
+                console.log('Current question text value:', questionText);
+                console.log('Question text error:', error);
+                return (
+              <FormItem>
+                <FormLabel>Question Text</FormLabel>
+                <FormControl>
+                  <RichTextEditor
+                        key={`question-text-editor-${initialData?.id || 'new'}`}
+                        value={questionText || ''}
+                    onChange={(value) => {
+                          console.log('Question text changed:', value);
+                      field.onChange(value);
+                      form.trigger('questionText');
+                    }}
+                    placeholder="Enter the question text/description"
+                    className="min-h-[150px]"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+                );
+              }}
+          />
+
+          {/* Question Settings */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
           <Select
-            value={form.watch('status')}
-            onValueChange={(value: 'DRAFT' | 'READY') => form.setValue('status', value)}
+                    onValueChange={field.onChange}
+                    value={field.value}
           >
+                    <FormControl>
             <SelectTrigger>
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
+                    </FormControl>
             <SelectContent>
               <SelectItem value="DRAFT">Draft</SelectItem>
               <SelectItem value="READY">Ready</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={form.watch('singleAnswer')}
-            onCheckedChange={(checked) => form.setValue('singleAnswer', checked)}
-          />
-          <Label>Single Answer Only</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={form.watch('shuffleAnswers')}
-            onCheckedChange={(checked) => form.setValue('shuffleAnswers', checked)}
-          />
-          <Label>Shuffle Answers</Label>
-        </div>
-      </div>
-
-      {/* Tags Section */}
-      <div className="space-y-2 w-full">
-        <Label>Tags</Label>
-        <div className="flex flex-wrap gap-2">
-          {selectedTags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="flex items-center gap-1">
-              {tag}
-              <button
-                type="button"
-                onClick={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
-                className="ml-1 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-        <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" className="w-full">
-              <Tag className="mr-2 h-4 w-4" />
-              Add Tags
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-0">
-            <Command>
-              <CommandInput placeholder="Search tags..." />
-              <CommandEmpty>No tags found.</CommandEmpty>
-              <CommandGroup>
-                {availableTags.map((tag) => (
-                  <CommandItem
-                    key={tag}
-                    onSelect={() => {
-                      if (!selectedTags.includes(tag)) {
-                        setSelectedTags([...selectedTags, tag]);
-                      }
-                      setIsTagPopoverOpen(false);
-                    }}
-                  >
-                    <Checkbox
-                      checked={selectedTags.includes(tag)}
-                      className="mr-2"
-                    />
-                    {tag}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Options Section */}
-      <div className="space-y-2 w-full">
-        <Label>Options</Label>
-        {options.map((option, index) => (
-          <div key={option.id} className="space-y-2 p-4 border rounded-lg">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <RichTextEditor
-                  content={option.content}
-                  onChange={(content) => {
-                    const newOptions = [...options];
-                    newOptions[index].content = content;
-                    setOptions(newOptions);
-                  }}
-                  placeholder="Enter option content..."
-                />
-              </div>
-              <div className="ml-4 w-32">
-                <Select
-                  value={option.grade.toString()}
-                  onValueChange={(value) => {
-                    const newOptions = [...options];
-                    newOptions[index].grade = parseFloat(value);
-                    setOptions(newOptions);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Grade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">None</SelectItem>
-                    <SelectItem value="100">100%</SelectItem>
-                    <SelectItem value="90">90%</SelectItem>
-                    <SelectItem value="83.33333">83.33333%</SelectItem>
-                    <SelectItem value="75">75%</SelectItem>
-                    <SelectItem value="66.66667">66.66667%</SelectItem>
-                    <SelectItem value="50">50%</SelectItem>
-                    <SelectItem value="40">40%</SelectItem>
-                    <SelectItem value="33.33333">33.33333%</SelectItem>
-                    <SelectItem value="25">25%</SelectItem>
-                    <SelectItem value="20">20%</SelectItem>
-                    <SelectItem value="16.66667">16.66667%</SelectItem>
-                    <SelectItem value="14.28571">14.28571%</SelectItem>
-                    <SelectItem value="12.5">12.5%</SelectItem>
-                    <SelectItem value="11.11111">11.11111%</SelectItem>
-                    <SelectItem value="10">10%</SelectItem>
-                    <SelectItem value="5">5%</SelectItem>
-                    <SelectItem value="-5">-5%</SelectItem>
-                    <SelectItem value="-10">-10%</SelectItem>
-                    <SelectItem value="-16.66667">-16.66667%</SelectItem>
-                    <SelectItem value="-20">-20%</SelectItem>
-                    <SelectItem value="-25">-25%</SelectItem>
-                    <SelectItem value="-33.33333">-33.33333%</SelectItem>
-                    <SelectItem value="-50">-50%</SelectItem>
-                    <SelectItem value="-100">-100%</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  const newOptions = options.filter((_, i) => i !== index);
-                  setOptions(newOptions);
-                }}
-                className="ml-2"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setOptions([...options, { id: Math.random().toString(), content: '', grade: 0 }]);
-          }}
-        >
-          Add Option
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderCodingForm = () => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Test Cases</Label>
-        {testCases.map((testCase, index) => (
-          <div key={index} className="space-y-2 p-4 border rounded-lg">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Input</Label>
-                <Textarea
-                  value={testCase.input}
-                  onChange={(e) => {
-                    const newTestCases = [...testCases];
-                    newTestCases[index].input = e.target.value;
-                    setTestCases(newTestCases);
-                  }}
-                  className="font-mono"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Output</Label>
-                <Textarea
-                  value={testCase.output}
-                  onChange={(e) => {
-                    const newTestCases = [...testCases];
-                    newTestCases[index].output = e.target.value;
-                    setTestCases(newTestCases);
-                  }}
-                  className="font-mono"
-                />
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={testCase.isHidden}
-                  onCheckedChange={(checked) => {
-                    const newTestCases = [...testCases];
-                    newTestCases[index].isHidden = checked;
-                    setTestCases(newTestCases);
-                  }}
-                />
-                <Label>Hidden Test Case</Label>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  const newTestCases = testCases.filter((_, i) => i !== index);
-                  setTestCases(newTestCases);
-                }}
-              >
-                ×
-              </Button>
-            </div>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setTestCases([...testCases, { input: '', output: '', isHidden: false }])}
-        >
-          Add Test Case
-        </Button>
-      </div>
-    </div>
-  );
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{initialData ? 'Edit Question' : 'Create Question'}</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Question Type</Label>
-              <Tabs
-                value={questionType}
-                onValueChange={(value) => form.setValue('type', value as 'MULTIPLE_CHOICE' | 'CODING')}
-                className="w-full"
-              >
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="MULTIPLE_CHOICE">
-                    <ListChecks className="w-4 h-4 mr-2" />
-                    Multiple Choice
-                  </TabsTrigger>
-                  <TabsTrigger value="CODING">
-                    <Code className="w-4 h-4 mr-2" />
-                    Coding
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-
-            <FormField
-              control={form.control}
-              name="question"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Question</FormLabel>
-                  <Input {...field} />
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="space-y-2">
-              <Label>Folder</Label>
-              <FormField
-                control={form.control}
-                name="folderId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Folder</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+            <FormField
+              control={form.control}
+              name="difficulty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Difficulty</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a folder" />
+                        <SelectValue placeholder="Select difficulty" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {folders.map((folder: FolderType) => (
-                          <div key={folder.id}>
-                            <SelectItem value={folder.id} className="font-medium">
-                              <Folder className="w-4 h-4 mr-2 inline" />
-                              {folder.name}
-                            </SelectItem>
-                            {folder.subfolders && folder.subfolders.length > 0 && (
-                              <div className="ml-4">
-                                {folder.subfolders.map((subfolder: SubfolderType) => (
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="EASY">Easy</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="HARD">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="defaultMark"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Default Marks</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      min="0" 
+                      step="0.5"
+                      {...field}
+                      value={field.value.toString()}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        console.log(`Setting defaultMark to ${value} (${typeof value})`);
+                        field.onChange(value);
+                      }} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+      </div>
+
+          {/* MCQ Specific Options */}
+          {questionType === 'MCQ' && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="isMultiple"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>Allow Multiple Answers</FormLabel>
+                      </div>
+                      <FormControl>
+          <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="shuffleChoice"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>Shuffle Options</FormLabel>
+        </div>
+                      <FormControl>
+          <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+      </div>
+
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Options</h3>
+                <div className="space-y-4">
+                    {form.getValues('options').map((option, index) => (
+                    <Card key={`option-card-${index}`}>
+                      <CardContent className="p-4">
+                        <div className="grid gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium w-8 h-8 flex items-center justify-center bg-muted rounded-full">
+                              {String.fromCharCode(65 + index)}
+                            </span>
+                            <div className="flex-1">
+                              <RichTextEditor
+                                key={`option-${index}-${option.text.substring(0, 10)}`}
+                                value={option.text}
+                                onChange={(value) => updateOption(index, 'text', value)}
+                                placeholder="Option text"
+                                className="min-h-[100px]"
+                              />
+                            </div>
+                            <Button
+                type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => removeOption(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+            </Button>
+                          </div>
+                          <div className="bg-muted/20 p-3 rounded-md">
+                            <div className="space-y-1">
+                              <label className="text-sm font-medium">Grade</label>
+                              <Select
+                                value={`${option.grade}`}
+                                onValueChange={(value) => {
+                                  // Convert the selected value to a number
+                                  const numericValue = parseFloat(value);
+                                  console.log(`Selected grade: ${value} (${typeof value}) -> ${numericValue} (${typeof numericValue})`);
+                                  updateOption(index, 'grade', numericValue);
+                                }}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue>
+                                    {getGradeDisplayValue(option.grade)}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {gradeOptions.map((gradeOption) => (
+                                    <SelectItem 
+                                      key={gradeOption.value} 
+                                      value={`${gradeOption.value}`}
+                                      // Add custom styling to highlight the currently selected option
+                                      className={Math.abs(option.grade - gradeOption.value) < 0.01 ? "bg-secondary/40" : ""}
+                                    >
+                                      {gradeOption.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <div className="text-xs text-muted-foreground">
+                                {option.grade > 0 ? 'Correct answer' : option.grade < 0 ? 'Penalty' : 'Incorrect answer'}
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  Current grade: {option.grade}%
+                                </span>
+      </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                    {/* New Option Form */}
+                  <Card className="border-dashed">
+                    <CardContent className="p-4">
+                      <div className="grid gap-4">
+              <div className="flex-1">
+                <RichTextEditor
+                            key={`new-option-${editorKey}`}
+                            value={newOption.text}
+                              onChange={(value) => {
+                                setNewOption(prev => ({ ...prev, text: value }));
+                              }}
+                            placeholder="New option text"
+                            className="min-h-[100px]"
+                />
+              </div>
+                        <div className="bg-muted/20 p-3 rounded-md">
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium">Grade</label>
+                <Select
+                              value={`${newOption.grade}`}
+                  onValueChange={(value) => {
+                                const numericValue = parseFloat(value);
+                                  setNewOption(prev => ({ ...prev, grade: numericValue }));
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue>
+                                  {getGradeDisplayValue(newOption.grade)}
+                                </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                                {gradeOptions.map((gradeOption) => (
                                   <SelectItem 
-                                    key={subfolder.id} 
-                                    value={subfolder.id}
-                                    className="text-sm"
+                                    key={gradeOption.value} 
+                                    value={`${gradeOption.value}`}
+                                    className={Math.abs(newOption.grade - gradeOption.value) < 0.01 ? "bg-secondary/40" : ""}
                                   >
-                                    <FolderOpen className="w-4 h-4 mr-2 inline" />
-                                    {subfolder.name}
+                                    {gradeOption.label}
                                   </SelectItem>
                                 ))}
-                              </div>
-                            )}
+                  </SelectContent>
+                </Select>
                           </div>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              </div>
+              <Button
+                type="button"
+                          onClick={addOption}
+                          className="w-full mt-2"
+                          disabled={!newOption.text.trim()}
+                        >
+                          <PlusCircle className="h-4 w-4 mr-1" /> Add Option
+              </Button>
+            </div>
+                    </CardContent>
+                  </Card>
+          </div>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="generalFeedback"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>General Feedback</FormLabel>
+                    <FormControl>
+                      <RichTextEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Feedback for all students after answering"
+                        className="min-h-[100px]"
+                      />
+                    </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+          )}
 
-            {questionType === 'MULTIPLE_CHOICE' && renderMCQForm()}
-            {questionType === 'CODING' && renderCodingForm()}
+          {/* Coding Question Specific Options */}
+          {questionType === 'CODING' && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Supported Languages</h3>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'PYTHON3', name: 'Python 3' },
+                    { id: 'JAVA', name: 'Java' },
+                    { id: 'JAVASCRIPT', name: 'JavaScript' },
+                    { id: 'CPP', name: 'C++' },
+                    { id: 'C', name: 'C' },
+                    { id: 'GO', name: 'Go' },
+                    { id: 'RUBY', name: 'Ruby' }
+                  ].map((lang) => (
+                    <Badge
+                      key={lang.id}
+                      variant={selectedLanguages.includes(lang.id) ? 'default' : 'outline'}
+                      className={`cursor-pointer ${selectedLanguages.includes(lang.id) ? 'bg-primary' : ''}`}
+                      onClick={() => {
+                        const newSelectedLanguages = selectedLanguages.includes(lang.id)
+                          ? selectedLanguages.filter((l) => l !== lang.id)
+                          : [...selectedLanguages, lang.id];
+                        
+                        console.log(`Updated language selection:`, newSelectedLanguages);
+                          form.setValue('languageOptions', form.getValues('languageOptions').map((opt: any) =>
+                            opt.id === lang.id ? { ...opt, language: lang.name } : opt
+                          ));
+                      }}
+                    >
+                      {lang.name}
+                    </Badge>
+                  ))}
+                </div>
+                {selectedLanguages.length === 0 && (
+                  <p className="text-sm text-destructive">Please select at least one language</p>
+                )}
+              </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData ? 'Update' : 'Create'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Test Cases</h3>
+        <Button
+          type="button"
+          variant="outline"
+                    size="sm"
+                    onClick={addTestCase}
+        >
+                    <PlusCircle className="h-4 w-4 mr-1" /> Add Test Case
+        </Button>
+      </div>
+
+    <div className="space-y-4">
+                    {form.getValues('testCases').length === 0 && (
+                    <p className="text-sm text-destructive">Please add at least one test case</p>
+                  )}
+                  
+                    {form.getValues('testCases').map((testCase, index) => (
+                    <Card key={`test-case-${index}-${testCase.input?.substring(0, 5) || ''}`}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">Test Case {index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeTestCase(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Input</label>
+                <Textarea
+                              value={testCase.input || ''}
+                              onChange={(e) => updateTestCase(index, 'input', e.target.value)}
+                              placeholder="Test input"
+                />
+              </div>
+                          <div>
+                            <label className="text-sm font-medium">Expected Output</label>
+                <Textarea
+                              value={testCase.output || testCase.expectedOutput || ''}
+                              onChange={(e) => updateTestCase(index, 'output', e.target.value)}
+                              placeholder="Expected output"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                              checked={testCase.isHidden || false}
+                              onCheckedChange={(checked) => updateTestCase(index, 'isHidden', checked)}
+                              id={`hidden-${index}`}
+                            />
+                            <label htmlFor={`hidden-${index}`}>Hidden</label>
+              </div>
+            </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+      </div>
+    </div>
+            </div>
+          )}
+          
+          {/* Form Buttons */}
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+            >
+              {isLoading && (
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {initialData?.id ? 'Update Question' : 'Create Question'}
+            </Button>
+                          </div>
+        </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );
-}
+};
 
 export default QuestionFormModal;
