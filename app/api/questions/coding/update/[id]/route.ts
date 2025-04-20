@@ -45,6 +45,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
+    // Debug existing question data
+    console.log("Existing question:", {
+      id: existingQuestion.id,
+      name: existingQuestion.name,
+      codingQuestionId: existingQuestion.codingQuestion.id,
+      languageOptions: existingQuestion.codingQuestion.languageOptions.length,
+      testCases: existingQuestion.codingQuestion.testCases.length
+    });
+
     const codingQuestionId = existingQuestion.codingQuestion.id;
     const now = new Date();
 
@@ -60,6 +69,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         updatedAt: now,
       },
     });
+
+    // Debug language options and test cases from the request
+    console.log("Language options from request:", body.languageOptions?.length || 0);
+    console.log("Test cases from request:", body.testCases?.length || 0);
 
     // Then, update the coding question and its related data
     const updatedQuestion = await prisma.codingQuestion.update({
@@ -121,6 +134,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
                 mappedLanguage = 'PYTHON';
             }
 
+            console.log(`Mapping language ${lang.language} to ${mappedLanguage}`);
+            
             return {
               language: mappedLanguage,
               solution: lang.solution || "",
@@ -133,10 +148,45 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         testCases: {
           deleteMany: {},
           create: (body.testCases || []).map((tc: any) => {
-            const isSample = tc.type === 'sample';
-            const isHidden = tc.type === 'hidden';
+            // First, determine test case type from explicit type field or from isSample/isHidden flags
+            let isSample = false;
+            let isHidden = false;
+            
+            // Check the type field first (string-based approach)
+            if (tc.type === 'sample') {
+              isSample = true;
+              isHidden = false;
+            } else if (tc.type === 'hidden') {
+              isSample = false;
+              isHidden = true;
+            } 
+            // If no valid type, fallback to boolean flags
+            else if (tc.isSample === true) {
+              isSample = true;
+              isHidden = false;
+            } else if (tc.isHidden === true) {
+              isSample = false; 
+              isHidden = true;
+            }
+            
+            // Default to hidden if no valid type information is provided
+            if (!isSample && !isHidden) {
+              console.log(`No valid type for test case, defaulting to hidden`);
+              isHidden = true;
+            }
+            
             const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
 
+            console.log(`Processing test case:`, {
+              input: tc.input?.substring(0, 20) + "...",
+              type: tc.type,
+              isSample: isSample,
+              isHidden: isHidden,
+              originalIsSample: tc.isSample,
+              originalIsHidden: tc.isHidden,
+              grade: gradeValue
+            });
+            
             return {
               input: tc.input || "",
               output: tc.output || "",
@@ -155,6 +205,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         testCases: true,
         question: true,
       },
+    });
+
+    // Debug updated question data
+    console.log("Updated question:", {
+      id: updatedQuestion.id,
+      languageOptions: updatedQuestion.languageOptions.length,
+      testCases: updatedQuestion.testCases.length
     });
 
     return NextResponse.json(updatedQuestion);

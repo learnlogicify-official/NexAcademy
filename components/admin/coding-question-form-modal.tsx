@@ -330,131 +330,110 @@ export function CodingQuestionFormModal({
     return editorLang;
   };
 
-  // Fix data loading to ensure we get all languages from initialData
+  // Use useEffect to initialize the form data when initialData changes
   useEffect(() => {
     if (initialData) {
-      console.log("Initializing form with data:", initialData);
+      console.log('Initializing form with data:', JSON.stringify(initialData, null, 2));
       
-      try {
-        // Get languageOptions from initialData - ensure we parse it correctly
-        let languageOptions = initialData.languageOptions || [];
+      // Set basic form data
+      setFormData(prevData => ({
+        ...prevData,
+        id: initialData.id || '',
+        name: initialData.name || '',
+        folderId: initialData.folderId || '',
+        questionText: initialData.questionText || '',
+        difficulty: initialData.difficulty || 'MEDIUM',
+        defaultMark: initialData.defaultMark || 1,
+      }));
+      
+      // Set language options
+      if (initialData.languageOptions && Array.isArray(initialData.languageOptions)) {
+        console.log('Setting language options:', initialData.languageOptions);
+        setFormData(prevData => ({
+          ...prevData,
+          languageOptions: initialData.languageOptions.map((lang: any) => ({
+            id: lang.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            language: lang.language,
+            solution: lang.solution || '',
+            preloadCode: lang.preloadCode || ''
+          }))
+        }));
         
-        // Handle cases where languageOptions might be a string (from JSON stringification)
-        if (typeof languageOptions === 'string') {
-          try {
-            languageOptions = JSON.parse(languageOptions);
-          } catch (e) {
-            console.error("Failed to parse languageOptions string:", e);
-            languageOptions = [];
-          }
+        // Set selected languages
+        const langs = initialData.languageOptions.map((lang: any) => lang.language);
+        setSelectedLanguages(langs);
+        
+        // Set default language
+        if (initialData.defaultLanguage && langs.includes(initialData.defaultLanguage)) {
+          setDefaultLanguage(initialData.defaultLanguage);
+        } else if (langs.length > 0) {
+          setDefaultLanguage(langs[0]);
         }
         
-        // Handle allOrNothingGrading from initialData
-        if (initialData.allOrNothingGrading !== undefined) {
-          console.log("Setting all-or-nothing grading from initialData:", initialData.allOrNothingGrading);
-          setAllOrNothingGrading(initialData.allOrNothingGrading);
+        // Set active language tab
+        if (langs.length > 0) {
+          setActiveLanguageTab(langs[0]);
         }
-        
-        console.log("Initial language options:", languageOptions);
-        
-        // Create a map to track used language IDs - this prevents duplicates
-        const existingLanguages = new Set();
-        
-        // First, get a clean list of languages from the DB without duplicates
-        const dbLanguageOptions = [];
-        for (const opt of languageOptions) {
-          if (opt && opt.language && !existingLanguages.has(opt.language)) {
-            existingLanguages.add(opt.language);
+      } else {
+        console.log('No language options found in initialData');
+      }
+      
+      // Set test cases
+      if (initialData.testCases && Array.isArray(initialData.testCases)) {
+        console.log('Setting test cases from initialData:', initialData.testCases);
+        setFormData(prevData => ({
+          ...prevData,
+          testCases: initialData.testCases.map((tc: any) => {
+            // Determine type and flags based on available data
+            let type = tc.type || '';
+            let isSample = tc.isSample === true;
+            let isHidden = tc.isHidden === true;
             
-            // Ensure each language option has a valid ID
-            const optWithId = {
-              ...opt,
-              id: opt.id || `lang-${opt.language}-${Date.now()}`
-            };
-            
-            dbLanguageOptions.push(optWithId);
-          }
-        }
-        
-        console.log("DB Language options (deduplicated):", dbLanguageOptions);
-        console.log("Languages found in DB:", Array.from(existingLanguages));
-        
-        // Properly handle test cases, ensuring their types are preserved
-        let testCases = initialData.testCases || [];
-        
-        // Debug log to check test case types
-        if (testCases.length > 0) {
-          console.log("Initial test cases:", testCases);
-          testCases.forEach((tc: any, index: number) => {
-            console.log(`Test case ${index} type:`, tc.type);
-          });
-        }
-        
-        // Set form data with the processed options
-        setFormData({
-          name: initialData.name || "",
-          folderId: initialData.folderId || "",
-          questionText: initialData.questionText || "",
-          difficulty: initialData.difficulty || "MEDIUM",
-          defaultMark: initialData.defaultMark || 1,
-          languageOptions: dbLanguageOptions,  // Use the clean list without duplicates
-          testCases: testCases.map((tc: Partial<TestCase>) => {
-            // Determine the test case type based on the database flags
-            let testCaseType: "sample" | "hidden";
-            if (tc.isSample) {
-              testCaseType = "sample";
+            // If type is specified, use it to set flags
+            if (type === 'sample') {
+              isSample = true;
+              isHidden = false;
+            } else if (type === 'hidden') {
+              isSample = false;
+              isHidden = true;
+            } 
+            // Otherwise, use flags to determine type
+            else if (isSample) {
+              type = 'sample';
+            } else if (isHidden) {
+              type = 'hidden';
             } else {
-              testCaseType = "hidden";
+              // Default to hidden if neither is specified
+              type = 'hidden';
+              isHidden = true;
             }
-            console.log(`Setting test case ${tc.id} type based on DB flags:`, {
-              isSample: tc.isSample,
-              isHidden: tc.isHidden,
-              resultType: testCaseType
+            
+            console.log(`Initializing test case:`, {
+              id: tc.id,
+              type,
+              isSample,
+              isHidden
             });
             
             return {
-              id: tc.id || Date.now().toString(),
-              input: tc.input || "",
-              output: tc.output || "",
-              type: testCaseType, // Explicitly set based on database flags
-              gradePercentage: tc.grade || tc.gradePercentage || 0,
+              id: tc.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+              input: tc.input || '',
+              output: tc.output || '',
+              isHidden,
+              isSample,
+              type,
+              gradePercentage: tc.gradePercentage || 0,
               showOnFailure: tc.showOnFailure || false
             };
-          }),
-        });
-        
-        // Set selected languages based on what was in the DB (deduplicated)
-        if (existingLanguages.size > 0) {
-          const selectedLangsFromDB = Array.from(existingLanguages) as string[];
-          console.log("Setting selected languages:", selectedLangsFromDB);
-          setSelectedLanguages(selectedLangsFromDB);
-          
-          // Set the first language as the active tab
-          const firstLang = selectedLangsFromDB[0];
-          setActiveLanguageTab(firstLang);
-          console.log("Setting active tab to:", firstLang);
-          
-          // Handle default language priority
-          if (initialData.defaultLanguage && selectedLangsFromDB.includes(initialData.defaultLanguage)) {
-            console.log("Setting default language from initialData:", initialData.defaultLanguage);
-            setDefaultLanguage(initialData.defaultLanguage);
-          } else if (selectedLangsFromDB.length > 0) {
-            console.log("Setting default language to first language:", selectedLangsFromDB[0]);
-            setDefaultLanguage(selectedLangsFromDB[0]);
-          }
-        }
-        
-        // If all-or-nothing grading is enabled, distribute grades
-        if (initialData.allOrNothingGrading) {
-          setTimeout(() => distributeGradesEvenly(), 500);
-        }
-      } catch (error) {
-        console.error("Error processing initialData:", error);
-        toast({
-          title: "Error Loading Question",
-          description: "Failed to process question data. Please try again.",
-          variant: "destructive",
-        });
+          })
+        }));
+      } else {
+        console.log('No test cases found in initialData');
+      }
+      
+      // Set all-or-nothing grading
+      if (initialData.allOrNothingGrading !== undefined) {
+        setAllOrNothingGrading(initialData.allOrNothingGrading);
       }
     }
   }, [initialData]);
@@ -555,27 +534,25 @@ export function CodingQuestionFormModal({
     }
     
     // Prepare data for submission with deduplication
-    const submissionData = {
-      ...prepareSubmissionData(),
-      // Include the ID if we're updating an existing question
-      id: initialData?.id
-    };
+    const submissionData = prepareSubmissionData();
     
+    // Log to help debug issues
     console.log("Submitting data with default language:", defaultLanguage);
-    console.log("Full submission data:", submissionData);
+    console.log("Full submission data:", JSON.stringify(submissionData, null, 2));
+    console.log("Is this an update operation?", !!initialData?.id);
     
     try {
       // Call the onSubmit callback with the data
       onSubmit(submissionData);
       
-      // Close the modal
-      onClose();
-      
-      // Show success toast with appropriate message
+      // Show success toast with appropriate message (don't close modal until we know it succeeded)
       toast({
         title: "Success",
         description: initialData ? "Coding question updated successfully" : "Coding question created successfully",
       });
+      
+      // Close the modal
+      onClose();
     } catch (error) {
       console.error("Error in form submission:", error);
       toast({
@@ -667,10 +644,12 @@ export function CodingQuestionFormModal({
       testCases: [
         ...prev.testCases,
         {
-          id: Date.now().toString(),
+          id: `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           input: "",
           output: "",
-          type: "sample",
+          type: "sample", // Default to sample for new test cases
+          isSample: true, // Set the flags explicitly
+          isHidden: false,
           gradePercentage: 0,
           showOnFailure: false
         }
@@ -774,8 +753,10 @@ export function CodingQuestionFormModal({
     // Update the test case type
     updateTestCase(id, "type", type);
     
-    // If switching to sample, set grade to 0
+    // Also update the isSample and isHidden flags to match the type
     if (type === "sample") {
+      updateTestCase(id, "isSample", true);
+      updateTestCase(id, "isHidden", false);
       updateTestCase(id, "gradePercentage", 0);
       
       // If in all-or-nothing mode, redistribute grades among remaining hidden tests
@@ -783,9 +764,14 @@ export function CodingQuestionFormModal({
         setTimeout(() => distributeGradesEvenly(), 0);
       }
     } 
-    // If switching to hidden in all-or-nothing mode, redistribute all grades
-    else if (type === "hidden" && allOrNothingGrading) {
-      setTimeout(() => distributeGradesEvenly(), 0);
+    else if (type === "hidden") {
+      updateTestCase(id, "isSample", false);
+      updateTestCase(id, "isHidden", true);
+      
+      // If in all-or-nothing mode, redistribute all grades
+      if (allOrNothingGrading) {
+        setTimeout(() => distributeGradesEvenly(), 0);
+      }
     }
   };
 
@@ -1011,6 +997,7 @@ export function CodingQuestionFormModal({
     console.log("Language options before deduplication:", formData.languageOptions);
     console.log("Test cases:", formData.testCases);
     console.log("All or nothing grading:", allOrNothingGrading);
+    console.log("Initial data:", initialData);
     
     // Deduplicate language options by language ID
     const uniqueLanguages = new Map<string, LanguageOption>();
@@ -1036,20 +1023,37 @@ export function CodingQuestionFormModal({
     
     // Verify test case types before submission
     const testCases = formData.testCases.map(testCase => {
-      console.log(`Test case ${testCase.id} type for submission:`, testCase.type);
+      // Determine the test case type and flags for submission
+      const type = testCase.type || 'hidden';
+      const isSample = type === 'sample' || testCase.isSample === true;
+      const isHidden = type === 'hidden' || testCase.isHidden === true;
+      
+      console.log(`Preparing test case for submission:`, {
+        id: testCase.id,
+        type,
+        isSample,
+        isHidden,
+        gradePercentage: testCase.gradePercentage
+      });
+      
       return {
         id: testCase.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         input: testCase.input,
         output: testCase.output,
-        type: testCase.type, // Send the type to the API
-        isSample: testCase.type === 'sample', // Map type to isSample flag
-        isHidden: testCase.type === 'hidden', // Map type to isHidden flag
+        type, // Send the type string
+        isSample, // Send the boolean flag
+        isHidden, // Send the boolean flag
         gradePercentage: testCase.gradePercentage,
         showOnFailure: testCase.showOnFailure
       };
     });
     
+    // Check if we're editing an existing question
+    const isEditing = !!initialData?.id;
+    
     return {
+      // Include the ID if we're updating an existing question
+      id: initialData?.id, 
       name: formData.name,
       folderId: formData.folderId,
       type: "CODING",
@@ -1057,9 +1061,10 @@ export function CodingQuestionFormModal({
       defaultMark: formData.defaultMark,
       questionText: formData.questionText,
       defaultLanguage: defaultLanguage, 
+      // Include these directly at the top level since the update API expects them there
       languageOptions: dedupedOptions,
       testCases: testCases,
-      allOrNothingGrading: allOrNothingGrading, // Make sure this is explicitly included
+      allOrNothingGrading: allOrNothingGrading,
       status: initialData?.status || "DRAFT",
       version: initialData?.version || 1
     };

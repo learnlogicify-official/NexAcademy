@@ -561,52 +561,39 @@ export default function AdminQuestionsPage() {
           choiceNumbering: data.choiceNumbering || "abc",
           solution: data.solution || "",
           hints: data.hints || []
-        } : undefined,
-        // For coding questions, include properties both in the codingQuestion object AND at the top level
-        // This is because the update API expects them directly in the body
-        codingQuestion: data.type === 'CODING' ? {
-          questionText: data.questionText,
-          defaultMark: data.defaultMark,
-          difficulty: data.difficulty,
-          isAllOrNothing: data.allOrNothingGrading || false,
-          languageOptions: data.languageOptions?.map((lang: any) => ({
+        } : undefined
+      };
+      
+      // For coding questions, add the necessary data directly to the request body
+      // since the update API expects it at the top level
+      if (data.type === 'CODING') {
+        // Handle language options
+        if (Array.isArray(data.languageOptions)) {
+          transformedData.languageOptions = data.languageOptions.map((lang: any) => ({
             id: lang.id,
             language: lang.language,
             solution: lang.solution || "",
             preloadCode: lang.preloadCode || ""
-          })),
-          testCases: data.testCases?.map((tc: any) => ({
+          }));
+        }
+        
+        // Handle test cases
+        if (Array.isArray(data.testCases)) {
+          transformedData.testCases = data.testCases.map((tc: any) => ({
             id: tc.id,
             input: tc.input || "",
             output: tc.output || "",
             isHidden: tc.isHidden || false,
             isSample: tc.isSample || false,
-            type: tc.isSample ? "sample" : "hidden",
-            grade: tc.gradePercentage || 0
-          }))
-        } : undefined
-      };
-      
-      // For coding questions, add these properties at the top level as well since the update API expects them there
-      if (data.type === 'CODING') {
-        transformedData.languageOptions = data.languageOptions?.map((lang: any) => ({
-          id: lang.id,
-          language: lang.language,
-          solution: lang.solution || "",
-          preloadCode: lang.preloadCode || ""
-        }));
+            type: tc.type || (tc.isSample ? "sample" : "hidden"),
+            grade: tc.grade || tc.gradePercentage || 0,
+            showOnFailure: tc.showOnFailure || false
+          }));
+        }
         
-        transformedData.testCases = data.testCases?.map((tc: any) => ({
-          id: tc.id,
-          input: tc.input || "",
-          output: tc.output || "",
-          isHidden: tc.isHidden || false,
-          isSample: tc.isSample || false,
-          type: tc.isSample ? "sample" : "hidden",
-          grade: tc.gradePercentage || 0
-        }));
-        
+        // Include other coding-specific properties
         transformedData.allOrNothingGrading = data.allOrNothingGrading || false;
+        transformedData.defaultLanguage = data.defaultLanguage || "";
       }
       
       console.log("Transformed data for submission:", JSON.stringify(transformedData, null, 2));
@@ -622,6 +609,7 @@ export default function AdminQuestionsPage() {
           ? `/api/questions/coding/update/${data.id}`
           : `/api/questions/${data.id}`;
           
+        console.log(`Sending PUT request to: ${endpoint}`);
         response = await axios.put(endpoint, transformedData);
       } else {
         // Create new question
@@ -631,6 +619,7 @@ export default function AdminQuestionsPage() {
           ? "/api/questions/coding"
           : "/api/questions";
           
+        console.log(`Sending POST request to: ${endpoint}`);
         response = await axios.post(endpoint, transformedData);
       }
       
@@ -665,6 +654,28 @@ export default function AdminQuestionsPage() {
   const handleEditQuestion = (question: QuestionType) => {
     console.log('Editing question:', question);
     
+    // Make sure the question has complete data before setting it for editing
+    const languageOptions = question.codingQuestion?.languageOptions?.map(lang => ({
+      id: lang.id,
+      language: lang.language,
+      solution: lang.solution || "",
+      preloadCode: lang.preloadCode || ""
+    })) || [];
+    
+    const testCases = question.codingQuestion?.testCases?.map(tc => ({
+      id: tc.id,
+      input: tc.input || "",
+      output: tc.output || "",
+      isHidden: tc.isHidden || false,
+      isSample: tc.isSample || false,
+      type: tc.isSample ? "sample" : "hidden",
+      gradePercentage: tc.grade || 0,
+      showOnFailure: tc.showOnFailure || false
+    })) || [];
+    
+    console.log('Language options for edit:', languageOptions);
+    console.log('Test cases for edit:', testCases);
+    
     setEditingQuestion({
       id: question.id,
       name: question.name,
@@ -685,22 +696,8 @@ export default function AdminQuestionsPage() {
         grade: opt.grade || 0,
         feedback: opt.feedback || ''
       })) || [],
-      languageOptions: question.codingQuestion?.languageOptions?.map(lang => ({
-        id: lang.id,
-        language: lang.language,
-        solution: lang.solution || "",
-        preloadCode: lang.preloadCode || ""
-      })) || [],
-      testCases: question.codingQuestion?.testCases?.map(tc => ({
-        id: tc.id,
-        input: tc.input || "",
-        output: tc.output || "",
-        isHidden: tc.isHidden || false,
-        isSample: tc.isSample || false,
-        type: tc.isSample ? "sample" : "hidden",
-        gradePercentage: tc.grade || 0,
-        showOnFailure: tc.showOnFailure || false
-      })) || [],
+      languageOptions: languageOptions,
+      testCases: testCases,
       allOrNothingGrading: question.codingQuestion?.isAllOrNothing || false,
       defaultLanguage: question.codingQuestion?.defaultLanguage || ""
     });
