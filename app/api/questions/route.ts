@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
           tags: body.tags || [],
           isMultiple: Boolean(body.isMultiple),
           shuffleChoice: Boolean(body.shuffleChoice),
+          generalFeedback: body.generalFeedback || "",
           options: {
             create: body.mCQQuestion.options.map((option: any) => ({
               text: option.text || "",
