@@ -32,14 +32,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!body.codingQuestion?.languageOptions || !Array.isArray(body.codingQuestion.languageOptions) || body.codingQuestion.languageOptions.length === 0) {
+    // Handle both direct and nested codingQuestion structure
+    const codingQuestion = body.codingQuestion || body;
+    
+    if (!codingQuestion.languageOptions || !Array.isArray(codingQuestion.languageOptions) || codingQuestion.languageOptions.length === 0) {
       return NextResponse.json(
         { error: "At least one programming language is required" },
         { status: 400 }
       );
     }
 
-    if (!body.codingQuestion?.testCases || !Array.isArray(body.codingQuestion.testCases) || body.codingQuestion.testCases.length === 0) {
+    if (!codingQuestion.testCases || !Array.isArray(codingQuestion.testCases) || codingQuestion.testCases.length === 0) {
       return NextResponse.json(
         { error: "At least one test case is required" },
         { status: 400 }
@@ -65,15 +68,15 @@ export async function POST(request: NextRequest) {
       // Then create the coding question with the question ID
       const codingData = {
         questionId: question.id,
-        questionText: body.questionText || body.description || "",
-        defaultMark: Number(body.defaultMark) || 1,
-        difficulty: body.codingQuestion?.difficulty || "MEDIUM",
-        isAllOrNothing: Boolean(body.codingQuestion?.allOrNothingGrading),
+        questionText: codingQuestion.questionText || body.questionText || body.description || "",
+        defaultMark: Number(codingQuestion.defaultMark) || Number(body.defaultMark) || 1,
+        difficulty: codingQuestion.difficulty || body.difficulty || "MEDIUM",
+        isAllOrNothing: Boolean(codingQuestion.allOrNothingGrading || body.allOrNothingGrading),
         languageOptions: {
-          create: body.codingQuestion?.languageOptions?.map((lang: any) => {
+          create: codingQuestion.languageOptions.map((lang: any) => {
             // Map language string to a valid ProgrammingLanguage enum
             let mappedLanguage;
-            switch(lang.language.toLowerCase()) {
+            switch((lang.language || "").toLowerCase()) {
               case 'python':
               case 'python2':
               case 'python3':
@@ -111,7 +114,6 @@ export async function POST(request: NextRequest) {
                 mappedLanguage = 'RUST';
                 break;
               default:
-                // Default to PYTHON if no match
                 mappedLanguage = 'PYTHON';
             }
             
@@ -120,25 +122,23 @@ export async function POST(request: NextRequest) {
               solution: lang.solution || "",
               preloadCode: lang.preloadCode || "",
             };
-          }) || []
+          })
         },
         testCases: {
-          create: body.codingQuestion?.testCases?.map((tc: any) => {
+          create: codingQuestion.testCases.map((tc: any) => {
             // Map type string to boolean fields
-            const isSample = tc.type === 'sample';
-            const isHidden = tc.type === 'hidden';
+            const isSample = tc.type === 'sample' || tc.isSample;
+            const isHidden = tc.type === 'hidden' || tc.isHidden;
             
-            // Make sure both flags are properly set based on the test case type
-            // If it's a sample, it can't be hidden; if it's hidden, it can't be a sample
             return {
               input: tc.input || "",
-              output: tc.output || "",
-              isSample: isSample,
-              isHidden: isHidden,
+              output: tc.output || tc.expectedOutput || "",
+              isSample,
+              isHidden,
               showOnFailure: Boolean(tc.showOnFailure),
               grade: Number(tc.grade) || Number(tc.gradePercentage) || 0,
             };
-          }) || []
+          })
         }
       };
       
