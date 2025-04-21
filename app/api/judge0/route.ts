@@ -54,6 +54,14 @@ export async function POST(request: NextRequest) {
         error: "Missing required fields: language_id or source_code"
       }, { status: 400 });
     }
+
+    // Check if API key is available
+    if (!JUDGE0_API_KEY) {
+      console.error("Judge0 API key is missing");
+      return NextResponse.json({ 
+        error: "Judge0 API key is not configured"
+      }, { status: 500 });
+    }
     
     // Forward the request to Judge0
     const requestBody = {
@@ -69,11 +77,14 @@ export async function POST(request: NextRequest) {
       body: requestBody
     });
     
+    // Add a delay to prevent rate limiting
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const response = await fetch(`${JUDGE0_API_URL}/submissions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-RapidAPI-Key": JUDGE0_API_KEY || "",
+        "X-RapidAPI-Key": JUDGE0_API_KEY,
         "X-RapidAPI-Host": JUDGE0_API_HOST
       },
       body: JSON.stringify(requestBody)
@@ -85,6 +96,15 @@ export async function POST(request: NextRequest) {
       console.error("Server-side Judge0 API error:", response.status, response.statusText);
       const text = await response.text();
       console.error("Error details:", text);
+      
+      // Handle rate limiting specifically
+      if (response.status === 429) {
+        return NextResponse.json({ 
+          error: "Rate limit exceeded. Please try again in a few seconds.",
+          details: "The Judge0 API has rate limits. Please wait before trying again."
+        }, { status: 429 });
+      }
+      
       return NextResponse.json({ 
         error: `API request failed with status ${response.status}`,
         details: text 

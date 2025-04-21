@@ -994,10 +994,15 @@ export function CodingQuestionFormModal({
       // Process each test case
       const results: TestCaseValidationResult[] = [];
       
-      // Create a submission for each test case
+      // Create a submission for each test case with delays
       for (const testCase of formData.testCases) {
         try {
           console.log(`Testing case: "${testCase.input}" -> "${testCase.output}"`);
+          
+          // Add a delay between test cases to prevent rate limiting
+          if (results.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
           
           // Prepare the request body
           const requestBody = {
@@ -1020,6 +1025,17 @@ export function CodingQuestionFormModal({
           if (!response.ok) {
             const errorData = await response.json();
             console.error("Validation error:", errorData);
+            
+            // Handle rate limiting specifically
+            if (response.status === 429) {
+              toast({
+                title: "Rate Limit Exceeded",
+                description: "Please wait a few seconds before trying again",
+                variant: "destructive",
+              });
+              break;
+            }
+            
             throw new Error(errorData.error || "Execution failed");
           }
           
