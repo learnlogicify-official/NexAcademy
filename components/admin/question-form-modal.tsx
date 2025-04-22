@@ -559,11 +559,14 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       }
       
       // Validate that at least one option is marked as correct (has a positive grade)
-      if (data.options && data.options.length > 0 && !data.options.some(opt => opt.grade > 0)) {
-        console.log('Validation error:',data);
-        errors.options = 'At least one option must be marked as correct (with a positive grade)';
-        setFormErrors(errors);
-        return;
+      if (data.type === 'MCQ' && data.options && data.options.length > 0) {
+        const hasCorrectOption = data.options.some(opt => ((opt && opt.grade) ?? 0) > 0);
+        if (!hasCorrectOption) {
+          console.log('No correct option found:', data.options);
+          errors.options = 'At least one option must be marked as correct (with a positive grade)';
+          setFormErrors(errors);
+          return;
+        }
       }
       
       // Call handleSubmit with the validated data
@@ -1140,11 +1143,9 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
               </div>
                           <div>
                             <label className="text-sm font-medium">Expected Output</label>
-                <Textarea
-                              value={testCase.output || testCase.expectedOutput || ''}
-                              onChange={(e) => updateTestCase(index, 'output', e.target.value)}
-                              placeholder="Expected output"
-                />
+                <pre className="text-xs whitespace-pre-wrap overflow-auto max-h-[100px] p-2 bg-slate-100 rounded">
+                  {testCase.output || ''}
+                </pre>
               </div>
               <div className="flex items-center space-x-2">
                 <Switch

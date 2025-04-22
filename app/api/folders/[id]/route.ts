@@ -1,6 +1,60 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id: folderId } = params;
+
+    // Fetch the folder with its subfolders
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
+      include: {
+        subfolders: true
+      }
+    });
+
+    if (!folder) {
+      return NextResponse.json(
+        { error: "Folder not found" },
+        { status: 404 }
+      );
+    }
+
+    // Count questions in this folder
+    const questionCount = await prisma.question.count({
+      where: { folderId }
+    });
+
+    // Count questions in all subfolders
+    const subfoldersWithCounts = await Promise.all(
+      folder.subfolders.map(async (subfolder) => {
+        const count = await prisma.question.count({
+          where: { folderId: subfolder.id }
+        });
+        return {
+          ...subfolder,
+          questionCount: count
+        };
+      })
+    );
+
+    return NextResponse.json({
+      ...folder,
+      questionCount,
+      subfolders: subfoldersWithCounts
+    });
+  } catch (error) {
+    console.error("Error fetching folder:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch folder" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }

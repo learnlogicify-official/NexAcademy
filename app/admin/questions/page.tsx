@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon, Folder as FolderIcon, ChevronDown } from "lucide-react";
+import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon, Folder as FolderIcon, ChevronDown, Settings, ChevronUp } from "lucide-react";
 import { QuestionFormModal } from "@/components/admin/question-form-modal";
 import { CodingQuestionFormModal } from "@/components/admin/coding-question-form-modal";
 import { cn } from "@/lib/utils";
@@ -16,18 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Settings,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import axios from "axios";
-import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
@@ -35,10 +23,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import type { Question as QuestionType } from '@/types';
 import { Folder as FolderType } from '@/types';
-import { QuestionRow } from "./QuestionRow";
-import { columns } from "./columns";
-import { useUserVerified } from "@/hooks/use-user-verified";
+import { QuestionRow } from "@/components/QuestionRow";
 import { useCallback } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import axios from "axios";
+import { useRouter } from 'next/navigation';
 
 interface QuestionFormData {
   id: string;
@@ -103,16 +92,19 @@ interface Question {
   name: string;
   questionText: string;
   type: 'MCQ' | 'CODING';
-  status: 'DRAFT' | 'PUBLISHED';
+  status: 'DRAFT' | 'READY';
   folderId?: string;
   folder?: {
     id: string;
     name: string;
   };
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
   version: number;
   mCQQuestion?: MCQQuestion;
   codingQuestion?: CodingQuestion;
+  creatorName?: string;
+  lastModifiedByName?: string;
 }
 
 interface MCQQuestion {
@@ -205,27 +197,39 @@ interface FilterState {
   subcategory: string;
   type: string;
   status: string;
-  showHidden: boolean;
   includeSubcategories: boolean;
 }
 
 const QUESTIONS_PER_PAGE = 10;
 
 // Add the formatDate function
-const formatDate = (date: Date | string) => {
+const formatDate = (date: Date | string | undefined) => {
+  if (!date) return 'N/A';
   const d = new Date(date);
   return d.toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'short', 
-    day: 'numeric' 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 };
+
+interface Stats {
+  total: number;
+  published: number;
+  draft: number;
+  multipleChoice: number;
+  coding: number;
+  byFolder: Record<string, number>;
+  ready: number;
+}
 
 export default function AdminQuestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [questions, setQuestions] = useState<QuestionType[]>([]);
-  const [filteredQuestions, setFilteredQuestions] = useState<QuestionType[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
@@ -234,7 +238,6 @@ export default function AdminQuestionsPage() {
     subcategory: "all",
     type: "all",
     status: "all",
-    showHidden: false,
     includeSubcategories: false
   });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
@@ -252,7 +255,6 @@ export default function AdminQuestionsPage() {
   const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
   const [updatedFolderName, setUpdatedFolderName] = useState("");
   const [showSubcategories, setShowSubcategories] = useState(true);
-  const [showHidden, setShowHidden] = useState(false);
   const [activeTab, setActiveTab] = useState("questions");
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -260,6 +262,7 @@ export default function AdminQuestionsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [sortField, setSortField] = useState<keyof QuestionType>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [previewQuestion, setPreviewQuestion] = useState<QuestionType | null>(null);
@@ -269,13 +272,14 @@ export default function AdminQuestionsPage() {
   const [bulkAction, setBulkAction] = useState<'delete' | 'changeStatus' | 'moveToFolder' | null>(null);
   const [bulkStatus, setBulkStatus] = useState<'DRAFT' | 'READY'>('DRAFT');
   const [bulkFolderId, setBulkFolderId] = useState<string>('');
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     total: 0,
-    ready: 0,
+    published: 0,
     draft: 0,
     multipleChoice: 0,
     coding: 0,
-    byFolder: {} as Record<string, number>,
+    byFolder: {},
+    ready: 0
   });
   const [pendingFilters, setPendingFilters] = useState<FilterState>({
     search: "",
@@ -283,54 +287,116 @@ export default function AdminQuestionsPage() {
     subcategory: "all",
     type: "all",
     status: "all",
-    showHidden: false,
     includeSubcategories: false
   });
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isCodingFormModalOpen, setIsCodingFormModalOpen] = useState(false);
+  const [showAllFolders, setShowAllFolders] = useState(false);
+  const [pagination, setPagination] = useState({ total: 0, current: 1 });
+  // Add new state variables for delete confirmation dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchQuestions(filters);
+    fetchQuestions(filters, currentPage);
     fetchFolders();
-  }, [filters]);
+  }, [filters, currentPage]);
 
-  const fetchQuestions = async (currentFilters?: FilterState) => {
+  const fetchQuestions = async (currentFilters?: FilterState, page: number = 1) => {
     try {
       setIsLoading(true);
-      // Build query parameters based on filters
+      
+      // Create a copy of the filters to avoid undefined access
+      const filters = currentFilters || {
+        search: "",
+        category: "all",
+        subcategory: "all",
+        type: "all",
+        status: "all",
+        includeSubcategories: false
+      };
+      
       const queryParams = new URLSearchParams();
-      if (currentFilters?.search) queryParams.append('search', currentFilters.search);
-      if (currentFilters?.category !== 'all') {
-        queryParams.append('category', currentFilters?.category || '');
+      
+      // Add search parameter if present
+      if (filters.search) {
+        queryParams.append('search', filters.search);
       }
-      if (currentFilters?.subcategory !== 'all') {
-        queryParams.append('subcategory', currentFilters?.subcategory || '');
+      
+      // Add type filter if not "all"
+      if (filters.type !== 'all') {
+        queryParams.append('type', filters.type);
       }
-      if (currentFilters?.type !== 'all') queryParams.append('type', currentFilters?.type || '');
-      if (currentFilters?.status !== 'all') queryParams.append('status', currentFilters?.status || '');
-      if (currentFilters?.showHidden) queryParams.append('showHidden', 'true');
-      queryParams.append('includeSubcategories', currentFilters?.includeSubcategories ? 'true' : 'false');
+      
+      // Add status filter if not "all"
+      if (filters.status !== 'all') {
+        console.log(`Adding status filter: ${filters.status}`);
+        queryParams.append('status', filters.status);
+      }
+      
+      // Fix for folder filtering - only send one folderId parameter
+      if (filters.subcategory !== 'all') {
+        // If subcategory is selected, use that as the folderId
+        queryParams.append('folderId', filters.subcategory);
+        // When a subcategory is selected, we shouldn't include other subfolders
+        queryParams.append('includeSubcategories', 'false');
+      } else if (filters.category !== 'all') {
+        // If only category is selected, use that as the folderId
+        queryParams.append('folderId', filters.category);
+        // Only pass includeSubcategories if a category is selected
+        queryParams.append('includeSubcategories', filters.includeSubcategories ? 'true' : 'false');
+      } else {
+        // Only include the parameter if it's true when no folder selected
+        if (filters.includeSubcategories) {
+          queryParams.append('includeSubcategories', 'true');
+        }
+      }
+      
+      // Add pagination parameters
+      queryParams.append('page', page.toString());
+      queryParams.append('limit', QUESTIONS_PER_PAGE.toString());
+
+      console.log("Sending API request with params:", queryParams.toString());
 
       const response = await axios.get(`/api/questions?${queryParams.toString()}`);
-      const questions = response.data as QuestionType[];
+      const { questions, pagination } = response.data;
+      
+      console.log("API response:", { 
+        questionCount: questions.length,
+        pagination,
+        // Log the first few questions for debugging
+        sampleQuestions: questions.slice(0, 2).map((q: Question) => ({ 
+          id: q.id, 
+          name: q.name,
+          status: q.status
+        }))
+      });
+      
       setQuestions(questions);
+      setFilteredQuestions(questions);
+      setTotalPages(pagination.totalPages);
+      setTotalQuestions(pagination.total);
       
       // Update stats
-      const newStats = {
-        total: questions.length,
-        ready: questions.filter((q) => q.status === 'READY').length,
-        draft: questions.filter((q) => q.status === 'DRAFT').length,
-        multipleChoice: questions.filter((q) => q.type === 'MCQ').length,
-        coding: questions.filter((q) => q.type === 'CODING').length,
-        byFolder: questions.reduce((acc: Record<string, number>, q) => {
+      const newStats: Stats = {
+        total: pagination.total,
+        published: questions.filter((q: Question) => q.status === 'READY').length,
+        draft: questions.filter((q: Question) => q.status === 'DRAFT').length,
+        multipleChoice: questions.filter((q: Question) => q.type === 'MCQ').length,
+        coding: questions.filter((q: Question) => q.type === 'CODING').length,
+        byFolder: questions.reduce((acc: Record<string, number>, q: Question) => {
           const folderName = q.folder?.name || 'Uncategorized';
           acc[folderName] = (acc[folderName] || 0) + 1;
           return acc;
         }, {} as Record<string, number>),
+        ready: questions.filter((q: Question) => q.status === 'READY').length
       };
       setStats(newStats);
-      
+      setPagination({
+        total: pagination.total,
+        current: page
+      });
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
@@ -522,6 +588,8 @@ export default function AdminQuestionsPage() {
       });
 
       fetchQuestions();
+      setIsDeleteDialogOpen(false);
+      setQuestionToDelete(null);
     } catch (error) {
       console.error("Error deleting question:", error);
       toast({
@@ -959,24 +1027,31 @@ export default function AdminQuestionsPage() {
       }
     }
     
+    console.log("Applying filters:", pendingFilters);
     setFilters(pendingFilters);
-    fetchQuestions(pendingFilters);
+    // Always reset to page 1 when applying new filters
+    setCurrentPage(1);
+    // Explicitly fetch questions with the new filters and page 1
+    fetchQuestions(pendingFilters, 1);
   };
 
   const clearFilters = () => {
+    console.log("Clearing all filters");
     const defaultFilters = {
       search: "",
       category: "all",
       subcategory: "all",
       type: "all",
       status: "all",
-      showHidden: false,
       includeSubcategories: false
     };
     setFilters(defaultFilters);
     setPendingFilters(defaultFilters);
     setActiveFilters([]);
-    fetchQuestions(defaultFilters);
+    // Reset to page 1
+    setCurrentPage(1);
+    // Explicitly fetch with default filters and page 1
+    fetchQuestions(defaultFilters, 1);
   };
 
   const handleBulkSelect = (questionId: string) => {
@@ -990,6 +1065,11 @@ export default function AdminQuestionsPage() {
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
+      // Scroll to top of the table when page changes
+      const tableElement = document.querySelector('.questions-table');
+      if (tableElement) {
+        tableElement.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 
@@ -1003,43 +1083,6 @@ export default function AdminQuestionsPage() {
       setIsCodingFormModalOpen(true);
     }
   };
-
-  // Remove the duplicate filteredQuestions declaration and use the state variable
-  useEffect(() => {
-    const filtered = questions.filter((question) => {
-      // Search filter
-      const matchesSearch = filters.search === "" || 
-        question.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        question.mCQQuestion?.questionText?.toLowerCase().includes(filters.search.toLowerCase()) || 
-        question.codingQuestion?.questionText?.toLowerCase().includes(filters.search.toLowerCase());
-        
-      // Category and Subcategory filter
-      let matchesCategory = true;
-      if (filters.subcategory !== "all") {
-        matchesCategory = question.folderId === filters.subcategory;
-      } else if (filters.category !== "all") {
-        if (filters.includeSubcategories) {
-          const subfolderIds = folders
-            .find(f => f.id === filters.category)
-            ?.subfolders?.map(s => s.id) || [];
-          matchesCategory = question.folderId === filters.category || 
-                           subfolderIds.includes(question.folderId);
-    } else {
-          matchesCategory = question.folderId === filters.category;
-        }
-      }
-
-      // Type filter
-      const matchesType = filters.type === "all" || question.type === filters.type;
-      
-      // Status filter
-      const matchesStatus = filters.status === "all" || question.status === filters.status;
-
-      return matchesSearch && matchesCategory && matchesType && matchesStatus;
-    });
-
-    setFilteredQuestions(filtered);
-  }, [questions, filters, folders]);
 
   const transformQuestionForViewMode = (question: Question) => {
     const viewData: Record<string, any> = {
@@ -1087,11 +1130,25 @@ export default function AdminQuestionsPage() {
   };
 
   const handleEdit = (question: Question) => {
-    setEditingQuestion(prepareQuestionForEditing(question));
+    const preparedQuestion = prepareQuestionForEditing(question);
+    
+    // Create a partial QuestionFormData with the fields we have
+    const formData: Partial<QuestionFormData> = {
+      id: preparedQuestion.id,
+      name: preparedQuestion.name,
+      type: preparedQuestion.type,
+      status: preparedQuestion.status,
+      folderId: preparedQuestion.folderId || '',
+      version: preparedQuestion.version,
+      questionText: preparedQuestion.questionText || '',
+    };
+    
+    setEditingQuestion(formData as QuestionFormData);
+    
     if (question.type === 'MCQ') {
-      setIsMCQModalOpen(true);
+      setIsFormModalOpen(true);
     } else if (question.type === 'CODING') {
-      setIsCodingModalOpen(true);
+      setIsCodingFormModalOpen(true);
     }
   };
 
@@ -1131,6 +1188,90 @@ export default function AdminQuestionsPage() {
         solutionExplanation: ''
       }
     };
+  };
+
+  // Update the table display to show only current page questions
+  const paginatedQuestions = filteredQuestions.slice(
+    (currentPage - 1) * QUESTIONS_PER_PAGE,
+    currentPage * QUESTIONS_PER_PAGE
+  );
+
+  // Define a reusable pagination component
+  const PaginationControls = () => (
+    <div className="flex justify-between items-center">
+      <div className="text-sm text-muted-foreground">
+        Showing {filteredQuestions.length > 0 ? `${(currentPage - 1) * QUESTIONS_PER_PAGE + 1}-${Math.min(currentPage * QUESTIONS_PER_PAGE, totalQuestions)}` : '0'} of {totalQuestions} questions
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1 || isLoading}
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Previous
+        </Button>
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            // Show pages around current page
+            let pageToShow;
+            if (totalPages <= 5) {
+              pageToShow = i + 1;
+            } else if (currentPage <= 3) {
+              pageToShow = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageToShow = totalPages - 4 + i;
+            } else {
+              pageToShow = currentPage - 2 + i;
+            }
+            
+            return (
+              <Button
+                key={pageToShow}
+                variant={currentPage === pageToShow ? "default" : "outline"}
+                size="sm"
+                className="w-8 h-8 p-0"
+                onClick={() => handlePageChange(pageToShow)}
+                disabled={isLoading}
+              >
+                {pageToShow}
+              </Button>
+            );
+          })}
+          
+          {totalPages > 5 && currentPage < totalPages - 2 && (
+            <>
+              <span className="mx-1">...</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-8 h-8 p-0"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={isLoading}
+              >
+                {totalPages}
+              </Button>
+            </>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || isLoading}
+        >
+          Next
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+    </div>
+  );
+
+  // Create a function to handle opening the delete dialog
+  const handleDeleteClick = (questionId: string) => {
+    setQuestionToDelete(questionId);
+    setIsDeleteDialogOpen(true);
   };
 
   return (
@@ -1258,6 +1399,7 @@ export default function AdminQuestionsPage() {
         <TabsList>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="folders">Folders</TabsTrigger>
+          <TabsTrigger value="stats">Statistics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="questions">
@@ -1336,7 +1478,10 @@ export default function AdminQuestionsPage() {
 
                 <Select
                   value={pendingFilters.status}
-                  onValueChange={(value) => setPendingFilters(prev => ({ ...prev, status: value }))}
+                  onValueChange={(value) => {
+                    console.log(`Setting status filter to: ${value}`);
+                    setPendingFilters(prev => ({ ...prev, status: value }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Status" />
@@ -1353,20 +1498,17 @@ export default function AdminQuestionsPage() {
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
                   <Switch
-                    id="showHidden"
-                    checked={pendingFilters.showHidden}
-                    onCheckedChange={(checked) => setPendingFilters(prev => ({ ...prev, showHidden: checked }))}
-                  />
-                  <Label htmlFor="showHidden">Show hidden questions</Label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Switch
                     id="includeSubcategories"
                     checked={pendingFilters.includeSubcategories}
+                    disabled={pendingFilters.subcategory !== 'all'}
                     onCheckedChange={(checked) => setPendingFilters(prev => ({ ...prev, includeSubcategories: checked }))}
                   />
-                  <Label htmlFor="includeSubcategories">Include subcategories</Label>
+                  <Label 
+                    htmlFor="includeSubcategories" 
+                    className={pendingFilters.subcategory !== 'all' ? "text-muted-foreground" : ""}
+                  >
+                    Include subcategories {pendingFilters.subcategory !== 'all' ? "(unavailable when subcategory selected)" : ""}
+                  </Label>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1460,143 +1602,917 @@ export default function AdminQuestionsPage() {
 
           {/* Questions Table */}
           <div className="bg-card rounded-lg shadow p-6">
-              <Table>
-                <TableHeader>
+            {/* Add top pagination controls */}
+            <div className="mb-4">
+              <PaginationControls />
+            </div>
+            
+            <Table className="questions-table">
+              <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Select</TableHead>
-                    <TableHead>Question</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Subcategory</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead>Updated At</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                {filteredQuestions.map((question) => (
-                  <TableRow key={question.id}>
-                    <TableCell className="flex items-center gap-2">
-                          <Checkbox
-                        id={`question-${question.id}`}
-                            checked={selectedQuestions.includes(question.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            handleBulkSelect(question.id);
-                          } else {
-                            handleBulkSelect(question.id);
-                          }
-                        }}
-                      />
+                  <TableHead className="w-[50px]">Select</TableHead>
+                  <TableHead>Question</TableHead>
+                  <TableHead className="w-[100px]">Type</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[180px]">Created</TableHead>
+                  <TableHead className="w-[150px]">Created By</TableHead>
+                  <TableHead className="w-[180px]">Updated</TableHead>
+                  <TableHead className="w-[150px]">Last Modified By</TableHead>
+                  <TableHead className="w-[120px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                      <p className="mt-2 text-sm text-muted-foreground">Loading questions...</p>
                     </TableCell>
-                    <TableCell>{question.name}</TableCell>
-                    <TableCell>{question.type}</TableCell>
-                    <TableCell>{question.status}</TableCell>
-                    <TableCell>{question.folder?.name}</TableCell>
-                    <TableCell>{question.subfolder?.name}</TableCell>
-                    <TableCell>{formatDate(question.createdAt)}</TableCell>
-                    <TableCell>{formatDate(question.updatedAt)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditQuestion(question);
-                          }}
+                  </TableRow>
+                ) : filteredQuestions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center">
+                      <p className="text-muted-foreground">No questions match your current filters</p>
+                      <div className="flex justify-center gap-2 mt-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={clearFilters}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <X className="mr-2 h-4 w-4" />
+                          Clear Filters
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteQuestion(question.id);
-                          }}
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          onClick={handleCreateQuestion}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Question
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredQuestions.map((question) => (
+                    <TableRow key={question.id}>
+                      <TableCell className="flex items-center gap-2">
+                        <Checkbox
+                          id={`question-${question.id}`}
+                          checked={selectedQuestions.includes(question.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              handleBulkSelect(question.id);
+                            } else {
+                              handleBulkSelect(question.id);
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{question.name}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={question.type === 'MCQ' ? 'secondary' : 'outline'}>
+                          {question.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={question.status === 'READY' ? 'default' : 'outline'} 
+                          className={question.status === 'READY' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''}>
+                          {question.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(question.createdAt)}</TableCell>
+                      <TableCell>{question.creatorName || 'N/A'}</TableCell>
+                      <TableCell>{formatDate(question.updatedAt)}</TableCell>
+                      <TableCell>{question.lastModifiedByName || 'N/A'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Edit Question"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditQuestion(question);
+                            }}
+                            className="hover:bg-accent/50"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Preview Question"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewQuestion(question);
+                              setIsPreviewModalOpen(true);
+                            }}
+                            className="hover:bg-accent/50"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Delete Question"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(question.id);
+                            }}
+                            className="hover:bg-accent/50 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
-            <div className="flex justify-between items-center pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span>Page {currentPage} of {totalPages}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
+            {/* Bottom pagination controls */}
+            <div className="mt-4">
+              <PaginationControls />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="folders">
-          {/* Folders Section */}
+          {/* Folders Section - Improved UI */}
           <div className="bg-card rounded-lg shadow p-6">
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateFolderModalOpen(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Folder Management</h2>
+              <Dialog open={isCreateFolderModalOpen} onOpenChange={setIsCreateFolderModalOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
                   Create Folder
                 </Button>
-              </div>
-            <Table>
-              <TableBody>
-                {folders.map((folder) => (
-                  <TableRow key={folder.id}>
-                    <TableCell>{folder.name}</TableCell>
-                    <TableCell>
+                </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+                    <DialogDescription>
+                      Enter a name for your new folder
+                    </DialogDescription>
+          </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="folderName" className="text-right">
+                        Folder Name
+                      </Label>
+              <Input
+                id="folderName"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                        className="col-span-3"
+                        placeholder="e.g. JavaScript Basics"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+                    <Button
+                      type="submit"
+                      onClick={handleCreateFolder}
+                      disabled={!newFolderName.trim()}
+                    >
+              Create Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+            </div>
+
+      {/* Create Subfolder Modal */}
+      <Dialog open={isCreateSubfolderModalOpen} onOpenChange={setIsCreateSubfolderModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Subfolder</DialogTitle>
+                  <DialogDescription>
+                    Enter a name for your new subfolder in {folders.find(f => f.id === selectedFolderForSubfolder)?.name || 'the selected folder'}
+                  </DialogDescription>
+          </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="subfolderName" className="text-right">
+                      Subfolder Name
+                    </Label>
+              <Input
+                id="subfolderName"
+                value={newSubfolderName}
+                onChange={(e) => setNewSubfolderName(e.target.value)}
+                      className="col-span-3"
+                      placeholder="e.g. Loops and Arrays"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+                  <Button
+                    type="submit"
+                    onClick={handleCreateSubfolder}
+                    disabled={!newSubfolderName.trim() || !selectedFolderForSubfolder}
+                  >
+              Create Subfolder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Folder Modal */}
+      <Dialog open={isEditFolderModalOpen} onOpenChange={setIsEditFolderModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Folder</DialogTitle>
+                  <DialogDescription>
+                    Update the name of this folder
+                  </DialogDescription>
+          </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="updatedFolderName" className="text-right">
+                      Folder Name
+                    </Label>
+              <Input
+                      id="updatedFolderName"
+                value={updatedFolderName}
+                onChange={(e) => setUpdatedFolderName(e.target.value)}
+                      className="col-span-3"
+                      placeholder={editingFolder?.name}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+                  <Button
+                    type="submit"
+                    onClick={handleUpdateFolder}
+                    disabled={!updatedFolderName.trim()}
+                  >
+              Update Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+            {/* Folder List */}
+            <div className="grid gap-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+              ) : folders.length === 0 ? (
+                <div className="text-center py-10 bg-accent/20 rounded-lg">
+                  <FolderIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No folders yet</h3>
+                  <p className="text-muted-foreground mb-4">Create your first folder to organize your questions</p>
+                  <Button onClick={() => setIsCreateFolderModalOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Folder
+                  </Button>
+                </div>
+              ) : (
+                folders.map((folder) => (
+                  <div key={folder.id} className="border rounded-lg overflow-hidden transition-all">
+                    <div 
+                      className={`flex items-center justify-between p-4 cursor-pointer bg-card hover:bg-accent/10 ${expandedFolders.has(folder.id) ? 'border-b' : ''}`}
+                      onClick={() => {
+                        setExpandedFolders(prev => {
+                          const newSet = new Set(prev);
+                          if (newSet.has(folder.id)) {
+                            newSet.delete(folder.id);
+                          } else {
+                            newSet.add(folder.id);
+                          }
+                          return newSet;
+                        });
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {expandedFolders.has(folder.id) ? 
+                          <FolderOpen className="h-5 w-5 text-amber-500" /> : 
+                          <Folder className="h-5 w-5 text-amber-500" />
+                        }
+                        <span className="font-medium">{folder.name}</span>
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {folder.subfolders?.length || 0} subfolders
+                        </Badge>
+                    </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleEditFolder(folder);
+                            setSelectedFolderForSubfolder(folder.id);
+                            setIsCreateSubfolderModalOpen(true);
                           }}
                         >
-                          <Pencil className="h-4 w-4" />
-            </Button>
+                          <Plus className="h-4 w-4 mr-1" />
+                          <span className="text-xs">Add Subfolder</span>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteFolder(folder.id);
+                            setEditingFolder(folder);
+                            setUpdatedFolderName(folder.name);
+                            setIsEditFolderModalOpen(true);
                           }}
                         >
-                          <Trash2 className="h-4 w-4" />
-            </Button>
-            </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Are you sure you want to delete the folder "${folder.name}"?`)) {
+                              handleDeleteFolder(folder.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive/70" />
+                        </Button>
                 </div>
+                    </div>
+                    
+                    {/* Subfolders */}
+                    {expandedFolders.has(folder.id) && (
+                      <div className="bg-muted/30 divide-y">
+                        {folder.subfolders && folder.subfolders.length > 0 ? (
+                          folder.subfolders.map((subfolder) => (
+                            <div key={subfolder.id} className="flex items-center justify-between py-3 px-6 hover:bg-accent/5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-5"></div> {/* Indent space */}
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">{subfolder.name}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleEditSubfolder(folder.id, subfolder.id)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to delete the subfolder "${subfolder.name}"?`)) {
+                                      handleDeleteSubfolder(folder.id, subfolder.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive/70" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-3 px-6 text-center text-muted-foreground text-sm italic">
+                            No subfolders yet. Click "Add Subfolder" to create one.
+              </div>
+            )}
+          </div>
+                    )}
+              </div>
+                ))
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="stats">
+          {/* Statistics Section - Improved with dark/light theme support */}
+          <div className="bg-card rounded-lg shadow-md overflow-hidden">
+            {/* Hero Stats Section - Theme-aware gradient */}
+            <div className="relative bg-gradient-to-r from-primary/80 to-primary/30 dark:from-primary/30 dark:to-primary/10 p-8 mb-6">
+              <div className="absolute inset-0 opacity-10 dark:opacity-20">
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,transparent,transparent_30%,hsl(var(--background)))]"></div>
+                <div className="absolute top-0 left-0 w-24 h-24 bg-foreground/20 rounded-full -ml-12 -mt-12"></div>
+                <div className="absolute bottom-0 right-0 w-32 h-32 bg-foreground/20 rounded-full -mr-10 -mb-10"></div>
+              </div>
+              <h2 className="text-2xl font-bold text-primary-foreground dark:text-primary mb-2">Question Bank Analytics</h2>
+              <p className="text-primary-foreground/80 dark:text-primary/90 mb-6">Overview of your question repository and content health</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Questions Card */}
+                <div className="bg-background/80 backdrop-blur-sm rounded-xl p-4 text-foreground border border-border/20 shadow-sm hover:bg-background/90 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-muted-foreground text-sm font-medium mb-1">Total Questions</p>
+                      <h3 className="text-3xl font-bold">{stats.total}</h3>
+                    </div>
+                    <div className="p-2 bg-primary/10 dark:bg-primary/20 text-primary rounded-lg">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    {stats.total > 0 ? 
+                      `Last added ${formatDate(new Date())}` : 
+                      "No questions yet"}
+                  </div>
+                </div>
+                
+                {/* MCQ Questions */}
+                <div className="bg-background/80 backdrop-blur-sm rounded-xl p-4 text-foreground border border-border/20 shadow-sm hover:bg-background/90 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-muted-foreground text-sm font-medium mb-1">MCQ Questions</p>
+                      <h3 className="text-3xl font-bold">{stats.multipleChoice}</h3>
+                    </div>
+                    <div className="p-2 bg-purple-500/10 dark:bg-purple-500/20 text-purple-500 dark:text-purple-400 rounded-lg">
+                      <ListChecks className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="bg-purple-500 dark:bg-purple-400 h-full rounded-full" 
+                        style={{ width: `${stats.total > 0 ? (stats.multipleChoice / stats.total) * 100 : 0}%` }}>
+                      </div>
+                    </div>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {stats.total > 0 ? `${Math.round((stats.multipleChoice / stats.total) * 100)}%` : '0%'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Coding Questions */}
+                <div className="bg-background/80 backdrop-blur-sm rounded-xl p-4 text-foreground border border-border/20 shadow-sm hover:bg-background/90 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-muted-foreground text-sm font-medium mb-1">Coding Questions</p>
+                      <h3 className="text-3xl font-bold">{stats.coding}</h3>
+                    </div>
+                    <div className="p-2 bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 dark:text-blue-400 rounded-lg">
+                      <Code className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="bg-blue-500 dark:bg-blue-400 h-full rounded-full" 
+                        style={{ width: `${stats.total > 0 ? (stats.coding / stats.total) * 100 : 0}%` }}>
+                      </div>
+                    </div>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {stats.total > 0 ? `${Math.round((stats.coding / stats.total) * 100)}%` : '0%'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Ready Status */}
+                <div className="bg-background/80 backdrop-blur-sm rounded-xl p-4 text-foreground border border-border/20 shadow-sm hover:bg-background/90 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-muted-foreground text-sm font-medium mb-1">Ready Questions</p>
+                      <h3 className="text-3xl font-bold">{stats.ready}</h3>
+                    </div>
+                    <div className="p-2 bg-green-500/10 dark:bg-green-500/20 text-green-500 dark:text-green-400 rounded-lg">
+                      <CheckCircle className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="bg-green-500 dark:bg-green-400 h-full rounded-full" 
+                        style={{ width: `${stats.total > 0 ? (stats.ready / stats.total) * 100 : 0}%` }}>
+                      </div>
+                    </div>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {stats.total > 0 ? `${Math.round((stats.ready / stats.total) * 100)}%` : '0%'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="p-6">
+              {/* Distribution Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {/* Question Type Distribution */}
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-medium">Question Type Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="relative pt-1">
+                      <div className="flex mb-2 items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 rounded-full bg-purple-500 dark:bg-purple-400 mr-2"></div>
+                          <span className="text-xs font-semibold">MCQ</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-semibold">{stats.multipleChoice} questions</span>
+                        </div>
+                      </div>
+                      <div className="flex mb-2">
+                        <div className="shadow-none flex flex-col text-center whitespace-nowrap justify-center w-full rounded">
+                          <div className="bg-gradient-to-r from-purple-400 to-purple-600 dark:from-purple-500 dark:to-purple-700 h-4 rounded text-xs leading-none py-1 text-center text-white"
+                            style={{ width: `${stats.total > 0 ? (stats.multipleChoice / stats.total) * 100 : 0}%` }}>
+                            {stats.total > 0 && stats.multipleChoice > 0 ? `${Math.round((stats.multipleChoice / stats.total) * 100)}%` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex mb-2 items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 rounded-full bg-blue-500 dark:bg-blue-400 mr-2"></div>
+                          <span className="text-xs font-semibold">Coding</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-semibold">{stats.coding} questions</span>
+                        </div>
+                      </div>
+                      <div className="flex mb-2">
+                        <div className="shadow-none flex flex-col text-center whitespace-nowrap justify-center w-full rounded">
+                          <div className="bg-gradient-to-r from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 h-4 rounded text-xs leading-none py-1 text-center text-white"
+                            style={{ width: `${stats.total > 0 ? (stats.coding / stats.total) * 100 : 0}%` }}>
+                            {stats.total > 0 && stats.coding > 0 ? `${Math.round((stats.coding / stats.total) * 100)}%` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Circle representation */}
+                    <div className="flex justify-center mt-6">
+                      <div className="relative h-36 w-36">
+                        {stats.total > 0 ? (
+                          <>
+                            <svg className="w-full h-full" viewBox="0 0 100 100">
+                              <circle 
+                                className="text-muted stroke-current" 
+                                strokeWidth="10" 
+                                stroke="currentColor" 
+                                fill="transparent" 
+                                r="40" 
+                                cx="50" 
+                                cy="50" 
+                              />
+                              <circle 
+                                className="text-purple-500 dark:text-purple-400 stroke-current" 
+                                strokeWidth="10" 
+                                strokeDasharray={`${(stats.multipleChoice / stats.total) * 251.2} 251.2`}
+                                strokeLinecap="round" 
+                                stroke="currentColor" 
+                                fill="transparent" 
+                                r="40" 
+                                cx="50" 
+                                cy="50" 
+                              />
+                              <circle 
+                                className="text-blue-500 dark:text-blue-400 stroke-current" 
+                                strokeWidth="10" 
+                                strokeDasharray={`${(stats.coding / stats.total) * 251.2} 251.2`}
+                                strokeDashoffset={`-${(stats.multipleChoice / stats.total) * 251.2}`}
+                                strokeLinecap="round" 
+                                stroke="currentColor" 
+                                fill="transparent" 
+                                r="40" 
+                                cx="50" 
+                                cy="50" 
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-2xl font-bold">{stats.total}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <p className="text-muted-foreground">No data</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Question Status */}
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-medium">Ready vs. Draft</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="relative pt-1">
+                      <div className="flex mb-2 items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 rounded-full bg-green-500 dark:bg-green-400 mr-2"></div>
+                          <span className="text-xs font-semibold">Ready</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-semibold">{stats.ready} questions</span>
+                        </div>
+                      </div>
+                      <div className="flex mb-2">
+                        <div className="shadow-none flex flex-col text-center whitespace-nowrap justify-center w-full rounded">
+                          <div className="bg-gradient-to-r from-green-400 to-green-600 dark:from-green-500 dark:to-green-700 h-4 rounded text-xs leading-none py-1 text-center text-white"
+                            style={{ width: `${stats.total > 0 ? (stats.ready / stats.total) * 100 : 0}%` }}>
+                            {stats.total > 0 && stats.ready > 0 ? `${Math.round((stats.ready / stats.total) * 100)}%` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex mb-2 items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 rounded-full bg-amber-500 dark:bg-amber-400 mr-2"></div>
+                          <span className="text-xs font-semibold">Draft</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-semibold">{stats.draft} questions</span>
+                        </div>
+                      </div>
+                      <div className="flex mb-2">
+                        <div className="shadow-none flex flex-col text-center whitespace-nowrap justify-center w-full rounded">
+                          <div className="bg-gradient-to-r from-amber-400 to-amber-600 dark:from-amber-500 dark:to-amber-700 h-4 rounded text-xs leading-none py-1 text-center text-white"
+                            style={{ width: `${stats.total > 0 ? (stats.draft / stats.total) * 100 : 0}%` }}>
+                            {stats.total > 0 && stats.draft > 0 ? `${Math.round((stats.draft / stats.total) * 100)}%` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Status Split View */}
+                    <div className="mt-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                          <p className="text-sm font-medium flex items-center">
+                            <ListChecks className="h-4 w-4 mr-2 text-purple-500 dark:text-purple-400" />
+                            MCQ Status
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="bg-green-500 dark:bg-green-400 h-full" 
+                                style={{ width: `${stats.multipleChoice > 0 ? 70 : 0}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">70%</div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                          <p className="text-sm font-medium flex items-center">
+                            <Code className="h-4 w-4 mr-2 text-blue-500 dark:text-blue-400" />
+                            Coding Status
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="bg-green-500 dark:bg-green-400 h-full" 
+                                style={{ width: `${stats.coding > 0 ? 60 : 0}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">60%</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Folder Distribution */}
+              <div className="mb-8">
+                <Card className="border shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-medium">Question Distribution by Folder</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {Object.entries(stats.byFolder).length > 0 ? (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {Object.entries(stats.byFolder)
+                          .sort(([, countA], [, countB]) => countB - countA)
+                          .slice(0, showAllFolders ? undefined : 8) // Show all folders if showAllFolders is true
+                          .map(([folder, count], index) => (
+                            <div key={folder} 
+                              className="p-3 border rounded-lg hover:shadow-md transition-all hover:bg-accent/50"
+                            >
+                              <div className="flex justify-between items-center mb-1.5">
+                                <div className="flex items-center">
+                                  <div className={`w-8 h-8 flex items-center justify-center rounded-full text-white
+                                    ${index === 0 ? 'bg-primary' : 
+                                      index === 1 ? 'bg-blue-500 dark:bg-blue-600' : 
+                                      index === 2 ? 'bg-purple-500 dark:bg-purple-600' : 
+                                      index === 3 ? 'bg-green-500 dark:bg-green-600' : 
+                                      'bg-slate-500 dark:bg-slate-600'}`}>
+                                    <FolderIcon className="h-4 w-4" />
+                                  </div>
+                                  <span className="ml-2 font-medium text-sm truncate max-w-[12rem]">{folder}</span>
+                                </div>
+                                <span className="font-semibold text-sm">{count}</span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                                <div 
+                                  className={`${index === 0 ? 'bg-primary' : 
+                                    index === 1 ? 'bg-blue-500 dark:bg-blue-600' : 
+                                    index === 2 ? 'bg-purple-500 dark:bg-purple-600' : 
+                                    index === 3 ? 'bg-green-500 dark:bg-green-600' : 
+                                    'bg-slate-500 dark:bg-slate-600'} h-1.5 rounded-full`}
+                                  style={{ width: `${stats.total > 0 ? (count / stats.total) * 100 : 0}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          ))}
+                        
+                        {/* Show more/less button when there are more than 8 folders */}
+                        {Object.entries(stats.byFolder).length > 8 && (
+                          <div className="col-span-full flex justify-center mt-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setShowAllFolders(!showAllFolders)}
+                              className="transition-all"
+                            >
+                              {showAllFolders ? (
+                                <>
+                                  <ChevronUp className="mr-1 h-4 w-4" />
+                                  Show Less Folders
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="mr-1 h-4 w-4" />
+                                  Show More Folders
+                                </>
+                              )}
+                            </Button>
+              </div>
+            )}
+          </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FolderIcon className="mx-auto h-12 w-12 opacity-30 mb-2" />
+                        <p>No folder data available</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Insights & Recommendations */}
+              <Card className="border shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium flex items-center">
+                    <Settings className="mr-2 h-5 w-5 text-primary" />
+                    Insights & Recommendations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {stats.total > 0 ? (
+                      <>
+                        <div className="p-4 border rounded-xl bg-accent/25 shadow-sm">
+                          <h3 className="font-semibold flex items-center mb-2">
+                            <FileText className="mr-2 h-5 w-5 text-primary" />
+                            Content Balance
+                          </h3>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-muted-foreground">MCQ vs Coding Balance</span>
+                            <div className="flex items-center">
+                              <div className="w-24 h-1.5 bg-muted rounded-full mr-2 overflow-hidden">
+                                <div 
+                                  className="bg-primary h-full rounded-full" 
+                                  style={{ width: `${stats.total > 0 ? (stats.multipleChoice / stats.total) * 100 : 0}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-medium">
+                                {stats.multipleChoice > stats.coding * 2 
+                                  ? "MCQ Heavy" 
+                                  : stats.coding > stats.multipleChoice * 2
+                                    ? "Coding Heavy"
+                                    : "Balanced"}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm">
+                            {stats.multipleChoice > stats.coding * 2 
+                              ? "Your question bank is heavily weighted toward multiple-choice questions. Consider adding more coding questions for a balanced assessment."
+                              : stats.coding > stats.multipleChoice * 2
+                                ? "Your question bank is heavily weighted toward coding questions. Consider adding more multiple-choice questions for a balanced assessment."
+                                : "Your question bank has a good balance between multiple-choice and coding questions."}
+                          </p>
+                        </div>
+                        
+                        <div className="p-4 border rounded-xl bg-accent/25 shadow-sm">
+                          <h3 className="font-semibold flex items-center mb-2">
+                            <CheckCircle className="mr-2 h-5 w-5 text-green-500 dark:text-green-400" />
+                            Readiness Status
+                          </h3>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-muted-foreground">Ready Status</span>
+                            <div className="flex items-center">
+                              <div className="w-24 h-1.5 bg-muted rounded-full mr-2 overflow-hidden">
+                                <div 
+                                  className="bg-green-500 dark:bg-green-400 h-full rounded-full" 
+                                  style={{ width: `${stats.total > 0 ? (stats.ready / stats.total) * 100 : 0}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-medium">
+                                {stats.ready === stats.total 
+                                  ? "All Ready" 
+                                  : stats.ready > stats.draft
+                                    ? "Mostly Ready"
+                                    : "Needs Work"}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm">
+                            {stats.draft > stats.ready
+                              ? `You have ${stats.draft} questions in draft status. Focus on reviewing and finalizing these questions to make them available for assessments.`
+                              : stats.ready === stats.total
+                                ? "All questions are marked as ready. Great job maintaining your question bank!"
+                                : `Most of your questions (${stats.ready} of ${stats.total}) are ready for use. Consider reviewing the remaining ${stats.draft} draft questions.`}
+                          </p>
+                        </div>
+                        
+                        {Object.keys(stats.byFolder).length > 5 && (
+                          <div className="p-4 border rounded-xl bg-accent/25 shadow-sm">
+                            <h3 className="font-semibold flex items-center mb-2">
+                              <FolderIcon className="mr-2 h-5 w-5 text-amber-500 dark:text-amber-400" />
+                              Folder Organization
+                            </h3>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm text-muted-foreground">Folder Count</span>
+                              <Badge variant="outline">{Object.keys(stats.byFolder).length} folders</Badge>
+                            </div>
+                            <p className="text-sm">
+                              Your questions are organized across {Object.keys(stats.byFolder).length} folders. Consider consolidating related topics to improve navigation.
+                            </p>
+                          </div>
+                        )}
+                        
+                        {stats.total < 20 && (
+                          <div className="p-4 border rounded-xl bg-accent/25 shadow-sm">
+                            <h3 className="font-semibold flex items-center mb-2">
+                              <Plus className="mr-2 h-5 w-5 text-purple-500 dark:text-purple-400" />
+                              Content Growth
+                            </h3>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm text-muted-foreground">Bank Size</span>
+                              <Badge variant="outline" className={stats.total < 10 ? 'bg-red-100/50 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100/50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'}>
+                                {stats.total < 10 ? 'Very Small' : 'Growing'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm">
+                              Your question bank is still growing. Adding more questions will provide better assessment coverage and variety.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 bg-accent/30 rounded-xl">
+                        <div className="inline-flex p-3 rounded-full shadow-sm mb-3 bg-background">
+                          <FileText className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-medium mb-1">No Questions Yet</h3>
+                        <p className="text-muted-foreground mb-4">Add some questions to see insights and recommendations</p>
+                        <Button size="sm" onClick={handleCreateQuestion}>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Create Question
+            </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to delete this question? This action cannot be undone.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => questionToDelete && handleDeleteQuestion(questionToDelete)}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
