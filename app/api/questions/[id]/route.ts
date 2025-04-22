@@ -273,8 +273,8 @@ export async function PUT(
               deleteMany: {},
               create: (codingQuestion?.testCases || []).map((testCase: any) => {
                 // Map type string to boolean fields
-                const isSample = testCase.type === 'sample';
-                const isHidden = testCase.type === 'hidden';
+                const isSample = testCase.isSample ;
+                const isHidden = testCase.isHidden ;
                 
                 return {
                   input: testCase.input,

@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import type { Question as QuestionType } from '@/types';
 import { Folder as FolderType } from '@/types';
-import { QuestionRow } from "@/components/QuestionRow";
+import { QuestionRow } from "./QuestionRow";
 import { useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import axios from "axios";
@@ -1576,8 +1576,6 @@ export default function AdminQuestionsPage() {
                     <TableHead>Question</TableHead>
                   <TableHead className="w-[100px]">Type</TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[180px]">Created</TableHead>
-                  <TableHead className="w-[150px]">Created By</TableHead>
                   <TableHead className="w-[180px]">Updated</TableHead>
                   <TableHead className="w-[150px]">Last Modified By</TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
@@ -1586,14 +1584,14 @@ export default function AdminQuestionsPage() {
                 <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto" />
                       <p className="mt-2 text-sm text-muted-foreground">Loading questions...</p>
                     </TableCell>
                   </TableRow>
                 ) : filteredQuestions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       <p className="text-muted-foreground">No questions match your current filters</p>
                       <div className="flex justify-center gap-2 mt-2">
                         <Button
@@ -1615,86 +1613,22 @@ export default function AdminQuestionsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredQuestions.map((question) => (
-                    <TableRow key={question.id}>
-                      <TableCell className="flex items-center gap-2">
-                        <Checkbox
-                          id={`question-${question.id}`}
-                          checked={selectedQuestions.includes(question.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              handleBulkSelect(question.id);
-                            } else {
-                              handleBulkSelect(question.id);
-                            }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{question.name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={question.type === 'MCQ' ? 'secondary' : 'outline'}>
-                          {question.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={question.status === 'READY' ? 'default' : 'outline'} 
-                          className={question.status === 'READY' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''}>
-                          {question.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatDate(question.createdAt)}</TableCell>
-                      <TableCell>{question.creatorName || 'N/A'}</TableCell>
-                      <TableCell>{formatDate(question.updatedAt)}</TableCell>
-                      <TableCell>{question.lastModifiedByName || 'N/A'}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                            title="Edit Question"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditQuestion(question);
-                            }}
-                            className="hover:bg-accent/50"
-                          >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                            title="Preview Question"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewQuestion(question);
-                              setIsPreviewModalOpen(true);
-                            }}
-                            className="hover:bg-accent/50"
-                          >
-                            <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                            title="Delete Question"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteClick(question.id);
-                            }}
-                            className="hover:bg-accent/50 hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                ) : filteredQuestions.map((question) => (
+                    <QuestionRow
+                      key={question.id}
+                      question={question}
+                      onSelect={handleBulkSelect}
+                      isSelected={selectedQuestions.includes(question.id)}
+                    onPreview={(question) => {
+                      setPreviewQuestion(question);
+                      setIsPreviewModalOpen(true);
+                    }}
+                      onEdit={handleEditQuestion}
+                    onDelete={handleDeleteClick}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
 
             {/* Bottom pagination controls */}
             <div className="mt-4">
