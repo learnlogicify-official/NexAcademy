@@ -14,7 +14,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json();
-    console.log("Update request body:", JSON.stringify(body, null, 2));
+   
 
     const { id } = params;
     if (!id) {

@@ -121,7 +121,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
   
   // Add this new function to handle grade normalization
   const normalizeGradeValue = (value: any): number => {
-    console.log('Normalizing grade value:', value, typeof value);
+   
     
     if (value === undefined || value === null) {
       return 0;
@@ -220,8 +220,8 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
     resolver: zodResolver(questionFormSchema),
     defaultValues: {
       name: initialData?.name || "",
-      questionText: initialData?.mCQQuestion?.questionText || initialData?.codingQuestion?.questionText || "",
-      type: "MCQ",
+      questionText: initialData?.mCQQuestion?.questionText || initialData?.codingQuestion?.questionText || initialData?.questionText || "",
+      type: initialData?.type || "MCQ",
       status: initialData?.status || "DRAFT",
       folderId: initialData?.folderId || "",
       difficulty: initialData?.mCQQuestion?.difficulty || "MEDIUM",
@@ -231,12 +231,19 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       generalFeedback: initialData?.mCQQuestion?.generalFeedback || "",
       choiceNumbering: initialData?.mCQQuestion?.choiceNumbering || "abc",
       options: initialData?.mCQQuestion?.options?.map((option: MCQOption) => ({
+        id: option.id,
         text: option.text,
         grade: option.grade,
         feedback: option.feedback || "",
       })) || [],
-      languageOptions: initialData?.codingQuestion?.languageOptions?.map((lang: LanguageOption) => lang.language) || [],
+      languageOptions: initialData?.codingQuestion?.languageOptions?.map((lang: LanguageOption) => ({
+        id: lang.id,
+        language: lang.language,
+        solution: lang.solution,
+        preloadCode: lang.preloadCode || ""
+      })) || [],
       testCases: initialData?.codingQuestion?.testCases?.map((testCase: TestCase) => ({
+        id: testCase.id,
         input: testCase.input,
         output: testCase.output,
         isHidden: testCase.isHidden,
@@ -248,9 +255,9 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
   // Add a useEffect to handle initial data changes
   useEffect(() => {
     if (initialData) {
-      console.log('Setting initial data:', initialData);
-      const questionText = initialData.mCQQuestion?.questionText || initialData.codingQuestion?.questionText || '';
-      console.log('Setting question text:', questionText);
+     
+      const questionText = initialData?.questionText || initialData?.mCQQuestion?.questionText || initialData?.codingQuestion?.questionText || '';
+      
       form.setValue('questionText', questionText, { 
         shouldValidate: true, 
         shouldDirty: true,
@@ -264,7 +271,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
   
   // Memoize the validation trigger function
   const triggerValidation = useCallback(() => {
-    console.log('Question text changed:', questionText);
+    
     form.trigger('questionText');
   }, [questionText]); // Only depend on questionText
 
@@ -280,17 +287,17 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
 
   // Update the processOptionGrade function to handle more cases
   const processOptionGrade = (rawGrade: any): number => {
-    console.log(`Processing option grade (${typeof rawGrade}):`, rawGrade);
+    
     
     // Handle null or undefined
     if (rawGrade === null || rawGrade === undefined) {
-      console.log('Null/undefined grade, defaulting to 0');
+      
       return 0;
     }
     
     // Handle boolean values
     if (typeof rawGrade === 'boolean') {
-      console.log('Boolean grade value:', rawGrade);
+     
       return rawGrade ? 100 : 0;
     }
     
@@ -301,24 +308,24 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       
       // Handle empty strings
       if (!cleanValue) {
-        console.log('Empty string grade, defaulting to 0');
+        
         return 0;
       }
       
       // Parse the numeric value
       const parsedValue = parseFloat(cleanValue);
       if (isNaN(parsedValue)) {
-        console.log('Invalid numeric string, defaulting to 0');
+        
         return 0;
       }
       
       // If value is between 0 and 1, treat as decimal percentage
       if (parsedValue > 0 && parsedValue <= 1) {
-        console.log('Converting decimal to percentage:', parsedValue * 100);
+        
         return parsedValue * 100;
       }
       
-      console.log('Using parsed numeric value:', parsedValue);
+     
       return parsedValue;
     }
     
@@ -326,108 +333,24 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
     if (typeof rawGrade === 'number') {
       // Handle NaN
       if (isNaN(rawGrade)) {
-        console.log('NaN grade value, defaulting to 0');
+       
         return 0;
       }
       
       // If value is between 0 and 1, treat as decimal percentage
       if (rawGrade > 0 && rawGrade <= 1) {
-        console.log('Converting decimal to percentage:', rawGrade * 100);
+        
         return rawGrade * 100;
       }
       
-      console.log('Using numeric value as is:', rawGrade);
+     
       return rawGrade;
     }
     
     // For any other type, default to 0
-    console.log('Unhandled grade type, defaulting to 0');
+   
     return 0;
   };
-
-  // Update the useEffect hook where options are processed
-  useEffect(() => {
-    const fetchQuestionDetails = async () => {
-      if (initialData?.id) {
-        try {
-          const response = await fetch(`/api/questions/${initialData.id}`);
-          if (!response.ok) {
-            throw new Error('Failed to fetch question details');
-          }
-          const questionData = await response.json();
-          
-          console.log('Fetched question data:', questionData);
-          
-          // Set basic question data
-          form.setValue('name', questionData.name || '');
-          form.setValue('type', questionData.type);
-          form.setValue('folderId', questionData.folderId);
-          form.setValue('status', questionData.status || 'DRAFT');
-          
-          if (questionData.type === 'MCQ' && questionData.mCQQuestion) {
-            console.log('Setting MCQ question text:', questionData.mCQQuestion.questionText);
-            // Set MCQ specific data
-            form.setValue('questionText', questionData.mCQQuestion.questionText || '');
-            form.setValue('difficulty', questionData.mCQQuestion.difficulty || 'MEDIUM');
-            form.setValue('defaultMark', questionData.mCQQuestion.defaultMark || 1);
-            form.setValue('isMultiple', questionData.mCQQuestion.isMultiple || false);
-            form.setValue('shuffleChoice', questionData.mCQQuestion.shuffleChoice || false);
-            form.setValue('generalFeedback', questionData.mCQQuestion.generalFeedback || '');
-            form.setValue('choiceNumbering', questionData.mCQQuestion.choiceNumbering || 'abc');
-            
-            // Set options if they exist
-            if (questionData.mCQQuestion.options && Array.isArray(questionData.mCQQuestion.options)) {
-              const formattedOptions = questionData.mCQQuestion.options.map((opt: any) => ({
-                id: opt.id,
-                text: opt.text || '',
-                grade: opt.grade || 0,
-                feedback: opt.feedback || ''
-              }));
-              form.setValue('options', formattedOptions);
-            }
-          } else if (questionData.type === 'CODING' && questionData.codingQuestion) {
-            console.log('Setting Coding question text:', questionData.codingQuestion.questionText);
-            // Set coding specific data
-            form.setValue('questionText', questionData.codingQuestion.questionText || '');
-            form.setValue('defaultMark', questionData.codingQuestion.defaultMark || 1);
-            
-            // Set language options if they exist
-            if (questionData.codingQuestion.languageOptions && Array.isArray(questionData.codingQuestion.languageOptions)) {
-              const formattedLanguageOptions = questionData.codingQuestion.languageOptions.map((opt: any) => ({
-                id: opt.id,
-                language: opt.language || '',
-                solution: opt.solution || ''
-              }));
-              form.setValue('languageOptions', formattedLanguageOptions);
-            }
-            
-            // Set test cases if they exist
-            if (questionData.codingQuestion.testCases && Array.isArray(questionData.codingQuestion.testCases)) {
-              const formattedTestCases = questionData.codingQuestion.testCases.map((tc: any) => ({
-              id: tc.id,
-              input: tc.input || '',
-                output: tc.output || '',
-              isHidden: tc.isHidden || false
-            }));
-              form.setValue('testCases', formattedTestCases);
-          }
-        }
-        
-          // Log the form values after setting them
-          console.log('Form values after setting:', form.getValues());
-      } catch (error) {
-          console.error('Error fetching question details:', error);
-        toast({
-          title: "Error",
-            description: "Failed to load question details",
-          variant: "destructive",
-        });
-      }
-      }
-    };
-
-    fetchQuestionDetails();
-  }, [initialData, form, toast]);
 
   // Update the addOption function
   const addOption = () => {
@@ -475,25 +398,25 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
     const numericGrade = typeof grade === 'string' ? parseFloat(grade) : grade;
     
     if (isNaN(numericGrade)) {
-      console.log(`Invalid grade value: ${grade}, defaulting to "None"`);
+   
       return "None";
     }
     
     // Find exact match first in our grade options
     const exactMatch = gradeOptions.find(g => Math.abs(g.value - numericGrade) < 0.001);
     if (exactMatch) {
-      console.log(`Found exact/close grade match for ${numericGrade}: ${exactMatch.label}`);
+      
       return exactMatch.label;
     }
     
     // Special handling for 100%
     if (Math.abs(numericGrade - 100) < 0.001 || Math.abs(numericGrade - 1) < 0.001) {
-      console.log(`Special case for 100% grade: ${numericGrade}`);
+     
       return "100%";
     }
     
     // Otherwise show raw value
-    console.log(`Using raw grade value for ${numericGrade}: ${numericGrade}%`);
+    
     return `${numericGrade}%`;
   };
 
@@ -562,7 +485,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       if (data.type === 'MCQ' && data.options && data.options.length > 0) {
         const hasCorrectOption = data.options.some(opt => ((opt && opt.grade) ?? 0) > 0);
         if (!hasCorrectOption) {
-          console.log('No correct option found:', data.options);
+    
           errors.options = 'At least one option must be marked as correct (with a positive grade)';
           setFormErrors(errors);
           return;
@@ -646,7 +569,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
         } : undefined
       };
 
-      console.log('Submitting data:', JSON.stringify(submissionData, null, 2));
+      
 
       // Determine if we're creating or updating
       const isUpdate = !!initialData?.id;
@@ -670,7 +593,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       }
 
       const responseData = await response.json();
-      console.log(`${isUpdate ? 'Update' : 'Create'} successful:`, responseData);
+     
 
       toast({
         title: "Success",
@@ -730,7 +653,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                   <FormLabel>Folder</FormLabel>
                   <Select
                     onValueChange={(value) => {
-                      console.log(`Folder selected: ${value}`);
+                     
                       field.onChange(value);
                     }}
                     value={field.value || ''}
@@ -766,8 +689,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
               render={({ field }) => {
                 const questionText = form.watch('questionText');
                 const error = form.formState.errors.questionText;
-                console.log('Current question text value:', questionText);
-                console.log('Question text error:', error);
+                
                 return (
               <FormItem>
                 <FormLabel>Question Text</FormLabel>
@@ -776,7 +698,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                         key={`question-text-editor-${initialData?.id || 'new'}`}
                         value={questionText || ''}
                     onChange={(value) => {
-                          console.log('Question text changed:', value);
+                          
                       field.onChange(value);
                       form.trigger('questionText');
                     }}
@@ -858,7 +780,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                       value={field.value.toString()}
                       onChange={(e) => {
                         const value = parseFloat(e.target.value) || 0;
-                        console.log(`Setting defaultMark to ${value} (${typeof value})`);
+                        
                         field.onChange(value);
                       }} 
                     />
@@ -947,7 +869,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                                 onValueChange={(value) => {
                                   // Convert the selected value to a number
                                   const numericValue = parseFloat(value);
-                                  console.log(`Selected grade: ${value} (${typeof value}) -> ${numericValue} (${typeof numericValue})`);
+                                  
                                   updateOption(index, 'grade', numericValue);
                                 }}
                               >
@@ -1085,7 +1007,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                           ? selectedLanguages.filter((l) => l !== lang.id)
                           : [...selectedLanguages, lang.id];
                         
-                        console.log(`Updated language selection:`, newSelectedLanguages);
+                        
                           form.setValue('languageOptions', form.getValues('languageOptions').map((opt: any) =>
                             opt.id === lang.id ? { ...opt, language: lang.name } : opt
                           ));

@@ -129,25 +129,23 @@ interface TestCaseValidationResult {
 
 // Create a debug-safe fetch function
 const safeFetch = async (url: string, options: RequestInit) => {
-  console.log(`Making ${options.method} request to ${url}`);
-  console.log('Request headers:', options.headers);
-  console.log('Request body:', options.body);
+  
   
   try {
     const response = await fetch(url, options);
-    console.log(`Response status: ${response.status}`);
+    
     
     if (!response.ok) {
       const text = await response.text();
-      console.error('Response error:', text);
+    
       throw new Error(`Request failed with status ${response.status}: ${text}`);
     }
     
     const data = await response.json();
-    console.log('Response data:', data);
+  
     return data;
   } catch (error) {
-    console.error('Fetch error:', error);
+    
     throw error;
   }
 };
@@ -155,24 +153,17 @@ const safeFetch = async (url: string, options: RequestInit) => {
 // Direct test function to test our server API
 const testApi = async () => {
   try {
-    console.log("=== JUDGE0 API TEST SEQUENCE STARTING ===");
     
-    // Step 1: Test server connection
-    console.log("\nStep 1: Testing server connection to /api/judge0");
     const testResponse = await fetch("/api/judge0");
     
     if (!testResponse.ok) {
-      console.error("❌ Server connection failed:", testResponse.status);
+      
       alert(`API connection failed with status ${testResponse.status}`);
       return;
     }
     
     const testData = await testResponse.json();
-    console.log("✅ Server connection successful");
-    console.log("Languages available:", testData.data?.length || 0);
     
-    // Step 2: Simple test with Python print
-    console.log("\nStep 2: Testing simple Python code execution");
     const simpleCode = `
 print("Hello from Judge0!")
 print("This is a test")
@@ -181,8 +172,7 @@ for i in range(3):
 `;
     
     try {
-      console.log("Sending execution request...");
-      console.log("Code to execute:", simpleCode);
+    
       
       const executeResponse = await fetch("/api/judge0", {
         method: "POST",
@@ -205,14 +195,13 @@ for i in range(3):
       }
       
       const executeData = await executeResponse.json();
-      console.log("✅ Execution request successful");
-      console.log("Response data:", executeData);
+      
       
       const output = executeData.data?.stdout || "No output";
-      console.log("Output:", output);
+     
       
       // Step 3: Test with input
-      console.log("\nStep 3: Testing Python code with input");
+     
       const inputCode = `
 name = input()
 age = int(input())
@@ -241,10 +230,7 @@ print(f"Hello {name}, you are {age} years old!")
       }
       
       const inputData = await inputResponse.json();
-      console.log("✅ Input test successful");
-      console.log("Input used:", stdin);
-      console.log("Response data:", inputData);
-      console.log("Output:", inputData.data?.stdout || "No output");
+    
       
       alert(`Tests completed successfully!\n\nSimple test output: ${output}\n\nInput test output: ${inputData.data?.stdout || "No output"}`);
       
@@ -257,7 +243,7 @@ print(f"Hello {name}, you are {age} years old!")
     console.error("❌ Test sequence failed:", error);
     alert(`Test sequence failed with error: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
-    console.log("=== JUDGE0 API TEST SEQUENCE COMPLETED ===");
+    
   }
 };
 
@@ -395,7 +381,7 @@ export function CodingQuestionFormModal({
   // Add a debug function to check specific language options
   const inspectLanguageOption = (langId: string) => {
     const option = formData.languageOptions.find(opt => opt.language === langId);
-    console.log(`Inspecting language option for ${langId}:`, option);
+    
     return option;
   };
 
@@ -426,14 +412,14 @@ export function CodingQuestionFormModal({
   // Debug function to check if language is correctly detected
   const checkLanguageSupport = (langId: string) => {
     const editorLang = getEditorLanguage(langId);
-    console.log(`Language ${langId} maps to editor mode: ${editorLang}`);
+    
     return editorLang;
   };
 
   // Use useEffect to initialize the form data when initialData changes
   useEffect(() => {
     if (initialData) {
-      console.log('Initializing form with data:', JSON.stringify(initialData, null, 2));
+      
       
       // Set basic form data
       setFormData(prevData => ({
@@ -448,7 +434,7 @@ export function CodingQuestionFormModal({
       
       // Set language options
       if (initialData.languageOptions && Array.isArray(initialData.languageOptions)) {
-        console.log('Setting language options:', initialData.languageOptions);
+        
         setFormData(prevData => ({
           ...prevData,
           languageOptions: initialData.languageOptions.map((lang: any) => ({
@@ -475,12 +461,12 @@ export function CodingQuestionFormModal({
           setActiveLanguageTab(langs[0]);
         }
       } else {
-        console.log('No language options found in initialData');
+        
       }
       
       // Set test cases
       if (initialData.testCases && Array.isArray(initialData.testCases)) {
-        console.log('Setting test cases from initialData:', initialData.testCases);
+       
         setFormData(prevData => ({
           ...prevData,
           testCases: initialData.testCases.map((tc: any) => {
@@ -510,14 +496,7 @@ export function CodingQuestionFormModal({
               isHidden = true;
             }
             
-            console.log(`Initializing test case:`, {
-              id: tc.id,
-              type,
-              isSample,
-              isHidden,
-              showOnFailure,
-              originalShowOnFailure: tc.showOnFailure
-            });
+         
             
             return {
               id: tc.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -532,7 +511,7 @@ export function CodingQuestionFormModal({
           })
         }));
       } else {
-        console.log('No test cases found in initialData');
+       
       }
       
       // Set all-or-nothing grading
@@ -544,7 +523,7 @@ export function CodingQuestionFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submit triggered');
+    
     
     // Clear previous errors
     setFormErrors({});
@@ -621,7 +600,7 @@ export function CodingQuestionFormModal({
     
     // Store form errors for UI display
     if (!isValid) {
-      console.log('Validation failed:', errors);
+     
       setFormErrors(errors);
       
       // Create a formatted error message
@@ -789,11 +768,11 @@ export function CodingQuestionFormModal({
   const prepareSubmissionData = prepareCodingQuestionData;
 
   const handleLanguageSelect = (languageId: string) => {
-    console.log(`Language selection toggled: ${languageId}`);
+    
     
     if (selectedLanguages.includes(languageId)) {
       // If removing a language, remove it from selected and remove its options
-      console.log(`Removing language: ${languageId}`);
+   
       setSelectedLanguages(prev => prev.filter(lang => lang !== languageId));
       setFormData(prev => ({
         ...prev,
@@ -804,7 +783,7 @@ export function CodingQuestionFormModal({
       if (defaultLanguage === languageId) {
         const remaining = selectedLanguages.filter(lang => lang !== languageId);
         const newDefault = remaining.length > 0 ? remaining[0] : "";
-        console.log(`Default language was removed, setting new default: ${newDefault}`);
+        
         setDefaultLanguage(newDefault);
         
         // If we removed the active tab, switch to another one
@@ -814,7 +793,7 @@ export function CodingQuestionFormModal({
       }
     } else {
       // If adding a language, add it to selected and create new language option
-      console.log(`Adding language: ${languageId}`);
+     
       setSelectedLanguages(prev => [...prev, languageId]);
       
       // Create a new language option with unique ID - use the exact languageId as language
@@ -824,7 +803,7 @@ export function CodingQuestionFormModal({
         solution: "",
         preloadCode: ""
       };
-      console.log('Created new language option:', newLanguageOption);
+      
       
       setFormData(prev => ({
         ...prev,
@@ -836,7 +815,7 @@ export function CodingQuestionFormModal({
       
       // If default language isn't set, set this as default
       if (!defaultLanguage) {
-        console.log(`Setting default language to: ${languageId}`);
+        
         setDefaultLanguage(languageId);
       }
     }
@@ -853,7 +832,7 @@ export function CodingQuestionFormModal({
   };
 
   const updateLanguageOption = (langId: string, field: 'solution' | 'preloadCode', value: string) => {
-    console.log(`Updating ${field} for language ${langId}:`, value.substring(0, 50) + '...');
+    
     
     setFormData(prev => ({
       ...prev,
@@ -864,7 +843,7 @@ export function CodingQuestionFormModal({
   };
 
   const addTestCase = () => {
-    console.log("Adding new test case with default values");
+    
     
     // Create a test case with explicit boolean values
     const newTestCase: TestCase = {
@@ -878,8 +857,7 @@ export function CodingQuestionFormModal({
       showOnFailure: false // Set to explicit boolean false
     };
     
-    console.log("New test case with explicit boolean values:", newTestCase);
-    
+   
     setFormData(prev => ({
       ...prev,
       testCases: [...prev.testCases, newTestCase]
@@ -894,8 +872,7 @@ export function CodingQuestionFormModal({
   };
 
   const updateTestCase = (id: string, field: keyof TestCase, value: any) => {
-    console.log(`Updating test case ${id} field ${field} with value:`, value, `(type: ${typeof value})`);
-    
+  
     // Ensure boolean fields are set correctly
     if (field === 'showOnFailure' || field === 'isSample' || field === 'isHidden') {
       // Convert to explicit boolean
@@ -911,19 +888,15 @@ export function CodingQuestionFormModal({
   };
 
   const updateTestCaseShowOnFailure = (id: string, value: boolean) => {
-    console.log(`Explicitly updating showOnFailure for test case ${id} to:`, value, `(type: ${typeof value})`);
+    
     // Force it to be a strict boolean true or false
     const boolValue = value === true;
-    console.log(`Converted value: ${boolValue} (${typeof boolValue})`);
-    
+   
     setFormData(prev => {
       // Create a new test cases array with the updated value
       const updatedTestCases = prev.testCases.map(testCase => {
         if (testCase.id === id) {
-          console.log(`Before update: ${testCase.id}`, {
-            showOnFailure: testCase.showOnFailure,
-            type: typeof testCase.showOnFailure
-          });
+          
           
           // Create a new test case object with the updated showOnFailure value
           const updated = {
@@ -931,10 +904,7 @@ export function CodingQuestionFormModal({
             showOnFailure: boolValue
           };
           
-          console.log(`After update: ${updated.id}`, {
-            showOnFailure: updated.showOnFailure,
-            type: typeof updated.showOnFailure
-          });
+          
           
           return updated;
         }
@@ -958,14 +928,13 @@ export function CodingQuestionFormModal({
   
   // Ensure the 'handleTestCaseTypeChange' function correctly updates the test case type
   const handleTestCaseTypeChange = (id: string, type: "sample" | "hidden") => {
-    console.log(`Changing test case ${id} type to:`, type);
+
     
     // Get the current test case to preserve its showOnFailure value
     const currentTestCase = formData.testCases.find(tc => tc.id === id);
     const currentShowOnFailure = currentTestCase?.showOnFailure === true;
     
-    console.log(`Current showOnFailure value: ${currentShowOnFailure}`);
-    
+   
     // Update the test case type
     updateTestCase(id, "type", type);
     
@@ -1001,14 +970,7 @@ export function CodingQuestionFormModal({
 
   // Add a dedicated click handler for the validate button
   const handleValidateClick = () => {
-    console.log("Validate button clicked");
-    console.log("Current state:", {
-      isValidating,
-      testCases: formData.testCases.length,
-      defaultLanguage,
-      selectedLanguages,
-      languageOptions: formData.languageOptions
-    });
+    
     
     // Check if we have the minimum requirements
     if (!defaultLanguage) {
@@ -1035,7 +997,6 @@ export function CodingQuestionFormModal({
 
   // Update the validateTestCases function to include 500 error handling
   const validateTestCases = async () => {
-    console.log("Starting test case validation via server API...");
     
     // Check if default language is set
     if (!defaultLanguage) {
@@ -1083,17 +1044,14 @@ export function CodingQuestionFormModal({
       setIsValidating(true);
       setValidationResults([]);
       
-      console.log(`Using language ID ${languageId} for ${defaultLanguage}`);
-      console.log(`Processing ${formData.testCases.length} test cases...`);
-
+     
       // Process each test case
       const results: TestCaseValidationResult[] = [];
       
       // Create a submission for each test case with delays
       for (const testCase of formData.testCases) {
         try {
-          console.log(`Testing case: "${testCase.input}" -> "${testCase.output}"`);
-          
+         
           // Add a delay between test cases to prevent rate limiting
           if (results.length > 0) {
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1106,7 +1064,7 @@ export function CodingQuestionFormModal({
             stdin: testCase.input || ""
           };
 
-          console.log("Sending request to Judge0 API:", requestBody);
+          
           
           // Use our server-side API instead of direct Judge0 calls
           const response = await fetch("/api/judge0", {
@@ -1152,7 +1110,7 @@ export function CodingQuestionFormModal({
           const responseData = await response.json();
           const data = responseData.data;
           
-          console.log("Execution result:", data);
+       
           
           // Process the result
           const actualOutput = data.stdout?.trim() || "";
@@ -1280,25 +1238,15 @@ export function CodingQuestionFormModal({
 
   // Enhanced version of logFormData to better diagnose issues
   const logFormData = () => {
-    console.log("=== DETAILED FORM DATA ===");
-    console.log("Selected Languages:", selectedLanguages);
-    console.log("Default Language:", defaultLanguage);
-    console.log("Active Tab:", activeLanguageTab);
-    console.log("Language Options:", formData.languageOptions);
+    
     
     // Check each language option in detail
     if (selectedLanguages.length > 0) {
-      console.log("=== LANGUAGE OPTION DETAILS ===");
+     
       selectedLanguages.forEach(langId => {
         const option = getLanguageOption(langId);
         const editorLang = getEditorLanguage(langId);
-        console.log(`${langId}:`, {
-          id: option?.id,
-          hasContent: !!option,
-          solutionLength: option?.solution?.length || 0,
-          preloadLength: option?.preloadCode?.length || 0,
-          editorLanguage: editorLang
-        });
+        
       });
     }
   };
@@ -1306,7 +1254,7 @@ export function CodingQuestionFormModal({
   // Improved function to add all 10 languages at once
   const addAllLanguages = () => {
     const allLangIds = SUPPORTED_LANGUAGES.map(lang => lang.id);
-    console.log(`Adding all languages: ${allLangIds.join(", ")}`);
+    
     
     // Keep existing language options to preserve solutions and preload code
     const currentOptions = new Map<string, LanguageOption>();
@@ -1336,8 +1284,7 @@ export function CodingQuestionFormModal({
       }
     }
     
-    console.log("New language options for all languages:", newLangOptions);
-    
+   
     // Update state
     setSelectedLanguages(allLangIds);
     
@@ -1351,7 +1298,7 @@ export function CodingQuestionFormModal({
       setDefaultLanguage(allLangIds[0]);
     }
     
-    console.log("Setting all language options:", newLangOptions);
+  
     setFormData(prev => ({
       ...prev,
       languageOptions: newLangOptions
@@ -1557,7 +1504,7 @@ export function CodingQuestionFormModal({
                 </TabsList>
                 {selectedLanguages.map((langId) => {
                   const langOption = getLanguageOption(langId);
-                  console.log(`Language tab ${langId}:`, langOption);
+                  
                   return (
                     <TabsContent key={langId} value={langId} className="space-y-4">
                       <Tabs defaultValue="solution">
@@ -1701,10 +1648,10 @@ export function CodingQuestionFormModal({
                           id={`show-on-failure-${testCase.id}`}
                           checked={!!testCase.showOnFailure}
                           onCheckedChange={(checked) => {
-                            console.log(`Changing showOnFailure for test case ${testCase.id} to:`, checked);
+                            
                             // Convert to boolean explicitly (true or false)
                             const boolValue = checked === true;
-                            console.log(`Converted value: ${boolValue} (${typeof boolValue})`);
+                           
                             updateTestCaseShowOnFailure(testCase.id, boolValue);
                           }}
                         />

@@ -580,7 +580,6 @@ export default function AdminQuestionsPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
-      console.log("Form submission data:", data);
       
       // Check if we're editing an existing question
       const isEditing = !!data.id;
@@ -601,7 +600,7 @@ export default function AdminQuestionsPage() {
         if (!data.options && !data.mCQQuestion?.options) {
           throw new Error("At least one option is required for MCQ questions");
         }
-        console.log("MCQ question data:", data.mCQQuestion);
+        
         // Add these fields at the top level for API compatibility
         transformedData.difficulty = data.mCQQuestion?.difficulty || 'MEDIUM';
         transformedData.defaultMark = Number(data.mCQQuestion?.defaultMark || 1);
@@ -610,12 +609,7 @@ export default function AdminQuestionsPage() {
         transformedData.generalFeedback = data.generalFeedback || data.mCQQuestion?.generalFeedback || "";
         
         // Log the values to help with debugging
-        console.log("MCQ Fields being sent to API:", {
-          difficulty: transformedData.difficulty,
-          defaultMark: transformedData.defaultMark,
-          isMultiple: transformedData.isMultiple,
-          shuffleChoice: transformedData.shuffleChoice
-        });
+        
         
         // Get options from either top-level or nested structure
         const options = data.options || data.mCQQuestion?.options || [];
@@ -682,7 +676,7 @@ export default function AdminQuestionsPage() {
         };
       }
 
-      console.log("Transformed data being sent to API:", transformedData);
+      
 
       const url = isEditing 
         ? `/api/questions/${data.id}`  // Use the correct endpoint for updating
@@ -705,7 +699,7 @@ export default function AdminQuestionsPage() {
       }
 
       const responseData = await response.json();
-      console.log(`${isEditing ? 'Update' : 'Create'} successful:`, responseData);
+      
 
       // Refresh the questions list
       await fetchQuestions();
@@ -789,11 +783,11 @@ export default function AdminQuestionsPage() {
   };
 
   const handleEditQuestion = (question: QuestionType) => {
-    console.log('Editing question:', question);
+    
     
     // Make sure we're accessing the mcqQuestion fields correctly
     const mcqQuestion = question.mCQQuestion || {} as any;
-    console.log('MCQ question data:', mcqQuestion);
+    
     
     // Safely extract MCQ options
     const mcqOptions = (mcqQuestion.options || []).map((opt: any) => ({
@@ -805,7 +799,7 @@ export default function AdminQuestionsPage() {
     
     // Coding-related code unchanged...
     const codingQuestion = question.codingQuestion || {} as any;
-    console.log('Coding question data:', codingQuestion);
+
     
     // Safely extract language options
     const languageOptions = (codingQuestion.languageOptions || []).map((lang: any) => ({
@@ -827,8 +821,7 @@ export default function AdminQuestionsPage() {
       showOnFailure: tc.showOnFailure || false
     }));
     
-    console.log('Language options for edit:', languageOptions);
-    console.log('Test cases for edit:', testCases);
+   
     
     // Create the editingQuestion object with all necessary fields
     setEditingQuestion({
@@ -989,7 +982,7 @@ export default function AdminQuestionsPage() {
       }
     }
     
-    console.log("Applying filters:", pendingFilters);
+ 
     setFilters(pendingFilters);
     // Always reset to page 1 when applying new filters
     setCurrentPage(1);
@@ -998,7 +991,7 @@ export default function AdminQuestionsPage() {
   };
 
   const clearFilters = () => {
-    console.log("Clearing all filters");
+   
     const defaultFilters = {
       search: "",
       category: "all",
@@ -1441,7 +1434,7 @@ export default function AdminQuestionsPage() {
                 <Select
                   value={pendingFilters.status}
                   onValueChange={(value) => {
-                    console.log(`Setting status filter to: ${value}`);
+                
                     setPendingFilters(prev => ({ ...prev, status: value }));
                   }}
                 >
@@ -1478,20 +1471,22 @@ export default function AdminQuestionsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      // Get all the toggle switches for question rows
-                      const tableRows = document.querySelectorAll('.question-row-toggle');
+                      // Create a new state variable to track global expansion state
+                      const allQuestionRows = document.querySelectorAll('.h-8.w-8.hover\\:bg-muted');
                       
-                      // Check if most of the questions are already expanded
-                      const expandedCount = Array.from(tableRows).filter((toggle: any) => toggle.checked).length;
-                      const shouldCollapse = expandedCount > tableRows.length / 2;
+                      // Check how many questions are already expanded
+                      const expandedCount = Array.from(document.querySelectorAll('tr + tr > td[colspan="7"]')).length;
+                      const totalCount = allQuestionRows.length;
                       
-                      // Toggle all questions based on current state
-                      tableRows.forEach((toggle: any) => {
-                        if (shouldCollapse && toggle.checked) {
-                          // Collapse if most are expanded
-                          toggle.click();
-                        } else if (!shouldCollapse && !toggle.checked) {
-                          // Expand if most are collapsed
+                      // If more than half are expanded, collapse all
+                      // Otherwise, expand all
+                      const shouldCollapse = expandedCount > totalCount / 2;
+                      
+                      // Click each toggle button to expand/collapse all questions
+                      allQuestionRows.forEach((toggle: any) => {
+                        // If the current state doesn't match the desired state, click it
+                        const isCurrentlyExpanded = toggle.closest('tr').nextElementSibling?.querySelector('td[colspan="7"]') !== null;
+                        if (shouldCollapse && isCurrentlyExpanded || !shouldCollapse && !isCurrentlyExpanded) {
                           toggle.click();
                         }
                       });

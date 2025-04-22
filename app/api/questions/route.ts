@@ -15,15 +15,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const includeSubcategories = searchParams.get("includeSubcategories") === "true";
 
-    console.log("Raw request params:", {
-      type,
-      status,
-      folderId,
-      search,
-      page,
-      limit,
-      includeSubcategories
-    });
+   
 
     const where: any = {};
 
@@ -38,7 +30,7 @@ export async function GET(request: NextRequest) {
       const normalizedStatus = status.toUpperCase();
       
       // Log to help with debugging
-      console.log(`Filtering by status: "${normalizedStatus}"`);
+      
       
       // Make sure it's one of the valid enum values to avoid SQL errors
       if (["DRAFT", "READY"].includes(normalizedStatus)) {
@@ -50,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Handle folder filtering with subcategories support
     if (folderId) {
-      console.log(`Folder filtering requested for folderId: ${folderId}, includeSubcategories: ${includeSubcategories}`);
+      
       
       // Only process subfolder logic if includeSubcategories is true
       if (includeSubcategories) {
@@ -68,26 +60,24 @@ export async function GET(request: NextRequest) {
               folder.subfolders.forEach(subfolder => {
                 folderIds.push(subfolder.id);
               });
-              console.log(`Including ${folder.subfolders.length} subfolders: ${folderIds.join(', ')}`);
-            } else {
-              console.log('No subfolders found for this folder');
-            }
+              
+            } 
 
             // Use IN operator to match any of these folders
             where.folderId = { in: folderIds };
           } else {
-            console.log(`Folder with ID ${folderId} not found, using direct filtering`);
+           
             // Fallback to just the requested folder if it doesn't exist
             where.folderId = folderId;
           }
         } catch (folderError) {
-          console.error("Error retrieving folder for subcategory inclusion:", folderError);
+          
           // If any error occurs during subfolder retrieval, fall back to direct filtering
           where.folderId = folderId;
         }
       } else {
         // Just filter by the specified folder without subfolder inclusion
-        console.log(`Using direct folder filtering without subfolders: ${folderId}`);
+        
         where.folderId = folderId;
       }
     }
@@ -101,7 +91,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log the final query for debugging
-    console.log("Querying questions with where clause:", JSON.stringify(where, null, 2));
+    
 
     // Get total count for pagination
     const total = await prisma.question.count({ where });
@@ -130,7 +120,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Log status information to diagnose filtering issues
-    console.log(`Found ${questions.length} questions out of ${total} total`);
+    
     
     // Check the actual statuses of questions in the database
     const statusCounts = await prisma.question.groupBy({
@@ -140,8 +130,7 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    console.log("Database status counts:", statusCounts);
-    console.log(`Status counts in results: DRAFT=${questions.filter(q => q.status === 'DRAFT').length}, READY=${questions.filter(q => q.status === 'READY').length}`);
+   
 
     return NextResponse.json({
       questions,
@@ -172,7 +161,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("Request body:", JSON.stringify(body, null, 2));
+    
 
     // Validate required fields
     if (!body.name) {
@@ -264,7 +253,7 @@ export async function POST(request: NextRequest) {
               lastModifiedByName: session.user.name || "Unknown User"
             };
             
-            console.log("Creating question with data:", questionData);
+            
             
             const question = await tx.question.create({
               data: questionData
@@ -360,7 +349,7 @@ export async function POST(request: NextRequest) {
         
         // Increment retry counter and wait before next attempt
         currentRetry++;
-        console.log(`Retrying transaction (${currentRetry}/${maxRetries})...`);
+        
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retrying
       }
     }

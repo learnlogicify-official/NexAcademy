@@ -10,7 +10,7 @@ async function testDatabase() {
         name: 'Test Folder',
       },
     });
-    console.log('Created folder:', folder);
+  
 
     // Test question creation
     const question = await prisma.question.create({
@@ -22,7 +22,7 @@ async function testDatabase() {
         folderId: folder.id,
       },
     });
-    console.log('Created question:', question);
+  
 
     // Test fetching questions
     const questions = await prisma.question.findMany({
@@ -30,7 +30,7 @@ async function testDatabase() {
         folder: true,
       },
     });
-    console.log('Fetched questions:', questions);
+  
 
   } catch (error) {
     console.error('Error testing database:', error);

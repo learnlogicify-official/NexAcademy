@@ -103,10 +103,7 @@ export default function ProblemPage() {
     router.back()
   }
 
-  const handleNavigate = (index: number) => {
-    // In a real app, this would navigate to a different problem
-    console.log(`Navigate to problem ${index + 1}`)
-  }
+ 
 
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen)

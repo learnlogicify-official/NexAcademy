@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("Request body:", JSON.stringify(body, null, 2));
+
 
     // Validate required fields
     if (!body.name) {
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         lastModifiedByName: session.user.name || "Unknown User"
       };
       
-      console.log("Creating MCQ question with data:", questionData);
+     
       
       const question = await tx.question.create({
         data: questionData

@@ -102,7 +102,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Folder ID is required' }, { status: 400 });
     }
 
-    console.log('Updating question with data:', { id, ...data });
+    
 
     const { type, content, options, correctAnswer, singleAnswer, shuffleAnswers, ...rest } = updateData;
     const existingQuestion = await prisma.question.findUnique({
@@ -134,12 +134,7 @@ export async function PATCH(
     });
 
     // Log the update for debugging
-    console.log('Question updated:', {
-      id: updatedQuestion.id,
-      lastModifiedBy: updatedQuestion.lastModifiedBy,
-      lastModifiedByName: updatedQuestion.lastModifiedByName,
-      updatedAt: updatedQuestion.updatedAt
-    });
+  
 
     return NextResponse.json(updatedQuestion);
   } catch (error) {
@@ -174,7 +169,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    console.log('Received request body:', JSON.stringify(body, null, 2));
+    
 
     const {
       name,
@@ -304,13 +299,7 @@ export async function PUT(
       }
     });
 
-    // Log the update for debugging
-    console.log('Question updated:', {
-      id: updatedQuestion.id,
-      lastModifiedBy: updatedQuestion.lastModifiedBy,
-      lastModifiedByName: updatedQuestion.lastModifiedByName,
-      updatedAt: updatedQuestion.updatedAt
-    });
+   
 
     return NextResponse.json(updatedQuestion);
   } catch (error) {

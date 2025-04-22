@@ -95,7 +95,6 @@ export default function AdminCoursesPage() {
   const fetchCourses = async (page: number) => {
     try {
       setIsPageLoading(true);
-      console.log("[ADMIN] Fetching courses...");
       
       const params = new URLSearchParams({
         page: page.toString(),
@@ -105,7 +104,6 @@ export default function AdminCoursesPage() {
         visibility: selectedVisibility,
       });
 
-      console.log("[ADMIN] Fetching with params:", params.toString());
       const response = await fetch(`/api/courses?${params.toString()}`);
       
       if (!response.ok) {
@@ -114,7 +112,6 @@ export default function AdminCoursesPage() {
       }
 
       const data = await response.json();
-      console.log("[ADMIN] Fetched courses:", data.courses.length);
       setCourses(data.courses);
       setTotalPages(data.pagination.totalPages);
       setIsLoading(false);

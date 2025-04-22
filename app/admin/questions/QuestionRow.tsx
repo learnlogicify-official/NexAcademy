@@ -39,17 +39,12 @@ export function QuestionRow({
 
   // Helper function to determine test case type
   const getTestCaseType = (testCase: any) => {
-    console.log('Checking test case:', testCase);
+    
     
     // For debugging in browser console
     if (testCase) {
       const keys = Object.keys(testCase);
-      console.log('Keys in test case:', keys);
       
-      // Log the actual values
-      console.log('isSample:', testCase.isSample);
-      console.log('isHidden:', testCase.isHidden);
-      console.log('type:', testCase.type);
     }
     
     // Direct property checks
@@ -216,17 +211,17 @@ export function QuestionRow({
                                       Input
                                     </div>
                                     <pre className="text-xs p-3 bg-muted rounded text-sm overflow-x-auto max-h-40 whitespace-pre-wrap">
-                                      {testCase.input}
-                                    </pre>
-                                  </div>
+                                    {testCase.input}
+                                  </pre>
+                                </div>
                                   <div className="p-3">
                                     <div className="text-xs font-medium uppercase text-muted-foreground mb-2 flex items-center gap-1">
                                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                                       Output
                                     </div>
                                     <pre className="text-xs p-3 bg-muted rounded text-sm overflow-x-auto max-h-40 whitespace-pre-wrap">
-                                      {testCase.output}
-                                    </pre>
+                                    {testCase.output}
+                                  </pre>
                                   </div>
                                 </div>
                                 

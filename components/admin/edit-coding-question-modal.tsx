@@ -101,7 +101,7 @@ export function EditCodingQuestionModal({
   useEffect(() => {
     if (initialData && isOpen) {
       try {
-        console.log("Initializing edit form with data:", initialData);
+        
         
         // Basic question data
         setFormData({
@@ -134,13 +134,13 @@ export function EditCodingQuestionModal({
         // Set selected languages based on what was in the DB (deduplicated)
         if (uniqueLanguages.size > 0) {
           const selectedLangsFromDB = Array.from(uniqueLanguages) as string[];
-          console.log("Setting selected languages:", selectedLangsFromDB);
+         
           setSelectedLanguages(selectedLangsFromDB);
           
           // Set the first language as the active tab
           const firstLang = selectedLangsFromDB[0];
           setActiveLanguageTab(firstLang);
-          console.log("Setting active tab to:", firstLang);
+          
           
           // Handle default language
           if (initialData.defaultLanguage && selectedLangsFromDB.includes(initialData.defaultLanguage)) {

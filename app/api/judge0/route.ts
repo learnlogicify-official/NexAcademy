@@ -6,9 +6,7 @@ const JUDGE0_API_HOST = process.env.NEXT_PUBLIC_JUDGE0_API_HOST || "judge0-ce.p.
 
 export async function GET() {
   try {
-    console.log("Server-side Judge0 API test: Fetching languages");
-    console.log("API Key available:", !!JUDGE0_API_KEY);
-    console.log("API URL:", JUDGE0_API_URL);
+    
     
     // Test the connection by fetching languages
     const response = await fetch(`${JUDGE0_API_URL}/languages`, {
@@ -30,7 +28,7 @@ export async function GET() {
     }
     
     const data = await response.json();
-    console.log(`Server-side Judge0 API: Found ${data.length} languages`);
+    
     
     return NextResponse.json({ success: true, data });
   } catch (error) {
@@ -46,8 +44,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse the request body
     const body = await request.json();
-    console.log("Server-side Judge0 API: Executing code");
-    console.log("Request body:", JSON.stringify(body, null, 2));
+
     
     if (!body.language_id || !body.source_code) {
       return NextResponse.json({ 
@@ -71,11 +68,7 @@ export async function POST(request: NextRequest) {
       wait: true
     };
     
-    console.log("Judge0 API request:", {
-      url: `${JUDGE0_API_URL}/submissions`,
-      method: "POST",
-      body: requestBody
-    });
+
     
     // Increase delay to prevent rate limiting
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -99,7 +92,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
-    console.log("Judge0 API response status:", response.status);
+    
     
     if (!response.ok) {
       console.error("Server-side Judge0 API error:", response.status, response.statusText);
@@ -144,9 +137,9 @@ export async function POST(request: NextRequest) {
     let data;
     try {
       data = await response.json();
-      console.log("Judge0 API response data:", JSON.stringify(data, null, 2));
+      
     } catch (parseError) {
-      console.error("Error parsing Judge0 API response:", parseError);
+   
       return NextResponse.json({ 
         error: "Failed to parse Judge0 API response",
         details: parseError instanceof Error ? parseError.message : String(parseError)
@@ -155,7 +148,7 @@ export async function POST(request: NextRequest) {
     
     // Check if we got a token instead of the full result
     if (data.token && (!data.stdout && !data.stderr && !data.compile_output)) {
-      console.log("Received a token. Polling for results:", data.token);
+      
       
       // Poll for results using the token
       let resultData = null;
@@ -164,7 +157,7 @@ export async function POST(request: NextRequest) {
       
       while (!resultData && attempts < maxAttempts) {
         attempts++;
-        console.log(`Polling attempt ${attempts}/${maxAttempts}...`);
+        
         
         // Wait a bit before polling to give Judge0 time to process
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -178,19 +171,19 @@ export async function POST(request: NextRequest) {
             }
           });
           
-          console.log(`Poll response status: ${pollResponse.status}`);
+          
           
           if (!pollResponse.ok) {
-            console.error("Error polling for results:", pollResponse.status, pollResponse.statusText);
+            
             continue;
           }
           
           const pollData = await pollResponse.json();
-          console.log("Poll response data:", JSON.stringify(pollData, null, 2));
+          
           
           // Check if the execution is still in progress
           if (pollData.status && (pollData.status.id === 1 || pollData.status.id === 2)) {
-            console.log("Execution still in progress (status:", pollData.status.description, "). Waiting...");
+           
             continue;
           }
           
@@ -209,7 +202,7 @@ export async function POST(request: NextRequest) {
         }, { status: 408 });
       }
       
-      console.log("Successfully retrieved execution results after polling");
+      
       data.stdout = resultData.stdout;
       data.stderr = resultData.stderr;
       data.compile_output = resultData.compile_output;
@@ -221,34 +214,15 @@ export async function POST(request: NextRequest) {
     
     // Handle missing stdout
     if (data.stdout === undefined || data.stdout === null) {
-      console.log("stdout is undefined, checking for output in other fields");
       
-      // Check if there's an error in stderr or compile output
-      if (data.stderr) {
-        console.log("Found error in stderr:", data.stderr);
-      }
       
-      if (data.compile_output) {
-        console.log("Found compile output:", data.compile_output);
-      }
       
-      // If there's a message field, log it
-      if (data.message) {
-        console.log("Found message:", data.message);
-      }
       
       // Set an empty string for stdout if it's undefined
       data.stdout = data.stdout || "";
     }
     
-    console.log("Server-side Judge0 API: Execution result");
-    console.log("Status:", data.status?.description || "Unknown");
-    console.log("Stdout:", data.stdout);
-    console.log("Stderr:", data.stderr);
-    console.log("Compile output:", data.compile_output);
-    console.log("Exit code:", data.exit_code);
-    console.log("Time:", data.time);
-    console.log("Memory:", data.memory);
+   
     
     return NextResponse.json({ 
       success: true, 

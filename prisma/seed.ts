@@ -43,7 +43,7 @@ async function main() {
     })
   ]);
 
-  console.log('Created folders:', folders);
+ 
 }
 
 main()

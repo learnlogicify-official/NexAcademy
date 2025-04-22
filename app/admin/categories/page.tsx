@@ -43,7 +43,6 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async (page: number) => {
     try {
       setIsPageLoading(true);
-      console.log("[ADMIN] Fetching categories...");
       const response = await fetch(`/api/categories?page=${page}&limit=${itemsPerPage}&search=${searchQuery}`);
       
       if (!response.ok) {
@@ -51,7 +50,6 @@ export default function AdminCategoriesPage() {
       }
 
       const data = await response.json();
-      console.log("[ADMIN] Fetched categories:", data.categories.length);
       setCategories(data.categories);
       setTotalPages(data.pagination.totalPages);
       setIsLoading(false);

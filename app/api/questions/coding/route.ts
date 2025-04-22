@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("Request body:", JSON.stringify(body, null, 2));
+    
 
     // Validate required fields
     if (!body.name) {

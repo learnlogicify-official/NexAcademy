@@ -15,17 +15,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json();
-    console.log("Update request body:", JSON.stringify(body, null, 2));
-    console.log("Language options in request:", body.languageOptions?.length || 0, "options");
-    console.log("Test cases in request:", body.testCases?.length || 0, "cases");
-    
-    if (!body.languageOptions || body.languageOptions.length === 0) {
-      console.log("ERROR: Missing or empty languageOptions in the request body");
-    }
-    
-    if (!body.testCases || body.testCases.length === 0) {
-      console.log("ERROR: Missing or empty testCases in the request body");
-    }
+   
 
     const { id } = params;
     if (!id) {
@@ -55,14 +45,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    // Debug existing question data
-    console.log("Existing question:", {
-      id: existingQuestion.id,
-      name: existingQuestion.name,
-      codingQuestionId: existingQuestion.codingQuestion.id,
-      languageOptions: existingQuestion.codingQuestion.languageOptions.length,
-      testCases: existingQuestion.codingQuestion.testCases.length
-    });
+    
 
     const codingQuestionId = existingQuestion.codingQuestion.id;
     const now = new Date();
@@ -80,16 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    // Debug language options and test cases from the request
-    console.log("Language options from request:", body.languageOptions?.length || 0);
-    if (body.languageOptions && body.languageOptions.length > 0) {
-      console.log("First language option:", JSON.stringify(body.languageOptions[0], null, 2));
-    }
-    
-    console.log("Test cases from request:", body.testCases?.length || 0);
-    if (body.testCases && body.testCases.length > 0) {
-      console.log("First test case:", JSON.stringify(body.testCases[0], null, 2));
-    }
+   
 
     // Prepare language options and test cases for update
     const languageOptionsToCreate = (body.languageOptions || []).map((lang: any) => {
@@ -136,7 +110,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           mappedLanguage = 'PYTHON';
       }
 
-      console.log(`Mapping language ${lang.language} to ${mappedLanguage}`);
+      
       
       return {
         language: mappedLanguage,
@@ -147,7 +121,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       };
     });
     
-    console.log(`Prepared ${languageOptionsToCreate.length} language options for update`);
+    
     
     // Prepare test cases for update
     const testCasesToCreate = (body.testCases || []).map((tc: any, index: number) => {
@@ -174,37 +148,19 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       
       // Default to hidden if no valid type information is provided
       if (!isSample && !isHidden) {
-        console.log(`No valid type for test case ${index}, defaulting to hidden`);
+        
         isHidden = true;
       }
       
       const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
 
-      console.log(`Processing test case ${index}:`, {
-        input: tc.input?.substring(0, 20) + "...",
-        type: tc.type,
-        isSample: isSample,
-        isHidden: isHidden,
-        originalIsSample: tc.isSample,
-        originalIsHidden: tc.isHidden,
-        showOnFailure: tc.showOnFailure,
-        grade: gradeValue
-      });
       
-      // Log detailed information about the showOnFailure value to debug the issue
-      console.log(`Processing test case ${index} showOnFailure:`, {
-        originalValue: tc.showOnFailure,
-        typeOfOriginal: typeof tc.showOnFailure,
-        stringValue: String(tc.showOnFailure),
-        booleanConversion: Boolean(tc.showOnFailure),
-        equalToTrue: tc.showOnFailure === true,
-        equalToTrueString: tc.showOnFailure === 'true',
-        objectKeys: tc.showOnFailure && typeof tc.showOnFailure === 'object' ? Object.keys(tc.showOnFailure) : 'not an object'
-      });
+      
+     
       
       // Use Boolean() directly to convert the value properly
       const showOnFailureValue = Boolean(tc.showOnFailure);
-      console.log(`Show on failure final value: ${showOnFailureValue} (${typeof showOnFailureValue})`);
+     
       
       return {
         input: tc.input || "",
@@ -218,7 +174,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       };
     });
     
-    console.log(`Prepared ${testCasesToCreate.length} test cases for update`);
+    
 
     // Then, update the coding question and its related data
     const updatedQuestion = await prisma.codingQuestion.update({
@@ -250,12 +206,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
-    // Debug updated question data
-    console.log("Updated question:", {
-      id: updatedQuestion.id,
-      languageOptions: updatedQuestion.languageOptions.length,
-      testCases: updatedQuestion.testCases.length
-    });
+
 
     return NextResponse.json(updatedQuestion);
   } catch (error) {

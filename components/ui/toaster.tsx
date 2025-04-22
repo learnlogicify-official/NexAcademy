@@ -12,7 +12,7 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
-  console.log("Toasts array:", toasts); // Debug log
+  
 
   return (
     <ToastProvider>
