@@ -563,28 +563,47 @@ export default function AdminQuestionsPage() {
         status: data.status,
         version: data.version || 1,
         folderId: data.folderId,
-        questionText: data.mCQQuestion?.questionText || data.codingQuestion?.questionText || data.questionText,
-        difficulty: data.difficulty || 'MEDIUM',
-        defaultMark: data.defaultMark || 1,
+        questionText: data.questionText || data.mCQQuestion?.questionText || data.codingQuestion?.questionText || "",
       };
 
       // Add MCQ specific fields if it's an MCQ question
       if (data.type === 'MCQ') {
-        if (!data.mCQQuestion?.options || data.mCQQuestion?.options.length === 0) {
+        if (!data.options && !data.mCQQuestion?.options) {
           throw new Error("At least one option is required for MCQ questions");
         }
+        console.log("MCQ question data:", data.mCQQuestion);
+        // Add these fields at the top level for API compatibility
+        transformedData.difficulty = data.mCQQuestion?.difficulty || 'MEDIUM';
+        transformedData.defaultMark = Number(data.mCQQuestion?.defaultMark || 1);
+        transformedData.isMultiple = Boolean(data.mCQQuestion?.isMultiple);
+        transformedData.shuffleChoice = Boolean(data.mCQQuestion?.shuffleChoice);
+        transformedData.generalFeedback = data.generalFeedback || data.mCQQuestion?.generalFeedback || "";
+        
+        // Log the values to help with debugging
+        console.log("MCQ Fields being sent to API:", {
+          difficulty: transformedData.difficulty,
+          defaultMark: transformedData.defaultMark,
+          isMultiple: transformedData.isMultiple,
+          shuffleChoice: transformedData.shuffleChoice
+        });
+        
+        // Get options from either top-level or nested structure
+        const options = data.options || data.mCQQuestion?.options || [];
+        
         transformedData.mCQQuestion = {
-          options: (data.mCQQuestion?.options || []).map((opt: any) => ({
+          options: options.map((opt: any) => ({
             id: opt.id,
             text: opt.text || "",
-            grade: opt.grade || 0,
+            grade: Number(opt.grade) || 0,
             feedback: opt.feedback || ""
           })),
-          isMultiple: data.mCQQuestion?.isMultiple || false,
-          shuffleChoice: data.mCQQuestion?.shuffleChoice || false,
-          generalFeedback: data.mCQQuestion?.generalFeedback || "",
-          solution: data.mCQQuestion?.solution || "",
-          hints: data.mCQQuestion?.hints || []
+          isMultiple: Boolean(data.mCQQuestion?.isMultiple),
+          shuffleChoice: Boolean(data.mCQQuestion?.shuffleChoice),
+          generalFeedback: data.generalFeedback || data.mCQQuestion?.generalFeedback || "",
+          solution: data.solution || data.mCQQuestion?.solution || "",
+          hints: data.hints || data.mCQQuestion?.hints || [],
+          difficulty: data.mCQQuestion?.difficulty || 'MEDIUM',
+          defaultMark: Number(data.mCQQuestion?.defaultMark || 1)
         };
       }
 
@@ -599,6 +618,8 @@ export default function AdminQuestionsPage() {
         
         // Make sure to include the allOrNothingGrading field at the top level
         transformedData.allOrNothingGrading = Boolean(data.allOrNothingGrading || data.isAllOrNothing || false);
+        transformedData.difficulty = data.difficulty || 'MEDIUM';
+        transformedData.defaultMark = Number(data.defaultMark || 1);
         
         transformedData.codingQuestion = {
           languageOptions: data.languageOptions.map((option: any) => {
@@ -627,7 +648,7 @@ export default function AdminQuestionsPage() {
           hints: data.hints || [],
           isAllOrNothing: Boolean(data.allOrNothingGrading || data.isAllOrNothing || false),
           difficulty: data.difficulty || "MEDIUM",
-          defaultMark: Number(data.defaultMark) || 1
+          defaultMark: Number(data.defaultMark || 1)
         };
       }
 
@@ -740,7 +761,19 @@ export default function AdminQuestionsPage() {
   const handleEditQuestion = (question: QuestionType) => {
     console.log('Editing question:', question);
     
-    // Make sure we're accessing the codingQuestion fields correctly
+    // Make sure we're accessing the mcqQuestion fields correctly
+    const mcqQuestion = question.mCQQuestion || {} as any;
+    console.log('MCQ question data:', mcqQuestion);
+    
+    // Safely extract MCQ options
+    const mcqOptions = (mcqQuestion.options || []).map((opt: any) => ({
+      id: opt.id,
+      text: opt.text || "",
+      grade: opt.grade || 0,
+      feedback: opt.feedback || ""
+    }));
+    
+    // Coding-related code unchanged...
     const codingQuestion = question.codingQuestion || {} as any;
     console.log('Coding question data:', codingQuestion);
     
@@ -776,28 +809,38 @@ export default function AdminQuestionsPage() {
       folderId: question.folderId || '',
       version: question.version || 1,
       questionText: (question as any).questionText || codingQuestion.questionText || (question.mCQQuestion?.questionText || ''),
-      difficulty: (codingQuestion.difficulty || (question.mCQQuestion?.difficulty || 'MEDIUM')) as 'EASY' | 'MEDIUM' | 'HARD',
-      defaultMark: codingQuestion.defaultMark || (question.mCQQuestion?.defaultMark || 1),
-      isMultiple: question.mCQQuestion?.isMultiple || false,
-      shuffleChoice: question.mCQQuestion?.shuffleChoice || false,
-      generalFeedback: question.mCQQuestion?.generalFeedback || '',
-      choiceNumbering: question.mCQQuestion?.choiceNumbering || 'abc',
-      options: question.mCQQuestion?.options?.map(opt => ({
-        id: opt.id,
-        text: opt.text,
-        grade: opt.grade || 0,
-        feedback: opt.feedback || ''
-      })) || [],
+      difficulty: question.type === 'MCQ' 
+        ? (mcqQuestion.difficulty || 'MEDIUM') 
+        : (codingQuestion.difficulty || 'MEDIUM'),
+      defaultMark: question.type === 'MCQ'
+        ? (mcqQuestion.defaultMark || 1)
+        : (codingQuestion.defaultMark || 1),
+      isMultiple: mcqQuestion.isMultiple || false,
+      shuffleChoice: mcqQuestion.shuffleChoice || false,
+      generalFeedback: mcqQuestion.generalFeedback || '',
+      choiceNumbering: mcqQuestion.choiceNumbering || 'abc',
+      options: mcqOptions,
       languageOptions: languageOptions,
       testCases: testCases,
       allOrNothingGrading: codingQuestion.isAllOrNothing || false,
       defaultLanguage: codingQuestion.defaultLanguage || "",
-      codingQuestion: {
+      // Include nested objects for backward compatibility
+      mCQQuestion: question.type === 'MCQ' ? {
+        options: mcqOptions,
+        isMultiple: mcqQuestion.isMultiple || false,
+        shuffleChoice: mcqQuestion.shuffleChoice || false,
+        generalFeedback: mcqQuestion.generalFeedback || "",
+        solution: mcqQuestion.solution || "",
+        hints: mcqQuestion.hints || [],
+        difficulty: mcqQuestion.difficulty || 'MEDIUM',
+        defaultMark: mcqQuestion.defaultMark || 1
+      } : undefined,
+      codingQuestion: question.type === 'CODING' ? {
         languageOptions: languageOptions,
         testCases: testCases,
         isAllOrNothing: codingQuestion.isAllOrNothing || false,
         defaultLanguage: codingQuestion.defaultLanguage || ""
-      }
+      } : undefined
     });
     
     // Open the appropriate modal based on question type
