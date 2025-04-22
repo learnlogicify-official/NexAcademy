@@ -305,92 +305,54 @@ export default function AdminQuestionsPage() {
 
   const fetchQuestions = async (currentFilters?: FilterState, page: number = 1) => {
     try {
+      const filters = currentFilters || pendingFilters;
+      setPendingFilters(filters);
       setIsLoading(true);
-      
-      // Create a copy of the filters to avoid undefined access
-      const filters = currentFilters || {
-        search: "",
-        category: "all",
-        subcategory: "all",
-        type: "all",
-        status: "all",
-        includeSubcategories: false
-      };
-      
+
       const queryParams = new URLSearchParams();
-      
-      // Add search parameter if present
-      if (filters.search) {
-        queryParams.append('search', filters.search);
-      }
-      
-      // Add type filter if not "all"
-      if (filters.type !== 'all') {
-        queryParams.append('type', filters.type);
-      }
-      
-      // Add status filter if not "all"
-      if (filters.status !== 'all') {
-        console.log(`Adding status filter: ${filters.status}`);
-        queryParams.append('status', filters.status);
-      }
-      
-      // Fix for folder filtering - only send one folderId parameter
-      if (filters.subcategory !== 'all') {
-        // If subcategory is selected, use that as the folderId
-        queryParams.append('folderId', filters.subcategory);
-        // When a subcategory is selected, we shouldn't include other subfolders
-        queryParams.append('includeSubcategories', 'false');
-      } else if (filters.category !== 'all') {
-        // If only category is selected, use that as the folderId
-        queryParams.append('folderId', filters.category);
-        // Only pass includeSubcategories if a category is selected
-        queryParams.append('includeSubcategories', filters.includeSubcategories ? 'true' : 'false');
-      } else {
-        // Only include the parameter if it's true when no folder selected
-        if (filters.includeSubcategories) {
-          queryParams.append('includeSubcategories', 'true');
-        }
-      }
-      
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.category !== 'all') queryParams.append('category', filters.category);
+      if (filters.subcategory !== 'all') queryParams.append('subcategory', filters.subcategory);
+      if (filters.type !== 'all') queryParams.append('type', filters.type);
+      if (filters.status !== 'all') queryParams.append('status', filters.status);
+      if (filters.includeSubcategories) queryParams.append('includeSubcategories', 'true');
+      if (selectedFolder) queryParams.append('folderId', selectedFolder);
+
       // Add pagination parameters
       queryParams.append('page', page.toString());
       queryParams.append('limit', QUESTIONS_PER_PAGE.toString());
 
-      console.log("Sending API request with params:", queryParams.toString());
-
+      // First fetch to get paginated results
       const response = await axios.get(`/api/questions?${queryParams.toString()}`);
       const { questions, pagination } = response.data;
-      
-      console.log("API response:", { 
-        questionCount: questions.length,
-        pagination,
-        // Log the first few questions for debugging
-        sampleQuestions: questions.slice(0, 2).map((q: Question) => ({ 
-          id: q.id, 
-          name: q.name,
-          status: q.status
-        }))
-      });
       
       setQuestions(questions);
       setFilteredQuestions(questions);
       setTotalPages(pagination.totalPages);
       setTotalQuestions(pagination.total);
       
-      // Update stats
+      // Second fetch to get all questions for accurate stats
+      const allQuestionsResponse = await axios.get(`/api/questions?${new URLSearchParams({
+        ...Object.fromEntries(queryParams),
+        page: '1',
+        limit: '1000' // Use a large number to get all questions
+      }).toString()}`);
+      
+      const allQuestions = allQuestionsResponse.data.questions;
+      
+      // Calculate accurate stats
       const newStats: Stats = {
         total: pagination.total,
-        published: questions.filter((q: Question) => q.status === 'READY').length,
-        draft: questions.filter((q: Question) => q.status === 'DRAFT').length,
-        multipleChoice: questions.filter((q: Question) => q.type === 'MCQ').length,
-        coding: questions.filter((q: Question) => q.type === 'CODING').length,
-        byFolder: questions.reduce((acc: Record<string, number>, q: Question) => {
+        published: allQuestions.filter((q: Question) => q.status === 'READY').length,
+        draft: allQuestions.filter((q: Question) => q.status === 'DRAFT').length,
+        multipleChoice: allQuestions.filter((q: Question) => q.type === 'MCQ').length,
+        coding: allQuestions.filter((q: Question) => q.type === 'CODING').length,
+        byFolder: allQuestions.reduce((acc: Record<string, number>, q: Question) => {
           const folderName = q.folder?.name || 'Uncategorized';
           acc[folderName] = (acc[folderName] || 0) + 1;
           return acc;
         }, {} as Record<string, number>),
-        ready: questions.filter((q: Question) => q.status === 'READY').length
+        ready: allQuestions.filter((q: Question) => q.status === 'READY').length
       };
       setStats(newStats);
       setPagination({
@@ -1225,8 +1187,8 @@ export default function AdminQuestionsPage() {
             } else {
               pageToShow = currentPage - 2 + i;
             }
-            
-            return (
+    
+    return (
               <Button
                 key={pageToShow}
                 variant={currentPage === pageToShow ? "default" : "outline"}
@@ -1265,8 +1227,8 @@ export default function AdminQuestionsPage() {
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
-    </div>
-  );
+      </div>
+    );
 
   // Create a function to handle opening the delete dialog
   const handleDeleteClick = (questionId: string) => {
@@ -1608,10 +1570,10 @@ export default function AdminQuestionsPage() {
             </div>
             
             <Table className="questions-table">
-              <TableHeader>
+                <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">Select</TableHead>
-                  <TableHead>Question</TableHead>
+                    <TableHead>Question</TableHead>
                   <TableHead className="w-[100px]">Type</TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead className="w-[180px]">Created</TableHead>
@@ -1619,9 +1581,9 @@ export default function AdminQuestionsPage() {
                   <TableHead className="w-[180px]">Updated</TableHead>
                   <TableHead className="w-[150px]">Last Modified By</TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={10} className="h-24 text-center">
@@ -1634,7 +1596,7 @@ export default function AdminQuestionsPage() {
                     <TableCell colSpan={10} className="h-24 text-center">
                       <p className="text-muted-foreground">No questions match your current filters</p>
                       <div className="flex justify-center gap-2 mt-2">
-                        <Button 
+                        <Button
                           variant="outline" 
                           size="sm"
                           onClick={clearFilters}
@@ -1642,7 +1604,7 @@ export default function AdminQuestionsPage() {
                           <X className="mr-2 h-4 w-4" />
                           Clear Filters
                         </Button>
-                        <Button 
+                        <Button
                           variant="default" 
                           size="sm"
                           onClick={handleCreateQuestion}
@@ -1689,9 +1651,9 @@ export default function AdminQuestionsPage() {
                       <TableCell>{question.lastModifiedByName || 'N/A'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                             title="Edit Question"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1700,10 +1662,10 @@ export default function AdminQuestionsPage() {
                             className="hover:bg-accent/50"
                           >
                             <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                             title="Preview Question"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1713,20 +1675,20 @@ export default function AdminQuestionsPage() {
                             className="hover:bg-accent/50"
                           >
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                             title="Delete Question"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDeleteClick(question.id);
                             }}
                             className="hover:bg-accent/50 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -2320,8 +2282,8 @@ export default function AdminQuestionsPage() {
                                   style={{ width: `${stats.total > 0 ? (count / stats.total) * 100 : 0}%` }}
                                 ></div>
                               </div>
-                            </div>
-                          ))}
+                    </div>
+                  ))}
                         
                         {/* Show more/less button when there are more than 8 folders */}
                         {Object.entries(stats.byFolder).length > 8 && (
@@ -2344,18 +2306,18 @@ export default function AdminQuestionsPage() {
                                 </>
                               )}
                             </Button>
-              </div>
+                </div>
             )}
           </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <FolderIcon className="mx-auto h-12 w-12 opacity-30 mb-2" />
                         <p>No folder data available</p>
-                      </div>
-                    )}
+              </div>
+            )}
                   </CardContent>
                 </Card>
-              </div>
+          </div>
               
               {/* Insights & Recommendations */}
               <Card className="border shadow-sm">
@@ -2366,7 +2328,7 @@ export default function AdminQuestionsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+          <div className="space-y-4">
                     {stats.total > 0 ? (
                       <>
                         <div className="p-4 border rounded-xl bg-accent/25 shadow-sm">
@@ -2464,8 +2426,8 @@ export default function AdminQuestionsPage() {
                             <p className="text-sm">
                               Your question bank is still growing. Adding more questions will provide better assessment coverage and variety.
                             </p>
-                          </div>
-                        )}
+              </div>
+            )}
                       </>
                     ) : (
                       <div className="text-center py-8 bg-accent/30 rounded-xl">
@@ -2478,9 +2440,9 @@ export default function AdminQuestionsPage() {
                           <Plus className="h-4 w-4 mr-1" />
                           Create Question
             </Button>
-                      </div>
-                    )}
-                  </div>
+              </div>
+            )}
+          </div>
                 </CardContent>
               </Card>
             </div>
