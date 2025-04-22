@@ -311,16 +311,27 @@ export default function AdminQuestionsPage() {
 
       const queryParams = new URLSearchParams();
       if (filters.search) queryParams.append('search', filters.search);
-      if (filters.category !== 'all') queryParams.append('category', filters.category);
-      if (filters.subcategory !== 'all') queryParams.append('subcategory', filters.subcategory);
+      // Use folderId instead of category/subcategory params since that's what the API expects
+      if (filters.subcategory !== 'all') {
+        // Subcategory takes precedence
+        queryParams.append('folderId', filters.subcategory);
+      } else if (filters.category !== 'all') {
+        // Then category
+        queryParams.append('folderId', filters.category);
+      } else if (selectedFolder) {
+        // Then selectedFolder as fallback
+        queryParams.append('folderId', selectedFolder);
+      }
+      
       if (filters.type !== 'all') queryParams.append('type', filters.type);
       if (filters.status !== 'all') queryParams.append('status', filters.status);
       if (filters.includeSubcategories) queryParams.append('includeSubcategories', 'true');
-      if (selectedFolder) queryParams.append('folderId', selectedFolder);
 
       // Add pagination parameters
       queryParams.append('page', page.toString());
       queryParams.append('limit', QUESTIONS_PER_PAGE.toString());
+
+      console.log('Fetching questions with params:', Object.fromEntries(queryParams.entries()));
 
       // First fetch to get paginated results
       const response = await axios.get(`/api/questions?${queryParams.toString()}`);
@@ -580,145 +591,65 @@ export default function AdminQuestionsPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
-      
-      // Check if we're editing an existing question
-      const isEditing = !!data.id;
-      
-      // Transform the data based on question type
-      const transformedData: any = {
-        id: data.id, // Include the ID for existing questions
-        name: data.name,
-        type: data.type,
-        status: data.status,
-        version: data.version || 1,
-        folderId: data.folderId,
-        questionText: data.questionText || data.mCQQuestion?.questionText || data.codingQuestion?.questionText || "",
-      };
+      let url = '/api/questions';
+      let method = 'POST';
+      let body = data;
 
-      // Add MCQ specific fields if it's an MCQ question
+      if (data.id) {
+        url = `/api/questions/${data.id}`;
+        method = 'PUT';
+      }
+
+      // Transform the data to match the API's expected format
       if (data.type === 'MCQ') {
-        if (!data.options && !data.mCQQuestion?.options) {
-          throw new Error("At least one option is required for MCQ questions");
-        }
-        
-        // Add these fields at the top level for API compatibility
-        transformedData.difficulty = data.mCQQuestion?.difficulty || 'MEDIUM';
-        transformedData.defaultMark = Number(data.mCQQuestion?.defaultMark || 1);
-        transformedData.isMultiple = Boolean(data.mCQQuestion?.isMultiple);
-        transformedData.shuffleChoice = Boolean(data.mCQQuestion?.shuffleChoice);
-        transformedData.generalFeedback = data.generalFeedback || data.mCQQuestion?.generalFeedback || "";
-        
-        // Log the values to help with debugging
-        
-        
-        // Get options from either top-level or nested structure
-        const options = data.options || data.mCQQuestion?.options || [];
-        
-        transformedData.mCQQuestion = {
-          options: options.map((opt: any) => ({
-            id: opt.id,
-            text: opt.text || "",
-            grade: Number(opt.grade) || 0,
-            feedback: opt.feedback || ""
-          })),
-          isMultiple: Boolean(data.mCQQuestion?.isMultiple),
-          shuffleChoice: Boolean(data.mCQQuestion?.shuffleChoice),
-          generalFeedback: data.generalFeedback || data.mCQQuestion?.generalFeedback || "",
-          solution: data.solution || data.mCQQuestion?.solution || "",
-          hints: data.hints || data.mCQQuestion?.hints || [],
-          difficulty: data.mCQQuestion?.difficulty || 'MEDIUM',
-          defaultMark: Number(data.mCQQuestion?.defaultMark || 1)
+        body = {
+          ...data,
+          mCQQuestion: {
+            options: data.options.map((opt: any) => ({
+              ...opt,
+              isCorrect: opt.grade > 0
+            }))
+          }
+        };
+      } else if (data.type === 'CODING') {
+        body = {
+          ...data,
+          codingQuestion: {
+            defaultLanguage: data.defaultLanguage,
+            languageOptions: data.languageOptions,
+            testCases: data.testCases
+          }
         };
       }
-
-      // Add Coding specific fields if it's a Coding question
-      if (data.type === 'CODING') {
-        if (!data.languageOptions || data.languageOptions.length === 0) {
-          throw new Error("At least one language option is required for coding questions");
-        }
-        if (!data.testCases || data.testCases.length === 0) {
-          throw new Error("At least one test case is required for coding questions");
-        }
-        
-        // Make sure to include the allOrNothingGrading field at the top level
-        transformedData.allOrNothingGrading = Boolean(data.allOrNothingGrading || data.isAllOrNothing || false);
-        transformedData.difficulty = data.difficulty || 'MEDIUM';
-        transformedData.defaultMark = Number(data.defaultMark || 1);
-        
-        transformedData.codingQuestion = {
-          languageOptions: data.languageOptions.map((option: any) => {
-            // Check if language is an object with a language property or a direct string
-            const languageValue = typeof option.language === 'object' && option.language.language 
-              ? option.language.language // Extract the enum string from the object
-              : option.language;         // Use the string directly
-            
-            return {
-              language: languageValue,
-              solution: option.solution || "",
-              preloadCode: typeof option.language === 'object' && option.language.preloadCode
-                ? option.language.preloadCode
-                : (option.preloadCode || "")
-            };
-          }),
-          testCases: data.testCases.map((testCase: any) => ({
-            input: testCase.input || "",
-            output: testCase.output || "",
-            isHidden: testCase.isHidden || false,
-            isSample: testCase.isSample || false,
-            showOnFailure: testCase.showOnFailure || false
-          })),
-          defaultLanguage: data.defaultLanguage || (data.languageOptions?.[0]?.language || ""),
-          solution: data.solution || "",
-          hints: data.hints || [],
-          isAllOrNothing: Boolean(data.allOrNothingGrading || data.isAllOrNothing || false),
-          difficulty: data.difficulty || "MEDIUM",
-          defaultMark: Number(data.defaultMark || 1)
-        };
-      }
-
-      
-
-      const url = isEditing 
-        ? `/api/questions/${data.id}`  // Use the correct endpoint for updating
-        : '/api/questions';  // Use the correct endpoint for creating
-
-      const method = isEditing ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(transformedData),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("API Error Response:", errorData);
-        throw new Error(errorData.error || `Failed to ${isEditing ? 'update' : 'create'} question`);
+        throw new Error(errorData.error || 'Failed to save question');
       }
 
-      const responseData = await response.json();
-      
-
-      // Refresh the questions list
-      await fetchQuestions();
-
-      // Close the modal
+      const result = await response.json();
+      toast({
+        title: "Success",
+        description: "Question saved successfully"
+      });
       setIsFormModalOpen(false);
       setIsCodingFormModalOpen(false);
       setEditingQuestion(undefined);
-
-      toast({
-        title: "Success",
-        description: `Question ${isEditing ? 'updated' : 'created'} successfully`,
-      });
+      fetchQuestions(); // Refresh the questions list
     } catch (error) {
-      console.error("Error in handleFormSubmit:", error);
+      console.error('Error saving question:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to submit form",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : 'Failed to save question',
+        variant: "destructive"
       });
     }
   };
@@ -960,13 +891,15 @@ export default function AdminQuestionsPage() {
       setPendingFilters(prev => ({
         ...prev,
         category: categoryId,
-        subcategory: subcategoryId
+        subcategory: subcategoryId,
+        includeSubcategories: true
       }));
     } else {
       setPendingFilters(prev => ({
         ...prev,
         category: value,
-        subcategory: 'all'
+        subcategory: 'all',
+        includeSubcategories: value !== 'all'
       }));
     }
   };
@@ -982,7 +915,6 @@ export default function AdminQuestionsPage() {
       }
     }
     
- 
     setFilters(pendingFilters);
     // Always reset to page 1 when applying new filters
     setCurrentPage(1);

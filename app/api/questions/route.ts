@@ -15,42 +15,30 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const includeSubcategories = searchParams.get("includeSubcategories") === "true";
 
-   
-
     const where: any = {};
 
     if (type) {
-      // Convert MULTIPLE_CHOICE to MCQ for compatibility
       where.type = type === "MULTIPLE_CHOICE" ? "MCQ" : type;
     }
 
     if (status) {
-      // Make sure the status matches the exact value needed by the database
-      // First convert to uppercase to normalize
       const normalizedStatus = status.toUpperCase();
-      
-      // Log to help with debugging
-      
-      
-      // Make sure it's one of the valid enum values to avoid SQL errors
       if (["DRAFT", "READY"].includes(normalizedStatus)) {
         where.status = normalizedStatus;
-      } else {
-        console.warn(`Invalid status value: "${normalizedStatus}", valid values are DRAFT or READY`);
       }
     }
 
     // Handle folder filtering with subcategories support
-    if (folderId) {
-      
-      
-      // Only process subfolder logic if includeSubcategories is true
+    if (folderId && folderId !== 'all') {
       if (includeSubcategories) {
         try {
           // Get the main folder and its subfolders
           const folder = await prisma.folder.findUnique({
             where: { id: folderId },
-            include: { subfolders: true }
+            include: { 
+              subfolders: true,
+              questions: true
+            }
           });
 
           if (folder) {
@@ -60,24 +48,20 @@ export async function GET(request: NextRequest) {
               folder.subfolders.forEach(subfolder => {
                 folderIds.push(subfolder.id);
               });
-              
-            } 
+            }
 
             // Use IN operator to match any of these folders
             where.folderId = { in: folderIds };
           } else {
-           
             // Fallback to just the requested folder if it doesn't exist
             where.folderId = folderId;
           }
         } catch (folderError) {
-          
-          // If any error occurs during subfolder retrieval, fall back to direct filtering
+          console.error('Error fetching folder with subfolders:', folderError);
           where.folderId = folderId;
         }
       } else {
         // Just filter by the specified folder without subfolder inclusion
-        
         where.folderId = folderId;
       }
     }
@@ -89,9 +73,6 @@ export async function GET(request: NextRequest) {
         { codingQuestion: { questionText: { contains: search, mode: "insensitive" } } },
       ];
     }
-
-    // Log the final query for debugging
-    
 
     // Get total count for pagination
     const total = await prisma.question.count({ where });
@@ -118,19 +99,6 @@ export async function GET(request: NextRequest) {
       skip: (page - 1) * limit,
       take: limit
     });
-
-    // Log status information to diagnose filtering issues
-    
-    
-    // Check the actual statuses of questions in the database
-    const statusCounts = await prisma.question.groupBy({
-      by: ['status'],
-      _count: {
-        status: true
-      }
-    });
-    
-   
 
     return NextResponse.json({
       questions,
