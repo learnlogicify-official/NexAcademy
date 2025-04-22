@@ -29,47 +29,10 @@ export function QuestionRow({
   const [expandedQuestion, setExpandedQuestion] = useState<Question | null>(null);
 
   const handleToggle = async () => {
-    if (!isExpanded) {
-      setIsLoading(true);
-      try {
-        const response = await axios.get(`/api/questions/${question.id}`);
-        setExpandedQuestion(response.data);
-        
-        // Inspect the API response structure
-        console.log('API response for question:', response.data);
-        
-        // Detailed inspection of test cases
-        if (response.data.codingQuestion && response.data.codingQuestion.testCases) {
-          console.log('Full test cases array:', response.data.codingQuestion.testCases);
-          
-          // Log the first test case in extreme detail
-          if (response.data.codingQuestion.testCases.length > 0) {
-            const firstTC = response.data.codingQuestion.testCases[0];
-            console.log('First test case - FULL DUMP:', firstTC);
-            console.log('First test case prototype chain:', Object.getPrototypeOf(firstTC));
-            console.log('First test case ALL keys:', Object.keys(firstTC));
-            console.log('First test case JSON:', JSON.stringify(firstTC, null, 2));
-            
-            // Check for every possible property related to sample/hidden status
-            console.log('Potential identifiers:',
-              'isHidden:', firstTC.isHidden,
-              'hidden:', firstTC.hidden,
-              'isSample:', firstTC.isSample, 
-              'sample:', firstTC.sample,
-              'type:', firstTC.type,
-              'testType:', firstTC.testType,
-              'test_type:', firstTC.test_type,
-              'visibility:', firstTC.visibility
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching question details:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    // Simply toggle expansion without making an API call
     setIsExpanded(!isExpanded);
+    // Use the existing question data
+    setExpandedQuestion(question);
   };
 
   const displayQuestion = expandedQuestion || question;
@@ -224,59 +187,24 @@ export function QuestionRow({
                           </div>
                           <div className="grid grid-cols-1 gap-4">
                             {displayQuestion.codingQuestion.testCases.map((testCase, index) => {
-                              // Create a debug string of all test case properties
+                              // Access the test case directly
                               const tc = testCase as any;
-                              
-                              // Check for sample status across multiple possible properties
-                              const isSample = 
-                                tc.isSample === true || 
-                                tc.isSample === 'true' ||
-                                tc.sample === true || 
-                                tc.sample === 'true' ||
-                                tc.type === 'sample' || 
-                                tc.testType === 'sample' ||
-                                tc.visibility === 'sample';
-                              
-                              // Check for hidden status across multiple possible properties
-                              const isHidden = 
-                                tc.isHidden === true || 
-                                tc.isHidden === 'true' ||
-                                tc.hidden === true || 
-                                tc.hidden === 'true' ||
-                                tc.type === 'hidden' || 
-                                tc.testType === 'hidden' ||
-                                tc.visibility === 'hidden';
-                              
-                              // Dump key properties for debugging
-                              const debugProps = {
-                                id: tc.id,
-                                isHidden: tc.isHidden,
-                                isSample: tc.isSample,
-                                type: tc.type,
-                                testType: tc.testType
-                              };
-                              
-                              const tcProps = JSON.stringify(debugProps, null, 2);
                               
                               return (
                               <div key={testCase.id} className="bg-card rounded-lg border overflow-hidden shadow-sm mb-3">
                                 <div className="bg-muted/50 px-4 py-2 border-b flex justify-between items-center">
                                   <div className="font-medium text-sm">Test Case #{index + 1}</div>
                                   <div className="flex gap-2">
-                                    {/* Show appropriate badge based on our comprehensive check */}
-                                    {!isHidden && (
+                                    {/* Sample badge for non-hidden test cases */}
+                                    {!tc.isHidden && (
                                       <Badge className="bg-blue-500 text-white font-medium" variant="default">
                                         Sample
                                       </Badge>
                                     )}
-                                    {isHidden && (
+                                    {/* Hidden badge for hidden test cases */}
+                                    {tc.isHidden && (
                                       <Badge className="bg-amber-500 text-white font-medium" variant="default">
                                         Hidden
-                                      </Badge>
-                                    )}
-                                    {isHidden && !isHidden && (
-                                      <Badge className="bg-slate-500 text-white font-medium" variant="default">
-                                        Regular
                                       </Badge>
                                     )}
                                   </div>
