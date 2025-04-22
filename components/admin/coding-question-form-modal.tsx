@@ -1033,7 +1033,7 @@ export function CodingQuestionFormModal({
     validateTestCases();
   };
 
-  // Update the validateTestCases function to include the copy functionality
+  // Update the validateTestCases function to include 500 error handling
   const validateTestCases = async () => {
     console.log("Starting test case validation via server API...");
     
@@ -1121,7 +1121,7 @@ export function CodingQuestionFormModal({
             const errorData = await response.json();
             console.error("Validation error:", errorData);
             
-            // Handle rate limiting specifically
+            // Handle specific error status codes
             if (response.status === 429) {
               toast({
                 title: "Rate Limit Exceeded",
@@ -1129,9 +1129,24 @@ export function CodingQuestionFormModal({
                 variant: "destructive",
               });
               break;
+            } else if (response.status === 500) {
+              toast({
+                title: "Server Error",
+                description: "The Judge0 API is experiencing server errors. Please try again later.",
+                variant: "destructive",
+              });
+              console.error("Judge0 server error:", errorData);
+              break;
+            } else if (response.status === 401) {
+              toast({
+                title: "Authentication Error",
+                description: "API key is missing or invalid. Check your environment variables.",
+                variant: "destructive",
+              });
+              break;
             }
             
-            throw new Error(errorData.error || "Execution failed");
+            throw new Error(errorData.error || `Execution failed with status ${response.status}`);
           }
           
           const responseData = await response.json();
@@ -1154,13 +1169,24 @@ export function CodingQuestionFormModal({
           });
         } catch (error) {
           console.error("Error validating test case:", error);
+          
+          // Add a more detailed error message to the results
           results.push({
             testCaseId: testCase.id,
             isMatch: false,
             actualOutput: "",
             executionTime: 0,
             memoryUsage: 0,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error 
+              ? `Error: ${error.message}` 
+              : "Unknown error occurred during validation"
+          });
+          
+          // Show a toast for individual test case errors, but don't break the whole process
+          toast({
+            title: "Test Case Error",
+            description: `Error in test case ${results.length + 1}: ${error instanceof Error ? error.message : "Unknown error"}`,
+            variant: "destructive",
           });
         }
       }

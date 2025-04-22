@@ -77,25 +77,39 @@ export async function POST(request: NextRequest) {
       body: requestBody
     });
     
-    // Add a delay to prevent rate limiting
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Increase delay to prevent rate limiting
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const response = await fetch(`${JUDGE0_API_URL}/submissions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-RapidAPI-Key": JUDGE0_API_KEY,
-        "X-RapidAPI-Host": JUDGE0_API_HOST
-      },
-      body: JSON.stringify(requestBody)
-    });
+    let response;
+    try {
+      response = await fetch(`${JUDGE0_API_URL}/submissions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-RapidAPI-Key": JUDGE0_API_KEY,
+          "X-RapidAPI-Host": JUDGE0_API_HOST
+        },
+        body: JSON.stringify(requestBody)
+      });
+    } catch (networkError) {
+      console.error("Network error connecting to Judge0 API:", networkError);
+      return NextResponse.json({ 
+        error: "Failed to connect to Judge0 API",
+        details: networkError instanceof Error ? networkError.message : String(networkError)
+      }, { status: 500 });
+    }
     
     console.log("Judge0 API response status:", response.status);
     
     if (!response.ok) {
       console.error("Server-side Judge0 API error:", response.status, response.statusText);
-      const text = await response.text();
-      console.error("Error details:", text);
+      let errorText = "";
+      try {
+        errorText = await response.text();
+        console.error("Error details:", errorText);
+      } catch (e) {
+        console.error("Could not read error response text:", e);
+      }
       
       // Handle rate limiting specifically
       if (response.status === 429) {
@@ -105,14 +119,39 @@ export async function POST(request: NextRequest) {
         }, { status: 429 });
       }
       
+      // Handle server error (500) more specifically
+      if (response.status === 500) {
+        return NextResponse.json({ 
+          error: "Judge0 API server error",
+          details: "The Judge0 API is experiencing server errors. Please try again later."
+        }, { status: 500 });
+      }
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        return NextResponse.json({ 
+          error: "Authentication error",
+          details: "The API key is missing or invalid. Please check your environment variables."
+        }, { status: 401 });
+      }
+      
       return NextResponse.json({ 
         error: `API request failed with status ${response.status}`,
-        details: text 
+        details: errorText
       }, { status: response.status });
     }
     
-    const data = await response.json();
-    console.log("Judge0 API response data:", JSON.stringify(data, null, 2));
+    let data;
+    try {
+      data = await response.json();
+      console.log("Judge0 API response data:", JSON.stringify(data, null, 2));
+    } catch (parseError) {
+      console.error("Error parsing Judge0 API response:", parseError);
+      return NextResponse.json({ 
+        error: "Failed to parse Judge0 API response",
+        details: parseError instanceof Error ? parseError.message : String(parseError)
+      }, { status: 500 });
+    }
     
     // Check if we got a token instead of the full result
     if (data.token && (!data.stdout && !data.stderr && !data.compile_output)) {
