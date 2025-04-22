@@ -390,6 +390,7 @@ export function CodingQuestionFormModal({
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [showValidationResults, setShowValidationResults] = useState(false);
   const [copiedTestCases, setCopiedTestCases] = useState<Set<string>>(new Set());
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Add a debug function to check specific language options
   const inspectLanguageOption = (langId: string) => {
@@ -545,73 +546,64 @@ export function CodingQuestionFormModal({
     e.preventDefault();
     console.log('Form submit triggered');
     
+    // Clear previous errors
+    setFormErrors({});
+    
+    // Initialize validation errors object
+    const errors: Record<string, string> = {};
+    let isValid = true;
+    
     // Validate required fields
     if (!formData.name.trim()) {
-      console.log('Validation failed: Missing question name');
-      toast({
-        title: "Missing Question Name",
-        description: "Please provide a name for the question",
-        variant: "destructive",
-      });
-      return;
+      errors.name = 'Question name is required';
+      isValid = false;
     }
     
     if (!formData.folderId) {
-      console.log('Validation failed: Missing folder');
-      toast({
-        title: "Missing Folder",
-        description: "Please select a folder for the question",
-        variant: "destructive",
-      });
-      return;
+      errors.folderId = 'Folder is required';
+      isValid = false;
     }
     
     if (!formData.questionText.trim()) {
-      console.log('Validation failed: Missing question text');
-      toast({
-        title: "Missing Question Text",
-        description: "Please provide the question text",
-        variant: "destructive",
-      });
-      return;
+      errors.questionText = 'Question text is required';
+      isValid = false;
     }
     
     if (formData.languageOptions.length === 0) {
-      console.log('Validation failed: No languages selected');
-      toast({
-        title: "No Languages Selected",
-        description: "Please select at least one programming language",
-        variant: "destructive",
-      });
-      return;
+      errors.languageOptions = 'At least one programming language is required';
+      isValid = false;
+    }
+    
+    // Validate default language
+    if (!defaultLanguage) {
+      errors.defaultLanguage = 'Default language must be selected';
+      isValid = false;
     }
     
     if (formData.testCases.length === 0) {
-      console.log('Validation failed: No test cases');
-      toast({
-        title: "No Test Cases",
-        description: "Please add at least one test case",
-        variant: "destructive",
+      errors.testCases = 'At least one test case is required';
+      isValid = false;
+    } else {
+      // Validate each test case
+      const invalidTestCases = formData.testCases.filter((tc, index) => {
+        if (tc.input.trim() === '') {
+          errors[`testCase${index}Input`] = `Test case ${index + 1} missing input`;
+          return true;
+        }
+        if (tc.output.trim() === '') {
+          errors[`testCase${index}Output`] = `Test case ${index + 1} missing expected output`;
+          return true;
+        }
+        if (tc.gradePercentage < 0 || tc.gradePercentage > 100) {
+          errors[`testCase${index}Grade`] = `Test case ${index + 1} has invalid grade (0-100)`;
+          return true;
+        }
+        return false;
       });
-      return;
-    }
-    
-    // Validate each test case
-    const invalidTestCases = formData.testCases.filter(tc => {
-      const hasInput = tc.input.trim() === '';
-      const hasOutput = tc.output.trim() === '';
-      const hasValidGrade = tc.gradePercentage < 0 || tc.gradePercentage > 100;
-      return hasInput || hasOutput || hasValidGrade;
-    });
-
-    if (invalidTestCases.length > 0) {
-      console.log('Validation failed: Invalid test cases');
-      toast({
-        title: "Invalid Test Cases",
-        description: "All test cases must have input, expected output, and a valid grade percentage (0-100)",
-        variant: "destructive",
-      });
-      return;
+      
+      if (invalidTestCases.length > 0) {
+        isValid = false;
+      }
     }
 
     // Validate total grade percentage
@@ -620,60 +612,65 @@ export function CodingQuestionFormModal({
         (total, tc) => total + tc.gradePercentage, 
         0
       );
+      
       if (Math.abs(totalGradePercentage - 100) > 0.01) {
-        console.log('Validation failed: Invalid grade distribution');
-        toast({
-          title: "Invalid Grade Distribution",
-          description: `Total grade percentage is ${totalGradePercentage.toFixed(2)}%. It must equal 100%.`,
-          variant: "destructive",
-        });
-        return;
+        errors.gradeDistribution = `Total grade percentage is ${totalGradePercentage.toFixed(2)}%. It must equal 100%`;
+        isValid = false;
       }
     }
-
-    // Make sure we have a default language
-    if (!defaultLanguage && selectedLanguages.length > 0) {
-      setDefaultLanguage(selectedLanguages[0]);
-    }
     
-    // Prepare data for submission with deduplication
-    const submissionData = prepareSubmissionData();
-    
-    // Log to help debug issues
-    console.log("Submitting data with default language:", defaultLanguage);
-    console.log("Full submission data:", JSON.stringify(submissionData, null, 2));
-    console.log("Is this an update operation?", !!initialData?.id);
-    
-    // Validate test cases have the correct properties
-    let validTestCases = true;
-    submissionData.testCases.forEach((tc, index) => {
-      console.log(`Validating test case ${index}:`, tc);
-      if (tc.showOnFailure === undefined) {
-        console.error(`Test case ${index} is missing showOnFailure property`);
-        validTestCases = false;
-      }
-      if (tc.isSample === undefined) {
-        console.error(`Test case ${index} is missing isSample property`);
-        validTestCases = false;
-      }
-      if (tc.isHidden === undefined) {
-        console.error(`Test case ${index} is missing isHidden property`);
-        validTestCases = false;
-      }
-    });
-    
-    if (!validTestCases) {
+    // Store form errors for UI display
+    if (!isValid) {
+      console.log('Validation failed:', errors);
+      setFormErrors(errors);
+      
+      // Create a formatted error message
+      const errorMessages = Object.values(errors);
+      
       toast({
-        title: "Test Case Validation Error",
-        description: "Some test cases are missing required properties",
+        title: "Validation Errors",
+        description: (
+          <div className="space-y-1">
+            {errorMessages.map((msg, index) => (
+              <div key={index} className="flex items-start">
+                <span className="mr-2">•</span>
+                <span>{msg}</span>
+              </div>
+            ))}
+          </div>
+        ),
         variant: "destructive",
       });
       return;
     }
     
+    // If validation passes, create properly formatted submission data
     try {
+      // Use a more robust data preparation
+      const codingQuestion = prepareCodingQuestionData();
+      
+      // Perform final validation check on structure
+      const structureErrors = validateDataStructure(codingQuestion);
+      if (structureErrors.length > 0) {
+        toast({
+          title: "Data Structure Error",
+          description: (
+            <div className="space-y-1">
+              {structureErrors.map((msg, index) => (
+                <div key={index} className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>{msg}</span>
+                </div>
+              ))}
+            </div>
+          ),
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Call the onSubmit callback with the data
-      onSubmit(submissionData);
+      onSubmit(codingQuestion);
       
       // Show success toast with appropriate message (don't close modal until we know it succeeded)
       toast({
@@ -692,6 +689,104 @@ export function CodingQuestionFormModal({
       });
     }
   };
+
+  // Helper function to validate the data structure before sending to API
+  const validateDataStructure = (data: any): string[] => {
+    const errors: string[] = [];
+    
+    // Check for proper nesting and required fields
+    if (!data.name) errors.push("Missing question name");
+    if (!data.folderId) errors.push("Missing folder ID");
+    if (!data.questionText) errors.push("Missing question text");
+    
+    // Validate language options structure
+    if (!Array.isArray(data.languageOptions) || data.languageOptions.length === 0) {
+      errors.push("Language options must be a non-empty array");
+    } else {
+      data.languageOptions.forEach((lang: any, index: number) => {
+        if (!lang.language) errors.push(`Language option ${index + 1} missing language identifier`);
+      });
+    }
+    
+    // Validate test cases structure
+    if (!Array.isArray(data.testCases) || data.testCases.length === 0) {
+      errors.push("Test cases must be a non-empty array");
+    } else {
+      data.testCases.forEach((tc: any, index: number) => {
+        if (tc.showOnFailure === undefined) errors.push(`Test case ${index + 1} missing showOnFailure property`);
+        if (tc.isSample === undefined) errors.push(`Test case ${index + 1} missing isSample property`);
+        if (tc.isHidden === undefined) errors.push(`Test case ${index + 1} missing isHidden property`);
+        if (tc.input === undefined) errors.push(`Test case ${index + 1} missing input property`);
+        if (tc.output === undefined) errors.push(`Test case ${index + 1} missing output property`);
+      });
+    }
+    
+    return errors;
+  };
+
+  // Helper function to prepare the coding question data in the right format
+  const prepareCodingQuestionData = () => {
+    // Deduplicate language options
+    const uniqueLanguages = new Map<string, LanguageOption>();
+    formData.languageOptions.forEach(option => {
+      if (selectedLanguages.includes(option.language)) {
+        uniqueLanguages.set(option.language, {
+          ...option,
+          language: option.language,
+          id: option.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+        });
+      }
+    });
+    
+    const languageOptions = Array.from(uniqueLanguages.values());
+    
+    // Prepare test cases with proper types
+    const testCases = formData.testCases.map(testCase => {
+      const type = testCase.type || 'hidden';
+      const isSample = type === 'sample' || testCase.isSample === true;
+      const isHidden = type === 'hidden' || testCase.isHidden === true;
+      const showOnFailure = !!testCase.showOnFailure;
+      
+      return {
+        id: testCase.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        input: testCase.input,
+        output: testCase.output,
+        type,
+        isSample,
+        isHidden,
+        showOnFailure,
+        gradePercentage: testCase.gradePercentage,
+        grade: testCase.gradePercentage, // Include both for compatibility
+      };
+    });
+    
+    // Create the properly structured data
+    return {
+      id: initialData?.id,
+      name: formData.name,
+      folderId: formData.folderId,
+      type: "CODING",
+      difficulty: formData.difficulty,
+      defaultMark: formData.defaultMark,
+      questionText: formData.questionText,
+      defaultLanguage,
+      languageOptions,
+      testCases,
+      allOrNothingGrading,
+      status: initialData?.status || "DRAFT",
+      version: initialData?.version || 1,
+      // Include separately packaged codingQuestion for compatibility
+      codingQuestion: {
+        languageOptions,
+        testCases,
+        isAllOrNothing: allOrNothingGrading,
+        defaultLanguage
+      }
+    };
+  };
+
+  // Replace the old prepareSubmissionData with this better version
+  const prepareSubmissionData = prepareCodingQuestionData;
 
   const handleLanguageSelect = (languageId: string) => {
     console.log(`Language selection toggled: ${languageId}`);
@@ -1182,98 +1277,6 @@ export function CodingQuestionFormModal({
     }
   };
 
-  // Function to ensure we don't have duplicate languages in the DB request
-  // and to ensure correct language IDs and test case types are used
-  const prepareSubmissionData = () => {
-    // Logging all data before submission for debugging
-    console.log("Preparing submission with selected languages:", selectedLanguages);
-    console.log("Language options before deduplication:", formData.languageOptions);
-    console.log("Test cases:", formData.testCases);
-    console.log("All or nothing grading:", allOrNothingGrading);
-    console.log("Initial data:", initialData);
-    
-    // Deduplicate language options by language ID
-    const uniqueLanguages = new Map<string, LanguageOption>();
-    formData.languageOptions.forEach(option => {
-      // Only include languages that are actually selected
-      if (selectedLanguages.includes(option.language)) {
-        // Make sure we're using the correct language ID
-        const correctOption = { 
-          ...option,
-          // Double-check that language is exactly the ID we need (not modified)
-          language: option.language,
-          // Preserve the ID if it exists (for editing)
-          id: option.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-        };
-        uniqueLanguages.set(option.language, correctOption);
-        console.log(`Adding language to submission: ${option.language}`, correctOption);
-      }
-    });
-    
-    // Convert to array
-    const dedupedOptions = Array.from(uniqueLanguages.values());
-    console.log("Final deduplicated language options:", dedupedOptions);
-    
-    // Verify test case types before submission
-    const testCases = formData.testCases.map(testCase => {
-      // Determine the test case type and flags for submission
-      const type = testCase.type || 'hidden';
-      const isSample = type === 'sample' || testCase.isSample === true;
-      const isHidden = type === 'hidden' || testCase.isHidden === true;
-      
-      // Fix: Explicitly convert showOnFailure to a boolean to ensure it's always a proper boolean
-      // Using double-bang (!!) to force conversion to boolean
-      const showOnFailure = !!testCase.showOnFailure;
-      
-      console.log(`Preparing test case for submission:`, {
-        id: testCase.id,
-        type,
-        isSample,
-        isHidden,
-        showOnFailure,
-        originalShowOnFailure: testCase.showOnFailure,
-        typeOfOriginal: typeof testCase.showOnFailure,
-        gradePercentage: testCase.gradePercentage
-      });
-      
-      return {
-        id: testCase.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        input: testCase.input,
-        output: testCase.output,
-        type, // Send the type string
-        isSample, // Send the boolean flag
-        isHidden, // Send the boolean flag
-        showOnFailure, // Send the boolean flag
-        gradePercentage: testCase.gradePercentage,
-      };
-    });
-    
-    // Check if we're editing an existing question
-    const isEditing = !!initialData?.id;
-    console.log("Is this an update operation?", isEditing, "Question ID:", initialData?.id);
-    
-    const result = {
-      // Include the ID if we're updating an existing question
-      id: initialData?.id, 
-      name: formData.name,
-      folderId: formData.folderId,
-      type: "CODING",
-      difficulty: formData.difficulty,
-      defaultMark: formData.defaultMark,
-      questionText: formData.questionText,
-      defaultLanguage: defaultLanguage, 
-      // Include these directly at the top level since the update API expects them there
-      languageOptions: dedupedOptions,
-      testCases: testCases,
-      allOrNothingGrading: allOrNothingGrading,
-      status: initialData?.status || "DRAFT",
-      version: initialData?.version || 1
-    };
-    
-    console.log("Final submission data:", JSON.stringify(result, null, 2));
-    return result;
-  }
-  
   // Improved function to add all 10 languages at once
   const addAllLanguages = () => {
     const allLangIds = SUPPORTED_LANGUAGES.map(lang => lang.id);
@@ -1338,22 +1341,30 @@ export function CodingQuestionFormModal({
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto pr-2 pb-4 relative">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Question Name</Label>
+              <Label htmlFor="name" className={formErrors.name ? "text-destructive" : ""}>
+                Question Name {formErrors.name && <span className="text-destructive text-sm">*</span>}
+              </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter question name"
+                className={cn(formErrors.name ? "border-destructive" : "")}
                 required
               />
+              {formErrors.name && (
+                <p className="text-destructive text-sm">{formErrors.name}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="folder">Folder</Label>
+              <Label htmlFor="folder" className={formErrors.folderId ? "text-destructive" : ""}>
+                Folder {formErrors.folderId && <span className="text-destructive text-sm">*</span>}
+              </Label>
               <Select
                 value={formData.folderId}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, folderId: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className={cn(formErrors.folderId ? "border-destructive" : "")}>
                   <SelectValue placeholder="Select folder">
                     {(() => {
                       // First try to find the subfolder
@@ -1390,18 +1401,26 @@ export function CodingQuestionFormModal({
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.folderId && (
+                <p className="text-destructive text-sm">{formErrors.folderId}</p>
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="questionText">Question Text</Label>
+            <Label htmlFor="questionText" className={formErrors.questionText ? "text-destructive" : ""}>
+              Question Text {formErrors.questionText && <span className="text-destructive text-sm">*</span>}
+            </Label>
             <RichTextEditor
               value={formData.questionText}
               onChange={(value) => setFormData(prev => ({ ...prev, questionText: value }))}
               placeholder="Enter the question text with formatting, images, and code"
-              className="min-h-[250px]"
+              className={cn("min-h-[250px]", formErrors.questionText ? "border-destructive" : "")}
               editorClassName="min-h-[200px]"
             />
+            {formErrors.questionText && (
+              <p className="text-destructive text-sm">{formErrors.questionText}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1437,7 +1456,9 @@ export function CodingQuestionFormModal({
 
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <Label>Programming Languages</Label>
+              <Label className={formErrors.languageOptions ? "text-destructive" : ""}>
+                Programming Languages {formErrors.languageOptions && <span className="text-destructive text-sm">*</span>}
+              </Label>
               <div className="flex items-center gap-2">
                 <Button 
                   type="button"
@@ -1448,13 +1469,15 @@ export function CodingQuestionFormModal({
                 >
                   Add All Languages
                 </Button>
-                <Label htmlFor="defaultLanguage" className="text-sm">Default Language:</Label>
+                <Label htmlFor="defaultLanguage" className={cn("text-sm", formErrors.defaultLanguage ? "text-destructive" : "")}>
+                  Default Language: {formErrors.defaultLanguage && <span className="text-destructive text-sm">*</span>}
+                </Label>
                 <Select 
                   value={defaultLanguage} 
                   onValueChange={handleSetDefaultLanguage}
                   disabled={selectedLanguages.length === 0}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className={cn("w-[180px]", formErrors.defaultLanguage ? "border-destructive" : "")}>
                     <SelectValue placeholder="Select default" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1467,6 +1490,12 @@ export function CodingQuestionFormModal({
                 </Select>
               </div>
             </div>
+            {formErrors.languageOptions && (
+              <p className="text-destructive text-sm">{formErrors.languageOptions}</p>
+            )}
+            {formErrors.defaultLanguage && (
+              <p className="text-destructive text-sm">{formErrors.defaultLanguage}</p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <Button
@@ -1539,7 +1568,9 @@ export function CodingQuestionFormModal({
           {/* Test Cases */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <Label>Test Cases</Label>
+              <Label className={formErrors.testCases ? "text-destructive" : ""}>
+                Test Cases {formErrors.testCases && <span className="text-destructive text-sm">*</span>}
+              </Label>
               <div className="flex gap-2">
                 <Button 
                   type="button" 
@@ -1570,6 +1601,9 @@ export function CodingQuestionFormModal({
                 </Button>
               </div>
             </div>
+            {formErrors.testCases && (
+              <p className="text-destructive text-sm">{formErrors.testCases}</p>
+            )}
 
             <div className="flex items-center space-x-2 p-2 border rounded-md bg-muted/20">
               <Switch
@@ -1591,7 +1625,7 @@ export function CodingQuestionFormModal({
             </div>
 
             {formData.testCases.length > 0 && (
-              <div className="text-sm text-right mb-2">
+              <div className={cn("text-sm text-right mb-2", formErrors.gradeDistribution ? "text-destructive" : "")}>
                 <span className="mr-4">Sample test cases: {formData.testCases.filter(tc => tc.type === "sample").length}</span>
                 <span className="mr-4">Hidden test cases: {formData.testCases.filter(tc => tc.type === "hidden").length}</span>
                 <span>
@@ -1602,10 +1636,18 @@ export function CodingQuestionFormModal({
                 </span>
               </div>
             )}
+            {formErrors.gradeDistribution && (
+              <p className="text-destructive text-sm">{formErrors.gradeDistribution}</p>
+            )}
 
-            {formData.testCases.map((testCase) => {
+            {formData.testCases.map((testCase, index) => {
+              const testCaseInputError = formErrors[`testCase${index}Input`];
+              const testCaseOutputError = formErrors[`testCase${index}Output`];
+              const testCaseGradeError = formErrors[`testCase${index}Grade`];
+              const hasError = testCaseInputError || testCaseOutputError || testCaseGradeError;
+              
               return (
-                <div key={testCase.id} className="space-y-4 p-4 border rounded-lg">
+                <div key={testCase.id} className={cn("space-y-4 p-4 border rounded-lg", hasError ? "border-destructive" : "")}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-2">
@@ -1655,27 +1697,39 @@ export function CodingQuestionFormModal({
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Input</Label>
+                      <Label className={testCaseInputError ? "text-destructive" : ""}>
+                        Input {testCaseInputError && <span className="text-destructive text-sm">*</span>}
+                      </Label>
                       <Textarea
                         value={testCase.input}
                         onChange={(e) => updateTestCase(testCase.id, "input", e.target.value)}
                         placeholder="Enter test case input"
-                        className="min-h-[100px] font-mono"
+                        className={cn("min-h-[100px] font-mono", testCaseInputError ? "border-destructive" : "")}
                       />
+                      {testCaseInputError && (
+                        <p className="text-destructive text-sm">{testCaseInputError}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      <Label>Expected Output</Label>
+                      <Label className={testCaseOutputError ? "text-destructive" : ""}>
+                        Expected Output {testCaseOutputError && <span className="text-destructive text-sm">*</span>}
+                      </Label>
                       <Textarea
                         value={testCase.output}
                         onChange={(e) => updateTestCase(testCase.id, "output", e.target.value)}
                         placeholder="Enter expected output"
-                        className="min-h-[100px] font-mono"
+                        className={cn("min-h-[100px] font-mono", testCaseOutputError ? "border-destructive" : "")}
                       />
+                      {testCaseOutputError && (
+                        <p className="text-destructive text-sm">{testCaseOutputError}</p>
+                      )}
                     </div>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Grade Percentage (0-100):</Label>
+                    <Label className={testCaseGradeError ? "text-destructive" : ""}>
+                      Grade Percentage (0-100): {testCaseGradeError && <span className="text-destructive text-sm">*</span>}
+                    </Label>
                     <div className="flex items-center">
                       <Input
                         type="number"
@@ -1685,13 +1739,16 @@ export function CodingQuestionFormModal({
                           const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
                           updateTestCase(testCase.id, "gradePercentage", value);
                         }}
-                        className="w-24"
+                        className={cn("w-24", testCaseGradeError ? "border-destructive" : "")}
                         min={0}
                         max={100}
                         disabled={allOrNothingGrading}
                       />
                       <span className="ml-2">%</span>
                     </div>
+                    {testCaseGradeError && (
+                      <p className="text-destructive text-sm">{testCaseGradeError}</p>
+                    )}
                   </div>
                 </div>
               );

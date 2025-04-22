@@ -558,6 +558,14 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
         return;
       }
       
+      // Validate that at least one option is marked as correct (has a positive grade)
+      if (data.options && data.options.length > 0 && !data.options.some(opt => opt.grade > 0)) {
+        console.log('Validation error:',data);
+        errors.options = 'At least one option must be marked as correct (with a positive grade)';
+        setFormErrors(errors);
+        return;
+      }
+      
       // Call handleSubmit with the validated data
       await handleSubmit(data);
     } catch (error) {
@@ -614,7 +622,11 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
             text: opt.text,
             grade: opt.grade,
             feedback: opt.feedback
-          }))
+          })),
+          isMultiple: data.isMultiple,
+          shuffleChoice: data.shuffleChoice,
+          generalFeedback: data.generalFeedback,
+          choiceNumbering: data.choiceNumbering
         } : undefined,
         codingQuestion: data.type === 'CODING' ? {
           languageOptions: data.languageOptions?.map((lang: LanguageOption) => ({

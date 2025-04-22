@@ -227,7 +227,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         questionText: body.questionText,
         defaultMark: Number(body.defaultMark) || 1,
         isAllOrNothing: {
-          set: Boolean(body.allOrNothingGrading)
+          set: Boolean(body.codingQuestion?.allOrNothingGrading)
         },
         updatedAt: now,
         // Update difficulty separately to avoid type issues

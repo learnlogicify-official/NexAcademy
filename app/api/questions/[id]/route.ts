@@ -189,7 +189,8 @@ export async function PUT(
       generalFeedback,
       choiceNumbering,
       mCQQuestion,
-      codingQuestion
+      codingQuestion,
+      allOrNothingGrading
     } = body;
 
     // Validate required fields
@@ -258,11 +259,14 @@ export async function PUT(
           update: {
             questionText,
             defaultMark: Number(defaultMark) || 1,
+            isAllOrNothing: Boolean(codingQuestion?.isAllOrNothing || codingQuestion?.allOrNothingGrading || allOrNothingGrading || false),
+            difficulty: difficulty || "MEDIUM",
             languageOptions: {
               deleteMany: {},
               create: (codingQuestion?.languageOptions || []).map((lang: any) => ({
                 language: lang.language,
-                solution: lang.solution
+                solution: lang.solution,
+                preloadCode: lang.preloadCode || ""
               }))
             },
             testCases: {

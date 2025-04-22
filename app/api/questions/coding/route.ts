@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
           questionText: codingQuestion.questionText || body.questionText || body.description || "",
           defaultMark: Number(codingQuestion.defaultMark) || Number(body.defaultMark) || 1,
           difficulty: codingQuestion.difficulty || body.difficulty || "MEDIUM",
-          isAllOrNothing: Boolean(codingQuestion.allOrNothingGrading || body.allOrNothingGrading),
+          isAllOrNothing: Boolean(codingQuestion.allOrNothingGrading || body.allOrNothingGrading || body.codingQuestion?.allOrNothingGrading),
           languageOptions: {
             create: languageOptionsData
           },

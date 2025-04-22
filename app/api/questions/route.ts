@@ -196,10 +196,14 @@ export async function POST(request: NextRequest) {
           data: {
             questionId: question.id,
             questionText: body.questionText || body.description || "",
+            difficulty: body.difficulty || "MEDIUM",
+            defaultMark: Number(body.defaultMark) || 1,
+            isAllOrNothing: Boolean(body.codingQuestion.isAllOrNothing || body.isAllOrNothing || body.allOrNothingGrading || false),
             languageOptions: {
               create: body.codingQuestion.languageOptions.map((lang: any) => ({
-                language: lang,
-                solution: body.solution || "",
+                language: lang.language,
+                solution: lang.solution || "",
+                preloadCode: lang.preloadCode || ""
               }))
             },
             testCases: {

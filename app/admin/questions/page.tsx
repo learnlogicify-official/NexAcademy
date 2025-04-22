@@ -550,7 +550,7 @@ export default function AdminQuestionsPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
-      console.log("handleFormSubmit called with data:", data);
+      console.log("Form submission data:", data);
       
       // Check if we're editing an existing question
       const isEditing = !!data.id;
@@ -561,123 +561,180 @@ export default function AdminQuestionsPage() {
         name: data.name,
         type: data.type,
         status: data.status,
-        version: data.version,
+        version: data.version || 1,
         folderId: data.folderId,
-        difficulty: data.difficulty,
-        defaultMark: data.defaultMark,
-        questionText: data.questionText,
-        mCQQuestion: data.type === 'MCQ' ? {
-          questionText: data.questionText,
-          options: data.options?.map((opt: any) => ({
-            id: opt.id, // Include ID for existing options
-            text: opt.text,
-            grade: opt.grade,
+        questionText: data.mCQQuestion?.questionText || data.codingQuestion?.questionText || data.questionText,
+        difficulty: data.difficulty || 'MEDIUM',
+        defaultMark: data.defaultMark || 1,
+      };
+
+      // Add MCQ specific fields if it's an MCQ question
+      if (data.type === 'MCQ') {
+        if (!data.mCQQuestion?.options || data.mCQQuestion?.options.length === 0) {
+          throw new Error("At least one option is required for MCQ questions");
+        }
+        transformedData.mCQQuestion = {
+          options: (data.mCQQuestion?.options || []).map((opt: any) => ({
+            id: opt.id,
+            text: opt.text || "",
+            grade: opt.grade || 0,
             feedback: opt.feedback || ""
           })),
-          isMultiple: data.isMultiple || false,
-          shuffleChoice: data.shuffleChoice || false,
-          generalFeedback: data.generalFeedback || "",
-          choiceNumbering: data.choiceNumbering || "abc",
-          solution: data.solution || "",
-          hints: data.hints || []
-        } : undefined
-      };
-      
-      // For coding questions, add the necessary data directly to the request body
-      // since the update API expects it at the top level
-      if (data.type === 'CODING') {
-        console.log("Preparing coding question data for submission");
-        
-        // Log full data object to debug
-        console.log("Full data object:", JSON.stringify(data, null, 2));
-        
-        // Check if we have data in the codingQuestion property
-        const codingData = data.codingQuestion || data;
-        
-        // Handle language options - check both potential locations
-        const languageOptions = codingData.languageOptions || data.languageOptions || [];
-        console.log(`Found ${languageOptions.length} language options`);
-        
-        transformedData.languageOptions = languageOptions.map((lang: any) => ({
-          id: lang.id,
-          language: lang.language,
-          solution: lang.solution || "",
-          preloadCode: lang.preloadCode || ""
-        }));
-        
-        // Handle test cases - check both potential locations
-        const testCases = codingData.testCases || data.testCases || [];
-        console.log(`Found ${testCases.length} test cases`);
-        
-        transformedData.testCases = testCases.map((tc: any) => ({
-          id: tc.id,
-          input: tc.input || "",
-          output: tc.output || "",
-          isHidden: tc.isHidden || false,
-          isSample: tc.isSample || false,
-          type: tc.type || (tc.isSample ? "sample" : "hidden"),
-          grade: tc.grade || tc.gradePercentage || 0,
-          showOnFailure: tc.showOnFailure || false
-        }));
-        
-        // Include other coding-specific properties
-        transformedData.allOrNothingGrading = codingData.isAllOrNothing || data.allOrNothingGrading || false;
-        transformedData.defaultLanguage = codingData.defaultLanguage || data.defaultLanguage || "";
+          isMultiple: data.mCQQuestion?.isMultiple || false,
+          shuffleChoice: data.mCQQuestion?.shuffleChoice || false,
+          generalFeedback: data.mCQQuestion?.generalFeedback || "",
+          solution: data.mCQQuestion?.solution || "",
+          hints: data.mCQQuestion?.hints || []
+        };
       }
-      
-      console.log("Transformed data for submission:", JSON.stringify(transformedData, null, 2));
-      
-      let response;
-      
-      if (isEditing) {
-        // Update existing question
-        console.log(`Updating existing question with ID: ${data.id}`);
-        const endpoint = data.type === "MCQ" 
-          ? `/api/questions/mcq/${data.id}`
-          : data.type === "CODING"
-          ? `/api/questions/coding/update/${data.id}`
-          : `/api/questions/${data.id}`;
-          
-        console.log(`Sending PUT request to: ${endpoint}`);
-        response = await axios.put(endpoint, transformedData);
-      } else {
-        // Create new question
-        const endpoint = data.type === "MCQ" 
-          ? "/api/questions/mcq"
-          : data.type === "CODING"
-          ? "/api/questions/coding"
-          : "/api/questions";
-          
-        console.log(`Sending POST request to: ${endpoint}`);
-        response = await axios.post(endpoint, transformedData);
-      }
-      
-      console.log("API response:", response.data);
 
-      toast({
-        title: "Success",
-        description: isEditing ? "Question updated successfully" : "Question created successfully",
+      // Add Coding specific fields if it's a Coding question
+      if (data.type === 'CODING') {
+        if (!data.languageOptions || data.languageOptions.length === 0) {
+          throw new Error("At least one language option is required for coding questions");
+        }
+        if (!data.testCases || data.testCases.length === 0) {
+          throw new Error("At least one test case is required for coding questions");
+        }
+        
+        // Make sure to include the allOrNothingGrading field at the top level
+        transformedData.allOrNothingGrading = Boolean(data.allOrNothingGrading || data.isAllOrNothing || false);
+        
+        transformedData.codingQuestion = {
+          languageOptions: data.languageOptions.map((option: any) => {
+            // Check if language is an object with a language property or a direct string
+            const languageValue = typeof option.language === 'object' && option.language.language 
+              ? option.language.language // Extract the enum string from the object
+              : option.language;         // Use the string directly
+            
+            return {
+              language: languageValue,
+              solution: option.solution || "",
+              preloadCode: typeof option.language === 'object' && option.language.preloadCode
+                ? option.language.preloadCode
+                : (option.preloadCode || "")
+            };
+          }),
+          testCases: data.testCases.map((testCase: any) => ({
+            input: testCase.input || "",
+            output: testCase.output || "",
+            isHidden: testCase.isHidden || false,
+            isSample: testCase.isSample || false,
+            showOnFailure: testCase.showOnFailure || false
+          })),
+          defaultLanguage: data.defaultLanguage || (data.languageOptions?.[0]?.language || ""),
+          solution: data.solution || "",
+          hints: data.hints || [],
+          isAllOrNothing: Boolean(data.allOrNothingGrading || data.isAllOrNothing || false),
+          difficulty: data.difficulty || "MEDIUM",
+          defaultMark: Number(data.defaultMark) || 1
+        };
+      }
+
+      console.log("Transformed data being sent to API:", transformedData);
+
+      const url = isEditing 
+        ? `/api/questions/${data.id}`  // Use the correct endpoint for updating
+        : '/api/questions';  // Use the correct endpoint for creating
+
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transformedData),
       });
 
-      // Fetch the latest questions with current filters
-      await fetchQuestions(filters);
-      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error Response:", errorData);
+        throw new Error(errorData.error || `Failed to ${isEditing ? 'update' : 'create'} question`);
+      }
+
+      const responseData = await response.json();
+      console.log(`${isEditing ? 'Update' : 'Create'} successful:`, responseData);
+
+      // Refresh the questions list
+      await fetchQuestions();
+
       // Close the modal
       setIsFormModalOpen(false);
       setIsCodingFormModalOpen(false);
-      
-      // Reset editing state
       setEditingQuestion(undefined);
-    } catch (error: any) {
+
+      toast({
+        title: "Success",
+        description: `Question ${isEditing ? 'updated' : 'created'} successfully`,
+      });
+    } catch (error) {
       console.error("Error in handleFormSubmit:", error);
-      const errorMessage = error.response?.data?.error || error.message || "Failed to create question";
       toast({
         title: "Error",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "Failed to submit form",
         variant: "destructive",
       });
-      // Don't close the modal or reset state on error
     }
+  };
+
+  // Add a validation function to check the data structure
+  const validateSubmissionData = (data: any): string[] => {
+    const errors: string[] = [];
+    
+    // Common validations for all question types
+    if (!data.name?.trim()) {
+      errors.push("Question name is required");
+    }
+    
+    if (!data.folderId) {
+      errors.push("Folder selection is required");
+    }
+    
+    if (!data.questionText?.trim()) {
+      errors.push("Question text is required");
+    }
+    
+    // Type-specific validations
+    if (data.type === "MCQ") {
+      if (!data.mCQQuestion?.options || !Array.isArray(data.mCQQuestion.options) || data.mCQQuestion.options.length === 0) {
+        errors.push("At least one option is required for MCQ questions");
+      }
+    } 
+    else if (data.type === "CODING") {
+      if (!data.languageOptions || !Array.isArray(data.languageOptions) || data.languageOptions.length === 0) {
+        errors.push("At least one programming language is required for coding questions");
+      } else {
+        // Make sure each language option has a valid language property
+        data.languageOptions.forEach((lang: any, index: number) => {
+          if (!lang.language) {
+            errors.push(`Language option ${index + 1} is missing a language identifier`);
+          }
+        });
+      }
+      
+      if (!data.testCases || !Array.isArray(data.testCases) || data.testCases.length === 0) {
+        errors.push("At least one test case is required for coding questions");
+      } else {
+        // Make sure test cases have input and output fields
+        data.testCases.forEach((tc: any, index: number) => {
+          if (!tc.input && tc.input !== "") {
+            errors.push(`Test case ${index + 1} is missing input`);
+          }
+          if (!tc.output && tc.output !== "") {
+            errors.push(`Test case ${index + 1} is missing output`);
+          }
+        });
+      }
+      
+      // Check for defaultLanguage
+      if (!data.defaultLanguage && data.languageOptions?.length > 0) {
+        // If missing, auto-set to first language instead of error
+        data.defaultLanguage = data.languageOptions[0].language;
+      }
+    }
+    
+    return errors;
   };
 
   const handleEditQuestion = (question: QuestionType) => {
