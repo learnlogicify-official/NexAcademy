@@ -13,6 +13,7 @@ import {
   Tag,
   ChevronLeft,
   BookOpenCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export function AdminSidebar({ className, open, onClose }: AdminSidebarProps) {
         { name: "Categories", href: "/admin/categories", icon: Tag },
         { name: "Courses", href: "/admin/courses", icon: BookOpen },
         { name: "Question Bank", href: "/admin/questions", icon: FileText },
+        { name: "Assessments", href: "/admin/assessments", icon: ClipboardCheck },
       ],
     },
     {

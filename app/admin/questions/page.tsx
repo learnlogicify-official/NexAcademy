@@ -602,25 +602,48 @@ export default function AdminQuestionsPage() {
 
       // Transform the data to match the API's expected format
       if (data.type === 'MCQ') {
+        // Make sure questionText is included
+        console.log("MCQ data:", data);
         body = {
-          ...data,
+          id: data.id,
+          name: data.name,
+          type: data.type,
+          status: data.status || 'DRAFT',
+          folderId: data.folderId,
+          questionText: data.mCQQuestion?.questionText,
+          difficulty: data.mCQQuestion?.difficulty || 'MEDIUM',
+          defaultMark: data.mCQQuestion?.defaultMark || 1,
           mCQQuestion: {
-            options: data.options.map((opt: any) => ({
+            options: data.mCQQuestion.options.map((opt: any) => ({
               ...opt,
               isCorrect: opt.grade > 0
-            }))
+            })),
+            isMultiple: data.mCQQuestion?.isMultiple,
+            shuffleChoice: data.mCQQuestion?.shuffleChoice,
+            generalFeedback: data.mCQQuestion?.generalFeedback,
+            choiceNumbering: data.mCQQuestion?.choiceNumbering
           }
         };
       } else if (data.type === 'CODING') {
         body = {
-          ...data,
+          id: data.id,
+          name: data.name,
+          type: data.type,
+          status: data.status || 'DRAFT',
+          folderId: data.folderId,
+          questionText: data.questionText,
+          difficulty: data.difficulty || 'MEDIUM',
+          defaultMark: data.defaultMark || 1,
           codingQuestion: {
             defaultLanguage: data.defaultLanguage,
             languageOptions: data.languageOptions,
-            testCases: data.testCases
+            testCases: data.testCases,
+            isAllOrNothing: data.allOrNothingGrading
           }
         };
       }
+
+      console.log("Submitting data:", body);
 
       const response = await fetch(url, {
         method,

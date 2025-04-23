@@ -170,7 +170,7 @@ export async function PUT(
 
     const body = await request.json();
     
-
+    console.log('Received request body:', JSON.stringify(body, null, 2));
     const {
       name,
       questionText,

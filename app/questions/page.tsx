@@ -125,44 +125,44 @@ export default function QuestionsPage() {
             onPageChange={setPage}
             onLimitChange={setLimit}
           />
-          <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow">
             <div className="flex justify-between items-center p-4 bg-muted/30">
               <span className="font-medium">
                 {totalItems} Questions
               </span>
             </div>
-            {Object.entries(questionsBySubcategory).map(([subcategoryId, subcategoryQuestions]) => (
-              <div key={subcategoryId} className="border-b last:border-b-0">
-                {subcategoryId !== 'uncategorized' && (
-                  <div className="flex items-center gap-2 p-4 bg-muted/30">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleSubcategoryToggle(subcategoryId, subcategoryQuestions)}
-                      className="h-8 w-8"
-                    >
-                      {expandedSubcategories.has(subcategoryId) ? (
-                        <ChevronDownIcon className="h-4 w-4" />
-                      ) : (
-                        <ChevronRightIcon className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <span className="font-medium">
-                      {subcategoryQuestions[0].subCategory?.name || 'Uncategorized'}
-                    </span>
-                  </div>
-                )}
-                {subcategoryQuestions.map((question) => (
-                  <QuestionRow
-                    key={question.id}
-                    question={question}
-                    isExpanded={expandedQuestions.has(question.id)}
-                    onToggle={() => handleQuestionToggle(question.id)}
-                  />
-                ))}
+        {Object.entries(questionsBySubcategory).map(([subcategoryId, subcategoryQuestions]) => (
+          <div key={subcategoryId} className="border-b last:border-b-0">
+            {subcategoryId !== 'uncategorized' && (
+              <div className="flex items-center gap-2 p-4 bg-muted/30">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleSubcategoryToggle(subcategoryId, subcategoryQuestions)}
+                  className="h-8 w-8"
+                >
+                  {expandedSubcategories.has(subcategoryId) ? (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronRightIcon className="h-4 w-4" />
+                  )}
+                </Button>
+                <span className="font-medium">
+                  {subcategoryQuestions[0].subCategory?.name || 'Uncategorized'}
+                </span>
               </div>
+            )}
+            {subcategoryQuestions.map((question) => (
+              <QuestionRow
+                key={question.id}
+                question={question}
+                isExpanded={expandedQuestions.has(question.id)}
+                onToggle={() => handleQuestionToggle(question.id)}
+              />
             ))}
           </div>
+        ))}
+      </div>
         </>
       )}
     </div>

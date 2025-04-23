@@ -308,6 +308,7 @@ const ValidationResultsModal = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        type="button"
                         onClick={() => onCopyOutput(result.testCaseId, result.actualOutput)}
                         className="w-full"
                       >
@@ -339,7 +340,11 @@ const ValidationResultsModal = ({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button 
+            variant="outline" 
+            type="button"
+            onClick={onClose}
+          >
             Close
           </Button>
         </DialogFooter>
@@ -1553,23 +1558,17 @@ export function CodingQuestionFormModal({
                 >
                   Test API
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  type="button"
                   onClick={handleValidateClick}
                   disabled={isValidating}
+                  className="w-full"
                 >
                   {isValidating ? (
-                    <>
-                      <span className="animate-spin mr-2">⟳</span>
-                      Validating...
-                    </>
+                    <>Validating...</>
                   ) : (
-                    <>
-                      <Terminal className="h-4 w-4 mr-2" />
-                      Validate Test Cases
-                    </>
+                    <>Validate Test Cases</>
                   )}
                 </Button>
               </div>
@@ -1659,12 +1658,13 @@ export function CodingQuestionFormModal({
                       </div>
                     </div>
                     <Button
-                      type="button"
                       variant="ghost"
                       size="icon"
+                      type="button"
                       onClick={() => removeTestCase(testCase.id)}
                     >
                       <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Remove test case</span>
                     </Button>
                   </div>
                   
@@ -1750,23 +1750,29 @@ export function CodingQuestionFormModal({
 
             {/* Add Test Case Button */}
             <div className="flex justify-center mt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
                 onClick={addTestCase}
                 className="w-full max-w-md"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 Add Test Case
               </Button>
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-6 sticky bottom-0 bg-background pb-2 border-t mt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant={initialData ? "default" : "default"}>
+            <Button
+              type="submit"
+              disabled={isValidating}
+            >
               {initialData ? "Update Question" : "Create Question"}
             </Button>
           </div>

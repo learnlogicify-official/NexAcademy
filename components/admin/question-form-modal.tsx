@@ -483,9 +483,11 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
       
       // Validate that at least one option is marked as correct (has a positive grade)
       if (data.type === 'MCQ' && data.options && data.options.length > 0) {
-        const hasCorrectOption = data.options.some(opt => ((opt && opt.grade) ?? 0) > 0);
+        const hasCorrectOption = data.options.some(opt => 
+          opt && typeof opt.grade === 'number' && opt.grade > 0
+        );
+        
         if (!hasCorrectOption) {
-    
           errors.options = 'At least one option must be marked as correct (with a positive grade)';
           setFormErrors(errors);
           return;
@@ -854,12 +856,13 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                             </div>
                             <Button
                 type="button"
-                              variant="destructive"
-                              size="sm"
+                              variant="ghost" 
+                              size="icon"
                               onClick={() => removeOption(index)}
                             >
                               <Trash2 className="h-4 w-4" />
-            </Button>
+                              <span className="sr-only">Remove option</span>
+                            </Button>
                           </div>
                           <div className="bg-muted/20 p-3 rounded-md">
                             <div className="space-y-1">
@@ -951,6 +954,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
               <Button
                 type="button"
                           onClick={addOption}
+                          type="button"
                           className="w-full mt-2"
                           disabled={!newOption.text.trim()}
                         >
@@ -1047,11 +1051,12 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                           <h4 className="font-medium">Test Case {index + 1}</h4>
                           <Button
                             type="button"
-                            variant="destructive"
-                            size="sm"
+                            variant="ghost" 
+                            size="icon"
                             onClick={() => removeTestCase(index)}
                           >
                             <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Remove test case</span>
                           </Button>
                         </div>
                         <div className="grid gap-4">

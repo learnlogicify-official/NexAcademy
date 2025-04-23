@@ -181,6 +181,7 @@ export function RichTextEditor({
             <Button 
               variant="ghost" 
               size="icon"
+              type="button"
               className="h-6 w-6"
               onClick={() => {
                 window.open(editor.getAttributes('link').href, '_blank');
@@ -191,6 +192,7 @@ export function RichTextEditor({
             <Button 
               variant="ghost" 
               size="icon"
+              type="button"
               className="h-6 w-6"
               onClick={() => {
                 editor.chain().focus().unsetLink().run();
@@ -210,6 +212,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleBold().run()}
                   className={editor.isActive("bold") ? "bg-accent" : ""}
                 >
@@ -224,6 +227,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleItalic().run()}
                   className={editor.isActive("italic") ? "bg-accent" : ""}
                 >
@@ -238,6 +242,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleUnderline().run()}
                   className={editor.isActive("underline") ? "bg-accent" : ""}
                 >
@@ -252,6 +257,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleStrike().run()}
                   className={editor.isActive("strike") ? "bg-accent" : ""}
                 >
@@ -266,6 +272,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleHighlight().run()}
                   className={editor.isActive("highlight") ? "bg-accent" : ""}
                 >
@@ -282,6 +289,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                   className={editor.isActive("heading", { level: 1 }) ? "bg-accent" : ""}
                 >
@@ -296,6 +304,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
                   className={editor.isActive("heading", { level: 2 }) ? "bg-accent" : ""}
                 >
@@ -310,6 +319,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
                   className={editor.isActive("heading", { level: 3 }) ? "bg-accent" : ""}
                 >
@@ -328,6 +338,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().setTextAlign('left').run()}
                   className={editor.isActive({ textAlign: 'left' }) ? "bg-accent" : ""}
                 >
@@ -342,6 +353,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().setTextAlign('center').run()}
                   className={editor.isActive({ textAlign: 'center' }) ? "bg-accent" : ""}
                 >
@@ -356,6 +368,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().setTextAlign('right').run()}
                   className={editor.isActive({ textAlign: 'right' }) ? "bg-accent" : ""}
                 >
@@ -372,6 +385,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleBulletList().run()}
                   className={editor.isActive("bulletList") ? "bg-accent" : ""}
                 >
@@ -386,6 +400,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleOrderedList().run()}
                   className={editor.isActive("orderedList") ? "bg-accent" : ""}
                 >
@@ -400,6 +415,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleBlockquote().run()}
                   className={editor.isActive("blockquote") ? "bg-accent" : ""}
                 >
@@ -416,6 +432,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().toggleCodeBlock().run()}
                   className={editor.isActive("codeBlock") ? "bg-accent" : ""}
                 >
@@ -432,6 +449,7 @@ export function RichTextEditor({
                     <Button
                       variant="ghost"
                       size="sm"
+                      type="button"
                       className={editor.isActive("link") ? "bg-accent" : ""}
                     >
                       <LinkIcon className="h-4 w-4" />
@@ -447,7 +465,7 @@ export function RichTextEditor({
                         onChange={(e) => setLinkUrl(e.target.value)}
                       />
                       <div className="flex justify-end">
-                        <Button size="sm" onClick={addLink}>Insert</Button>
+                        <Button size="sm" type="button" onClick={addLink}>Insert</Button>
                       </div>
                     </div>
                   </PopoverContent>
@@ -463,6 +481,7 @@ export function RichTextEditor({
                     <Button
                       variant="ghost"
                       size="sm"
+                      type="button"
                     >
                       <ImageIcon className="h-4 w-4" />
                     </Button>
@@ -477,7 +496,7 @@ export function RichTextEditor({
                         onChange={(e) => setImageUrl(e.target.value)}
                       />
                       <div className="flex justify-end">
-                        <Button size="sm" onClick={addImage}>Insert</Button>
+                        <Button size="sm" type="button" onClick={addImage}>Insert</Button>
                       </div>
                     </div>
                   </PopoverContent>
@@ -491,6 +510,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => {
                     editor.chain().focus().insertTable({
                       rows: 3,
@@ -514,6 +534,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().undo().run()}
                   disabled={!editor.can().undo()}
                 >
@@ -528,6 +549,7 @@ export function RichTextEditor({
                 <Button
                   variant="ghost"
                   size="sm"
+                  type="button"
                   onClick={() => editor.chain().focus().redo().run()}
                   disabled={!editor.can().redo()}
                 >
