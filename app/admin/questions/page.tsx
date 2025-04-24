@@ -294,9 +294,10 @@ export default function AdminQuestionsPage() {
   const [isCodingFormModalOpen, setIsCodingFormModalOpen] = useState(false);
   const [showAllFolders, setShowAllFolders] = useState(false);
   const [pagination, setPagination] = useState({ total: 0, current: 1 });
-  // Add new state variables for delete confirmation dialog
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
+  // Add a new state variable to track if all questions should be expanded
+  const [allQuestionsExpanded, setAllQuestionsExpanded] = useState(false);
 
   useEffect(() => {
     fetchQuestions(filters, currentPage);
@@ -1184,6 +1185,11 @@ export default function AdminQuestionsPage() {
     setIsDeleteDialogOpen(true);
   };
 
+  // Add a new handler for toggle all views
+  const handleToggleAllViews = () => {
+    setAllQuestionsExpanded(!allQuestionsExpanded);
+  };
+
   return (
     <div className="container mx-auto py-6 bg-background">
       <div className="flex justify-between items-center mb-6">
@@ -1425,27 +1431,7 @@ export default function AdminQuestionsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      // Create a new state variable to track global expansion state
-                      const allQuestionRows = document.querySelectorAll('.h-8.w-8.hover\\:bg-muted');
-                      
-                      // Check how many questions are already expanded
-                      const expandedCount = Array.from(document.querySelectorAll('tr + tr > td[colspan="7"]')).length;
-                      const totalCount = allQuestionRows.length;
-                      
-                      // If more than half are expanded, collapse all
-                      // Otherwise, expand all
-                      const shouldCollapse = expandedCount > totalCount / 2;
-                      
-                      // Click each toggle button to expand/collapse all questions
-                      allQuestionRows.forEach((toggle: any) => {
-                        // If the current state doesn't match the desired state, click it
-                        const isCurrentlyExpanded = toggle.closest('tr').nextElementSibling?.querySelector('td[colspan="7"]') !== null;
-                        if (shouldCollapse && isCurrentlyExpanded || !shouldCollapse && !isCurrentlyExpanded) {
-                          toggle.click();
-                        }
-                      });
-                    }}
+                    onClick={handleToggleAllViews}
                     className="flex items-center gap-1"
                     title="Toggle expansion of all questions"
                   >
@@ -1569,12 +1555,13 @@ export default function AdminQuestionsPage() {
                       question={question}
                       onSelect={handleBulkSelect}
                       isSelected={selectedQuestions.includes(question.id)}
-                    onPreview={(question) => {
-                      setPreviewQuestion(question);
-                      setIsPreviewModalOpen(true);
-                    }}
+                      onPreview={(question) => {
+                        setPreviewQuestion(question);
+                        setIsPreviewModalOpen(true);
+                      }}
                       onEdit={handleEditQuestion}
-                    onDelete={handleDeleteClick}
+                      onDelete={handleDeleteClick}
+                      allExpanded={allQuestionsExpanded}
                     />
                   ))}
                 </TableBody>

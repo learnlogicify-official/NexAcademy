@@ -102,6 +102,7 @@ interface FormData {
   defaultMark: number;
   languageOptions: LanguageOption[];
   testCases: TestCase[];
+  status: string;
 }
 
 // Judge0 language IDs mapping
@@ -370,6 +371,7 @@ export function CodingQuestionFormModal({
     defaultMark: 1,
     languageOptions: [],
     testCases: [],
+    status: "DRAFT",
   });
 
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -435,6 +437,7 @@ export function CodingQuestionFormModal({
         questionText: initialData.questionText || '',
         difficulty: initialData.difficulty || 'MEDIUM',
         defaultMark: initialData.defaultMark || 1,
+        status: initialData.status || 'DRAFT',
       }));
       
       // Set language options
@@ -757,7 +760,7 @@ export function CodingQuestionFormModal({
       languageOptions,
       testCases,
       allOrNothingGrading,
-      status: initialData?.status || "DRAFT",
+      status: formData.status,
       version: initialData?.version || 1,
       // Include separately packaged codingQuestion for compatibility
       codingQuestion: {
@@ -1418,6 +1421,24 @@ export function CodingQuestionFormModal({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="READY">Ready</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="defaultMark">Default Mark</Label>
               <Input

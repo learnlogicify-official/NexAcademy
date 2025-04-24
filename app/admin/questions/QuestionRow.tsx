@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ interface QuestionRowProps {
   onPreview: (question: Question) => void;
   onEdit: (question: Question) => void;
   onDelete: (id: string) => void;
+  allExpanded?: boolean;
 }
 
 export function QuestionRow({
@@ -23,10 +24,17 @@ export function QuestionRow({
   onPreview,
   onEdit,
   onDelete,
+  allExpanded,
 }: QuestionRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<Question | null>(null);
+
+  useEffect(() => {
+    if (allExpanded !== undefined) {
+      setIsExpanded(allExpanded);
+    }
+  }, [allExpanded]);
 
   const handleToggle = async () => {
     // Simply toggle expansion without making an API call

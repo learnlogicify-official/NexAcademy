@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output = "../node_modules/.prisma/client"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -9,21 +9,23 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String?
+  id                   String                 @id @default(cuid())
+  email                String                 @unique
+  password             String
+  name                 String?
   /// @enum {STUDENT|MANAGER|ADMIN|INSTRUCTOR|NON_EDITING_INSTRUCTOR}
   /// - STUDENT: Default role for new users
   /// - MANAGER: Can manage courses and users
   /// - ADMIN: Full system access
   /// - INSTRUCTOR: Can create and edit courses
   /// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
-  role          Role      @default(STUDENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  resetToken    String?   @unique
-  resetTokenExp DateTime?
+  role                 Role                   @default(STUDENT)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  resetToken           String?                @unique
+  resetTokenExp        DateTime?
+  assessments          Assessment[]
+  AssessmentSubmission AssessmentSubmission[]
 
   @@index([role])
 }
@@ -82,20 +84,233 @@ model Submodule {
 }
 
 model Folder {
-  id          String    @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   parentId    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Self-referencing relationship for nested folders
-  parent      Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id])
-  subfolders  Folder[]  @relation("FolderHierarchy")
-  
-  // Questions in this folder
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  assessments Assessment[]
+  parent      Folder?      @relation("FolderHierarchy", fields: [parentId], references: [id])
+  subfolders  Folder[]     @relation("FolderHierarchy")
   questions   Question[]
-  
+
   @@index([parentId])
+}
+
+model Question {
+  id                           String                         @id @default(cuid())
+  name                         String
+  type                         QuestionType
+  status                       QuestionStatus                 @default(DRAFT)
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  folderId                     String
+  version                      Int                            @default(1)
+  creatorId                    String                         @default("system")
+  creatorName                  String                         @default("System")
+  lastModifiedBy               String                         @default("system")
+  lastModifiedByName           String                         @default("System")
+  assessmentQuestions          AssessmentQuestion[]
+  AssessmentQuestionSubmission AssessmentQuestionSubmission[]
+  codingQuestion               CodingQuestion?
+  mCQQuestion                  MCQQuestion?
+  folder                       Folder                         @relation(fields: [folderId], references: [id])
+  versions                     QuestionVersion[]
+
+  @@index([folderId])
+  @@index([creatorId])
+}
+
+model QuestionVersion {
+  id         String         @id @default(cuid())
+  questionId String
+  version    Int
+  name       String
+  type       QuestionType
+  status     QuestionStatus
+  content    Json
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  question   Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, version])
+  @@index([questionId])
+}
+
+model MCQQuestion {
+  id              String             @id @default(cuid())
+  questionId      String             @unique
+  questionText    String
+  defaultMark     Float              @default(1.0)
+  shuffleChoice   Boolean            @default(false)
+  isMultiple      Boolean            @default(false)
+  tags            String[]           @default([])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  generalFeedback String?
+  difficulty      QuestionDifficulty
+  options         MCQOption[]
+  question        Question           @relation(fields: [questionId], references: [id])
+}
+
+model MCQOption {
+  id            String      @id @default(cuid())
+  text          String
+  grade         Float       @default(0.0)
+  feedback      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  mcqQuestionId String
+  mcqQuestion   MCQQuestion @relation(fields: [mcqQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([mcqQuestionId])
+}
+
+model CodingQuestion {
+  id              String             @id @default(cuid())
+  questionId      String             @unique
+  questionText    String
+  defaultMark     Float              @default(1.0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  difficulty      QuestionDifficulty @default(MEDIUM)
+  isAllOrNothing  Boolean            @default(false)
+  question        Question           @relation(fields: [questionId], references: [id])
+  languageOptions LanguageOption[]
+  testCases       TestCase[]
+}
+
+model LanguageOption {
+  id               String              @id @default(cuid())
+  language         ProgrammingLanguage
+  preloadCode      String?
+  solution         String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  codingQuestionId String
+  codingQuestion   CodingQuestion      @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([codingQuestionId])
+}
+
+model TestCase {
+  id               String         @id @default(cuid())
+  input            String
+  output           String
+  isSample         Boolean        @default(false)
+  isHidden         Boolean        @default(false)
+  showOnFailure    Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  codingQuestionId String
+  grade            Float          @default(0)
+  codingQuestion   CodingQuestion @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([codingQuestionId])
+}
+
+model Assessment {
+  id                   String                 @id @default(cuid())
+  name                 String
+  description          String?
+  startDate            DateTime
+  endDate              DateTime
+  duration             Int
+  totalMarks           Int
+  passingMarks         Int
+  status               String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  createdById          String
+  folderId             String
+  type                 AssessmentType?
+  mode                 AssessmentMode?
+  attemptCount         Int?
+  enableSEB            Boolean?               @default(false)
+  disableCopyPaste     Boolean?               @default(false)
+  disableRightClick    Boolean?               @default(false)
+  tags                 Json?
+  reviewMode           String?
+  attemptType          AssessmentAttemptType  @default(LIMITED)
+  createdBy            User                   @relation(fields: [createdById], references: [id])
+  folder               Folder                 @relation(fields: [folderId], references: [id])
+  questions            AssessmentQuestion[]
+  sections             AssessmentSection[]
+  AssessmentSubmission AssessmentSubmission[]
+
+  @@index([createdById])
+  @@index([folderId])
+}
+
+model AssessmentQuestion {
+  id                           String                         @id @default(cuid())
+  assessmentId                 String
+  questionId                   String
+  marks                        Int
+  order                        Int
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  sectionId                    String?
+  assessment                   Assessment                     @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question                     Question                       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  section                      AssessmentSection?             @relation(fields: [sectionId], references: [id])
+  AssessmentQuestionSubmission AssessmentQuestionSubmission[]
+
+  @@index([assessmentId])
+  @@index([questionId])
+  @@index([sectionId])
+}
+
+model AssessmentSection {
+  id           String               @id @default(cuid())
+  title        String
+  description  String?
+  order        Int
+  assessmentId String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  questions    AssessmentQuestion[]
+  assessment   Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+}
+
+model AssessmentQuestionSubmission {
+  id                   String               @id
+  submissionId         String
+  questionId           String
+  assessmentQuestionId String
+  answer               Json?
+  marks                Int
+  feedback             String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  AssessmentQuestion   AssessmentQuestion   @relation(fields: [assessmentQuestionId], references: [id], onDelete: Cascade)
+  Question             Question             @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  AssessmentSubmission AssessmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentQuestionId])
+  @@index([questionId])
+  @@index([submissionId])
+}
+
+model AssessmentSubmission {
+  id                           String                         @id
+  assessmentId                 String
+  userId                       String
+  startedAt                    DateTime
+  submittedAt                  DateTime?
+  totalMarks                   Int
+  obtainedMarks                Int
+  status                       String
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  AssessmentQuestionSubmission AssessmentQuestionSubmission[]
+  Assessment                   Assessment                     @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  User                         User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@index([userId])
 }
 
 /// Valid roles for users:
@@ -146,124 +361,23 @@ enum ProgrammingLanguage {
   RUST
 }
 
-model Question {
-  id          String          @id @default(cuid())
-  name        String
-  type        QuestionType
-  status      QuestionStatus  @default(DRAFT)
-  version     Int            @default(1)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  creatorId   String         @default("system")
-  creatorName String         @default("System")
-  lastModifiedBy String      @default("system")
-  lastModifiedByName String  @default("System")
-  
-  // Folder relationship
-  folderId    String
-  folder      Folder          @relation(fields: [folderId], references: [id])
-  
-  // Type-specific relationships
-  mCQQuestion MCQQuestion?
-  codingQuestion CodingQuestion?
-  
-  // Version history
-  versions    QuestionVersion[]
-  
-  @@index([folderId])
-  @@index([creatorId])
+enum AssessmentAttemptType {
+  LIMITED
+  UNLIMITED
 }
 
-model QuestionVersion {
-  id          String          @id @default(cuid())
-  questionId  String
-  question    Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  version     Int
-  name        String
-  type        QuestionType
-  status      QuestionStatus
-  content     Json           // Stores the full question data at this version
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  @@unique([questionId, version])
-  @@index([questionId])
+enum AssessmentMode {
+  WEB_PROCTORED
+  NOT_WEB_PROCTORED
 }
 
-model MCQQuestion {
-  id              String          @id @default(cuid())
-  questionText    String
-  defaultMark     Float           @default(1)
-  shuffleChoice   Boolean         @default(false)
-  isMultiple      Boolean         @default(false)
-  difficulty      QuestionDifficulty
-  tags            String[]        @default([])
-  generalFeedback String?
-  options         MCQOption[]
-  question        Question        @relation(fields: [questionId], references: [id])
-  questionId      String          @unique
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
-model MCQOption {
-  id          String    @id @default(cuid())
-  text        String
-  grade       Float     @default(0.0)
-  feedback    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // MCQQuestion relationship
-  mcqQuestionId String
-  mcqQuestion   MCQQuestion @relation(fields: [mcqQuestionId], references: [id], onDelete: Cascade)
-  
-  @@index([mcqQuestionId])
-}
-
-model CodingQuestion {
-  id              String            @id @default(cuid())
-  questionId      String            @unique
-  questionText    String
-  defaultMark     Float             @default(1.0)
-  difficulty      QuestionDifficulty @default(MEDIUM)
-  isAllOrNothing  Boolean           @default(false)
-  languageOptions LanguageOption[]
-  testCases       TestCase[]
-  question        Question          @relation(fields: [questionId], references: [id])
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-}
-
-model LanguageOption {
-  id              String          @id @default(cuid())
-  language        ProgrammingLanguage
-  preloadCode     String?
-  solution        String
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
-  // CodingQuestion relationship
-  codingQuestionId String
-  codingQuestion   CodingQuestion @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
-  
-  @@index([codingQuestionId])
-}
-
-model TestCase {
-  id              String          @id @default(cuid())
-  input           String
-  output          String
-  isSample        Boolean         @default(false)
-  isHidden        Boolean         @default(false)
-  showOnFailure   Boolean         @default(false)
-  grade           Float           @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
-  // CodingQuestion relationship
-  codingQuestionId String
-  codingQuestion   CodingQuestion @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
-  
-  @@index([codingQuestionId])
+enum AssessmentType {
+  SEQUENCE
+  FREE
 }
