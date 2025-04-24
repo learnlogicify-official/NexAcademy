@@ -236,8 +236,8 @@ export async function PUT(
           update: {
             questionText,
             defaultMark: Number(defaultMark) || 1,
-            isMultiple: Boolean(isMultiple),
-            shuffleChoice: Boolean(shuffleChoice),
+            isMultiple: Boolean(mCQQuestion?.isMultiple || isMultiple),
+            shuffleChoice: Boolean(mCQQuestion?.shuffleChoice || shuffleChoice),
             difficulty,
             generalFeedback,
             options: {
