@@ -1,0 +1,34 @@
+What is the capital of France?
+A. London
+B. Berlin
+C. Paris
+D. Madrid
+ANSWER: C
+
+Which planet is known as the Red Planet?
+A. Venus
+B. Mars
+C. Jupiter
+D. Saturn
+ANSWER: B
+
+Which programming language was created by Guido van Rossum?
+A. Java
+B. C++
+C. Python
+D. JavaScript
+ANSWER: C
+
+What is the largest ocean on Earth?
+A. Atlantic Ocean
+B. Indian Ocean
+C. Arctic Ocean
+D. Pacific Ocean
+ANSWER: D
+
+Which of the following is NOT a JavaScript framework?
+A. React
+B. Angular
+C. Vue
+D. Django
+ANSWER: D 

@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon, Folder as FolderIcon, ChevronDown, Settings, ChevronUp } from "lucide-react";
 import { QuestionFormModal } from "@/components/admin/question-form-modal";
 import { CodingQuestionFormModal } from "@/components/admin/coding-question-form-modal";
+import AikenImportButton from "@/components/admin/aiken-import-button";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -1221,6 +1222,12 @@ export default function AdminQuestionsPage() {
               <Grid className="h-4 w-4" />
             </Button>
           </div>
+          
+          <AikenImportButton 
+            folders={folders}
+            onSuccess={() => fetchQuestions(filters, currentPage)}
+          />
+          
           <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             Export
