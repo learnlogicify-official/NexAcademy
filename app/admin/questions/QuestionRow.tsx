@@ -14,7 +14,7 @@ interface QuestionRowProps {
   onPreview: (question: Question) => void;
   onEdit: (question: Question) => void;
   onDelete: (id: string) => void;
-  allExpanded?: boolean;
+  allQuestionsExpanded?: boolean;
 }
 
 export function QuestionRow({
@@ -24,17 +24,17 @@ export function QuestionRow({
   onPreview,
   onEdit,
   onDelete,
-  allExpanded,
+  allQuestionsExpanded,
 }: QuestionRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<Question | null>(null);
 
   useEffect(() => {
-    if (allExpanded !== undefined) {
-      setIsExpanded(allExpanded);
+    if (allQuestionsExpanded !== undefined) {
+      setIsExpanded(allQuestionsExpanded);
     }
-  }, [allExpanded]);
+  }, [allQuestionsExpanded]);
 
   const handleToggle = async () => {
     // Simply toggle expansion without making an API call
@@ -111,7 +111,10 @@ export function QuestionRow({
             <Button variant="ghost" size="icon" onClick={() => onPreview(question)}>
               <Eye className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => onEdit(question)}>
+            <Button variant="ghost" size="icon" onClick={() => {
+              console.log("Edit button clicked for question:", JSON.stringify(question, null, 2));
+              onEdit(question);
+            }}>
               <Pencil className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" onClick={() => onDelete(question.id)}>

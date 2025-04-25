@@ -254,15 +254,87 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
 
   // Add a useEffect to handle initial data changes
   useEffect(() => {
+    console.log("FORM MODAL - Initial data received:", JSON.stringify(initialData, null, 2));
+    
     if (initialData) {
-     
-      const questionText = initialData?.questionText || initialData?.mCQQuestion?.questionText || initialData?.codingQuestion?.questionText || '';
+      console.log("FORM MODAL - Setting form values from initialData");
       
-      form.setValue('questionText', questionText, { 
-        shouldValidate: true, 
-        shouldDirty: true,
-        shouldTouch: true
-      });
+      // Set question name
+      console.log("FORM MODAL - Name:", initialData.name);
+      form.setValue('name', initialData.name || "", { shouldValidate: true, shouldDirty: true });
+      
+      // Set question status
+      console.log("FORM MODAL - Status:", initialData.status);
+      form.setValue('status', initialData.status || "DRAFT", { shouldValidate: true, shouldDirty: true });
+      
+      // Set question type
+      console.log("FORM MODAL - Type:", initialData.type);
+      form.setValue('type', initialData.type || "MCQ", { shouldValidate: true, shouldDirty: true });
+      
+      // Set folder ID
+      console.log("FORM MODAL - FolderId:", initialData.folderId);
+      form.setValue('folderId', initialData.folderId || "", { shouldValidate: true, shouldDirty: true });
+      
+      // Set difficulty
+      console.log("FORM MODAL - Difficulty:", initialData.difficulty);
+      form.setValue('difficulty', initialData.difficulty || "MEDIUM", { shouldValidate: true, shouldDirty: true });
+      
+      // Set default mark
+      console.log("FORM MODAL - Default Mark:", initialData.defaultMark);
+      form.setValue('defaultMark', initialData.defaultMark || 1, { shouldValidate: true, shouldDirty: true });
+      
+      // Set multiple choice flag
+      console.log("FORM MODAL - Is Multiple:", initialData.isMultiple);
+      form.setValue('isMultiple', !!initialData.isMultiple, { shouldValidate: true, shouldDirty: true });
+      
+      // Set shuffle flag
+      console.log("FORM MODAL - Shuffle Choice:", initialData.shuffleChoice);
+      form.setValue('shuffleChoice', !!initialData.shuffleChoice, { shouldValidate: true, shouldDirty: true });
+      
+      // Set general feedback
+      console.log("FORM MODAL - General Feedback:", initialData.generalFeedback ? (initialData.generalFeedback.length > 100 ? initialData.generalFeedback.substring(0, 100) + '...' : initialData.generalFeedback) : '');
+      form.setValue('generalFeedback', initialData.generalFeedback || "", { shouldValidate: true, shouldDirty: true });
+      
+      // Set choice numbering
+      console.log("FORM MODAL - Choice Numbering:", initialData.choiceNumbering);
+      form.setValue('choiceNumbering', initialData.choiceNumbering || "abc", { shouldValidate: true, shouldDirty: true });
+      
+      // Set options for MCQ
+      if (initialData.options && Array.isArray(initialData.options)) {
+        console.log("FORM MODAL - Setting options (direct):", JSON.stringify(initialData.options, null, 2));
+        form.setValue('options', initialData.options, { shouldValidate: true, shouldDirty: true });
+      } else if (initialData.mCQQuestion?.options && Array.isArray(initialData.mCQQuestion.options)) {
+        console.log("FORM MODAL - Setting options (from mCQQuestion):", JSON.stringify(initialData.mCQQuestion.options, null, 2));
+        form.setValue('options', initialData.mCQQuestion.options, { shouldValidate: true, shouldDirty: true });
+      }
+      
+      // Set language options for coding
+      if (initialData.languageOptions && Array.isArray(initialData.languageOptions)) {
+        console.log("FORM MODAL - Setting language options (direct):", JSON.stringify(initialData.languageOptions, null, 2));
+        form.setValue('languageOptions', initialData.languageOptions, { shouldValidate: true, shouldDirty: true });
+      } else if (initialData.codingQuestion?.languageOptions && Array.isArray(initialData.codingQuestion.languageOptions)) {
+        console.log("FORM MODAL - Setting language options (from codingQuestion):", JSON.stringify(initialData.codingQuestion.languageOptions, null, 2));
+        form.setValue('languageOptions', initialData.codingQuestion.languageOptions, { shouldValidate: true, shouldDirty: true });
+      }
+      
+      // Set test cases for coding
+      if (initialData.testCases && Array.isArray(initialData.testCases)) {
+        console.log("FORM MODAL - Setting test cases (direct):", JSON.stringify(initialData.testCases, null, 2));
+        form.setValue('testCases', initialData.testCases, { shouldValidate: true, shouldDirty: true });
+      } else if (initialData.codingQuestion?.testCases && Array.isArray(initialData.codingQuestion.testCases)) {
+        console.log("FORM MODAL - Setting test cases (from codingQuestion):", JSON.stringify(initialData.codingQuestion.testCases, null, 2));
+        form.setValue('testCases', initialData.codingQuestion.testCases, { shouldValidate: true, shouldDirty: true });
+      }
+      
+      // Set question text (most important - save for last)
+      const questionText = initialData.questionText || initialData.mCQQuestion?.questionText || initialData.codingQuestion?.questionText || '';
+      console.log("FORM MODAL - Question Text:", questionText.length > 100 ? questionText.substring(0, 100) + '...' : questionText);
+      form.setValue('questionText', questionText, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      
+      // Log final form state for debugging
+      setTimeout(() => {
+        console.log("FORM MODAL - Final form values after initialization:", JSON.stringify(form.getValues(), null, 2));
+      }, 100);
     }
   }, [initialData, form]);
 

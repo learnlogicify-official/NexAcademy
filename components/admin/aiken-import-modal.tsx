@@ -28,6 +28,7 @@ import {
 import { Loader2, Upload, FileText, AlertCircle, CheckCircle, Download } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { QuestionFormData } from '@/app/types';
+import { Badge } from '@/components/ui/badge';
 
 interface AikenImportModalProps {
   isOpen: boolean;
@@ -232,90 +233,75 @@ Check browser console for complete details (press F12)`);
     errorBlocks: string[];
   } => {
     const normalizedText = normalizeLineEndings(text);
-    const lines = normalizedText.split('\n');
+    // Split the text by lines and filter out empty lines
+    const lines = normalizedText.split('\n').filter(line => line.trim());
     
     const questions: AikenQuestion[] = [];
     const errorBlocks: string[] = [];
     let failedCount = 0;
-    
-    let currentQuestion: {
-      question: string;
-      options: { key: string; text: string }[];
-      answer?: string;
-    } | null = null;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue; // Skip empty lines
-
-      // Check if line is an option (A), B), etc.)
-      const optionMatch = line.match(/^([A-Z])[\)\.]\s+(.*)/);
-      if (optionMatch) {
-        if (!currentQuestion) {
-          console.log(`Error: Option found without a question at line ${i + 1}`);
-          errorBlocks.push(line);
-          failedCount++;
-          continue;
+    let i = 0;
+    while (i < lines.length) {
+      try {
+        // The first line is the question text
+        const q_text = lines[i].trim();
+        i += 1;
+        
+        // Parse options (A), B), etc. or A., B., etc.)
+        const optionsArray: { key: string; text: string }[] = [];
+        const optionsKeys: Set<string> = new Set();
+        
+        while (i < lines.length && /^[A-Z][\)\.:]/.test(lines[i])) {
+          const optMatch = lines[i].match(/^([A-Z])[\)\.:](.*)$/);
+          if (optMatch) {
+            const key = optMatch[1]; // The option letter (A, B, C, etc.)
+            const text = optMatch[2].trim(); // The option text
+            optionsArray.push({ key, text });
+            optionsKeys.add(key);
+          }
+          i += 1;
         }
         
-        const [_, key, text] = optionMatch;
-        currentQuestion.options.push({
-          key: key.toUpperCase(),
-          text: text.trim()
-        });
-        continue;
-      }
-
-      // Check if line is an answer
-      const answerMatch = line.match(/^ANSWER:\s*([A-Z])/i);
-      if (answerMatch) {
-        if (!currentQuestion) {
-          console.log(`Error: ANSWER found without a question at line ${i + 1}`);
-          errorBlocks.push(line);
+        // Check for ANSWER: line
+        if (i < lines.length && /^ANSWER:\s*[A-Z]/.test(lines[i])) {
+          const answerMatch = lines[i].match(/^ANSWER:\s*([A-Z])/);
+          if (answerMatch) {
+            const answer = answerMatch[1];
+            
+            // Validate the answer exists in options
+            if (!optionsKeys.has(answer)) {
+              console.log(`Error: Answer ${answer} doesn't match any option`);
+              errorBlocks.push(q_text);
+              failedCount++;
+            } else {
+              // Add valid question
+              questions.push({
+                question: q_text,
+                options: optionsArray,
+                answer: answer
+              });
+            }
+            i += 1;
+          } else {
+            throw new Error(`Invalid ANSWER format at line ${i}`);
+          }
+        } else {
+          console.log(`Malformed question at line ${i}: Missing ANSWER`);
+          errorBlocks.push(q_text);
           failedCount++;
-          continue;
+          
+          // Skip to next potential question
+          while (i < lines.length && 
+                (/^[A-Z][\)\.:]/.test(lines[i]) || /^ANSWER:/.test(lines[i]))) {
+            i += 1;
+          }
         }
-
-        const answer = answerMatch[1].toUpperCase();
-        
-        // Validate that the answer matches one of the options
-        if (!currentQuestion.options.some(opt => opt.key === answer)) {
-          console.log(`Error: Answer ${answer} doesn't match any option`);
-          errorBlocks.push(line);
-          failedCount++;
-          currentQuestion = null;
-          continue;
-        }
-
-        // Add the completed question to our list
-        questions.push({
-          question: currentQuestion.question,
-          options: currentQuestion.options,
-          answer: answer
-        });
-        
-        currentQuestion = null;
-        continue;
-      }
-
-      // If we get here, it's a new question
-      if (currentQuestion) {
-        console.log(`Error: New question found before previous question was completed at line ${i + 1}`);
-        errorBlocks.push(line);
+      } catch (error) {
+        console.error("Error parsing question:", error);
+        errorBlocks.push(lines[i] || "Unknown line");
         failedCount++;
+        i += 1; // Move to next line and try to recover
       }
-      
-      currentQuestion = {
-        question: line,
-        options: []
-      };
-    }
-
-    // Check if we have an incomplete question at the end
-    if (currentQuestion) {
-      console.log('Error: Incomplete question at the end of file');
-      errorBlocks.push(currentQuestion.question);
-      failedCount++;
     }
 
     setParseResults({
@@ -351,7 +337,7 @@ Check browser console for complete details (press F12)`);
       name: aikenQuestion.question.substring(0, 50) + (aikenQuestion.question.length > 50 ? '...' : ''),
       questionText: aikenQuestion.question,
       type: 'MCQ',
-      status: 'DRAFT',
+      status: 'READY',
       folderId: folderId || '',
       difficulty: difficulty,
       defaultMark: defaultMark,
@@ -538,299 +524,363 @@ Check browser console for complete details (press F12)`);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import Moodle Aiken Format MCQ Questions</DialogTitle>
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Import Moodle Aiken Format MCQ Questions
+          </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
-          {/* Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Aiken Format</CardTitle>
-              <CardDescription>
-                Upload a text file in Aiken format with multiple-choice questions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Format example:
-              </p>
-              <pre className="bg-muted p-2 text-xs rounded-md my-2 whitespace-pre-wrap">
-                What is the capital of France?{'\n'}
-                A. London{'\n'}
-                B. Berlin{'\n'}
-                C. Paris{'\n'}
-                D. Madrid{'\n'}
-                ANSWER: C
-              </pre>
-              <div className="mt-2">
-                <a 
-                  href="/sample-aiken.txt" 
-                  download="sample-aiken.txt"
-                  className="text-sm text-primary hover:underline flex items-center"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Download sample Aiken format file
-                </a>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* File Upload */}
-          <div className="space-y-2">
-            <Label>Upload Aiken File (.txt)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept=".txt"
-                onChange={handleFileChange}
-                className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90"
-                disabled={isLoading || importStarted}
-              />
-              {fileName && (
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-muted-foreground overflow-hidden text-ellipsis">{fileName}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (!fileContent) {
-                        alert("No file content loaded yet");
-                        return;
-                      }
-                      
-                      // Simple direct alert with diagnostic info
-                      const totalQuestions = (fileContent.match(/ANSWER:/gi) || []).length;
-                      alert(`Quick Diagnostic for ${fileName}:
-- File size: ${fileContent.length} characters
-- Total possible questions: ${totalQuestions} (based on ANSWER: lines)
-- Parsed questions: ${parseResults?.questions.length || 0}
-- Failed questions: ${parseResults?.errorBlocks.length || 0}
-
-Check browser console (F12) for more details`);
-                      
-                      // Log more detailed information to console
-                      console.log("============ QUICK FILE DIAGNOSTIC ============");
-                      console.log(`File: ${fileName}`);
-                      console.log(`Content length: ${fileContent.length} characters`);
-                      console.log(`ANSWER lines: ${(fileContent.match(/ANSWER:/gi) || []).length}`);
-                      console.log(`Option A lines: ${(fileContent.match(/^A[\.\)]/gmi) || []).length}`);
-                      console.log(`Empty lines: ${(fileContent.match(/\n\s*\n/g) || []).length}`);
-                    }}
-                    className="h-8 px-2 text-xs"
-                  >
-                    Debug
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Folder Selection */}
-          <div className="space-y-2">
-            <Label>Target Folder</Label>
-            <Select 
-              onValueChange={setFolderId} 
-              value={folderId}
-              disabled={isLoading || importStarted}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a folder" />
-              </SelectTrigger>
-              <SelectContent>
-                {allFolderOptions.map((folder) => (
-                  <SelectItem key={folder.id} value={folder.id}>
-                    {folder.isSubfolder 
-                      ? `└─ ${folder.name} (in ${folder.parentName})` 
-                      : folder.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Question Settings */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Difficulty</Label>
-              <Select 
-                onValueChange={setDifficulty} 
-                value={difficulty}
-                disabled={isLoading || importStarted}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select difficulty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EASY">Easy</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HARD">Hard</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Default Mark</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.5"
-                value={defaultMark}
-                onChange={(e) => setDefaultMark(Number(e.target.value))}
-                disabled={isLoading || importStarted}
-              />
-            </div>
-          </div>
-
-          {/* Parsing Results */}
-          {isLoading && !importStarted && (
-            <div className="flex items-center justify-center p-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Parsing file...</span>
-            </div>
-          )}
-
-          {parseResults && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Parsing Results</CardTitle>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* Left Panel - Instructions and Settings */}
+          <div className="md:col-span-2 space-y-6">
+            {/* Instructions */}
+            <Card className="bg-gradient-to-br from-primary/5 to-background shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Aiken Format Guide
+                </CardTitle>
+                <CardDescription>
+                  A simple format for MCQ questions
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle className="h-5 w-5" />
-                    <span>{parseResults.questions.length} valid questions found</span>
-                  </div>
-                  
-                  {/* Preview of Parsed Questions */}
-                  <div className="mt-4">
-                    <h3 className="text-sm font-medium mb-2">Preview of Parsed Questions:</h3>
-                    <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
-                      {parseResults.questions.map((question, index) => (
-                        <div key={index} className="border rounded-lg p-4 bg-muted/50">
-                          <p className="font-medium mb-2">{index + 1}. {question.question}</p>
-                          <div className="space-y-1 ml-4">
-                            {question.options.map((option) => (
-                              <div 
-                                key={option.key} 
-                                className={`flex items-center gap-2 ${
-                                  option.key === question.answer ? 'text-green-600 font-medium' : ''
-                                }`}
-                              >
-                                <span className="w-6">{option.key}.</span>
-                                <span>{option.text}</span>
-                                {option.key === question.answer && (
-                                  <CheckCircle className="h-4 w-4" />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {parseResults.errorBlocks.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 text-red-600">
-                        <AlertCircle className="h-5 w-5" />
-                        <span>{parseResults.errorBlocks.length} invalid questions</span>
+                <pre className="bg-card/50 p-2 text-xs rounded-md my-2 whitespace-pre-wrap border text-foreground/80">
+                  What is the capital of France?{'\n'}
+                  A. London{'\n'}
+                  B. Berlin{'\n'}
+                  C. Paris{'\n'}
+                  D. Madrid{'\n'}
+                  ANSWER: C
+                </pre>
+                <div className="mt-4 flex justify-between">
+                  <a 
+                    href="/sample-aiken.txt" 
+                    download="sample-aiken.txt"
+                    className="text-xs text-primary hover:underline flex items-center"
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Download sample file
+                  </a>
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={processSampleData}
+                    className="text-xs h-auto py-1"
+                  >
+                    Try sample data
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* File Upload */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Upload Aiken File</CardTitle>
+                <CardDescription>
+                  Select a .txt file in Aiken format
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col space-y-2">
+                  <Input
+                    type="file"
+                    accept=".txt"
+                    onChange={handleFileChange}
+                    className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 text-xs"
+                    disabled={isLoading || importStarted}
+                  />
+                  {fileName && (
+                    <div className="flex items-center mt-2 text-xs bg-muted p-1.5 px-2 rounded-md">
+                      <div className="flex-1 truncate text-muted-foreground">
+                        {fileName}
                       </div>
-                      
-                      <Alert variant="destructive" className="mt-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Parsing Issues</AlertTitle>
-                        <AlertDescription>
-                          <p className="mb-2">
-                            Unable to parse {parseResults.errorBlocks.length} questions. Common issues:
-                          </p>
-                          <ul className="list-disc pl-5 space-y-1 text-sm">
-                            <li>Invisible characters or special formatting from copy/paste</li>
-                            <li>Missing or malformed ANSWER line (must be "ANSWER: X" where X is an option letter)</li>
-                            <li>Option format issues (must be "A. Option text" or "A) Option text")</li>
-                            <li>Missing blank line between questions</li>
-                            <li>Complex code blocks or special characters</li>
-                            <li>Images references in questions (remove [image.png] references)</li>
-                          </ul>
-                          <div className="mt-3 flex justify-between">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={processSampleData}
-                              className="px-2 py-1 h-auto text-xs"
-                            >
-                              Try Sample
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={examineContent}
-                              className="px-2 py-1 h-auto text-xs"
-                            >
-                              Examine File Format
-                            </Button>
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-                      
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-sm">Show invalid questions</summary>
-                        <ul className="pl-5 mt-2 text-sm list-disc">
-                          {parseResults.errorBlocks.map((question: string, index: number) => (
-                            <li key={index} className="text-red-600">{question.substring(0, 50)}{question.length > 50 ? '...' : ''}</li>
-                          ))}
-                        </ul>
-                      </details>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Import Progress */}
-          {importStarted && (
-            <div className="space-y-2">
-              <Label>Import Progress</Label>
-              <div className="w-full bg-muted rounded-full h-2.5">
-                <div 
-                  className="bg-primary h-2.5 rounded-full" 
-                  style={{ width: `${(importProgress / importTotal) * 100}%` }}
-                ></div>
+            {/* Question Settings */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Import Settings</CardTitle>
+                <CardDescription>
+                  Configure imported questions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="target-folder" className="text-sm">Target Folder</Label>
+                    <Select 
+                      onValueChange={setFolderId} 
+                      value={folderId}
+                      disabled={isLoading || importStarted}
+                    >
+                      <SelectTrigger id="target-folder" className="text-sm">
+                        <SelectValue placeholder="Select a folder" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allFolderOptions.map((folder) => (
+                          <SelectItem key={folder.id} value={folder.id} className="text-sm">
+                            {folder.isSubfolder 
+                              ? `└─ ${folder.name} (in ${folder.parentName})` 
+                              : folder.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="difficulty" className="text-sm">Difficulty</Label>
+                      <Select 
+                        onValueChange={setDifficulty} 
+                        value={difficulty}
+                        disabled={isLoading || importStarted}
+                      >
+                        <SelectTrigger id="difficulty" className="text-sm">
+                          <SelectValue placeholder="Select difficulty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EASY" className="text-sm">Easy</SelectItem>
+                          <SelectItem value="MEDIUM" className="text-sm">Medium</SelectItem>
+                          <SelectItem value="HARD" className="text-sm">Hard</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="default-mark" className="text-sm">Default Mark</Label>
+                      <Input
+                        id="default-mark"
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={defaultMark}
+                        onChange={(e) => setDefaultMark(Number(e.target.value))}
+                        disabled={isLoading || importStarted}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <Button 
+                      onClick={importQuestions}
+                      disabled={isLoading || !fileContent || !parseResults?.questions.length || !folderId || importStarted}
+                      className="w-full"
+                    >
+                      {isLoading && importStarted ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import {parseResults?.questions.length || 0} Questions
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Panel - Parsing Results */}
+          <div className="md:col-span-3">
+            {isLoading && !importStarted ? (
+              <div className="flex flex-col items-center justify-center h-full py-12">
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Parsing file...</p>
               </div>
-              <p className="text-sm text-right">{importProgress} of {importTotal}</p>
-            </div>
-          )}
+            ) : !parseResults ? (
+              <div className="flex flex-col items-center justify-center bg-muted/30 rounded-lg py-20 px-6 h-full">
+                <FileText className="h-16 w-16 text-muted-foreground/40 mb-4" />
+                <h3 className="text-lg font-medium mb-2 text-center">No file parsed yet</h3>
+                <p className="text-sm text-muted-foreground text-center mb-6">
+                  Upload a text file in Aiken format or try the sample data
+                </p>
+                <Button variant="outline" size="sm" onClick={processSampleData}>
+                  Try Sample Data
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="bg-gradient-to-br from-green-50 to-background dark:from-green-900/10 dark:to-background border-green-100 dark:border-green-900/30">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Valid Questions</p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{parseResults.questions.length}</p>
+                      </div>
+                      <CheckCircle className="h-8 w-8 text-green-500 dark:text-green-400" />
+                    </CardContent>
+                  </Card>
+                  
+                  {parseResults.errorBlocks.length > 0 ? (
+                    <Card className="bg-gradient-to-br from-red-50 to-background dark:from-red-900/10 dark:to-background border-red-100 dark:border-red-900/30">
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Invalid Questions</p>
+                          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{parseResults.errorBlocks.length}</p>
+                        </div>
+                        <AlertCircle className="h-8 w-8 text-red-500 dark:text-red-400" />
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="bg-gradient-to-br from-blue-50 to-background dark:from-blue-900/10 dark:to-background border-blue-100 dark:border-blue-900/30">
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Status</p>
+                          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">Ready to Import</p>
+                        </div>
+                        <Upload className="h-8 w-8 text-blue-500 dark:text-blue-400" />
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+                
+                {/* Preview of Parsed Questions */}
+                {parseResults.questions.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <span>Valid Questions Preview</span>
+                        </div>
+                        <Badge variant="outline" className="font-normal">
+                          {parseResults.questions.length} questions
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="max-h-[320px] overflow-y-auto pr-2 pt-1">
+                      <div className="space-y-3">
+                        {parseResults.questions.map((question, index) => (
+                          <div key={index} className="border rounded-lg p-3 bg-card shadow-sm hover:bg-accent/5 transition-colors">
+                            <p className="text-sm font-medium mb-2 line-clamp-2">{index + 1}. {question.question}</p>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1 pl-1">
+                              {question.options.map((option) => (
+                                <div 
+                                  key={option.key} 
+                                  className={`flex items-center text-xs gap-1 ${
+                                    option.key === question.answer 
+                                      ? 'text-green-600 dark:text-green-400 font-medium' 
+                                      : 'text-muted-foreground'
+                                  }`}
+                                >
+                                  <span className="w-5 flex-shrink-0">{option.key}.</span>
+                                  <span className="truncate">{option.text}</span>
+                                  {option.key === question.answer && (
+                                    <CheckCircle className="h-3 w-3 ml-auto flex-shrink-0" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Error Information */}
+                {parseResults.errorBlocks.length > 0 && (
+                  <Card className="border-red-200 dark:border-red-900/50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center text-red-600">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        Parsing Issues
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm mb-2">
+                        Unable to parse {parseResults.errorBlocks.length} questions. Common issues:
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1 text-xs text-muted-foreground mb-3">
+                        <li>Missing or malformed ANSWER line (must be "ANSWER: X" where X is an option letter)</li>
+                        <li>Option format issues (must be "A. Text" or "A) Text")</li>
+                        <li>Missing blank line between questions</li>
+                        <li>Special characters or invisible formatting</li>
+                      </ul>
+                      
+                      <details className="text-xs">
+                        <summary className="cursor-pointer font-medium text-red-600 mb-1">Show invalid questions</summary>
+                        <ul className="pl-5 mt-1 space-y-1 list-disc">
+                          {parseResults.errorBlocks.map((question: string, index: number) => (
+                            <li key={index} className="text-muted-foreground">
+                              {question.substring(0, 40)}{question.length > 40 ? '...' : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+            
+            {/* Import Progress */}
+            {importStarted && (
+              <Card className="mt-4">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>Import Progress</span>
+                    <span className="text-sm font-normal">{importProgress} of {importTotal}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${(importProgress / importTotal) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Importing questions... Please wait.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
 
-        <DialogFooter className="mt-4 flex justify-between">
-          <div className="space-x-2">
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2 mt-6 border-t pt-4">
+          <div className="flex justify-start mt-3 sm:mt-0">
             <Button 
               variant="outline" 
               onClick={resetForm}
               disabled={isLoading || (!fileContent && !fileName)}
+              size="sm"
             >
               Reset
             </Button>
-            <Button 
-              variant="secondary"
-              onClick={processSampleData}
-              disabled={isLoading}
-            >
-              Try Sample
-            </Button>
           </div>
-          <div className="space-x-2">
+          <div className="flex justify-end">
             <Button 
               variant="outline" 
               onClick={onClose}
               disabled={isLoading}
+              className="mr-2"
+              size="sm"
             >
               Cancel
             </Button>
             <Button 
               onClick={importQuestions}
               disabled={isLoading || !fileContent || !parseResults?.questions.length || !folderId || importStarted}
+              size="sm"
             >
               {isLoading && importStarted ? (
                 <>
@@ -844,36 +894,6 @@ Check browser console (F12) for more details`);
                 </>
               )}
             </Button>
-            {parseResults?.questions.length && parseResults.questions.length > 0 && (
-              <Button 
-                onClick={() => {
-                  try {
-                    // Test by formatting the first question
-                    const question = parseResults.questions[0];
-                    const formattedQuestion = convertAikenQuestionToFormQuestion(question, folderId);
-                    console.log("Test formatted question:", formattedQuestion);
-                    console.log("JSON string:", JSON.stringify(formattedQuestion));
-                    
-                    // Show in UI
-                    alert(
-                      `Debug: First formatted question\n\n` +
-                      `Name: ${formattedQuestion.name}\n` +
-                      `Type: ${formattedQuestion.type}\n` +
-                      `Options: ${formattedQuestion.mCQQuestion.options.length}\n\n` +
-                      `Check browser console for complete details`
-                    );
-                  } catch (error: any) {
-                    console.error("Error in test formatting:", error);
-                    alert(`Error formatting test question: ${error.message}`);
-                  }
-                }}
-                variant="outline"
-                size="sm"
-                className="mt-2"
-              >
-                Debug Format
-              </Button>
-            )}
           </div>
         </DialogFooter>
       </DialogContent>

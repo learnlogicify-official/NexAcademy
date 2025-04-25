@@ -425,10 +425,20 @@ export function CodingQuestionFormModal({
 
   // Use useEffect to initialize the form data when initialData changes
   useEffect(() => {
+    console.log("CODING FORM MODAL - Initial data received:", JSON.stringify(initialData, null, 2));
+    
     if (initialData) {
-      
+      console.log("CODING FORM MODAL - Setting form values from initialData");
       
       // Set basic form data
+      console.log("CODING FORM MODAL - Setting base properties");
+      console.log("CODING FORM MODAL - Name:", initialData.name);
+      console.log("CODING FORM MODAL - FolderId:", initialData.folderId);
+      console.log("CODING FORM MODAL - Question Text:", initialData.questionText ? (initialData.questionText.length > 100 ? initialData.questionText.substring(0, 100) + '...' : initialData.questionText) : '');
+      console.log("CODING FORM MODAL - Difficulty:", initialData.difficulty);
+      console.log("CODING FORM MODAL - Default Mark:", initialData.defaultMark);
+      console.log("CODING FORM MODAL - Status:", initialData.status);
+      
       setFormData(prevData => ({
         ...prevData,
         id: initialData.id || '',
@@ -442,6 +452,8 @@ export function CodingQuestionFormModal({
       
       // Set language options
       if (initialData.languageOptions && Array.isArray(initialData.languageOptions)) {
+        console.log("CODING FORM MODAL - Setting language options (direct):", 
+          JSON.stringify(initialData.languageOptions, null, 2));
         
         setFormData(prevData => ({
           ...prevData,
@@ -455,25 +467,67 @@ export function CodingQuestionFormModal({
         
         // Set selected languages
         const langs = initialData.languageOptions.map((lang: any) => lang.language);
+        console.log("CODING FORM MODAL - Selected languages:", langs);
         setSelectedLanguages(langs);
         
         // Set default language
-        if (initialData.defaultLanguage && langs.includes(initialData.defaultLanguage)) {
-          setDefaultLanguage(initialData.defaultLanguage);
-        } else if (langs.length > 0) {
-          setDefaultLanguage(langs[0]);
-        }
+        const defaultLang = initialData.defaultLanguage && langs.includes(initialData.defaultLanguage)
+          ? initialData.defaultLanguage
+          : (langs.length > 0 ? langs[0] : "");
+        console.log("CODING FORM MODAL - Default language:", defaultLang);
+        setDefaultLanguage(defaultLang);
         
         // Set active language tab
         if (langs.length > 0) {
+          console.log("CODING FORM MODAL - Setting active language tab:", langs[0]);
+          setActiveLanguageTab(langs[0]);
+        }
+      } else if (initialData.codingQuestion?.languageOptions && Array.isArray(initialData.codingQuestion.languageOptions)) {
+        console.log("CODING FORM MODAL - Setting language options (from codingQuestion):", 
+          JSON.stringify(initialData.codingQuestion.languageOptions, null, 2));
+        
+        setFormData(prevData => ({
+          ...prevData,
+          languageOptions: initialData.codingQuestion.languageOptions.map((lang: any) => ({
+            id: lang.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            language: lang.language,
+            solution: lang.solution || '',
+            preloadCode: lang.preloadCode || ''
+          }))
+        }));
+        
+        // Set selected languages
+        const langs = initialData.codingQuestion.languageOptions.map((lang: any) => lang.language);
+        console.log("CODING FORM MODAL - Selected languages (from codingQuestion):", langs);
+        setSelectedLanguages(langs);
+        
+        // Set default language
+        const defaultLang = initialData.codingQuestion.defaultLanguage && langs.includes(initialData.codingQuestion.defaultLanguage)
+          ? initialData.codingQuestion.defaultLanguage
+          : (langs.length > 0 ? langs[0] : "");
+        console.log("CODING FORM MODAL - Default language (from codingQuestion):", defaultLang);
+        setDefaultLanguage(defaultLang);
+        
+        // Set active language tab
+        if (langs.length > 0) {
+          console.log("CODING FORM MODAL - Setting active language tab:", langs[0]);
           setActiveLanguageTab(langs[0]);
         }
       } else {
-        
+        console.log("CODING FORM MODAL - No language options found");
       }
       
       // Set test cases
       if (initialData.testCases && Array.isArray(initialData.testCases)) {
+        console.log("CODING FORM MODAL - Setting test cases (direct):", 
+          JSON.stringify(initialData.testCases.map((tc: any) => ({
+            id: tc.id,
+            input: tc.input,
+            output: tc.output,
+            isHidden: tc.isHidden,
+            isSample: tc.isSample,
+            type: tc.type
+          })), null, 2));
        
         setFormData(prevData => ({
           ...prevData,
@@ -504,7 +558,57 @@ export function CodingQuestionFormModal({
               isHidden = true;
             }
             
-         
+            return {
+              id: tc.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+              input: tc.input || '',
+              output: tc.output || '',
+              isHidden,
+              isSample,
+              type,
+              gradePercentage: tc.gradePercentage || 0,
+              showOnFailure
+            };
+          })
+        }));
+      } else if (initialData.codingQuestion?.testCases && Array.isArray(initialData.codingQuestion.testCases)) {
+        console.log("CODING FORM MODAL - Setting test cases (from codingQuestion):", 
+          JSON.stringify(initialData.codingQuestion.testCases.map((tc: any) => ({
+            id: tc.id,
+            input: tc.input,
+            output: tc.output,
+            isHidden: tc.isHidden,
+            isSample: tc.isSample,
+            type: tc.type
+          })), null, 2));
+        
+        setFormData(prevData => ({
+          ...prevData,
+          testCases: initialData.codingQuestion.testCases.map((tc: any) => {
+            // Determine type and flags based on available data
+            let type = tc.type || '';
+            let isSample = tc.isSample === true;
+            let isHidden = tc.isHidden === true;
+            // Ensure showOnFailure is properly initialized as a boolean
+            let showOnFailure = tc.showOnFailure === true;
+            
+            // If type is specified, use it to set flags
+            if (type === 'sample') {
+              isSample = true;
+              isHidden = false;
+            } else if (type === 'hidden') {
+              isSample = false;
+              isHidden = true;
+            } 
+            // Otherwise, use flags to determine type
+            else if (isSample) {
+              type = 'sample';
+            } else if (isHidden) {
+              type = 'hidden';
+            } else {
+              // Default to hidden if neither is specified
+              type = 'hidden';
+              isHidden = true;
+            }
             
             return {
               id: tc.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -519,13 +623,34 @@ export function CodingQuestionFormModal({
           })
         }));
       } else {
-       
+        console.log("CODING FORM MODAL - No test cases found");
       }
       
       // Set all-or-nothing grading
-      if (initialData.allOrNothingGrading !== undefined) {
-        setAllOrNothingGrading(initialData.allOrNothingGrading);
+      const useAllOrNothing = initialData.allOrNothingGrading === true || initialData.codingQuestion?.isAllOrNothing === true;
+      console.log("CODING FORM MODAL - All or nothing grading:", useAllOrNothing);
+      setAllOrNothingGrading(useAllOrNothing);
+      
+      // Set default language again from possible alternatives
+      const finalDefaultLang = 
+        initialData.defaultLanguage || 
+        initialData.codingQuestion?.defaultLanguage || 
+        (selectedLanguages.length > 0 ? selectedLanguages[0] : "");
+      console.log("CODING FORM MODAL - Final default language:", finalDefaultLang);
+      if (finalDefaultLang) {
+        setDefaultLanguage(finalDefaultLang);
       }
+      
+      // Log the final form state
+      setTimeout(() => {
+        console.log("CODING FORM MODAL - Final form state:", {
+          formData: JSON.stringify(formData, null, 2),
+          selectedLanguages,
+          activeLanguageTab,
+          defaultLanguage,
+          allOrNothingGrading
+        });
+      }, 500);
     }
   }, [initialData]);
 

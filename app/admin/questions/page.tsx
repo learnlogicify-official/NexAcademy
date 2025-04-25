@@ -299,6 +299,7 @@ export default function AdminQuestionsPage() {
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   // Add a new state variable to track if all questions should be expanded
   const [allQuestionsExpanded, setAllQuestionsExpanded] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchQuestions(filters, currentPage);
@@ -329,9 +330,12 @@ export default function AdminQuestionsPage() {
       if (filters.status !== 'all') queryParams.append('status', filters.status);
       if (filters.includeSubcategories) queryParams.append('includeSubcategories', 'true');
 
-      // Add pagination parameters
+      // Add pagination parameters - make sure these are used by the API
       queryParams.append('page', page.toString());
       queryParams.append('limit', QUESTIONS_PER_PAGE.toString());
+      
+      // Update the current page state
+      setCurrentPage(page);
 
       console.log('Fetching questions with params:', Object.fromEntries(queryParams.entries()));
 
@@ -593,6 +597,8 @@ export default function AdminQuestionsPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
+      console.log("FORM SUBMIT - Initial data received:", JSON.stringify(data, null, 2));
+      
       let url = '/api/questions';
       let method = 'POST';
       let body = data;
@@ -600,33 +606,37 @@ export default function AdminQuestionsPage() {
       if (data.id) {
         url = `/api/questions/${data.id}`;
         method = 'PUT';
+        console.log(`FORM SUBMIT - Editing existing question with ID: ${data.id}`);
+      } else {
+        console.log("FORM SUBMIT - Creating new question");
       }
 
       // Transform the data to match the API's expected format
       if (data.type === 'MCQ') {
         // Make sure questionText is included
-        console.log("MCQ data:", data);
+        console.log("FORM SUBMIT - Processing MCQ data");
         body = {
           id: data.id,
           name: data.name,
           type: data.type,
           status: data.status || 'DRAFT',
           folderId: data.folderId,
-          questionText: data.mCQQuestion?.questionText,
-          difficulty: data.mCQQuestion?.difficulty || 'MEDIUM',
-          defaultMark: data.mCQQuestion?.defaultMark || 1,
+          questionText: data.mCQQuestion?.questionText || data.questionText,
+          difficulty: data.mCQQuestion?.difficulty || data.difficulty || 'MEDIUM',
+          defaultMark: data.mCQQuestion?.defaultMark || data.defaultMark || 1,
           mCQQuestion: {
-            options: data.mCQQuestion.options.map((opt: any) => ({
+            options: (data.mCQQuestion?.options || data.options || []).map((opt: any) => ({
               ...opt,
               isCorrect: opt.grade > 0
             })),
-            isMultiple: data.mCQQuestion?.isMultiple,
-            shuffleChoice: data.mCQQuestion?.shuffleChoice,
-            generalFeedback: data.mCQQuestion?.generalFeedback,
-            choiceNumbering: data.mCQQuestion?.choiceNumbering
+            isMultiple: data.mCQQuestion?.isMultiple || data.isMultiple,
+            shuffleChoice: data.mCQQuestion?.shuffleChoice || data.shuffleChoice,
+            generalFeedback: data.mCQQuestion?.generalFeedback || data.generalFeedback,
+            choiceNumbering: data.mCQQuestion?.choiceNumbering || data.choiceNumbering
           }
         };
       } else if (data.type === 'CODING') {
+        console.log("FORM SUBMIT - Processing CODING data");
         body = {
           id: data.id,
           name: data.name,
@@ -645,7 +655,7 @@ export default function AdminQuestionsPage() {
         };
       }
 
-      console.log("Submitting data:", body);
+      console.log("FORM SUBMIT - Final data to submit:", JSON.stringify(body, null, 2));
 
       const response = await fetch(url, {
         method,
@@ -657,10 +667,13 @@ export default function AdminQuestionsPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("FORM SUBMIT - API Error:", errorData);
         throw new Error(errorData.error || 'Failed to save question');
       }
 
       const result = await response.json();
+      console.log("FORM SUBMIT - Success response:", result);
+      
       toast({
         title: "Success",
         description: "Question saved successfully"
@@ -670,7 +683,7 @@ export default function AdminQuestionsPage() {
       setEditingQuestion(undefined);
       fetchQuestions(); // Refresh the questions list
     } catch (error) {
-      console.error('Error saving question:', error);
+      console.error('FORM SUBMIT - Error saving question:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : 'Failed to save question',
@@ -739,61 +752,63 @@ export default function AdminQuestionsPage() {
   };
 
   const handleEditQuestion = (question: QuestionType) => {
+    console.log("EDIT QUESTION - Original question data:", JSON.stringify(question, null, 2));
     
+    // Get MCQ-specific data with proper typing
+    const mcqQuestion = (question.mCQQuestion || {}) as any;
+    console.log("EDIT QUESTION - MCQ Question data:", JSON.stringify(mcqQuestion, null, 2));
     
-    // Make sure we're accessing the mcqQuestion fields correctly
-    const mcqQuestion = question.mCQQuestion || {} as any;
-    
-    
-    // Safely extract MCQ options
+    // Format MCQ options with standard property names
     const mcqOptions = (mcqQuestion.options || []).map((opt: any) => ({
-      id: opt.id,
+      id: opt.id || "",
       text: opt.text || "",
       grade: opt.grade || 0,
       feedback: opt.feedback || ""
     }));
+    console.log("EDIT QUESTION - Formatted MCQ options:", JSON.stringify(mcqOptions, null, 2));
     
-    // Coding-related code unchanged...
-    const codingQuestion = question.codingQuestion || {} as any;
-
+    // Get Coding-specific data with proper typing
+    const codingQuestion = (question.codingQuestion || {}) as any;
+    console.log("EDIT QUESTION - Coding Question data:", JSON.stringify(codingQuestion, null, 2));
     
-    // Safely extract language options
+    // Format language options with standard property names
     const languageOptions = (codingQuestion.languageOptions || []).map((lang: any) => ({
-      id: lang.id,
-      language: lang.language,
+      id: lang.id || "",
+      language: lang.language || "",
       solution: lang.solution || "",
       preloadCode: lang.preloadCode || ""
     }));
+    console.log("EDIT QUESTION - Formatted language options:", JSON.stringify(languageOptions, null, 2));
     
-    // Safely extract test cases
+    // Format test cases with standard property names
     const testCases = (codingQuestion.testCases || []).map((tc: any) => ({
-      id: tc.id,
+      id: tc.id || "",
       input: tc.input || "",
       output: tc.output || tc.expectedOutput || "", // Handle both output and expectedOutput fields
-      isHidden: tc.isHidden || false,
-      isSample: tc.isSample || false,
-      type: tc.isSample ? "sample" : "hidden",
-      gradePercentage: tc.grade || 0,
-      showOnFailure: tc.showOnFailure || false
+      isHidden: tc.isHidden === true,
+      type: tc.isHidden === true ? "hidden" : "sample"
     }));
+    console.log("EDIT QUESTION - Formatted test cases:", JSON.stringify(testCases, null, 2));
     
-   
+    // Extract the question text from the appropriate location
+    const questionText = 
+      (question as any).questionText || 
+      mcqQuestion.questionText || 
+      codingQuestion.questionText || 
+      "";
+    console.log("EDIT QUESTION - Extracted question text:", questionText);
     
-    // Create the editingQuestion object with all necessary fields
-    setEditingQuestion({
+    // Create the question data object matching the expected structure
+    const formData = {
       id: question.id,
       name: question.name,
       type: question.type,
       status: question.status || 'DRAFT',
       folderId: question.folderId || '',
       version: question.version || 1,
-      questionText: (question as any).questionText || codingQuestion.questionText || (question.mCQQuestion?.questionText || ''),
-      difficulty: question.type === 'MCQ' 
-        ? (mcqQuestion.difficulty || 'MEDIUM') 
-        : (codingQuestion.difficulty || 'MEDIUM'),
-      defaultMark: question.type === 'MCQ'
-        ? (mcqQuestion.defaultMark || 1)
-        : (codingQuestion.defaultMark || 1),
+      questionText: questionText,
+      difficulty: (question.type === 'MCQ' ? mcqQuestion.difficulty : codingQuestion.difficulty) || 'MEDIUM',
+      defaultMark: (question.type === 'MCQ' ? mcqQuestion.defaultMark : codingQuestion.defaultMark) || 1,
       isMultiple: mcqQuestion.isMultiple || false,
       shuffleChoice: mcqQuestion.shuffleChoice || false,
       generalFeedback: mcqQuestion.generalFeedback || '',
@@ -801,31 +816,21 @@ export default function AdminQuestionsPage() {
       options: mcqOptions,
       languageOptions: languageOptions,
       testCases: testCases,
-      allOrNothingGrading: codingQuestion.isAllOrNothing || false,
       defaultLanguage: codingQuestion.defaultLanguage || "",
-      // Include nested objects for backward compatibility
-      mCQQuestion: question.type === 'MCQ' ? {
-        options: mcqOptions,
-        isMultiple: mcqQuestion.isMultiple || false,
-        shuffleChoice: mcqQuestion.shuffleChoice || false,
-        generalFeedback: mcqQuestion.generalFeedback || "",
-        solution: mcqQuestion.solution || "",
-        hints: mcqQuestion.hints || [],
-        difficulty: mcqQuestion.difficulty || 'MEDIUM',
-        defaultMark: mcqQuestion.defaultMark || 1
-      } : undefined,
-      codingQuestion: question.type === 'CODING' ? {
-        languageOptions: languageOptions,
-        testCases: testCases,
-        isAllOrNothing: codingQuestion.isAllOrNothing || false,
-        defaultLanguage: codingQuestion.defaultLanguage || ""
-      } : undefined
-    });
+      allOrNothingGrading: codingQuestion.isAllOrNothing || false
+    };
+    
+    console.log("EDIT QUESTION - Final formData prepared for editing:", JSON.stringify(formData, null, 2));
+    
+    // Set the editingQuestion state with the formatted data
+    setEditingQuestion(formData as QuestionFormData);
     
     // Open the appropriate modal based on question type
     if (question.type === 'CODING') {
+      console.log("EDIT QUESTION - Opening coding form modal");
       setIsCodingFormModalOpen(true);
     } else {
+      console.log("EDIT QUESTION - Opening MCQ form modal");
       setIsFormModalOpen(true);
     }
   };
@@ -977,6 +982,8 @@ export default function AdminQuestionsPage() {
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
+      // Explicitly fetch questions for the new page
+      fetchQuestions(filters, newPage);
       // Scroll to top of the table when page changes
       const tableElement = document.querySelector('.questions-table');
       if (tableElement) {
@@ -1010,103 +1017,40 @@ export default function AdminQuestionsPage() {
     // ... existing code ...
   };
 
-  const prepareQuestionForEditing = (question: Question): Question => {
-    return {
-      ...question,
-      codingQuestion: question.codingQuestion ? {
-        ...question.codingQuestion,
-        languageOptions: question.codingQuestion.languageOptions.map(option => ({
-          id: option.id,
-          language: option.language,
-          solution: option.solution
-        })),
-        testCases: question.codingQuestion.testCases.map(testCase => ({
-          id: testCase.id,
-          input: testCase.input,
-          expectedOutput: testCase.expectedOutput,
-          hidden: testCase.hidden
-        })),
-        hints: question.codingQuestion.hints || [],
-        solutionExplanation: question.codingQuestion.solutionExplanation || ''
-      } : undefined,
-      mCQQuestion: question.mCQQuestion ? {
-        options: question.mCQQuestion.options.map(option => ({
-          id: option.id,
-          text: option.text,
-          isCorrect: option.isCorrect
-        })),
-        solution: question.mCQQuestion.solution || '',
-        hints: question.mCQQuestion.hints || []
-      } : undefined
-    };
+  const prepareQuestionForEditing = (question: Question): any => {
+    // Simply return the question with minimal transformation to avoid type conflicts
+    return question;
   };
 
   const handleEdit = (question: Question) => {
-    const preparedQuestion = prepareQuestionForEditing(question);
-    
-    // Create a partial QuestionFormData with the fields we have
-    const formData: Partial<QuestionFormData> = {
-      id: preparedQuestion.id,
-      name: preparedQuestion.name,
-      type: preparedQuestion.type,
-      status: preparedQuestion.status,
-      folderId: preparedQuestion.folderId || '',
-      version: preparedQuestion.version,
-      questionText: preparedQuestion.questionText || '',
-    };
-    
-    setEditingQuestion(formData as QuestionFormData);
-    
-    if (question.type === 'MCQ') {
-      setIsFormModalOpen(true);
-    } else if (question.type === 'CODING') {
-      setIsCodingFormModalOpen(true);
-    }
+    console.log("handleEdit - Question passed to edit:", JSON.stringify(question, null, 2));
+    // Call the handleEditQuestion function directly
+    handleEditQuestion(question);
   };
 
   const prepareDataForMCQModal = () => {
-    if (!editingQuestion) return undefined;
+    if (!editingQuestion) {
+      console.log("prepareDataForMCQModal - No editing question data available");
+      return undefined;
+    }
     
-    return {
-      id: editingQuestion.id,
-      name: editingQuestion.name,
-      questionText: editingQuestion.questionText,
-      type: editingQuestion.type,
-      status: editingQuestion.status,
-      folderId: editingQuestion.folderId,
-      mCQQuestion: editingQuestion.mCQQuestion || {
-        options: [],
-        solution: '',
-        hints: []
-      }
-    };
+    console.log("prepareDataForMCQModal - Returning editing question data:", JSON.stringify(editingQuestion, null, 2));
+    // Return only the data structure the MCQ modal expects
+    return editingQuestion;
   };
 
   const prepareDataForCodingModal = () => {
-    if (!editingQuestion) return undefined;
+    if (!editingQuestion) {
+      console.log("prepareDataForCodingModal - No editing question data available");
+      return undefined;
+    }
 
-    return {
-      id: editingQuestion.id,
-      name: editingQuestion.name,
-      questionText: editingQuestion.questionText,
-      type: editingQuestion.type,
-      status: editingQuestion.status,
-      folderId: editingQuestion.folderId,
-      codingQuestion: editingQuestion.codingQuestion || {
-        id: '',
-        languageOptions: [],
-        testCases: [],
-        hints: [],
-        solutionExplanation: ''
-      }
-    };
+    console.log("prepareDataForCodingModal - Returning editing question data:", JSON.stringify(editingQuestion, null, 2));
+    // Return only the data structure the coding modal expects
+    return editingQuestion;
   };
 
   // Update the table display to show only current page questions
-  const paginatedQuestions = filteredQuestions.slice(
-    (currentPage - 1) * QUESTIONS_PER_PAGE,
-    currentPage * QUESTIONS_PER_PAGE
-  );
 
   // Define a reusable pagination component
   const PaginationControls = () => (
@@ -1138,7 +1082,7 @@ export default function AdminQuestionsPage() {
               pageToShow = currentPage - 2 + i;
             }
     
-    return (
+            return (
               <Button
                 key={pageToShow}
                 variant={currentPage === pageToShow ? "default" : "outline"}
@@ -1177,8 +1121,8 @@ export default function AdminQuestionsPage() {
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
-      </div>
-    );
+    </div>
+  );
 
   // Create a function to handle opening the delete dialog
   const handleDeleteClick = (questionId: string) => {
@@ -1189,6 +1133,67 @@ export default function AdminQuestionsPage() {
   // Add a new handler for toggle all views
   const handleToggleAllViews = () => {
     setAllQuestionsExpanded(!allQuestionsExpanded);
+  };
+
+  // Add this function to handle bulk delete after the handleDeleteQuestion function
+  const handleBulkDelete = async () => {
+    try {
+      if (selectedQuestions.length === 0) {
+        toast({
+          title: "No questions selected",
+          description: "Please select at least one question to delete",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch("/api/questions/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids: selectedQuestions }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete questions");
+      }
+
+      const result = await response.json();
+      
+      toast({
+        title: "Success",
+        description: result.message,
+      });
+
+      // Reset selected questions and refresh the list
+      setSelectedQuestions([]);
+      fetchQuestions();
+      setIsBulkDeleteDialogOpen(false);
+    } catch (error) {
+      console.error("Error deleting questions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete selected questions",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSelectQuestion = (questionId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedQuestions(prev => [...prev, questionId]);
+    } else {
+      setSelectedQuestions(prev => prev.filter(id => id !== questionId));
+    }
+  };
+
+  const handleSelectAllQuestions = (isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedQuestions(filteredQuestions.map(q => q.id));
+    } else {
+      setSelectedQuestions([]);
+    }
   };
 
   return (
@@ -1271,14 +1276,19 @@ export default function AdminQuestionsPage() {
           <Dialog open={isFormModalOpen} onOpenChange={(open) => {
             setIsFormModalOpen(open);
             if (!open) {
+              console.log("MCQ Modal Closed - Resetting editing state");
               setEditingQuestion(undefined);
               setSelectedQuestionType(null);
+            } else {
+              console.log("MCQ Modal Opened - Current editing question:", JSON.stringify(editingQuestion, null, 2));
             }
           }}>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
                 <DialogTitle>{editingQuestion ? "Edit Question" : "Create New Question"}</DialogTitle>
               </DialogHeader>
+              {/* Log before rendering */}
+              <div style={{display: 'none'}}>{(() => { console.log("Rendering MCQ Form Modal with data:", JSON.stringify(editingQuestion, null, 2)); return null; })()}</div>
               <QuestionFormModal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -1296,14 +1306,19 @@ export default function AdminQuestionsPage() {
           <Dialog open={isCodingFormModalOpen} onOpenChange={(open) => {
             setIsCodingFormModalOpen(open);
             if (!open) {
+              console.log("Coding Modal Closed - Resetting editing state");
               setEditingQuestion(undefined);
               setSelectedQuestionType(null);
+            } else {
+              console.log("Coding Modal Opened - Current editing question:", JSON.stringify(editingQuestion, null, 2));
             }
           }}>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>{editingQuestion ? "Edit Coding Question" : "Create New Coding Question"}</DialogTitle>
               </DialogHeader>
+              {/* Log before rendering */}
+              <div style={{display: 'none'}}>{(() => { console.log("Rendering Coding Form Modal with data:", JSON.stringify(editingQuestion, null, 2)); return null; })()}</div>
               <CodingQuestionFormModal
                 isOpen={isCodingFormModalOpen}
                 onClose={() => setIsCodingFormModalOpen(false)}
@@ -1479,6 +1494,34 @@ export default function AdminQuestionsPage() {
                 </div>
               )}
 
+              {/* Bulk Actions Bar - Show when questions are selected */}
+              {selectedQuestions.length > 0 && (
+                <div className="flex items-center justify-between p-2 mt-4 bg-primary/10 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span>{selectedQuestions.length} questions selected</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setIsBulkDeleteDialogOpen(true)}
+                      className="flex items-center gap-1"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Selected
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedQuestions([])}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Filter Actions */}
               <div className="flex justify-between items-center pt-4">
                 <Button
@@ -1505,80 +1548,111 @@ export default function AdminQuestionsPage() {
             </div>
           </div>
 
-          {/* Questions Table */}
-          <div className="bg-card rounded-lg shadow p-6">
-            {/* Add top pagination controls */}
-            <div className="mb-4">
-              <PaginationControls />
-            </div>
-            
-            <Table className="questions-table">
+          {/* Table View */}
+          {viewMode === 'table' && (
+            <div className="bg-card rounded-lg shadow questions-table">
+              <Table>
                 <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">Select</TableHead>
-                    <TableHead>Question</TableHead>
-                  <TableHead className="w-[100px]">Type</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[180px]">Updated</TableHead>
-                  <TableHead className="w-[150px]">Last Modified By</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[40px]">
+                      <Checkbox 
+                        checked={selectedQuestions.length > 0 && selectedQuestions.length === filteredQuestions.length}
+                        onCheckedChange={handleSelectAllQuestions}
+                        aria-label="Select all questions"
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="w-[300px] cursor-pointer"
+                      onClick={() => {
+                        if (sortField === 'name') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortField('name');
+                          setSortDirection('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center">
+                        Name
+                        {sortField === 'name' && (
+                          sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Folder</TableHead>
+                    <TableHead 
+                      className="hidden md:table-cell cursor-pointer"
+                      onClick={() => {
+                        if (sortField === 'updatedAt') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortField('updatedAt');
+                          setSortDirection('desc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center">
+                        Last Updated
+                        {sortField === 'updatedAt' && (
+                          sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                      <p className="mt-2 text-sm text-muted-foreground">Loading questions...</p>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredQuestions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      <p className="text-muted-foreground">No questions match your current filters</p>
-                      <div className="flex justify-center gap-2 mt-2">
-                        <Button
-                          variant="outline" 
-                          size="sm"
-                          onClick={clearFilters}
-                        >
-                          <X className="mr-2 h-4 w-4" />
-                          Clear Filters
-                        </Button>
-                        <Button
-                          variant="default" 
-                          size="sm"
-                          onClick={handleCreateQuestion}
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Question
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredQuestions.map((question) => (
-                    <QuestionRow
-                      key={question.id}
-                      question={question}
-                      onSelect={handleBulkSelect}
-                      isSelected={selectedQuestions.includes(question.id)}
-                      onPreview={(question) => {
-                        setPreviewQuestion(question);
-                        setIsPreviewModalOpen(true);
-                      }}
-                      onEdit={handleEditQuestion}
-                      onDelete={handleDeleteClick}
-                      allExpanded={allQuestionsExpanded}
-                    />
-                  ))}
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="flex justify-center items-center">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          <span>Loading questions...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredQuestions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center">
+                          <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground mb-2">No questions found</p>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Try adjusting your filters or create a new question
+                          </p>
+                          <Button onClick={handleCreateQuestion}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Question
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredQuestions.map((question) => (
+                      <QuestionRow
+                        key={question.id}
+                        question={question}
+                        onSelect={(id) => handleSelectQuestion(id, !selectedQuestions.includes(id))}
+                        isSelected={selectedQuestions.includes(question.id)}
+                        onPreview={() => handleEdit(question)}
+                        onEdit={() => handleEdit(question)}
+                        onDelete={(id) => handleDeleteClick(id)}
+                        allQuestionsExpanded={allQuestionsExpanded}
+                      />
+                    ))
+                  )}
                 </TableBody>
               </Table>
-
-            {/* Bottom pagination controls */}
-            <div className="mt-4">
-              <PaginationControls />
+              
+              {filteredQuestions.length > 0 && (
+                <div className="p-4 border-t">
+                  <PaginationControls />
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </TabsContent>
 
         <TabsContent value="folders">
@@ -2347,6 +2421,32 @@ export default function AdminQuestionsPage() {
             <Button 
               variant="destructive"
               onClick={() => questionToDelete && handleDeleteQuestion(questionToDelete)}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Deletion</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to delete these questions? This action cannot be undone.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsBulkDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleBulkDelete}
             >
               Delete
             </Button>
