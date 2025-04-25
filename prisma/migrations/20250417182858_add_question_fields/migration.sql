@@ -1,5 +1,0 @@
--- AlterTable
-ALTER TABLE "Question" ADD COLUMN     "marks" INTEGER NOT NULL DEFAULT 1,
-ADD COLUMN     "shuffleAnswers" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "singleAnswer" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "status" TEXT NOT NULL DEFAULT 'DRAFT';

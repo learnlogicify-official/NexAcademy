@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Plus, Clock, Info, Calendar } from "lucide-react";
-import { toast } from "sonner";
-
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -20,858 +21,854 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { Editor } from "@/components/editor";
 
-interface Question {
-  id: string;
-  name: string;
-  type: string;
-  difficulty: string;
-  marks: number;
-}
+const formSchema = z.object({
+  // Basic Details
+  name: z.string().min(1, "Name is required"),
+  description: z.string().default(""),
+  status: z.enum(["DRAFT", "READY", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
+  folderId: z.string().min(1, "Folder is required"),
 
-interface Section {
-  id?: string;
-  title: string;
-  description?: string;
-  order: number;
-}
+  // Timing
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  duration: z.number().int().positive().optional(),
 
-// Define enum values to match the database
-const AssessmentType = {
-  SEQUENCE: "SEQUENCE",
-  FREE: "FREE"
-} as const;
+  // Grade Settings
+  totalMarks: z.number().int().positive().default(100),
+  passingMarks: z.number().int().min(0),
 
-const AssessmentMode = {
-  WEB_PROCTORED: "WEB_PROCTORED",
-  NOT_WEB_PROCTORED: "NOT_WEB_PROCTORED"
-} as const;
+  // Display Settings
+  displayDescription: z.boolean().default(false),
+  timeBoundEnabled: z.boolean().default(false),
+  timeLimitEnabled: z.boolean().default(false),
+  gradeCategory: z.string().optional(),
+  gradeToPass: z.number().optional(),
+  attemptsAllowed: z.number().int().min(1).nullable(),
+  unlimitedAttempts: z.boolean().default(false),
+  navigationMethod: z.string().default("free"),
+  shuffleWithinQuestions: z.boolean().default(false),
+  questionBehaviourMode: z.string().default("deferredfeedback"),
+  reviewDuringAttempt: z.boolean().default(false),
+  reviewImmediatelyAfterAttempt: z.boolean().default(false),
+  reviewLaterWhileOpen: z.boolean().default(false),
+  reviewAfterClose: z.boolean().default(false),
+  showUserPicture: z.boolean().default(false),
+  decimalPlacesInGrades: z.number().int().default(2),
+  decimalPlacesInMarks: z.number().int().default(2),
+  requirePassword: z.boolean().default(false),
+  webcamIdentityValidation: z.boolean().default(false),
+  proctoring: z.enum(["proctoring", "not_proctoring"]).default("not_proctoring"),
+  disableRightClick: z.boolean().default(false),
+  disableCopyPaste: z.boolean().default(false),
+});
 
-const AssessmentAttemptType = {
-  LIMITED: "LIMITED",
-  UNLIMITED: "UNLIMITED"
-} as const;
-
-const AssessmentStatus = {
-  DRAFT: "DRAFT",
-  PUBLISHED: "PUBLISHED",
-  ARCHIVED: "ARCHIVED"
-} as const;
+const QUESTION_BEHAVIOUR_MODES = [
+  {
+    value: "deferredfeedback",
+    label: "Deferred Feedback",
+    description: "Students answer all questions and submit before seeing any feedback."
+  },
+  {
+    value: "immediate",
+    label: "Immediate Feedback",
+    description: "Students receive feedback immediately after answering each question."
+  },
+  {
+    value: "adaptive",
+    label: "Adaptive Mode",
+    description: "The next question adapts based on the student's previous answer."
+  },
+  {
+    value: "interactive",
+    label: "Interactive (Multiple Tries)",
+    description: "Students can attempt each question multiple times, possibly with hints or partial credit."
+  },
+  {
+    value: "manual",
+    label: "Manual Grading",
+    description: "Some or all questions require instructor review and grading."
+  },
+  {
+    value: "open",
+    label: "Open Navigation",
+    description: "Students can freely move between questions and change answers before submitting."
+  },
+  {
+    value: "sequential",
+    label: "Sequential Navigation",
+    description: "Students must answer questions in order and cannot return to previous questions."
+  },
+];
 
 export default function CreateAssessmentPage() {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
-  const [sections, setSections] = useState<Section[]>([
-    { title: "Section 1", description: "", order: 1 }
-  ]);
-  
-  // Assessment settings states
-  const [assessmentType, setAssessmentType] = useState<string>(AssessmentType.SEQUENCE);
-  const [assessmentMode, setAssessmentMode] = useState<string>(AssessmentMode.NOT_WEB_PROCTORED);
-  const [attemptType, setAttemptType] = useState<string>(AssessmentAttemptType.LIMITED);
-  const [attemptCount, setAttemptCount] = useState(1);
-  const [enableSEB, setEnableSEB] = useState(false);
-  const [disableCopyPaste, setDisableCopyPaste] = useState(false);
-  const [disableRightClick, setDisableRightClick] = useState(false);
-  
-  // Mock data - in a real app, you would fetch this from an API
-  const courses = [
-    { id: "1", name: "Introduction to Web Development" },
-    { id: "2", name: "JavaScript Fundamentals" },
-    { id: "3", name: "React Essentials" },
-    { id: "4", name: "Node.js Backend Development" },
-  ];
-  
-  const questions: Question[] = [
-    { id: "1", name: "JavaScript Variables", type: "MCQ", difficulty: "Easy", marks: 5 },
-    { id: "2", name: "CSS Flexbox", type: "MCQ", difficulty: "Medium", marks: 10 },
-    { id: "3", name: "React Hooks", type: "MCQ", difficulty: "Hard", marks: 15 },
-    { id: "4", name: "Array Manipulation", type: "Coding", difficulty: "Medium", marks: 20 },
-    { id: "5", name: "DOM Manipulation", type: "Coding", difficulty: "Hard", marks: 25 },
-  ];
-  
-  const handleSelectAllQuestions = () => {
-    if (selectedQuestions.length === questions.length) {
-      setSelectedQuestions([]);
-    } else {
-      setSelectedQuestions(questions.map(q => q.id));
-    }
-  };
-  
-  const handleSelectQuestion = (id: string) => {
-    if (selectedQuestions.includes(id)) {
-      setSelectedQuestions(selectedQuestions.filter(qId => qId !== id));
-    } else {
-      setSelectedQuestions([...selectedQuestions, id]);
-    }
-  };
-  
-  const calculateTotalMarks = () => {
-    return questions
-      .filter(q => selectedQuestions.includes(q.id))
-      .reduce((sum, q) => sum + q.marks, 0);
-  };
-  
-  const handleAddSection = () => {
-    setSections([
-      ...sections,
-      {
-        title: `Section ${sections.length + 1}`,
-        description: "",
-        order: sections.length + 1
-      }
-    ]);
-  };
-  
-  const handleUpdateSection = (index: number, field: keyof Section, value: string | number) => {
-    const updatedSections = [...sections];
-    updatedSections[index] = { ...updatedSections[index], [field]: value };
-    setSections(updatedSections);
-  };
-  
-  const handleRemoveSection = (index: number) => {
-    if (sections.length === 1) {
-      toast("Cannot remove the only section", {
-        description: "An assessment must have at least one section."
-      });
-      return;
-    }
-    
-    const updatedSections = sections.filter((_, i) => i !== index);
-    // Update order for remaining sections
-    updatedSections.forEach((section, i) => {
-      section.order = i + 1;
-    });
-    setSections(updatedSections);
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (selectedQuestions.length === 0) {
-      toast("Please select at least one question", {
-        description: "An assessment must contain at least one question."
-      });
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
+  const [isLoading, setIsLoading] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      description: "",
+      displayDescription: false,
+      status: "DRAFT",
+      timeBoundEnabled: false,
+      timeLimitEnabled: false,
+      attemptsAllowed: 1,
+      navigationMethod: "free",
+      shuffleWithinQuestions: false,
+      questionBehaviourMode: "deferredfeedback",
+      reviewDuringAttempt: false,
+      reviewImmediatelyAfterAttempt: false,
+      reviewLaterWhileOpen: false,
+      reviewAfterClose: false,
+      showUserPicture: false,
+      decimalPlacesInGrades: 2,
+      decimalPlacesInMarks: 2,
+      requirePassword: false,
+      webcamIdentityValidation: false,
+      unlimitedAttempts: false,
+      proctoring: "not_proctoring",
+      disableRightClick: false,
+      disableCopyPaste: false,
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("Form submission started with values:", values);
     try {
-      // Prepare form data
-      const formElement = e.target as HTMLFormElement;
-      const formData = {
-        name: formElement.elements.namedItem("title") instanceof HTMLInputElement 
-          ? (formElement.elements.namedItem("title") as HTMLInputElement).value 
-          : "",
-        description: formElement.elements.namedItem("description") instanceof HTMLTextAreaElement 
-          ? (formElement.elements.namedItem("description") as HTMLTextAreaElement).value 
-          : "",
-        startDate: formElement.elements.namedItem("start-date") instanceof HTMLInputElement 
-          ? (formElement.elements.namedItem("start-date") as HTMLInputElement).value 
-          : "",
-        endDate: formElement.elements.namedItem("end-date") instanceof HTMLInputElement 
-          ? (formElement.elements.namedItem("end-date") as HTMLInputElement).value 
-          : "",
-        duration: formElement.elements.namedItem("time-limit") instanceof HTMLInputElement 
-          ? parseInt((formElement.elements.namedItem("time-limit") as HTMLInputElement).value) 
-          : 60,
-        totalMarks: calculateTotalMarks(),
-        passingMarks: formElement.elements.namedItem("passing-percentage") instanceof HTMLInputElement 
-          ? parseInt((formElement.elements.namedItem("passing-percentage") as HTMLInputElement).value) 
-          : 70,
-        status: AssessmentStatus.DRAFT, // Default to draft
-        folderId: "some-folder-id", // This would be selected in a real implementation
-        
-        // Settings
-        type: assessmentType,
-        mode: assessmentMode,
-        attemptType: attemptType,
-        attemptCount: attemptType === AssessmentAttemptType.LIMITED ? attemptCount : null,
-        enableSEB,
-        disableCopyPaste,
-        disableRightClick,
-        
-        // Questions and Sections
-        questions: questions
-          .filter(q => selectedQuestions.includes(q.id))
-          .map((q, index) => ({
-            questionId: q.id,
-            marks: q.marks,
-            order: index + 1,
-            // Add section ID based on selection in UI
-          })),
-        sections: sections
-      };
+      setIsLoading(true);
       
-      // In a real app, you would send this data to your API
-      const response = await fetch('/api/assessments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create assessment");
+      // Check for required fields
+      if (!values.name) {
+        console.log("Missing required field: name");
+        toast.error("Assessment name is required");
+        setIsLoading(false);
+        return;
+      }
+
+      if (values.timeBoundEnabled && (!values.startDate || !values.endDate)) {
+        console.log("Missing required time bound fields:", { startDate: values.startDate, endDate: values.endDate });
+        toast.error("Start date and end date are required for time-bound assessments");
+        setIsLoading(false);
+        return;
       }
       
-      toast("Assessment created successfully");
-      router.push("/admin/assessments");
-    } catch (error) {
-      toast("Failed to create assessment", {
-        description: error instanceof Error ? error.message : "Please try again later."
+      if (values.timeLimitEnabled && !values.duration) {
+        console.log("Missing required duration field for time-limited assessment");
+        toast.error("Duration is required when time limit is enabled");
+        setIsLoading(false);
+        return;
+      }
+
+      // First, create a folder if we don't have one
+      let folderIdToUse;
+      
+      try {
+        // Check if we have any folders
+        console.log("Fetching existing folders...");
+        const foldersResponse = await fetch("/api/folders");
+        const folders = await foldersResponse.json();
+        console.log("Existing folders:", folders);
+        
+        if (folders && folders.length > 0) {
+          // Use the first folder
+          folderIdToUse = folders[0].id;
+          console.log("Using existing folder:", folders[0]);
+        } else {
+          // Create a new folder
+          console.log("No existing folders found, creating new folder...");
+          const folderResponse = await fetch("/api/folders", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: "Assessments" }),
+          });
+          
+          if (!folderResponse.ok) {
+            throw new Error("Failed to create folder");
+          }
+          
+          const newFolder = await folderResponse.json();
+          folderIdToUse = newFolder.id;
+          console.log("Created new folder:", newFolder);
+        }
+      } catch (error) {
+        console.error("Error handling folders:", error);
+        toast.error("Failed to prepare folder for assessment");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Transform the form data to match the API schema
+      const transformedData = {
+        name: values.name,
+        description: values.description,
+        status: values.status,
+        totalMarks: values.totalMarks,
+        passingMarks: values.passingMarks,
+        folderId: folderIdToUse,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        duration: values.duration,
+        timeBoundEnabled: values.timeBoundEnabled,
+        timeLimitEnabled: values.timeLimitEnabled,
+        navigationMethod: values.navigationMethod,
+        shuffleWithinQuestions: values.shuffleWithinQuestions,
+        questionBehaviourMode: values.questionBehaviourMode,
+        unlimitedAttempts: values.unlimitedAttempts,
+        attemptsAllowed: values.attemptsAllowed,
+        reviewDuringAttempt: values.reviewDuringAttempt,
+        reviewImmediatelyAfterAttempt: values.reviewImmediatelyAfterAttempt,
+        reviewLaterWhileOpen: values.reviewLaterWhileOpen,
+        reviewAfterClose: values.reviewAfterClose,
+        proctoring: values.proctoring,
+        disableRightClick: values.disableRightClick,
+        disableCopyPaste: values.disableCopyPaste
+      };
+
+      console.log('Submitting assessment with transformed data:', transformedData);
+
+      const response = await fetch("/api/assessments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(transformedData),
       });
+
+      console.log('Got response from API:', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        throw new Error(errorData.message || "Failed to create assessment");
+      }
+
+      const data = await response.json();
+      console.log('API success response:', data);
+      toast.success("Assessment created successfully");
+      router.push(`/admin/assessments/${data.id}`);
+    } catch (error) {
+      console.error("Error creating assessment:", {
+        error,
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
-  };
-  
-  const handleCancel = () => {
-    if (isSubmitting) return;
-    setShowConfirmDialog(true);
-  };
+  }
   
   return (
-    <div className="p-6 space-y-6 container max-w-5xl">
+    <div className="container mx-auto py-10">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
       <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Create Assessment</h1>
-          <p className="text-muted-foreground">
-            Create a new assessment for your students
-          </p>
-        </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          type="button"
-          onClick={() => router.push("/admin/assessments")}
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Back to Assessments
-        </Button>
+            <h2 className="text-3xl font-bold tracking-tight">Create Assessment</h2>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating..." : "Create Assessment"}
+            </Button>
       </div>
       
-      <form onSubmit={handleSubmit} className="space-y-8">
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList>
+              <TabsTrigger value="basic">Basic Details</TabsTrigger>
+              <TabsTrigger value="timing">Timing</TabsTrigger>
+              <TabsTrigger value="grading">Grading</TabsTrigger>
+              <TabsTrigger value="behavior">Question Behavior</TabsTrigger>
+              <TabsTrigger value="review">Review Options</TabsTrigger>
+              <TabsTrigger value="extra">Extra Settings</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic">
         <Card>
           <CardHeader>
-            <CardTitle>Assessment Details</CardTitle>
+                  <CardTitle>Basic Details</CardTitle>
             <CardDescription>
-              Basic information about the assessment
+                    Set the basic information for your assessment
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input 
-                  id="title" 
-                  placeholder="e.g., JavaScript Fundamentals Quiz" 
-                  required 
-                />
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter assessment name" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Editor
+                            value={field.value ?? ""}
+                            onChange={field.onChange}
+                            placeholder="Enter assessment description..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="displayDescription"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Display Description</FormLabel>
+                          <FormDescription>
+                            Show description on the assessment page
+                          </FormDescription>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="course">Course</Label>
-                <Select required>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value ?? ""}
+                          defaultValue={field.value ?? ""}
+                        >
+                          <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a course" />
+                              <SelectValue placeholder="Select status" />
                   </SelectTrigger>
+                          </FormControl>
                   <SelectContent>
-                    {courses.map(course => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
+                            <SelectItem value="DRAFT">Draft</SelectItem>
+                            <SelectItem value="READY">Ready</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="timing">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Timing</CardTitle>
+                  <CardDescription>
+                    Configure when the assessment will be available and its duration
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="timeBoundEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Time Bound Assessment</FormLabel>
+                          <FormDescription>
+                            Enable to set start and end dates for the assessment
+                          </FormDescription>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description" 
-                placeholder="Describe the purpose and content of this assessment"
-                rows={3}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="start-date">Start Date and Time</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("timeBoundEnabled") && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="startDate"
+                        render={({ field }) => {
+                          const dateValue = field.value ? new Date(field.value) : null;
+                          const formattedValue = dateValue ? new Date(dateValue.getTime() - dateValue.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+                          
+                          return (
+                            <FormItem>
+                              <FormLabel>Start Date</FormLabel>
+                              <FormControl>
                   <Input
-                    id="start-date"
                     type="datetime-local"
-                    className="pl-9"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="end-date">End Date and Time</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                  value={formattedValue}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      const [date, time] = e.target.value.split('T');
+                                      const [year, month, day] = date.split('-').map(Number);
+                                      const [hours, minutes] = time.split(':').map(Number);
+                                      const newDate = new Date(year, month - 1, day, hours, minutes);
+                                      field.onChange(newDate);
+                                    } else {
+                                      field.onChange(null);
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="endDate"
+                        render={({ field }) => {
+                          const dateValue = field.value ? new Date(field.value) : null;
+                          const formattedValue = dateValue ? new Date(dateValue.getTime() - dateValue.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+                          
+                          return (
+                            <FormItem>
+                              <FormLabel>End Date</FormLabel>
+                              <FormControl>
                   <Input
-                    id="end-date"
                     type="datetime-local"
-                    className="pl-9"
-                    required
+                                  value={formattedValue}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      const [date, time] = e.target.value.split('T');
+                                      const [year, month, day] = date.split('-').map(Number);
+                                      const [hours, minutes] = time.split(':').map(Number);
+                                      const newDate = new Date(year, month - 1, day, hours, minutes);
+                                      field.onChange(newDate);
+                                    } else {
+                                      field.onChange(null);
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                   />
                 </div>
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="timeLimitEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Enable Time Limit</FormLabel>
+                          <FormDescription>
+                            Set a time limit for completing the assessment
+                          </FormDescription>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="time-limit">Time Limit (minutes)</Label>
-                <div className="relative">
-                  <Clock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("timeLimitEnabled") && (
+                    <FormField
+                      control={form.control}
+                      name="duration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Duration (minutes)</FormLabel>
+                          <FormControl>
                   <Input
-                    id="time-limit"
                     type="number"
-                    min="1"
-                    placeholder="60"
-                    className="pl-9"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="passing-percentage">Passing Percentage</Label>
-                <div className="relative">
+                              min={1}
+                              {...field}
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="grading">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Grading</CardTitle>
+                  <CardDescription>
+                    Configure grading settings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="passingMarks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Passing Marks</FormLabel>
+                        <FormControl>
                   <Input
-                    id="passing-percentage"
                     type="number"
-                    min="1"
-                    max="100"
-                    placeholder="70"
-                    required
+                            min={0}
+                            {...field}
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
+
+                  <FormField
+                    control={form.control}
+                    name="unlimitedAttempts"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Unlimited Attempts</FormLabel>
+                          <FormDescription>
+                            Allow students to take the assessment as many times as they want
+                          </FormDescription>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="assessment-type">Assessment Type</Label>
-                <Select 
-                  required 
-                  onValueChange={(value) => setAssessmentType(value)}
-                  defaultValue={assessmentType}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={AssessmentType.SEQUENCE}>Sequence</SelectItem>
-                    <SelectItem value={AssessmentType.FREE}>Free Navigation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              field.onChange(checked);
+                              if (checked) {
+                                form.setValue("attemptsAllowed", null);
+                              } else {
+                                form.setValue("attemptsAllowed", 1);
+                              }
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {!form.watch("unlimitedAttempts") && (
+                    <FormField
+                      control={form.control}
+                      name="attemptsAllowed"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Attempts Allowed</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
           </CardContent>
         </Card>
+            </TabsContent>
         
+            <TabsContent value="behavior">
         <Card>
           <CardHeader>
-            <CardTitle>Advanced Settings</CardTitle>
+                  <CardTitle>Question Behavior</CardTitle>
             <CardDescription>
-              Configure additional options for this assessment
+                    Configure how questions behave during the assessment
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="assessment-mode">Assessment Mode</Label>
+                  <div className="mb-2 p-3 bg-muted rounded">
+                    <strong>Instructions:</strong>
+                    <ul className="list-disc pl-5 mt-1 text-sm">
+                      {QUESTION_BEHAVIOUR_MODES.map((mode) => (
+                        <li key={mode.value}>
+                          <span className="font-medium">{mode.label}:</span> {mode.description}
+                        </li>
+                      ))}
+                    </ul>
+              </div>
+                  <FormField
+                    control={form.control}
+                    name="questionBehaviourMode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Question Behaviour Mode</FormLabel>
                 <Select 
-                  required 
-                  onValueChange={(value) => setAssessmentMode(value)}
-                  defaultValue={assessmentMode}
-                >
-                  <SelectTrigger id="assessment-mode">
-                    <SelectValue placeholder="Select mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={AssessmentMode.WEB_PROCTORED}>Web Proctored</SelectItem>
-                    <SelectItem value={AssessmentMode.NOT_WEB_PROCTORED}>Non-Web Proctored</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="attempt-type">Attempt Type</Label>
-                <Select 
-                  required 
-                  onValueChange={(value) => setAttemptType(value)}
-                  defaultValue={attemptType}
-                >
-                  <SelectTrigger id="attempt-type">
-                    <SelectValue placeholder="Select attempt type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={AssessmentAttemptType.LIMITED}>Limited</SelectItem>
-                    <SelectItem value={AssessmentAttemptType.UNLIMITED}>Unlimited</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            {attemptType === AssessmentAttemptType.LIMITED && (
-              <div className="space-y-2">
-                <Label htmlFor="attempt-count">Number of Attempts</Label>
-                <Select 
-                  required 
-                  onValueChange={(value) => setAttemptCount(parseInt(value))}
-                  defaultValue={attemptCount.toString()}
-                >
-                  <SelectTrigger id="attempt-count">
-                    <SelectValue placeholder="Select number of attempts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="15">15</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
-            <Separator />
-            
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Security Options</h3>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="copy-paste">Disable Copy-Paste</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Prevent students from copying and pasting content
-                  </p>
-                </div>
-                <Switch 
-                  id="copy-paste" 
-                  checked={disableCopyPaste} 
-                  onCheckedChange={setDisableCopyPaste}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="right-click">Disable Right-Click</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Prevent students from using right-click context menu
-                  </p>
-                </div>
-                <Switch 
-                  id="right-click" 
-                  checked={disableRightClick} 
-                  onCheckedChange={setDisableRightClick}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="seb">Enable Safe Exam Browser</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="w-80">
-                            Safe Exam Browser (SEB) is a locked-down browser
-                            that prevents students from accessing unauthorized
-                            resources during an exam.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Require students to use Safe Exam Browser
-                  </p>
-                </div>
-                <Switch 
-                  id="seb" 
-                  checked={enableSEB} 
-                  onCheckedChange={setEnableSEB}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Sections</CardTitle>
-                <CardDescription>
-                  Organize your assessment into sections
-                </CardDescription>
-              </div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm"
-                onClick={handleAddSection}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Section
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="multiple" defaultValue={["section-0"]}>
-              {sections.map((section, index) => (
-                <AccordionItem key={index} value={`section-${index}`}>
-                  <AccordionTrigger>
-                    <div className="flex items-center">
-                      <span>{section.title}</span>
-                      {sections.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="ml-2 h-7 w-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveSection(index);
-                          }}
+                          onValueChange={field.onChange}
+                          value={field.value ?? ""}
+                          defaultValue={field.value ?? ""}
                         >
-                          <Plus className="h-4 w-4 rotate-45" />
-                        </Button>
-                      )}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      <div className="space-y-2">
-                        <Label htmlFor={`section-title-${index}`}>Section Title</Label>
-                        <Input
-                          id={`section-title-${index}`}
-                          value={section.title}
-                          onChange={(e) => handleUpdateSection(index, "title", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`section-description-${index}`}>Section Description</Label>
-                        <Textarea
-                          id={`section-description-${index}`}
-                          value={section.description || ""}
-                          onChange={(e) => handleUpdateSection(index, "description", e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select behaviour mode" />
+                  </SelectTrigger>
+                          </FormControl>
+                  <SelectContent>
+                            {QUESTION_BEHAVIOUR_MODES.map((mode) => (
+                              <SelectItem key={mode.value} value={mode.value}>
+                                {mode.label}
+                              </SelectItem>
+                            ))}
+                  </SelectContent>
+                </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="shuffleWithinQuestions"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4 mt-2">
+                <div className="space-y-0.5">
+                          <FormLabel>Shuffle Questions</FormLabel>
+                          <FormDescription>
+                            Randomize the order of questions for each attempt.
+                          </FormDescription>
+                </div>
+                        <FormControl>
+                <Switch 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
           </CardContent>
         </Card>
+            </TabsContent>
         
+            <TabsContent value="review">
         <Card>
           <CardHeader>
-            <CardTitle>Questions</CardTitle>
+                  <CardTitle>Review Options</CardTitle>
+                <CardDescription>
+                    Configure when students can review their attempts
+                </CardDescription>
+          </CardHeader>
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="reviewDuringAttempt"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Review During Attempt</FormLabel>
+                          <FormDescription>
+                            Allow review during the attempt
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="reviewImmediatelyAfterAttempt"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Immediate Review</FormLabel>
+                          <FormDescription>
+                            Allow review immediately after attempt
+                          </FormDescription>
+                    </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="reviewLaterWhileOpen"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Later Review While Open</FormLabel>
+                          <FormDescription>
+                            Allow review later, while still open
+                          </FormDescription>
+                      </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="reviewAfterClose"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Review After Close</FormLabel>
+                          <FormDescription>
+                            Allow review after the assessment closes
+                          </FormDescription>
+                      </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+          </CardContent>
+        </Card>
+            </TabsContent>
+        
+            <TabsContent value="extra">
+        <Card>
+          <CardHeader>
+                  <CardTitle>Extra Settings</CardTitle>
             <CardDescription>
-              Select questions to include in this assessment
+                    Additional security and validation settings
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all">
-              <div className="flex justify-between items-center mb-4">
-                <TabsList>
-                  <TabsTrigger value="all">All Questions</TabsTrigger>
-                  <TabsTrigger value="mcq">Multiple Choice</TabsTrigger>
-                  <TabsTrigger value="coding">Coding</TabsTrigger>
-                </TabsList>
-                
-                <div className="flex items-center gap-2">
-                  <div className="text-sm text-muted-foreground">
-                    {selectedQuestions.length} selected | Total marks: {calculateTotalMarks()}
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => router.push("/admin/questions")}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Question
-                  </Button>
-                </div>
-              </div>
-              
-              <TabsContent value="all" className="m-0">
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox 
-                            checked={selectedQuestions.length === questions.length && questions.length > 0}
-                            onCheckedChange={handleSelectAllQuestions}
-                          />
-                        </TableHead>
-                        <TableHead>Question</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Difficulty</TableHead>
-                        <TableHead>Marks</TableHead>
-                        <TableHead>Section</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {questions.map(question => (
-                        <TableRow key={question.id}>
-                          <TableCell>
-                            <Checkbox 
-                              checked={selectedQuestions.includes(question.id)}
-                              onCheckedChange={() => handleSelectQuestion(question.id)}
-                            />
-                          </TableCell>
-                          <TableCell>{question.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {question.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                              question.difficulty === "Easy" ? "outline" : 
-                              question.difficulty === "Medium" ? "secondary" : 
-                              "default"
-                            }>
-                              {question.difficulty}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{question.marks}</TableCell>
-                          <TableCell>
-                            <Select defaultValue="0">
-                              <SelectTrigger className="w-32">
-                                <SelectValue placeholder="Select section" />
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="proctoring"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Proctoring</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? ""} defaultValue={field.value ?? ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select proctoring option" />
                               </SelectTrigger>
+                          </FormControl>
                               <SelectContent>
-                                {sections.map((section, index) => (
-                                  <SelectItem key={index} value={index.toString()}>
-                                    {section.title}
-                                  </SelectItem>
-                                ))}
+                            <SelectItem value="proctoring">Proctoring</SelectItem>
+                            <SelectItem value="not_proctoring">Not Proctoring</SelectItem>
                               </SelectContent>
                             </Select>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                        <FormDescription>
+                          Choose whether to enable proctoring for this assessment.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="disableRightClick"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Disable Right Click</FormLabel>
+                          <FormDescription>
+                            Prevent students from using right-click during the assessment.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={!!field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="disableCopyPaste"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Disable Copy-Paste</FormLabel>
+                          <FormDescription>
+                            Prevent students from copying or pasting during the assessment.
+                          </FormDescription>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="mcq" className="m-0">
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox />
-                        </TableHead>
-                        <TableHead>Question</TableHead>
-                        <TableHead>Difficulty</TableHead>
-                        <TableHead>Marks</TableHead>
-                        <TableHead>Section</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {questions
-                        .filter(q => q.type === "MCQ")
-                        .map(question => (
-                          <TableRow key={question.id}>
-                            <TableCell>
-                              <Checkbox 
-                                checked={selectedQuestions.includes(question.id)}
-                                onCheckedChange={() => handleSelectQuestion(question.id)}
-                              />
-                            </TableCell>
-                            <TableCell>{question.name}</TableCell>
-                            <TableCell>
-                              <Badge variant={
-                                question.difficulty === "Easy" ? "outline" : 
-                                question.difficulty === "Medium" ? "secondary" : 
-                                "default"
-                              }>
-                                {question.difficulty}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{question.marks}</TableCell>
-                            <TableCell>
-                              <Select defaultValue="0">
-                                <SelectTrigger className="w-32">
-                                  <SelectValue placeholder="Select section" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sections.map((section, index) => (
-                                    <SelectItem key={index} value={index.toString()}>
-                                      {section.title}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="coding" className="m-0">
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox />
-                        </TableHead>
-                        <TableHead>Question</TableHead>
-                        <TableHead>Difficulty</TableHead>
-                        <TableHead>Marks</TableHead>
-                        <TableHead>Section</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {questions
-                        .filter(q => q.type === "Coding")
-                        .map(question => (
-                          <TableRow key={question.id}>
-                            <TableCell>
-                              <Checkbox 
-                                checked={selectedQuestions.includes(question.id)}
-                                onCheckedChange={() => handleSelectQuestion(question.id)}
-                              />
-                            </TableCell>
-                            <TableCell>{question.name}</TableCell>
-                            <TableCell>
-                              <Badge variant={
-                                question.difficulty === "Easy" ? "outline" : 
-                                question.difficulty === "Medium" ? "secondary" : 
-                                "default"
-                              }>
-                                {question.difficulty}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{question.marks}</TableCell>
-                            <TableCell>
-                              <Select defaultValue="0">
-                                <SelectTrigger className="w-32">
-                                  <SelectValue placeholder="Select section" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sections.map((section, index) => (
-                                    <SelectItem key={index} value={index.toString()}>
-                                      {section.title}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-            </Tabs>
+                        <FormControl>
+                          <Switch
+                            checked={!!field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
           </CardContent>
         </Card>
-        
-        <div className="flex justify-end gap-4">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={handleCancel}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            type="submit" 
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Creating..." : "Create Assessment"}
-          </Button>
-        </div>
+            </TabsContent>
+          </Tabs>
       </form>
-      
-      {/* Confirmation Dialog */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Any unsaved changes will be lost. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Continue Editing</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => router.push("/admin/assessments")}
-              className="bg-destructive text-destructive-foreground"
-              type="button"
-            >
-              Discard Changes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </Form>
     </div>
   );
 } 

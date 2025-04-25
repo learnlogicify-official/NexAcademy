@@ -707,6 +707,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                       placeholder="Enter question name" 
                       {...field} 
                       className={formErrors.name ? "border-destructive" : ""}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormMessage>{formErrors.name}</FormMessage>
@@ -849,7 +850,7 @@ export const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                       min="0" 
                       step="0.5"
                       {...field}
-                      value={field.value.toString()}
+                      value={field.value ?? ""}
                       onChange={(e) => {
                         const value = parseFloat(e.target.value) || 0;
                         

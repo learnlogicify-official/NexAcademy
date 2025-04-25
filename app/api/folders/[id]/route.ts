@@ -81,12 +81,40 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // First delete all subfolders
-    await prisma.folder.deleteMany({
-      where: { parentId: params.id },
+    // First delete all questions in the folder
+    await prisma.question.deleteMany({
+      where: { folderId: params.id },
     });
 
-    // Then delete the folder
+    // Then delete all assessments in the folder
+    await prisma.assessment.deleteMany({
+      where: { folderId: params.id },
+    });
+
+    // Delete all subfolders and their contents
+    const subfolders = await prisma.folder.findMany({
+      where: { parentId: params.id },
+      select: { id: true }
+    });
+
+    for (const subfolder of subfolders) {
+      // Delete questions in subfolder
+      await prisma.question.deleteMany({
+        where: { folderId: subfolder.id },
+      });
+
+      // Delete assessments in subfolder
+      await prisma.assessment.deleteMany({
+        where: { folderId: subfolder.id },
+      });
+
+      // Delete the subfolder
+      await prisma.folder.delete({
+        where: { id: subfolder.id },
+      });
+    }
+
+    // Finally delete the main folder
     await prisma.folder.delete({
       where: { id: params.id },
     });

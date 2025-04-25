@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Plus, Trash2, Clock, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -76,7 +76,7 @@ interface PageProps {
 }
 
 export default function EditAssessmentPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = use(params);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
