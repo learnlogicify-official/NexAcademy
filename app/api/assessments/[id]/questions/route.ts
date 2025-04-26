@@ -183,29 +183,35 @@ export async function POST(
               });
             }
             
-            // If there are questions to add, create them in small batches
+            // If there are questions to add, use createMany for better performance
             if (sectionQuestionData.length > 0) {
-              // Create section questions in batches of 10
-              // Note: We're not using transactions here to avoid issues in serverless environments
-              // This approach is more reliable on Vercel even though it's not fully atomic
-              const batchSize = 10;
-              let successCount = 0;
-              
-              for (let i = 0; i < sectionQuestionData.length; i += batchSize) {
-                const batch = sectionQuestionData.slice(i, i + batchSize);
-                for (const item of batch) {
+              try {
+                // Use Prisma's createMany for much better performance
+                // This is much faster than creating one-by-one
+                await prismaAny.sectionQuestion.createMany({
+                  data: sectionQuestionData,
+                  skipDuplicates: true
+                });
+                
+                console.log(`Successfully created ${sectionQuestionData.length} section-question relationships in batch`);
+              } catch (batchError) {
+                console.error(`Error in bulk creation:`, batchError);
+                
+                // Fallback to individual creation only if bulk fails
+                console.log("Trying individual creation as fallback...");
+                let successCount = 0;
+                
+                for (const item of sectionQuestionData) {
                   try {
                     await prismaAny.sectionQuestion.create({ data: item });
                     successCount++;
                   } catch (itemError) {
                     console.error(`Error creating relationship for question ${item.questionId}:`, itemError);
-                    // Continue with other items
                   }
                 }
-                console.log(`Processed batch ${Math.floor(i/batchSize) + 1} for section ${newSection.id}`);
+                
+                console.log(`Fallback: Created ${successCount} out of ${sectionQuestionData.length} relationships`);
               }
-              
-              console.log(`Successfully created ${successCount} out of ${sectionQuestionData.length} relationships for section ${newSection.id}`);
             }
           }
           
