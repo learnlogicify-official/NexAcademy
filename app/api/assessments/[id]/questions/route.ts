@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 // Type assertion for Prisma client to avoid TypeScript errors
 const prismaAny = prisma as any;
@@ -80,7 +80,7 @@ export async function POST(
     }
 
     // Check if assessment exists and user has access
-    const assessment = await prisma.assessment.findUnique({
+    const assessment = await prismaAny.assessment.findUnique({
       where: { id: assessmentId },
       include: { createdBy: true }
     });
@@ -101,130 +101,142 @@ export async function POST(
     }
 
     try {
-      // Use a transaction to ensure all operations are atomic
-      return await prismaAny.$transaction(async (tx) => {
-        // Delete existing sections and their question relationships
-        console.log(`Deleting existing sections for assessment: ${assessmentId}`);
-        await tx.section.deleteMany({
-          where: { assessmentId }
-        });
-        console.log(`Successfully deleted existing sections`);
+      // Instead of using a transaction, we'll do each operation separately
+      // which is better for serverless environments
+      
+      // 1. Delete existing sections - this cascades to SectionQuestion due to Prisma schema
+      console.log(`Deleting existing sections for assessment: ${assessmentId}`);
+      await prismaAny.section.deleteMany({
+        where: { assessmentId }
+      });
+      console.log(`Successfully deleted existing sections`);
 
-        // Create new sections and their relationships
-        const createdSections = [];
-        
-        for (const section of sectionInput) {
-          try {
-            console.log(`Creating section ${section.name} with ${section.questions.length} questions`);
+      // 2. Create new sections and their relationships
+      const createdSections = [];
+      
+      for (const section of sectionInput) {
+        try {
+          console.log(`Creating section ${section.name} with ${section.questions.length} questions`);
+          
+          // Create the section
+          const newSection = await prismaAny.section.create({
+            data: {
+              id: section.id,
+              title: section.name,
+              description: section.description,
+              order: section.order || 0,
+              assessment: {
+                connect: { id: assessmentId }
+              }
+            }
+          });
+          
+          console.log(`Section created with ID: ${newSection.id}`);
+          
+          // Add questions to section if there are any
+          if (section.questions && section.questions.length > 0) {
+            console.log(`Adding ${section.questions.length} questions to section ${newSection.id}`);
             
-            // Create the section
-            const newSection = await tx.section.create({
-              data: {
-                id: section.id,
-                title: section.name,
-                description: section.description,
-                order: section.order || 0,
-                assessment: {
-                  connect: { id: assessmentId }
-                }
+            // Process questions, which might be strings or objects
+            const questionEntries = section.questions.map(q => {
+              if (typeof q === 'string') {
+                return { id: q, sectionMark: null };
+              } else {
+                return { id: q.id, sectionMark: q.sectionMark || null };
               }
             });
             
-            console.log(`Section created with ID: ${newSection.id}`);
+            const questionIds = questionEntries.map(q => q.id);
             
-            // Create the SectionQuestion entries one by one to ensure reliable creation
-            if (section.questions && section.questions.length > 0) {
-              console.log(`Adding ${section.questions.length} questions to section ${newSection.id}`);
-              
-              // Process questions, which might be strings or objects
-              const questionEntries = section.questions.map(q => {
-                if (typeof q === 'string') {
-                  return { id: q, sectionMark: null };
-                } else {
-                  return { id: q.id, sectionMark: q.sectionMark || null };
+            // Verify questions exist
+            const existingQuestions = await prismaAny.question.findMany({
+              where: {
+                id: {
+                  in: questionIds
                 }
-              });
+              },
+              select: {
+                id: true
+              }
+            });
+            
+            const existingQuestionIds = existingQuestions.map((q: { id: string }) => q.id);
+            console.log(`Found ${existingQuestions.length} existing questions out of ${questionIds.length}`);
+            
+            // Prepare SectionQuestion data for bulk create
+            const sectionQuestionData = [];
+            
+            for (let i = 0; i < questionEntries.length; i++) {
+              const { id: questionId, sectionMark } = questionEntries[i];
               
-              const questionIds = questionEntries.map(q => q.id);
-              
-              // First verify questions exist
-              const existingQuestions = await tx.question.findMany({
-                where: {
-                  id: {
-                    in: questionIds
-                  }
-                },
-                select: {
-                  id: true
-                }
-              });
-              
-              console.log(`Found ${existingQuestions.length} existing questions out of ${questionIds.length}`);
-              
-              // Track successful and failed creations
-              const successfulCreations = [];
-              
-              // Create each SectionQuestion relationship
-              for (let i = 0; i < questionEntries.length; i++) {
-                const { id: questionId, sectionMark } = questionEntries[i];
-                
-                // Skip if question doesn't exist
-                if (!existingQuestions.some(q => q.id === questionId)) {
-                  console.warn(`Question ${questionId} doesn't exist, skipping`);
-                  continue;
-                }
-                
-                try {
-                  // Create the relationship with sectionMark if provided
-                  const relationship = await tx.sectionQuestion.create({
-                    data: {
-                      sectionId: newSection.id,
-                      questionId: questionId,
-                      order: i,
-                      sectionMark: sectionMark
-                    }
-                  });
-                  
-                  successfulCreations.push(relationship);
-                  console.log(`Created relationship for question ${questionId} at position ${i}${sectionMark ? ` with mark ${sectionMark}` : ''}`);
-                } catch (relError) {
-                  console.error(`Failed to create relationship for question ${questionId}:`, relError);
-                  // Continue with other questions instead of failing completely
-                }
+              // Skip if question doesn't exist
+              if (!existingQuestionIds.includes(questionId)) {
+                console.warn(`Question ${questionId} doesn't exist, skipping`);
+                continue;
               }
               
-              console.log(`Created ${successfulCreations.length} relationships for section ${newSection.id}`);
+              sectionQuestionData.push({
+                sectionId: newSection.id,
+                questionId,
+                order: i,
+                sectionMark
+              });
             }
             
-            // Add to response
-            createdSections.push({
-              ...newSection,
-              questions: section.questions || []
-            });
-            
-          } catch (sectionError) {
-            console.error(`Error creating section ${section.id}:`, sectionError);
-            throw sectionError;
+            // If there are questions to add, create them in small batches
+            if (sectionQuestionData.length > 0) {
+              // Create section questions in batches of 10
+              // Note: We're not using transactions here to avoid issues in serverless environments
+              // This approach is more reliable on Vercel even though it's not fully atomic
+              const batchSize = 10;
+              let successCount = 0;
+              
+              for (let i = 0; i < sectionQuestionData.length; i += batchSize) {
+                const batch = sectionQuestionData.slice(i, i + batchSize);
+                for (const item of batch) {
+                  try {
+                    await prismaAny.sectionQuestion.create({ data: item });
+                    successCount++;
+                  } catch (itemError) {
+                    console.error(`Error creating relationship for question ${item.questionId}:`, itemError);
+                    // Continue with other items
+                  }
+                }
+                console.log(`Processed batch ${Math.floor(i/batchSize) + 1} for section ${newSection.id}`);
+              }
+              
+              console.log(`Successfully created ${successCount} out of ${sectionQuestionData.length} relationships for section ${newSection.id}`);
+            }
+          }
+          
+          // Add to response
+          createdSections.push({
+            ...newSection,
+            questions: section.questions || []
+          });
+          
+        } catch (sectionError) {
+          console.error(`Error creating section ${section.id}:`, sectionError);
+          // Continue with other sections instead of failing completely
+        }
+      }
+      
+      console.log(`Created ${createdSections.length} sections`);
+      
+      // Get count of section-question relationships
+      const totalRelationships = await prismaAny.sectionQuestion.count({
+        where: {
+          sectionId: {
+            in: createdSections.map(s => s.id)
           }
         }
-        
-        console.log(`Created ${createdSections.length} sections`);
-        
-        // Do a verification check to confirm relationships were created
-        const totalRelationships = await tx.sectionQuestion.count({
-          where: {
-            sectionId: {
-              in: createdSections.map(s => s.id)
-            }
-          }
-        });
-        
-        console.log(`Created a total of ${totalRelationships} section-question relationships`);
-        
-        return NextResponse.json({
-          id: assessmentId,
-          sections: createdSections
-        });
+      });
+      
+      console.log(`Created a total of ${totalRelationships} section-question relationships`);
+      
+      return NextResponse.json({
+        id: assessmentId,
+        sections: createdSections
       });
     } catch (error) {
       console.error("Error updating assessment sections:", error);
