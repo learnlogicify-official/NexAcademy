@@ -113,6 +113,7 @@ model Question {
   mCQQuestion       MCQQuestion?
   folder            Folder            @relation(fields: [folderId], references: [id])
   versions          QuestionVersion[]
+  sections          Section[]
 
   @@index([folderId])
   @@index([creatorId])
@@ -301,9 +302,24 @@ model Assessment {
   folderId      String
   folder        Folder        @relation(fields: [folderId], references: [id])
   tags          AssessmentTag[]
+  sections      Section[]
 
   @@index([createdById])
   @@index([folderId])
+}
+
+model Section {
+  id            String       @id @default(cuid())
+  name          String
+  description   String?
+  order         Int          @default(0)
+  assessmentId  String
+  assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([assessmentId])
 }
 
 model Tag {

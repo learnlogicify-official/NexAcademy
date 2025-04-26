@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -123,6 +123,7 @@ export default function CreateAssessmentPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       description: "",
       displayDescription: false,
       status: "DRAFT",
@@ -145,10 +146,34 @@ export default function CreateAssessmentPage() {
       proctoring: "not_proctoring",
       disableRightClick: false,
       disableCopyPaste: false,
+      passingMarks: 0,
+      totalMarks: 100,
+      folderId: "",
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  // Add effect to check form setup
+  useEffect(() => {
+    console.log("Form setup check:", { 
+      formExists: !!form,
+      formMethods: Object.keys(form),
+      handleSubmit: !!form.handleSubmit,
+    });
+    
+    // Check if DOM elements exist
+    setTimeout(() => {
+      const formElement = document.querySelector('form');
+      const submitButton = document.querySelector('button[type="button"]');
+      console.log("DOM check:", {
+        formElement: !!formElement,
+        submitButton: !!submitButton,
+        formAction: formElement?.getAttribute('action'),
+        formMethod: formElement?.getAttribute('method'),
+      });
+    }, 1000);
+  }, [form]);
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     console.log("Form submission started with values:", values);
     try {
       setIsLoading(true);
@@ -266,7 +291,9 @@ export default function CreateAssessmentPage() {
       const data = await response.json();
       console.log('API success response:', data);
       toast.success("Assessment created successfully");
-      router.push(`/admin/assessments/${data.id}`);
+      
+      // Redirect to assessments list page
+      router.push("/admin/assessments");
     } catch (error) {
       console.error("Error creating assessment:", {
         error,
@@ -277,22 +304,30 @@ export default function CreateAssessmentPage() {
     } finally {
       setIsLoading(false);
     }
-  }
-  
+  };
+
   return (
     <div className="container mx-auto py-10">
+      
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-      <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <h2 className="text-3xl font-bold tracking-tight">Create Assessment</h2>
             <Button 
-              type="submit" 
+              type="button" 
               disabled={isLoading}
+              onClick={() => {
+                console.log("Button clicked directly");
+                const values = form.getValues();
+                console.log("Current form values:", values);
+                onSubmit(values);
+              }}
             >
               {isLoading ? "Creating..." : "Create Assessment"}
             </Button>
-      </div>
-      
+          </div>
+          
           <Tabs defaultValue="basic" className="w-full">
             <TabsList>
               <TabsTrigger value="basic">Basic Details</TabsTrigger>
