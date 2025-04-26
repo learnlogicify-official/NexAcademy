@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
+
+// Type assertion for Prisma client to avoid TypeScript errors
+const prismaAny = prisma as any;
 
 const updateAssessmentSchema = z.object({
   name: z.string().min(1).optional(),
@@ -56,12 +60,27 @@ export async function GET(
       );
     }
 
-    // Fetch assessment with related data
-    const assessment = await prisma.assessment.findUnique({
+    // Fetch assessment with related data including sections and their questions
+    const assessment = await prismaAny.assessment.findUnique({
       where: { id: assessmentId },
       include: {
         createdBy: true,
-        folder: true
+        folder: true,
+        sections: {
+          include: {
+            questions: {
+              include: {
+                question: true
+              },
+              orderBy: {
+                order: 'asc'
+              }
+            }
+          },
+          orderBy: {
+            order: 'asc'
+          }
+        }
       }
     });
 
@@ -80,7 +99,21 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(assessment);
+    // Transform the sections to include question IDs in the expected format
+    const sectionsWithQuestions = assessment.sections.map((section: any) => {
+      return {
+        ...section,
+        questions: section.questions.map((sq: any) => sq.questionId)
+      };
+    });
+
+    // Replace sections in the assessment with our transformed sections
+    const assessmentWithQuestions = {
+      ...assessment,
+      sections: sectionsWithQuestions
+    };
+
+    return NextResponse.json(assessmentWithQuestions);
   } catch (error) {
     console.error("Error fetching assessment:", error);
     return NextResponse.json(
@@ -147,12 +180,13 @@ export async function PATCH(
     }
 
     // Update assessment
-    const updatedAssessment = await prisma.assessment.update({
+    const updatedAssessment = await prismaAny.assessment.update({
       where: { id: assessmentId },
       data: validation.data,
       include: {
         createdBy: true,
-        folder: true
+        folder: true,
+        sections: true
       }
     });
 

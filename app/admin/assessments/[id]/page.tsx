@@ -211,10 +211,10 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
         toast.error("Failed to load assessment");
       }
     };
-
+    
     fetchAssessment();
   }, [assessmentId, form]);
-
+  
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
@@ -288,7 +288,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
       setIsLoading(false);
     }
   };
-
+  
   if (!assessment) {
     return (
       <div className="container mx-auto py-10">
@@ -298,20 +298,20 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
       </div>
     );
   }
-
+  
   return (
     <div className="container mx-auto py-10">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
             <h2 className="text-3xl font-bold tracking-tight">Edit Assessment</h2>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => router.push("/admin/assessments")}
-              >
-                Back to Assessments
-              </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => router.push("/admin/assessments")}
+        >
+          Back to Assessments
+        </Button>
               <Button 
                 type="button" 
                 disabled={isLoading}
@@ -323,8 +323,8 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                 {isLoading ? "Saving..." : "Save Changes"}
               </Button>
             </div>
-          </div>
-          
+      </div>
+      
           <Tabs defaultValue="basic" className="w-full">
             <TabsList>
               <TabsTrigger value="basic">Basic Details</TabsTrigger>
@@ -484,7 +484,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                                       field.onChange(null);
                                     }
                                   }}
-                                />
+              />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -612,7 +612,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                           <FormDescription>
                             Allow students to take the assessment as many times as they want
                           </FormDescription>
-                        </div>
+                </div>
                         <FormControl>
                           <Switch
                             checked={field.value}
@@ -685,7 +685,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                           defaultValue={field.value ?? ""}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                  <SelectTrigger>
                               <SelectValue placeholder="Select behaviour mode" />
                   </SelectTrigger>
                           </FormControl>
@@ -744,7 +744,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                           <FormDescription>
                             Allow review during the attempt
                           </FormDescription>
-                        </div>
+              </div>
                         <FormControl>
                           <Switch
                             checked={field.value}
@@ -765,7 +765,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                           <FormDescription>
                             Allow review immediately after attempt
                           </FormDescription>
-                    </div>
+            </div>
                         <FormControl>
                           <Switch
                             checked={field.value}
@@ -795,7 +795,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                         </FormControl>
                       </FormItem>
                     )}
-                  />
+              />
 
                   <FormField
                     control={form.control}
@@ -807,7 +807,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                           <FormDescription>
                             Allow review after the assessment closes
                           </FormDescription>
-                      </div>
+            </div>
                         <FormControl>
                           <Switch
                             checked={field.value}
@@ -854,7 +854,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                       </FormItem>
                     )}
                   />
-
+                
                   <FormField
                     control={form.control}
                     name="disableRightClick"
@@ -865,7 +865,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                           <FormDescription>
                             Prevent students from using right-click during the assessment.
                           </FormDescription>
-                        </div>
+                  </div>
                         <FormControl>
                           <Switch
                             checked={!!field.value}
@@ -875,7 +875,7 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                       </FormItem>
                     )}
                   />
-
+              
                   <FormField
                     control={form.control}
                     name="disableCopyPaste"
@@ -910,15 +910,15 @@ export default function EditAssessmentPage({ params }: { params: Promise<{ id: s
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-center py-8">
-                    <Button
+          <Button 
                       onClick={() => router.push(`/admin/assessments/${assessmentId}/questions`)}
-                    >
+          >
                       Manage Questions
-                    </Button>
+          </Button>
                     <p className="text-sm text-muted-foreground mt-2">
                       Click to add or remove questions from this assessment
                     </p>
-                  </div>
+        </div>
                 </CardContent>
               </Card>
             </TabsContent>

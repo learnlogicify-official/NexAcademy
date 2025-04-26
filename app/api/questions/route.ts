@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const includeSubcategories = searchParams.get("includeSubcategories") === "true";
+    const assessmentId = searchParams.get("assessmentId");
+    const includeSectionMarks = searchParams.get("includeSectionMarks") === "true";
 
     const where: any = {};
 
@@ -77,22 +79,45 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const total = await prisma.question.count({ where });
 
-    const questions = await prisma.question.findMany({
-      where,
-      include: {
-        folder: true,
-        mCQQuestion: {
-          include: {
-            options: true
-          }
-        },
-        codingQuestion: {
-          include: {
-            languageOptions: true,
-            testCases: true
-          }
+    // Build the include object to handle optional section data
+    const include: any = {
+      folder: true,
+      mCQQuestion: {
+        include: {
+          options: true
         }
       },
+      codingQuestion: {
+        include: {
+          languageOptions: true,
+          testCases: true
+        }
+      }
+    };
+
+    // Include section data if assessmentId is provided
+    if (assessmentId && includeSectionMarks) {
+      include.sections = {
+        where: {
+          section: {
+            assessmentId: assessmentId
+          }
+        },
+        include: {
+          section: {
+            select: {
+              id: true,
+              title: true,
+              assessmentId: true
+            }
+          }
+        }
+      };
+    }
+
+    const questions = await prisma.question.findMany({
+      where,
+      include,
       orderBy: {
         createdAt: 'desc'
       },

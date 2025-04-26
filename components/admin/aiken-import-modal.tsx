@@ -239,7 +239,7 @@ Check browser console for complete details (press F12)`);
     const questions: AikenQuestion[] = [];
     const errorBlocks: string[] = [];
     let failedCount = 0;
-
+    
     let i = 0;
     while (i < lines.length) {
       try {
@@ -250,7 +250,7 @@ Check browser console for complete details (press F12)`);
         // Parse options (A), B), etc. or A., B., etc.)
         const optionsArray: { key: string; text: string }[] = [];
         const optionsKeys: Set<string> = new Set();
-        
+
         while (i < lines.length && /^[A-Z][\)\.:]/.test(lines[i])) {
           const optMatch = lines[i].match(/^([A-Z])[\)\.:](.*)$/);
           if (optMatch) {
@@ -260,26 +260,26 @@ Check browser console for complete details (press F12)`);
             optionsKeys.add(key);
           }
           i += 1;
-        }
-        
+      }
+
         // Check for ANSWER: line
         if (i < lines.length && /^ANSWER:\s*[A-Z]/.test(lines[i])) {
           const answerMatch = lines[i].match(/^ANSWER:\s*([A-Z])/);
-          if (answerMatch) {
+      if (answerMatch) {
             const answer = answerMatch[1];
-            
+        
             // Validate the answer exists in options
             if (!optionsKeys.has(answer)) {
-              console.log(`Error: Answer ${answer} doesn't match any option`);
+          console.log(`Error: Answer ${answer} doesn't match any option`);
               errorBlocks.push(q_text);
-              failedCount++;
+          failedCount++;
             } else {
               // Add valid question
-              questions.push({
+        questions.push({
                 question: q_text,
                 options: optionsArray,
-                answer: answer
-              });
+          answer: answer
+        });
             }
             i += 1;
           } else {
@@ -288,7 +288,7 @@ Check browser console for complete details (press F12)`);
         } else {
           console.log(`Malformed question at line ${i}: Missing ANSWER`);
           errorBlocks.push(q_text);
-          failedCount++;
+        failedCount++;
           
           // Skip to next potential question
           while (i < lines.length && 
@@ -299,7 +299,7 @@ Check browser console for complete details (press F12)`);
       } catch (error) {
         console.error("Error parsing question:", error);
         errorBlocks.push(lines[i] || "Unknown line");
-        failedCount++;
+      failedCount++;
         i += 1; // Move to next line and try to recover
       }
     }
@@ -535,35 +535,35 @@ Check browser console for complete details (press F12)`);
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Left Panel - Instructions and Settings */}
           <div className="md:col-span-2 space-y-6">
-            {/* Instructions */}
+          {/* Instructions */}
             <Card className="bg-gradient-to-br from-primary/5 to-background shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Aiken Format Guide
                 </CardTitle>
-                <CardDescription>
+              <CardDescription>
                   A simple format for MCQ questions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
                 <pre className="bg-card/50 p-2 text-xs rounded-md my-2 whitespace-pre-wrap border text-foreground/80">
-                  What is the capital of France?{'\n'}
-                  A. London{'\n'}
-                  B. Berlin{'\n'}
-                  C. Paris{'\n'}
-                  D. Madrid{'\n'}
-                  ANSWER: C
-                </pre>
+                What is the capital of France?{'\n'}
+                A. London{'\n'}
+                B. Berlin{'\n'}
+                C. Paris{'\n'}
+                D. Madrid{'\n'}
+                ANSWER: C
+              </pre>
                 <div className="mt-4 flex justify-between">
-                  <a 
-                    href="/sample-aiken.txt" 
-                    download="sample-aiken.txt"
+                <a 
+                  href="/sample-aiken.txt" 
+                  download="sample-aiken.txt"
                     className="text-xs text-primary hover:underline flex items-center"
-                  >
-                    <Download className="h-3 w-3 mr-1" />
+                >
+                  <Download className="h-3 w-3 mr-1" />
                     Download sample file
-                  </a>
+                </a>
                   <Button 
                     variant="ghost"
                     size="sm"
@@ -572,11 +572,11 @@ Check browser console for complete details (press F12)`);
                   >
                     Try sample data
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* File Upload */}
+          {/* File Upload */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Upload Aiken File</CardTitle>
@@ -586,21 +586,21 @@ Check browser console for complete details (press F12)`);
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col space-y-2">
-                  <Input
-                    type="file"
-                    accept=".txt"
-                    onChange={handleFileChange}
+              <Input
+                type="file"
+                accept=".txt"
+                onChange={handleFileChange}
                     className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 text-xs"
-                    disabled={isLoading || importStarted}
-                  />
-                  {fileName && (
+                disabled={isLoading || importStarted}
+              />
+              {fileName && (
                     <div className="flex items-center mt-2 text-xs bg-muted p-1.5 px-2 rounded-md">
                       <div className="flex-1 truncate text-muted-foreground">
                         {fileName}
                       </div>
-                    </div>
-                  )}
                 </div>
+              )}
+            </div>
               </CardContent>
             </Card>
 
@@ -614,62 +614,62 @@ Check browser console for complete details (press F12)`);
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="space-y-2">
+          <div className="space-y-2">
                     <Label htmlFor="target-folder" className="text-sm">Target Folder</Label>
-                    <Select 
-                      onValueChange={setFolderId} 
-                      value={folderId}
-                      disabled={isLoading || importStarted}
-                    >
+            <Select 
+              onValueChange={setFolderId} 
+              value={folderId}
+              disabled={isLoading || importStarted}
+            >
                       <SelectTrigger id="target-folder" className="text-sm">
-                        <SelectValue placeholder="Select a folder" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allFolderOptions.map((folder) => (
+                <SelectValue placeholder="Select a folder" />
+              </SelectTrigger>
+              <SelectContent>
+                {allFolderOptions.map((folder) => (
                           <SelectItem key={folder.id} value={folder.id} className="text-sm">
-                            {folder.isSubfolder 
-                              ? `└─ ${folder.name} (in ${folder.parentName})` 
-                              : folder.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
+                    {folder.isSubfolder 
+                      ? `└─ ${folder.name} (in ${folder.parentName})` 
+                      : folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
+            <div className="space-y-2">
                       <Label htmlFor="difficulty" className="text-sm">Difficulty</Label>
-                      <Select 
-                        onValueChange={setDifficulty} 
-                        value={difficulty}
-                        disabled={isLoading || importStarted}
-                      >
+              <Select 
+                onValueChange={setDifficulty} 
+                value={difficulty}
+                disabled={isLoading || importStarted}
+              >
                         <SelectTrigger id="difficulty" className="text-sm">
-                          <SelectValue placeholder="Select difficulty" />
-                        </SelectTrigger>
-                        <SelectContent>
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
                           <SelectItem value="EASY" className="text-sm">Easy</SelectItem>
                           <SelectItem value="MEDIUM" className="text-sm">Medium</SelectItem>
                           <SelectItem value="HARD" className="text-sm">Hard</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                </SelectContent>
+              </Select>
+            </div>
                     
-                    <div className="space-y-2">
+            <div className="space-y-2">
                       <Label htmlFor="default-mark" className="text-sm">Default Mark</Label>
-                      <Input
+              <Input
                         id="default-mark"
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={defaultMark}
-                        onChange={(e) => setDefaultMark(Number(e.target.value))}
-                        disabled={isLoading || importStarted}
+                type="number"
+                min="0"
+                step="0.5"
+                value={defaultMark}
+                onChange={(e) => setDefaultMark(Number(e.target.value))}
+                disabled={isLoading || importStarted}
                         className="text-sm"
-                      />
-                    </div>
-                  </div>
-                  
+              />
+            </div>
+          </div>
+
                   <div className="pt-2">
                     <Button 
                       onClick={importQuestions}
@@ -700,7 +700,7 @@ Check browser console for complete details (press F12)`);
               <div className="flex flex-col items-center justify-center h-full py-12">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                 <p className="text-muted-foreground">Parsing file...</p>
-              </div>
+            </div>
             ) : !parseResults ? (
               <div className="flex flex-col items-center justify-center bg-muted/30 rounded-lg py-20 px-6 h-full">
                 <FileText className="h-16 w-16 text-muted-foreground/40 mb-4" />
@@ -713,7 +713,7 @@ Check browser console for complete details (press F12)`);
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
+                <div className="space-y-4">
                 {/* Stats Summary */}
                 <div className="grid grid-cols-2 gap-3">
                   <Card className="bg-gradient-to-br from-green-50 to-background dark:from-green-900/10 dark:to-background border-green-100 dark:border-green-900/30">
@@ -747,9 +747,9 @@ Check browser console for complete details (press F12)`);
                       </CardContent>
                     </Card>
                   )}
-                </div>
-                
-                {/* Preview of Parsed Questions */}
+                  </div>
+                  
+                  {/* Preview of Parsed Questions */}
                 {parseResults.questions.length > 0 && (
                   <Card>
                     <CardHeader className="pb-2">
@@ -765,36 +765,36 @@ Check browser console for complete details (press F12)`);
                     </CardHeader>
                     <CardContent className="max-h-[320px] overflow-y-auto pr-2 pt-1">
                       <div className="space-y-3">
-                        {parseResults.questions.map((question, index) => (
+                      {parseResults.questions.map((question, index) => (
                           <div key={index} className="border rounded-lg p-3 bg-card shadow-sm hover:bg-accent/5 transition-colors">
                             <p className="text-sm font-medium mb-2 line-clamp-2">{index + 1}. {question.question}</p>
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 pl-1">
-                              {question.options.map((option) => (
-                                <div 
-                                  key={option.key} 
+                            {question.options.map((option) => (
+                              <div 
+                                key={option.key} 
                                   className={`flex items-center text-xs gap-1 ${
                                     option.key === question.answer 
                                       ? 'text-green-600 dark:text-green-400 font-medium' 
                                       : 'text-muted-foreground'
-                                  }`}
-                                >
+                                }`}
+                              >
                                   <span className="w-5 flex-shrink-0">{option.key}.</span>
                                   <span className="truncate">{option.text}</span>
-                                  {option.key === question.answer && (
+                                {option.key === question.answer && (
                                     <CheckCircle className="h-3 w-3 ml-auto flex-shrink-0" />
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
+                    </div>
                     </CardContent>
                   </Card>
                 )}
-                
+                  
                 {/* Error Information */}
-                {parseResults.errorBlocks.length > 0 && (
+                  {parseResults.errorBlocks.length > 0 && (
                   <Card className="border-red-200 dark:border-red-900/50">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center text-red-600">
@@ -804,14 +804,14 @@ Check browser console for complete details (press F12)`);
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm mb-2">
-                        Unable to parse {parseResults.errorBlocks.length} questions. Common issues:
-                      </p>
+                            Unable to parse {parseResults.errorBlocks.length} questions. Common issues:
+                          </p>
                       <ul className="list-disc pl-5 space-y-1 text-xs text-muted-foreground mb-3">
-                        <li>Missing or malformed ANSWER line (must be "ANSWER: X" where X is an option letter)</li>
+                            <li>Missing or malformed ANSWER line (must be "ANSWER: X" where X is an option letter)</li>
                         <li>Option format issues (must be "A. Text" or "A) Text")</li>
-                        <li>Missing blank line between questions</li>
+                            <li>Missing blank line between questions</li>
                         <li>Special characters or invisible formatting</li>
-                      </ul>
+                          </ul>
                       
                       <details className="text-xs">
                         <summary className="cursor-pointer font-medium text-red-600 mb-1">Show invalid questions</summary>
@@ -823,14 +823,14 @@ Check browser console for complete details (press F12)`);
                           ))}
                         </ul>
                       </details>
-                    </CardContent>
-                  </Card>
+              </CardContent>
+            </Card>
                 )}
               </div>
-            )}
-            
-            {/* Import Progress */}
-            {importStarted && (
+          )}
+
+          {/* Import Progress */}
+          {importStarted && (
               <Card className="mt-4">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center justify-between">
@@ -839,20 +839,20 @@ Check browser console for complete details (press F12)`);
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
+            <div className="space-y-2">
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div 
+                <div 
                         className="bg-primary h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${(importProgress / importTotal) * 100}%` }}
-                      ></div>
-                    </div>
+                  style={{ width: `${(importProgress / importTotal) * 100}%` }}
+                ></div>
+              </div>
                     <p className="text-xs text-muted-foreground">
                       Importing questions... Please wait.
                     </p>
-                  </div>
+            </div>
                 </CardContent>
               </Card>
-            )}
+          )}
           </div>
         </div>
 

@@ -106,7 +106,7 @@ export async function DELETE(
       // Delete assessments in subfolder
       await prisma.assessment.deleteMany({
         where: { folderId: subfolder.id },
-      });
+    });
 
       // Delete the subfolder
       await prisma.folder.delete({

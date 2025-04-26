@@ -197,9 +197,9 @@ export default function CreateAssessmentPage() {
         console.log("Missing required duration field for time-limited assessment");
         toast.error("Duration is required when time limit is enabled");
         setIsLoading(false);
-        return;
-      }
-
+      return;
+    }
+    
       // First, create a folder if we don't have one
       let folderIdToUse;
       
@@ -237,9 +237,9 @@ export default function CreateAssessmentPage() {
         console.error("Error handling folders:", error);
         toast.error("Failed to prepare folder for assessment");
         setIsLoading(false);
-        return;
-      }
-      
+      return;
+    }
+    
       // Transform the form data to match the API schema
       const transformedData = {
         name: values.name,
@@ -281,7 +281,7 @@ export default function CreateAssessmentPage() {
         status: response.status,
         statusText: response.statusText,
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         console.error('API error response:', errorData);
@@ -305,17 +305,17 @@ export default function CreateAssessmentPage() {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="container mx-auto py-10">
       
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
             <h2 className="text-3xl font-bold tracking-tight">Create Assessment</h2>
-            <Button 
-              type="button" 
+        <Button 
+          type="button"
               disabled={isLoading}
               onClick={() => {
                 console.log("Button clicked directly");
@@ -325,9 +325,9 @@ export default function CreateAssessmentPage() {
               }}
             >
               {isLoading ? "Creating..." : "Create Assessment"}
-            </Button>
-          </div>
-          
+        </Button>
+      </div>
+      
           <Tabs defaultValue="basic" className="w-full">
             <TabsList>
               <TabsTrigger value="basic">Basic Details</TabsTrigger>

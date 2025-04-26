@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon, Folder as FolderIcon, ChevronDown, Settings, ChevronUp } from "lucide-react";
+import { Plus, Search, Loader2, Folder, FolderOpen, FileText, Code, Pencil, Trash2, Upload, Download, MoreVertical, Copy, ChevronLeft, ChevronRight, Eye, Filter, SortAsc, SortDesc, CheckCircle, ListChecks, X, Grid, List, Table as TableIcon, Folder as FolderIcon, ChevronDown, Settings, ChevronUp, FolderPlus } from "lucide-react";
 import { QuestionFormModal } from "@/components/admin/question-form-modal";
 import { CodingQuestionFormModal } from "@/components/admin/coding-question-form-modal";
 import AikenImportButton from "@/components/admin/aiken-import-button";
@@ -232,6 +232,7 @@ export default function AdminQuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [folders, setFolders] = useState<FolderType[]>([]);
+  const [topLevelFolders, setTopLevelFolders] = useState<FolderType[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -394,8 +395,39 @@ export default function AdminQuestionsPage() {
       if (!response.ok) {
         throw new Error("Failed to fetch folders");
       }
+      
+      // Get the raw folders data
       const data = await response.json();
+      
+      // Organize folders into a parent-child hierarchy
+      const folderMap = new Map();
+      const topLevel: FolderType[] = [];
+      
+      // First pass: Create a map of all folders by ID
+      data.forEach((folder: any) => {
+        folderMap.set(folder.id, {
+          ...folder,
+          subfolders: []
+        });
+      });
+      
+      // Second pass: Organize folders into hierarchy
+      data.forEach((folder: any) => {
+        if (folder.parentId) {
+          // This is a subfolder - add it to its parent's subfolders array
+          const parentFolder = folderMap.get(folder.parentId);
+          if (parentFolder) {
+            parentFolder.subfolders.push(folderMap.get(folder.id));
+          }
+        } else {
+          // This is a top-level folder
+          topLevel.push(folderMap.get(folder.id));
+        }
+      });
+      
+      // Update both state variables
       setFolders(data);
+      setTopLevelFolders(topLevel);
     } catch (error) {
       console.error("Error fetching folders:", error);
       toast({
@@ -1788,7 +1820,8 @@ export default function AdminQuestionsPage() {
                   </Button>
                 </div>
               ) : (
-                folders.map((folder) => (
+                // Only show top-level folders in the main list
+                topLevelFolders.map((folder) => (
                   <div key={folder.id} className="border rounded-lg overflow-hidden transition-all">
                     <div 
                       className={`flex items-center justify-between p-4 cursor-pointer bg-card hover:bg-accent/10 ${expandedFolders.has(folder.id) ? 'border-b' : ''}`}
@@ -1810,10 +1843,12 @@ export default function AdminQuestionsPage() {
                           <Folder className="h-5 w-5 text-amber-500" />
                         }
                         <span className="font-medium">{folder.name}</span>
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {folder.subfolders?.length || 0} subfolders
-                        </Badge>
-                    </div>
+                        {folder.subfolders?.length > 0 && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {folder.subfolders.length} {folder.subfolders.length === 1 ? 'subfolder' : 'subfolders'}
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
@@ -1824,7 +1859,7 @@ export default function AdminQuestionsPage() {
                             setIsCreateSubfolderModalOpen(true);
                           }}
                         >
-                          <Plus className="h-4 w-4 mr-1" />
+                          <FolderPlus className="h-4 w-4 mr-1" />
                           <span className="text-xs">Add Subfolder</span>
                         </Button>
                         <Button
@@ -1856,13 +1891,16 @@ export default function AdminQuestionsPage() {
                     
                     {/* Subfolders */}
                     {expandedFolders.has(folder.id) && (
-                      <div className="bg-muted/30 divide-y">
+                      <div className="bg-muted/30 border-l-2 border-l-amber-200 ml-6">
                         {folder.subfolders && folder.subfolders.length > 0 ? (
                           folder.subfolders.map((subfolder) => (
-                            <div key={subfolder.id} className="flex items-center justify-between py-3 px-6 hover:bg-accent/5">
+                            <div key={subfolder.id} className="flex items-center justify-between py-3 px-6 hover:bg-accent/5 border-l-2 border-l-accent ml-2">
                               <div className="flex items-center gap-2">
-                                <div className="w-5"></div> {/* Indent space */}
-                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <div className="w-3"></div> {/* Indent space */}
+                                <div className="flex items-center">
+                                  <div className="border-t border-accent w-4 h-0 mr-2"></div>
+                                  <FolderIcon className="h-4 w-4 text-amber-400" />
+                                </div>
                                 <span className="text-sm">{subfolder.name}</span>
                               </div>
                               <div className="flex items-center gap-1">
@@ -1890,10 +1928,13 @@ export default function AdminQuestionsPage() {
                             </div>
                           ))
                         ) : (
-                          <div className="py-3 px-6 text-center text-muted-foreground text-sm italic">
-                            No subfolders yet. Click "Add Subfolder" to create one.
-              </div>
-            )}
+                          <div className="py-3 px-6 text-center text-muted-foreground text-sm italic ml-4 border-l-2 border-l-accent">
+                            <div className="flex items-center justify-center gap-2 my-2">
+                              <FolderPlus className="h-4 w-4 text-muted-foreground/70" />
+                              <span>No subfolders yet. Click "Add Subfolder" to create one.</span>
+                            </div>
+                          </div>
+                        )}
           </div>
                     )}
               </div>

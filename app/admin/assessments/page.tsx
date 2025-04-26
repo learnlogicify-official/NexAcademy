@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
+import { 
   Table,
   TableBody,
   TableCell,
@@ -253,22 +253,22 @@ export default function AssessmentsPage() {
             <div className="text-2xl font-bold">{stats.active}</div>
             <p className="text-xs text-muted-foreground">
               {stats.upcoming} upcoming, {stats.completed} completed
-            </p>
+          </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-4 mb-6">
-        <div className="relative flex-1">
+            <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search assessments..."
+              <Input
+                placeholder="Search assessments..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8"
-          />
-        </div>
+                className="pl-8"
+              />
+            </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
@@ -295,58 +295,58 @@ export default function AssessmentsPage() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+          </div>
 
       {/* Assessments Table */}
-      <Card>
+        <Card>
         <CardHeader>
-          <CardTitle>All Assessments</CardTitle>
-          <CardDescription>
+            <CardTitle>All Assessments</CardTitle>
+            <CardDescription>
             Manage and monitor all your assessments
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
+                ))}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
+                    <TableHead>Status</TableHead>
                   <TableHead>Time Status</TableHead>
                   <TableHead>Marks</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Created By</TableHead>
                   <TableHead>Created At</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {filteredAssessments.map((assessment) => (
                   <TableRow 
                     key={assessment.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => router.push(`/admin/assessments/${assessment.id}`)}
-                  >
+                          >
                     <TableCell className="font-medium">{assessment.name}</TableCell>
                     <TableCell>{getStatusBadge(assessment.status)}</TableCell>
                     <TableCell>{getTimeStatusBadge(assessment)}</TableCell>
-                    <TableCell>
+                        <TableCell>
                       {assessment.passingMarks}/{assessment.totalMarks}
-                    </TableCell>
-                    <TableCell>
+                        </TableCell>
+                        <TableCell>
                       {assessment.timeLimitEnabled ? `${assessment.duration} min` : "No limit"}
-                    </TableCell>
+                        </TableCell>
                     <TableCell>{assessment.createdBy.name}</TableCell>
-                    <TableCell>
+                        <TableCell>
                       {new Date(assessment.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
+                        </TableCell>
+                        <TableCell className="text-right">
                       <Button
                         variant="outline"
                         size="sm"
@@ -355,15 +355,15 @@ export default function AssessmentsPage() {
                       >
                         <PlusCircle className="h-4 w-4 mr-1" />
                         Add Questions
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                              </Button>
+                        </TableCell>
+                      </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
     </div>
   );
 } 

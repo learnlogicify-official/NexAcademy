@@ -9,8 +9,8 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String       @id @default(cuid())
+  email         String       @unique
   password      String
   name          String?
   /// @enum {STUDENT|MANAGER|ADMIN|INSTRUCTOR|NON_EDITING_INSTRUCTOR}
@@ -19,10 +19,10 @@ model User {
   /// - ADMIN: Full system access
   /// - INSTRUCTOR: Can create and edit courses
   /// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
-  role          Role      @default(STUDENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  resetToken    String?   @unique
+  role          Role         @default(STUDENT)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  resetToken    String?      @unique
   resetTokenExp DateTime?
   assessments   Assessment[]
 
@@ -88,32 +88,32 @@ model Folder {
   parentId    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  assessments Assessment[]
   parent      Folder?      @relation("FolderHierarchy", fields: [parentId], references: [id])
   subfolders  Folder[]     @relation("FolderHierarchy")
   questions   Question[]
-  assessments Assessment[]
 
   @@index([parentId])
 }
 
 model Question {
-  id                String            @id @default(cuid())
-  name              String
-  type              QuestionType
-  status            QuestionStatus    @default(DRAFT)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  folderId          String
-  version           Int               @default(1)
-  creatorId         String            @default("system")
-  creatorName       String            @default("System")
-  lastModifiedBy    String            @default("system")
-  lastModifiedByName String           @default("System")
-  codingQuestion    CodingQuestion?
-  mCQQuestion       MCQQuestion?
-  folder            Folder            @relation(fields: [folderId], references: [id])
-  versions          QuestionVersion[]
-  sections          Section[]
+  id                 String            @id @default(cuid())
+  name               String
+  type               QuestionType
+  status             QuestionStatus    @default(DRAFT)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  folderId           String
+  version            Int               @default(1)
+  creatorId          String            @default("system")
+  creatorName        String            @default("System")
+  lastModifiedBy     String            @default("system")
+  lastModifiedByName String            @default("System")
+  codingQuestion     CodingQuestion?
+  mCQQuestion        MCQQuestion?
+  folder             Folder            @relation(fields: [folderId], references: [id])
+  versions           QuestionVersion[]
+  sections           SectionQuestion[]
 
   @@index([folderId])
   @@index([creatorId])
@@ -204,6 +204,78 @@ model TestCase {
   @@index([codingQuestionId])
 }
 
+model Assessment {
+  id                            String           @id @default(cuid())
+  name                          String
+  description                   String?
+  status                        AssessmentStatus @default(DRAFT)
+  startDate                     DateTime?
+  endDate                       DateTime?
+  duration                      Int?
+  totalMarks                    Int              @default(100)
+  passingMarks                  Int
+  proctoring                    String           @default("not_proctoring")
+  createdAt                     DateTime         @default(now())
+  updatedAt                     DateTime         @updatedAt
+  createdById                   String
+  folderId                      String
+  attemptsAllowed               Int?
+  disableCopyPaste              Boolean          @default(false)
+  disableRightClick             Boolean          @default(false)
+  displayDescription            Boolean          @default(false)
+  gradeToPass                   Float?
+  navigationMethod              String           @default("free")
+  questionBehaviourMode         String           @default("deferredfeedback")
+  reviewAfterClose              Boolean          @default(false)
+  reviewDuringAttempt           Boolean          @default(false)
+  reviewImmediatelyAfterAttempt Boolean          @default(false)
+  reviewLaterWhileOpen          Boolean          @default(false)
+  shuffleWithinQuestions        Boolean          @default(false)
+  timeBoundEnabled              Boolean          @default(false)
+  timeLimitEnabled              Boolean          @default(false)
+  unlimitedAttempts             Boolean          @default(false)
+  createdBy                     User             @relation(fields: [createdById], references: [id])
+  folder                        Folder           @relation(fields: [folderId], references: [id])
+  tags                          AssessmentTag[]
+  sections                      Section[]
+
+  @@index([createdById])
+  @@index([folderId])
+}
+
+model Section {
+  id           String          @id @default(cuid())
+  title        String
+  description  String?
+  order        Int            @default(0)
+  assessmentId String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  assessment   Assessment     @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questions    SectionQuestion[]
+
+  @@index([assessmentId])
+}
+
+model Tag {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  assessments AssessmentTag[]
+}
+
+model AssessmentTag {
+  assessmentId String
+  tagId        String
+  createdAt    DateTime   @default(now())
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  tag          Tag        @relation(fields: [tagId], references: [id])
+
+  @@id([assessmentId, tagId])
+}
+
 /// Valid roles for users:
 /// - STUDENT: Default role for new users
 /// - MANAGER: Can manage courses and users
@@ -257,86 +329,19 @@ enum AssessmentStatus {
   ARCHIVED
 }
 
-model Assessment {
-  id            String         @id @default(cuid())
-  name          String
-  description   String?
-  status        AssessmentStatus @default(DRAFT)
-  
-  // Timing settings
-  startDate     DateTime?
-  endDate       DateTime?
-  duration      Int?           // in minutes
-  timeBoundEnabled Boolean   @default(false)
-  timeLimitEnabled Boolean   @default(false)
-  
-  // Grade settings
-  totalMarks    Int            @default(100)
-  passingMarks  Int
-  gradeToPass Float?
-  attemptsAllowed Int?
-  unlimitedAttempts Boolean    @default(false)
-  
-  // Display settings
-  displayDescription Boolean  @default(false)
-  navigationMethod String     @default("free")
-  shuffleWithinQuestions Boolean @default(false)
-  questionBehaviourMode String @default("deferredfeedback")
-  
-  // Review options
-  reviewDuringAttempt Boolean @default(false)
-  reviewImmediatelyAfterAttempt Boolean @default(false)
-  reviewLaterWhileOpen Boolean @default(false)
-  reviewAfterClose Boolean @default(false)
-  
-  // Security settings
-  proctoring String @default("not_proctoring")
-  disableRightClick Boolean @default(false)
-  disableCopyPaste Boolean @default(false)
-  
-  // Timestamps and relations
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  createdById   String
-  createdBy     User          @relation(fields: [createdById], references: [id])
-  folderId      String
-  folder        Folder        @relation(fields: [folderId], references: [id])
-  tags          AssessmentTag[]
-  sections      Section[]
+// Junction table for many-to-many relationship between Section and Question
+model SectionQuestion {
+  id         String   @id @default(cuid())
+  sectionId  String
+  questionId String
+  order      Int      @default(0)
+  sectionMark Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  @@index([createdById])
-  @@index([folderId])
-}
-
-model Section {
-  id            String       @id @default(cuid())
-  name          String
-  description   String?
-  order         Int          @default(0)
-  assessmentId  String
-  assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  questions     Question[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  @@index([assessmentId])
-}
-
-model Tag {
-  id            String         @id @default(cuid())
-  name          String
-  description   String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  assessments   AssessmentTag[]
-}
-
-model AssessmentTag {
-  assessmentId  String
-  tagId         String
-  assessment    Assessment     @relation(fields: [assessmentId], references: [id])
-  tag           Tag           @relation(fields: [tagId], references: [id])
-  createdAt     DateTime      @default(now())
-
-  @@id([assessmentId, tagId])
+  @@unique([sectionId, questionId])
+  @@index([sectionId])
+  @@index([questionId])
 }

@@ -17,3 +17,4 @@ export default function EditAssessmentRedirect({ params }: { params: { id: strin
     </div>
   );
 }
+ 
