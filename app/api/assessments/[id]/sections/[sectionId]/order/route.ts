@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { updateAssessmentTotalMarks } from "@/lib/utils/assessment-marks";
 
 // Define schema for the request body
 const orderUpdateSchema = z.object({
@@ -161,6 +162,9 @@ export async function PUT(
       return { success: true, updatedCount: questions.length };
     });
 
+    // Update the assessment's total marks after updating question order and marks
+    await updateAssessmentTotalMarks(assessmentId);
+
     return NextResponse.json({
       message: `Updated order for ${result.updatedCount} questions in the section`,
       updatedCount: result.updatedCount
@@ -172,4 +176,4 @@ export async function PUT(
       { status: 500 }
     );
   }
-} 
+}

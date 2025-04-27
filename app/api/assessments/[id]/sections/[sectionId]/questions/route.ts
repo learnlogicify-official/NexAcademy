@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { updateAssessmentTotalMarks } from "@/lib/utils/assessment-marks";
 
 // Define schema for the request body
 const addQuestionsSchema = z.object({
@@ -147,10 +148,14 @@ export async function POST(
 
         console.log(`Created ${result.count} section-question relationships`);
 
+        // Update the assessment's total marks after adding questions
+        const updatedAssessment = await updateAssessmentTotalMarks(assessmentId);
+
         return NextResponse.json({
           message: `Added ${result.count} questions to the section`,
           addedCount: result.count,
-          skippedCount: questions.length - result.count
+          skippedCount: questions.length - result.count,
+          totalMarks: updatedAssessment.totalMarks
         });
       } catch (error) {
         console.error("Error creating section-question relationships:", error);
@@ -170,4 +175,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

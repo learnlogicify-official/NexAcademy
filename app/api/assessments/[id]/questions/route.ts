@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { updateAssessmentTotalMarks } from "@/lib/utils/assessment-marks";
 
 // Type assertion for Prisma client to avoid TypeScript errors
 const prismaAny = prisma as any;
@@ -132,9 +133,15 @@ export async function POST(
           }
         });
         console.log(`Successfully deleted removed sections`);
+        // Update marks after section deletion
+        await updateAssessmentTotalMarks(assessmentId);
       } else {
         console.log(`No sections need to be deleted`);
       }
+
+      // Update total marks after all section modifications
+      // Update total marks after all section modifications
+      await updateAssessmentTotalMarks(assessmentId);
 
       // 2. Create or update sections and their relationships
         const createdSections = [];
@@ -360,9 +367,16 @@ export async function POST(
         
       console.log(`Total section-question relationships: ${totalRelationships}`);
         
-        return NextResponse.json({
-          id: assessmentId,
-          sections: createdSections
+      // Update total marks using centralized function
+      const updatedAssessment = await updateAssessmentTotalMarks(assessmentId);
+      const totalMarks = updatedAssessment.totalMarks;
+      
+      console.log(`Updated assessment ${assessmentId} with total marks: ${totalMarks}`);
+        
+      return NextResponse.json({
+        id: assessmentId,
+        sections: createdSections,
+        totalMarks
       });
     } catch (error) {
       console.error("Error updating assessment sections:", error);

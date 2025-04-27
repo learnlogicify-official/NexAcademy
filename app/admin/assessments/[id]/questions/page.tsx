@@ -1330,6 +1330,15 @@ export default function QuestionsPage() {
           setSections(updatedSections);
           console.log("Updated sections from response:", updatedSections);
         }
+        
+        // Update assessment with total marks if available in the response
+        if (responseData.totalMarks !== undefined && assessment) {
+          console.log(`Updating assessment total marks to: ${responseData.totalMarks}`);
+          setAssessment({
+            ...assessment,
+            totalMarks: responseData.totalMarks
+          });
+        }
       
       return responseData;
       } catch (error: any) {
@@ -1708,6 +1717,22 @@ export default function QuestionsPage() {
           });
           setAvailableQuestions(updatedAvailableQuestions);
           
+          // Update assessment totalMarks if available
+          if (assessment) {
+            // Find the question to get its current mark
+            const question = availableQuestions.find(q => q.id === questionId);
+            const oldMark = question ? (question.sectionMark || question.marks || 1) : 1;
+            
+            // Calculate new total marks based on updated question
+            const newTotalMarks = totalMarks - oldMark + newMark;
+            
+            // Update assessment with new total marks
+            setAssessment({
+              ...assessment,
+              totalMarks: newTotalMarks
+            });
+          }
+          
       // Then update the sections to include the new mark
       const updatedSections = sections.map(section => {
         if (section.id === sectionId) {
@@ -1794,6 +1819,36 @@ export default function QuestionsPage() {
       
       console.log(`Removing ${questionIds.length} question(s) from section ${sectionId}`);
       
+      // Calculate marks to be removed for updating total marks
+      let marksToRemove = 0;
+      if (assessment) {
+        // Find the questions being removed to calculate their marks
+        questionIds.forEach(qId => {
+          // Find the question in the section
+          const section = sections.find(s => s.id === sectionId);
+          if (section) {
+            const questionInSection = section.questions.find(q => {
+              const id = typeof q === 'string' ? q : q.id;
+              return id === qId;
+            });
+            
+            // If found as object with sectionMark, use that
+            if (questionInSection && typeof questionInSection !== 'string' && questionInSection.sectionMark !== undefined) {
+              marksToRemove += questionInSection.sectionMark;
+            } else {
+              // Otherwise look in availableQuestions
+              const question = availableQuestions.find(q => q.id === qId);
+              if (question) {
+                marksToRemove += question.sectionMark || question.marks || 1;
+              } else {
+                // Default to 1 if question not found
+                marksToRemove += 1;
+              }
+            }
+          }
+        });
+      }
+      
       // Optimistic update of local state first for better UX
       const updatedSections = sections.map(section => {
         if (section.id === sectionId) {
@@ -1810,6 +1865,17 @@ export default function QuestionsPage() {
       
       // Update the UI immediately
       setSections(updatedSections);
+      
+      // Update assessment totalMarks if available
+      if (assessment && marksToRemove > 0) {
+        const newTotalMarks = Math.max(0, totalMarks - marksToRemove);
+        console.log(`Updating total marks from ${totalMarks} to ${newTotalMarks} (removing ${marksToRemove})`);
+        
+        setAssessment({
+          ...assessment,
+          totalMarks: newTotalMarks
+        });
+      }
       
       // Set a timeout for the fetch to prevent indefinite waiting
       const controller = new AbortController();
@@ -1840,6 +1906,16 @@ export default function QuestionsPage() {
         // Get response data from the direct API
         const directResponseData = await removeResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
         console.log("Direct removal API response:", directResponseData);
+        
+        // Update assessment with total marks from response if available
+        if (directResponseData.totalMarks !== undefined && assessment) {
+          console.log(`Updating assessment total marks to: ${directResponseData.totalMarks}`);
+          setAssessment({
+            ...assessment,
+            totalMarks: directResponseData.totalMarks
+          });
+        }
+        
         return directResponseData;
       } catch (directApiError) {
         console.log("Falling back to general remove endpoint", directApiError);
@@ -1872,6 +1948,16 @@ export default function QuestionsPage() {
           // Get response data from the fallback API
           const fallbackResponseData = await fallbackResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
           console.log("Fallback removal API response:", fallbackResponseData);
+          
+          // Update assessment with total marks from response if available
+          if (fallbackResponseData.totalMarks !== undefined && assessment) {
+            console.log(`Updating assessment total marks to: ${fallbackResponseData.totalMarks}`);
+            setAssessment({
+              ...assessment,
+              totalMarks: fallbackResponseData.totalMarks
+            });
+          }
+          
           return fallbackResponseData;
         } catch (fallbackError) {
           clearTimeout(fallbackTimeoutId);

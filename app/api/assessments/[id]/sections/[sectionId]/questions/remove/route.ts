@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { updateAssessmentTotalMarks } from "@/lib/utils/assessment-marks";
 
 // Type assertion for Prisma client to avoid TypeScript errors
 const prismaAny = prisma as any;
@@ -97,9 +98,13 @@ export async function POST(
 
       console.log(`Deleted ${result.count} section-question relationships`);
 
+      // Update the assessment's total marks after removing questions
+      const updatedAssessment = await updateAssessmentTotalMarks(assessmentId);
+
       return NextResponse.json({
         message: `Removed ${result.count} questions from the section`,
-        removedCount: result.count
+        removedCount: result.count,
+        totalMarks: updatedAssessment.totalMarks
       });
     } catch (error) {
       console.error("Error deleting section-question relationships:", error);
@@ -112,4 +117,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

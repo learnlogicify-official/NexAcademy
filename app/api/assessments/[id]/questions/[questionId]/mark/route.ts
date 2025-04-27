@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { updateAssessmentTotalMarks } from "@/lib/utils/assessment-marks";
 
 export async function PUT(
   request: NextRequest,
@@ -15,8 +16,9 @@ export async function PUT(
     }
 
     const { sectionId, mark } = await request.json();
+    const { questionId } = await params;
     
-    if (!sectionId || !params.questionId || mark === undefined) {
+    if (!sectionId || !questionId || mark === undefined) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -24,10 +26,10 @@ export async function PUT(
     }
 
     // Await params before using
-    const questionId = await params.questionId;
+    // Already destructured from params above
 
     console.log(`Updating mark for question ${questionId} in section ${sectionId} to ${mark}`);
-
+    
     // First, check if the record exists
     const existingRecords = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT * FROM "SectionQuestion"
@@ -51,6 +53,8 @@ export async function PUT(
       AND "questionId" = ${questionId}
     `;
 
+    await updateAssessmentTotalMarks(params.id);
+
     return NextResponse.json({ 
       message: "Mark updated successfully",
       sectionId,
@@ -64,4 +68,4 @@ export async function PUT(
       { status: 500 }
     );
   }
-} 
+}
