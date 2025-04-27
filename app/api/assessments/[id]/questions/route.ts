@@ -104,38 +104,106 @@ export async function POST(
       // Instead of using a transaction, we'll do each operation separately
       // which is better for serverless environments
       
-      // 1. Delete existing sections - this cascades to SectionQuestion due to Prisma schema
-      console.log(`Deleting existing sections for assessment: ${assessmentId}`);
-      await prismaAny.section.deleteMany({
-        where: { assessmentId }
+      // Get existing sections to properly handle updates vs. additions
+      const existingSections = await prismaAny.section.findMany({
+        where: { assessmentId },
+        include: {
+          questions: true
+        }
       });
-      console.log(`Successfully deleted existing sections`);
+      
+      console.log(`Found ${existingSections.length} existing sections`);
+      
+      // Track sections to keep and new sections to create
+      const existingSectionIds = existingSections.map(s => s.id);
+      const incomingSectionIds = sectionInput.map(s => s.id);
+      
+      // Identify sections to delete (exist in DB but not in request)
+      const sectionIdsToDelete = existingSectionIds.filter(id => !incomingSectionIds.includes(id));
+      
+      // Only delete sections that need to be removed
+      if (sectionIdsToDelete.length > 0) {
+        console.log(`Deleting ${sectionIdsToDelete.length} removed sections: ${sectionIdsToDelete.join(', ')}`);
+        await prismaAny.section.deleteMany({
+          where: { 
+            id: {
+              in: sectionIdsToDelete 
+            }
+          }
+        });
+        console.log(`Successfully deleted removed sections`);
+      } else {
+        console.log(`No sections need to be deleted`);
+      }
 
-      // 2. Create new sections and their relationships
+      // 2. Create or update sections and their relationships
       const createdSections = [];
       
       for (const section of sectionInput) {
         try {
-          console.log(`Creating section ${section.name} with ${section.questions.length} questions`);
+          console.log(`Processing section ${section.name} with ${section.questions.length} questions`);
           
-          // Create the section
-          const newSection = await prismaAny.section.create({
-            data: {
-              id: section.id,
-              title: section.name,
-              description: section.description,
-              order: section.order || 0,
-              assessment: {
-                connect: { id: assessmentId }
+          // Check if section exists
+          const existingSection = existingSections.find(s => s.id === section.id);
+          
+          let newSection;
+          if (existingSection) {
+            // Update existing section
+            console.log(`Updating existing section: ${section.id}`);
+            newSection = await prismaAny.section.update({
+              where: { id: section.id },
+              data: {
+                title: section.name,
+                description: section.description,
+                order: section.order || 0
               }
+            });
+            
+            // First, get current question IDs for this section to determine what to keep/remove
+            const currentQuestionIds = await prismaAny.sectionQuestion.findMany({
+              where: { sectionId: section.id },
+              select: { questionId: true }
+            });
+            
+            const currentIds = currentQuestionIds.map(q => q.questionId);
+            const incomingIds = section.questions.map(q => typeof q === 'string' ? q : q.id);
+            
+            // Find question relationships to delete (exist in DB but not in request)
+            const questionIdsToRemove = currentIds.filter(id => !incomingIds.includes(id));
+            
+            // Remove questions that are no longer in the section
+            if (questionIdsToRemove.length > 0) {
+              console.log(`Removing ${questionIdsToRemove.length} questions from section ${section.id}`);
+              await prismaAny.sectionQuestion.deleteMany({
+                where: {
+                  sectionId: section.id,
+                  questionId: {
+                    in: questionIdsToRemove
+                  }
+                }
+              });
             }
-          });
+          } else {
+            // Create new section
+            console.log(`Creating new section: ${section.id}`);
+            newSection = await prismaAny.section.create({
+              data: {
+                id: section.id,
+                title: section.name,
+                description: section.description,
+                order: section.order || 0,
+                assessment: {
+                  connect: { id: assessmentId }
+                }
+              }
+            });
+          }
           
-          console.log(`Section created with ID: ${newSection.id}`);
+          console.log(`Section processed with ID: ${newSection.id}`);
           
-          // Add questions to section if there are any
+          // Add questions to section if there are any new ones
           if (section.questions && section.questions.length > 0) {
-            console.log(`Adding ${section.questions.length} questions to section ${newSection.id}`);
+            console.log(`Processing ${section.questions.length} questions for section ${newSection.id}`);
             
             // Process questions, which might be strings or objects
             const questionEntries = section.questions.map(q => {
@@ -163,8 +231,25 @@ export async function POST(
             const existingQuestionIds = existingQuestions.map((q: { id: string }) => q.id);
             console.log(`Found ${existingQuestions.length} existing questions out of ${questionIds.length}`);
             
-            // Prepare SectionQuestion data for bulk create
+            // Check which questions are already in the section to avoid duplicates
+            const existingRelationships = await prismaAny.sectionQuestion.findMany({
+              where: {
+                sectionId: newSection.id,
+                questionId: {
+                  in: existingQuestionIds
+                }
+              },
+              select: {
+                questionId: true,
+                sectionMark: true
+              }
+            });
+            
+            const existingRelationshipIds = existingRelationships.map(r => r.questionId);
+            
+            // Prepare SectionQuestion data only for NEW relationships or UPDATED marks
             const sectionQuestionData = [];
+            const sectionQuestionUpdates = [];
             
             for (let i = 0; i < questionEntries.length; i++) {
               const { id: questionId, sectionMark } = questionEntries[i];
@@ -175,6 +260,20 @@ export async function POST(
                 continue;
               }
               
+              // If relationship already exists, check if mark needs updating
+              if (existingRelationshipIds.includes(questionId)) {
+                const existingRel = existingRelationships.find(r => r.questionId === questionId);
+                if (existingRel && existingRel.sectionMark !== sectionMark) {
+                  sectionQuestionUpdates.push({
+                    questionId,
+                    sectionMark
+                  });
+                }
+                // Skip creating a new relationship
+                continue;
+              }
+              
+              // Otherwise, prepare for creation
               sectionQuestionData.push({
                 sectionId: newSection.id,
                 questionId,
@@ -183,7 +282,7 @@ export async function POST(
               });
             }
             
-            // If there are questions to add, use createMany for better performance
+            // If there are new questions to add, use createMany for better performance
             if (sectionQuestionData.length > 0) {
               try {
                 // Use Prisma's createMany for much better performance
@@ -213,6 +312,27 @@ export async function POST(
                 console.log(`Fallback: Created ${successCount} out of ${sectionQuestionData.length} relationships`);
               }
             }
+            
+            // Update marks for existing relationships if needed
+            for (const update of sectionQuestionUpdates) {
+              try {
+                await prismaAny.sectionQuestion.updateMany({
+                  where: {
+                    sectionId: newSection.id,
+                    questionId: update.questionId
+                  },
+                  data: {
+                    sectionMark: update.sectionMark
+                  }
+                });
+              } catch (updateError) {
+                console.error(`Error updating mark for question ${update.questionId}:`, updateError);
+              }
+            }
+            
+            if (sectionQuestionUpdates.length > 0) {
+              console.log(`Updated marks for ${sectionQuestionUpdates.length} existing questions`);
+            }
           }
           
           // Add to response
@@ -222,12 +342,12 @@ export async function POST(
           });
           
         } catch (sectionError) {
-          console.error(`Error creating section ${section.id}:`, sectionError);
+          console.error(`Error processing section ${section.id}:`, sectionError);
           // Continue with other sections instead of failing completely
         }
       }
       
-      console.log(`Created ${createdSections.length} sections`);
+      console.log(`Processed ${createdSections.length} sections`);
       
       // Get count of section-question relationships
       const totalRelationships = await prismaAny.sectionQuestion.count({
@@ -238,7 +358,7 @@ export async function POST(
         }
       });
       
-      console.log(`Created a total of ${totalRelationships} section-question relationships`);
+      console.log(`Total section-question relationships: ${totalRelationships}`);
       
       return NextResponse.json({
         id: assessmentId,
