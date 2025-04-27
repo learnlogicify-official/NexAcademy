@@ -137,12 +137,12 @@ export async function POST(
       }
 
       // 2. Create or update sections and their relationships
-      const createdSections = [];
-      
-      for (const section of sectionInput) {
-        try {
+        const createdSections = [];
+        
+        for (const section of sectionInput) {
+          try {
           console.log(`Processing section ${section.name} with ${section.questions.length} questions`);
-          
+            
           // Check if section exists
           const existingSection = existingSections.find((s: any) => s.id === section.id);
           
@@ -198,13 +198,13 @@ export async function POST(
               }
             });
           }
-          
-          console.log(`Section processed with ID: ${newSection.id}`);
-          
-          // Add questions to section if there are any new ones
-          if (section.questions && section.questions.length > 0) {
-            console.log(`Processing ${section.questions.length} questions for section ${newSection.id}`);
             
+          console.log(`Section processed with ID: ${newSection.id}`);
+            
+          // Add questions to section if there are any new ones
+            if (section.questions && section.questions.length > 0) {
+            console.log(`Processing ${section.questions.length} questions for section ${newSection.id}`);
+              
             // Process questions, which might be strings or objects
             const questionEntries = section.questions.map(q => {
               if (typeof q === 'string') {
@@ -218,19 +218,19 @@ export async function POST(
             
             // Verify questions exist
             const existingQuestions = await prismaAny.question.findMany({
-              where: {
-                id: {
-                  in: questionIds
+                where: {
+                  id: {
+                    in: questionIds
+                  }
+                },
+                select: {
+                  id: true
                 }
-              },
-              select: {
-                id: true
-              }
-            });
-            
+              });
+              
             const existingQuestionIds = existingQuestions.map((q: { id: string }) => q.id);
-            console.log(`Found ${existingQuestions.length} existing questions out of ${questionIds.length}`);
-            
+              console.log(`Found ${existingQuestions.length} existing questions out of ${questionIds.length}`);
+              
             // Check which questions are already in the section to avoid duplicates
             const existingRelationships = await prismaAny.sectionQuestion.findMany({
               where: {
@@ -246,20 +246,20 @@ export async function POST(
             });
             
             const existingRelationshipIds = existingRelationships.map((r: { questionId: string }) => r.questionId);
-            
+              
             // Prepare SectionQuestion data only for NEW relationships or UPDATED marks
             const sectionQuestionData = [];
             const sectionQuestionUpdates = [];
             
             for (let i = 0; i < questionEntries.length; i++) {
               const { id: questionId, sectionMark } = questionEntries[i];
-              
-              // Skip if question doesn't exist
+                
+                // Skip if question doesn't exist
               if (!existingQuestionIds.includes(questionId)) {
-                console.warn(`Question ${questionId} doesn't exist, skipping`);
-                continue;
-              }
-              
+                  console.warn(`Question ${questionId} doesn't exist, skipping`);
+                  continue;
+                }
+                
               // If relationship already exists, check if mark needs updating
               if (existingRelationshipIds.includes(questionId)) {
                 const existingRel = existingRelationships.find((r: { questionId: string; sectionMark: number | null }) => r.questionId === questionId);
@@ -275,7 +275,7 @@ export async function POST(
               
               // Otherwise, prepare for creation
               sectionQuestionData.push({
-                sectionId: newSection.id,
+                      sectionId: newSection.id,
                 questionId,
                 order: i,
                 sectionMark
@@ -323,7 +323,7 @@ export async function POST(
                   },
                   data: {
                     sectionMark: update.sectionMark
-                  }
+                }
                 });
               } catch (updateError) {
                 console.error(`Error updating mark for question ${update.questionId}:`, updateError);
@@ -333,36 +333,36 @@ export async function POST(
             if (sectionQuestionUpdates.length > 0) {
               console.log(`Updated marks for ${sectionQuestionUpdates.length} existing questions`);
             }
-          }
-          
-          // Add to response
-          createdSections.push({
-            ...newSection,
-            questions: section.questions || []
-          });
-          
-        } catch (sectionError) {
+            }
+            
+            // Add to response
+            createdSections.push({
+              ...newSection,
+              questions: section.questions || []
+            });
+            
+          } catch (sectionError) {
           console.error(`Error processing section ${section.id}:`, sectionError);
           // Continue with other sections instead of failing completely
-        }
-      }
-      
-      console.log(`Processed ${createdSections.length} sections`);
-      
-      // Get count of section-question relationships
-      const totalRelationships = await prismaAny.sectionQuestion.count({
-        where: {
-          sectionId: {
-            in: createdSections.map(s => s.id)
           }
         }
-      });
-      
+        
+      console.log(`Processed ${createdSections.length} sections`);
+        
+      // Get count of section-question relationships
+      const totalRelationships = await prismaAny.sectionQuestion.count({
+          where: {
+            sectionId: {
+              in: createdSections.map(s => s.id)
+            }
+          }
+        });
+        
       console.log(`Total section-question relationships: ${totalRelationships}`);
-      
-      return NextResponse.json({
-        id: assessmentId,
-        sections: createdSections
+        
+        return NextResponse.json({
+          id: assessmentId,
+          sections: createdSections
       });
     } catch (error) {
       console.error("Error updating assessment sections:", error);

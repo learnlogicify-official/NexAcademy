@@ -25,7 +25,7 @@ export async function PUT(
 
     // Await params before using
     const questionId = await params.questionId;
-    
+
     console.log(`Updating mark for question ${questionId} in section ${sectionId} to ${mark}`);
 
     // First, check if the record exists

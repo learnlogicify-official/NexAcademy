@@ -423,7 +423,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
   
-  // Update the handleDragEnd function to better handle question ordering
+  // Update the handleDragEnd function to properly maintain question order
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     
@@ -443,34 +443,21 @@ const SectionCard: React.FC<SectionCardProps> = ({
       setSaving(true);
       toast.success("Updating question order...");
       
-      console.log(`Moving question from position ${oldIndex} to ${newIndex}`);
-      
       // Create a new ordered array of questions
       const reorderedQuestions = arrayMove([...sectionQuestions], oldIndex, newIndex);
       
-      console.log("Reordered questions:", reorderedQuestions.map(q => q.name));
-      
-      // Update the local state first for immediate feedback
+      // Update the local state first
       const updatedSections = allSections.map(s => {
         if (s.id === section.id) {
-          // Create properly formatted question objects with explicit order
+          // Convert the questions to the proper format with explicit order
           const updatedQuestions = reorderedQuestions.map((q, index) => {
-            // If this question was in an object format, preserve its properties
-            const existingQuestion = section.questions.find(sq => 
-              typeof sq === 'string' ? sq === q.id : sq.id === q.id
-            );
-            
-            // Make sure each question has the proper format with order
+            // Make sure each question has the proper format with sectionMark
             return {
               id: q.id,
               sectionMark: q.sectionMark !== undefined ? q.sectionMark : q.marks,
-              order: index // Explicitly set the order based on array position
+              order: index // Add explicit order
             };
           });
-          
-          console.log("Updated questions with order:", 
-            updatedQuestions.map((q, i) => `${i+1}: ${q.id} (order: ${q.order})`)
-          );
           
           return {
             ...s,
@@ -480,46 +467,12 @@ const SectionCard: React.FC<SectionCardProps> = ({
         return s;
       });
       
-      // Update local state immediately for responsive UI
+      // Update local state
       setSections(updatedSections);
       
-      // First attempt a direct API call to update just the section order
-      try {
-        const orderUpdatePayload = {
-          sectionId: section.id,
-          questions: reorderedQuestions.map((q, index) => ({
-            id: q.id,
-            order: index,
-            sectionMark: q.sectionMark !== undefined ? q.sectionMark : q.marks
-          }))
-        };
-        
-        console.log("Sending order update:", orderUpdatePayload);
-        
-        // Try to use a more focused endpoint first
-        const orderResponse = await fetch(`/api/assessments/${params.id}/sections/${section.id}/order`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderUpdatePayload)
-        });
-        
-        // If the focused endpoint succeeds, we're done
-        if (orderResponse.ok) {
-          console.log("Order updated successfully via direct API");
-          toast.success("Question order updated");
-          setSaving(false);
-          return;
-        }
-        
-        console.log("Direct order API not available, falling back to saveChanges");
-      } catch (orderError) {
-        console.log("Error with direct order API, falling back to saveChanges", orderError);
-      }
-      
-      // Fall back to using the general saveChanges function
+      // The saveChanges function will handle sending the ordered questions to the backend
       await saveChanges();
+      
       toast.success("Question order updated");
     } catch (error) {
       console.error("Error updating question order:", error);
@@ -2775,7 +2728,43 @@ export default function QuestionsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Question</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this question from the section? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!questionToDelete) return;
+                try {
+                  await removeQuestionsFromSection(section.id, [questionToDelete]);
+                  toast.success("Question removed from section");
+                } catch (error) {
+                  toast.error(`Failed to remove question: ${error instanceof Error ? error.message : String(error)}`);
+                } finally {
+                  setIsDeleteDialogOpen(false);
+                  setQuestionToDelete(null);
+                }
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Remove Question
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
-
+} 

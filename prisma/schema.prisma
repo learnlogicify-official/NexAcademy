@@ -332,16 +332,16 @@ enum AssessmentStatus {
 // Junction table for many-to-many relationship between Section and Question
 model SectionQuestion {
   id         String   @id @default(cuid())
+  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   sectionId  String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   questionId String
-  order      Int      @default(0)
   sectionMark Float?
+  order       Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([sectionId, questionId])
-  @@index([sectionId])
   @@index([questionId])
+  @@index([sectionId])
 }

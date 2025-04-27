@@ -77,8 +77,8 @@ export async function POST(
       AND "questionId" IN (${Prisma.join(questionIds)})
     `;
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json({ 
+      success: true, 
       message: `Removed ${count} questions from section`,
       removedCount: count
     });

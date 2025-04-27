@@ -81,18 +81,18 @@ export async function GET(request: NextRequest) {
 
     // Build the include object to handle optional section data
     const include: any = {
-      folder: true,
-      mCQQuestion: {
-        include: {
-          options: true
+        folder: true,
+        mCQQuestion: {
+          include: {
+            options: true
+          }
+        },
+        codingQuestion: {
+          include: {
+            languageOptions: true,
+            testCases: true
+          }
         }
-      },
-      codingQuestion: {
-        include: {
-          languageOptions: true,
-          testCases: true
-        }
-      }
     };
 
     // Include section data if assessmentId is provided
