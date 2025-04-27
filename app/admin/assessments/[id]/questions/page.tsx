@@ -50,6 +50,7 @@ interface Question {
   sectionMark?: number;
   folderId: string;
   folder: any;
+  order?: number; // Add optional order property for sorting purposes
 }
 
 interface Section {
@@ -57,7 +58,7 @@ interface Section {
   name: string;
   description?: string | null;
   order?: number;
-  questions: (string | { id: string; sectionMark: number })[];
+  questions: (string | { id: string; sectionMark: number; order?: number })[];
 }
 
 // Create a SectionCard component to properly handle the section scope
@@ -87,6 +88,8 @@ interface SectionCardProps {
     }
   };
   setSectionLoadingState: (sectionId: string, action: string, state: boolean) => void;
+  assessmentId: string; // Add the assessmentId prop
+  setAvailableQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
 }
 
 // Add this interface for the sortable question item
@@ -296,7 +299,9 @@ const SectionCard: React.FC<SectionCardProps> = ({
   setSaving,
   removeQuestionsFromSection,
   sectionLoadingStates,
-  setSectionLoadingState
+  setSectionLoadingState,
+  assessmentId, // Add the assessmentId parameter
+  setAvailableQuestions // Add setAvailableQuestions to the SectionCardProps interface
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
@@ -313,9 +318,44 @@ const SectionCard: React.FC<SectionCardProps> = ({
   );
   
   // Calculate the actual questions to display, filtering missing questions
-  const sectionQuestions = availableQuestions.filter(q => section.questions.some(
-    sq => typeof sq === 'string' ? sq === q.id : sq.id === q.id
-  ));
+  const sectionQuestions = React.useMemo(() => {
+    console.log(`Computing questions for section ${section.name} (${section.id})`);
+    
+    // First, get the ordered question data from section.questions
+    // This preserves the order from the SectionQuestion table
+    const orderedQuestionData = [...section.questions]
+      .map(sq => {
+        // If it's a string, convert to object with default order
+        if (typeof sq === 'string') {
+          return { id: sq, order: 999999, sectionMark: undefined }; // Add sectionMark property to match type
+        }
+        // Make sure order is always defined
+        return { ...sq, order: sq.order || 0 };
+      })
+      // Sort by order first to establish initial ordering
+      .sort((a, b) => (a.order as number) - (b.order as number));
+    
+    console.log("Ordered question data:", orderedQuestionData.map(q => ({ id: q.id, order: q.order })));
+    
+    // Now map these to the actual question objects
+    return orderedQuestionData
+      .map(oq => {
+        // Find the actual question data from availableQuestions
+        const question = availableQuestions.find(q => q.id === oq.id);
+        if (!question) return null; // Skip if question not found
+        
+        // Merge the question data with the order information
+        return {
+          ...question,
+          order: oq.order,
+          sectionMark: typeof oq === 'object' && oq.sectionMark !== undefined ? 
+            oq.sectionMark : question.sectionMark
+        };
+      })
+      // Filter out null values (questions not found)
+      .filter(q => q !== null) as Question[];
+  }, [section.questions, availableQuestions, section.name, section.id]);
+  
   const missingQuestionsCount = section.questions.filter(id => 
     !availableQuestions.some(q => typeof id === 'string' ? id === q.id : id.id === q.id)
   ).length;
@@ -412,7 +452,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
         return s;
       });
       setSections(updatedSections);
-      await saveChanges(updatedSections);
+      await saveChanges();
       setIsEditingName(false);
       toast.success("Section name updated successfully");
     } catch (error) {
@@ -423,7 +463,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
   
-  // Update the handleDragEnd function to better handle question ordering
+  // Update the handleDragEnd function to use assessmentId instead of params.id
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     
@@ -440,38 +480,28 @@ const SectionCard: React.FC<SectionCardProps> = ({
     }
     
     try {
-      setSaving(true);
-      toast.success("Updating question order...");
+      // Don't show global saving state for question reordering to avoid confusion
+      // Start with immediate UI update for better UX
       
       console.log(`Moving question from position ${oldIndex} to ${newIndex}`);
       
       // Create a new ordered array of questions
       const reorderedQuestions = arrayMove([...sectionQuestions], oldIndex, newIndex);
       
-      console.log("Reordered questions:", reorderedQuestions.map(q => q.name));
+      // Create properly formatted question objects with explicit order
+      const updatedQuestions = reorderedQuestions.map((q, index) => ({
+        id: q.id,
+        sectionMark: q.sectionMark !== undefined ? q.sectionMark : q.marks,
+        order: index // Explicitly set the order based on new position
+      }));
       
-      // Update the local state first for immediate feedback
+      console.log("Updated questions with order:", 
+        updatedQuestions.map((q, i) => `${i+1}: ${q.id} (order: ${q.order})`)
+      );
+      
+      // Update the local state with the new order
       const updatedSections = allSections.map(s => {
         if (s.id === section.id) {
-          // Create properly formatted question objects with explicit order
-          const updatedQuestions = reorderedQuestions.map((q, index) => {
-            // If this question was in an object format, preserve its properties
-            const existingQuestion = section.questions.find(sq => 
-              typeof sq === 'string' ? sq === q.id : sq.id === q.id
-            );
-            
-            // Make sure each question has the proper format with order
-            return {
-              id: q.id,
-              sectionMark: q.sectionMark !== undefined ? q.sectionMark : q.marks,
-              order: index // Explicitly set the order based on array position
-            };
-          });
-          
-          console.log("Updated questions with order:", 
-            updatedQuestions.map((q, i) => `${i+1}: ${q.id} (order: ${q.order})`)
-          );
-          
           return {
             ...s,
             questions: updatedQuestions
@@ -483,52 +513,56 @@ const SectionCard: React.FC<SectionCardProps> = ({
       // Update local state immediately for responsive UI
       setSections(updatedSections);
       
-      // First attempt a direct API call to update just the section order
-      try {
-        const orderUpdatePayload = {
-          sectionId: section.id,
-          questions: reorderedQuestions.map((q, index) => ({
-            id: q.id,
-            order: index,
-            sectionMark: q.sectionMark !== undefined ? q.sectionMark : q.marks
-          }))
-        };
-        
-        console.log("Sending order update:", orderUpdatePayload);
-        
-        // Try to use a more focused endpoint first
-        const orderResponse = await fetch(`/api/assessments/${params.id}/sections/${section.id}/order`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderUpdatePayload)
+      // Update availableQuestions with new order info for consistent UI
+      setAvailableQuestions(prevQuestions => {
+        const updated = [...prevQuestions];
+        updatedQuestions.forEach(uq => {
+          const index = updated.findIndex(q => q.id === uq.id);
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              order: uq.order
+            };
+          }
         });
-        
-        // If the focused endpoint succeeds, we're done
-        if (orderResponse.ok) {
-          console.log("Order updated successfully via direct API");
-          toast.success("Question order updated");
-          setSaving(false);
-          return;
-        }
-        
-        console.log("Direct order API not available, falling back to saveChanges");
-      } catch (orderError) {
-        console.log("Error with direct order API, falling back to saveChanges", orderError);
+        return updated;
+      });
+      
+      // Prepare payload for the API call
+      const orderUpdatePayload = {
+        sectionId: section.id,
+        questions: updatedQuestions.map(q => ({
+          id: q.id,
+          order: q.order,
+          sectionMark: q.sectionMark
+        }))
+      };
+      
+      console.log("Sending order update:", orderUpdatePayload);
+      
+      // Call the API endpoint for updating question order
+      const response = await fetch(`/api/assessments/${assessmentId}/sections/${section.id}/order`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderUpdatePayload)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update question order: ${response.statusText}`);
       }
       
-      // Fall back to using the general saveChanges function
-      await saveChanges();
-      toast.success("Question order updated");
+      const result = await response.json();
+      console.log("Order update response:", result);
+      
+      toast.success("Question order updated", { duration: 2000 });
     } catch (error) {
       console.error("Error updating question order:", error);
       toast.error("Failed to update question order");
       
-      // Refresh the data in case of an error
+      // Only refresh the data in case of an error
       await fetchData();
-    } finally {
-      setSaving(false);
     }
   };
   
@@ -622,15 +656,15 @@ const SectionCard: React.FC<SectionCardProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              disabled={sectionIndex === 0 || sectionLoadingStates[section.id]}
+              disabled={sectionIndex === 0 || sectionLoadingStates[section.id]?.movingUp}
               onClick={(e) => {
                 e.stopPropagation(); // Prevent accordion toggle
-                setSectionLoadingState(section.id, true);
+                setSectionLoadingState(section.id, 'movingUp', true);
                 moveSection(section.id, 'up');
               }}
               className="h-8 w-8"
             >
-              {sectionLoadingStates[section.id] ? (
+              {sectionLoadingStates[section.id]?.movingUp ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <MoveUp className="h-4 w-4" />
@@ -639,15 +673,15 @@ const SectionCard: React.FC<SectionCardProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              disabled={sectionIndex === totalSections - 1 || sectionLoadingStates[section.id]}
+              disabled={sectionIndex === totalSections - 1 || sectionLoadingStates[section.id]?.movingDown}
               onClick={(e) => {
                 e.stopPropagation(); // Prevent accordion toggle
-                setSectionLoadingState(section.id, true);
+                setSectionLoadingState(section.id, 'movingDown', true);
                 moveSection(section.id, 'down');
               }}
               className="h-8 w-8"
             >
-              {sectionLoadingStates[section.id] ? (
+              {sectionLoadingStates[section.id]?.movingDown ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <MoveDown className="h-4 w-4" />
@@ -657,18 +691,18 @@ const SectionCard: React.FC<SectionCardProps> = ({
           <Button
             variant="outline"
             size="sm"
-            disabled={sectionLoadingStates[section.id]}
+            disabled={sectionLoadingStates[section.id]?.addingQuestions}
             onClick={(e) => {
               e.stopPropagation(); // Prevent accordion toggle
               setSelectedSectionForQuestion(section.id);
               setIsAddQuestionModalOpen(true);
               // Reset when modal is opened
               setTimeout(() => {
-                setSectionLoadingState(section.id, false);
+                setSectionLoadingState(section.id, 'addingQuestions', false);
               }, 500);
             }}
           >
-            {sectionLoadingStates[section.id] ? (
+            {sectionLoadingStates[section.id]?.addingQuestions ? (
               <>
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 Opening...
@@ -683,16 +717,16 @@ const SectionCard: React.FC<SectionCardProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            disabled={sectionLoadingStates[section.id]}
+            disabled={sectionLoadingStates[section.id]?.removing}
             onClick={(e) => {
               e.stopPropagation(); // Prevent accordion toggle
               if (confirm(`Are you sure you want to delete section "${section.name}"?`)) {
-                setSectionLoadingState(section.id, true);
+                setSectionLoadingState(section.id, 'removing', true);
                 removeSection(section.id);
               }
             }}
           >
-            {sectionLoadingStates[section.id] ? (
+            {sectionLoadingStates[section.id]?.removing ? (
               <Loader2 className="h-4 w-4 animate-spin text-destructive" />
             ) : (
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -923,11 +957,41 @@ export default function QuestionsPage() {
   }>({});
   
   // Helper function to set loading state for specific section action
-  const setSectionLoadingState = (sectionId: string, loading: boolean) => {
+  const setSectionLoadingState = (sectionId: string, action: string, state: boolean) => {
     setSectionLoadingStates(prev => ({
       ...prev,
-      [sectionId]: loading
+      [sectionId]: {
+        ...prev[sectionId],
+        [action]: state
+      }
     }));
+  };
+  
+  // Helper function to reset all loading states for a section
+  const resetSectionLoadingStates = (sectionId: string) => {
+    setSectionLoadingStates(prev => ({
+      ...prev,
+      [sectionId]: {
+        movingUp: false,
+        movingDown: false,
+        removing: false,
+        addingQuestions: false
+      }
+    }));
+  };
+  
+  // Helper function to reset all loading states for all sections
+  const resetAllSectionLoadingStates = () => {
+    const resetStates: Record<string, any> = {};
+    sections.forEach(section => {
+      resetStates[section.id] = {
+        movingUp: false,
+        movingDown: false,
+        removing: false,
+        addingQuestions: false
+      };
+    });
+    setSectionLoadingStates(resetStates);
   };
   
   // Use useMemo to calculate total marks when sections or available questions change
@@ -961,11 +1025,27 @@ export default function QuestionsPage() {
     setLoading(true);
       try {
       // Fetch assessment details with explicit includeSectionMarks parameter
-      const assessmentRes = await fetch(`/api/assessments/${params.id}?includeSectionMarks=true`);
+      const assessmentRes = await fetch(`/api/assessments/${params.id}?includeSectionMarks=true&includeOrder=true`);
         if (!assessmentRes.ok) throw new Error("Failed to fetch assessment");
         const assessmentData = await assessmentRes.json();
         
         console.log("Assessment API response:", assessmentData);
+        
+        // Add detailed logging of the sections and questions
+        if (assessmentData.sections) {
+          assessmentData.sections.forEach((section: any) => {
+            console.log(`Section ${section.title || section.name} (${section.id}) questions:`, 
+              section.questions && section.questions.length > 0 
+                ? section.questions.map((q: any) => ({ 
+                    id: q.id || q.questionId, 
+                    order: q.order, 
+                    sectionMark: q.sectionMark 
+                  }))
+                : 'No questions'
+            );
+          });
+        }
+        
         setAssessment(assessmentData);
 
       let sectionsData: Section[] = [];
@@ -976,29 +1056,46 @@ export default function QuestionsPage() {
         sectionsData = assessmentData.sections.map((section: any) => {
             // Get existing questions if available
             // Make sure questions is an array - get question IDs from the SectionQuestion records
-          let sectionQuestions: (string | { id: string; sectionMark: number })[] = [];
+          let sectionQuestions: (string | { id: string; sectionMark: number; order?: number })[] = [];
             
             if (Array.isArray(section.questions)) {
             // If questions is an array of objects with questionId and sectionMark properties
               if (section.questions.length > 0 && typeof section.questions[0] === 'object') {
-              sectionQuestions = section.questions.map((q: any) => ({
-                id: q.questionId || q.id,
-                sectionMark: q.sectionMark !== undefined ? q.sectionMark : (q.marks || 1)
-              }));
+                // Log order of questions for debugging
+                console.log(`Section ${section.title} questions before sorting:`, 
+                  section.questions.map((q: any) => ({ id: q.questionId || q.id, order: q.order }))
+                );
+                
+                sectionQuestions = section.questions
+                  .sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) // Sort by order
+                  .map((q: any) => ({
+                    id: q.questionId || q.id,
+                    sectionMark: q.sectionMark !== undefined ? q.sectionMark : (q.marks || 1),
+                    order: q.order || 0
+                  }));
+                  
+                // Log order after sorting
+                console.log(`Section ${section.title} questions after sorting:`, 
+                  sectionQuestions.map((q: any) => ({ id: q.id, order: q.order }))
+                );
               } 
             // If questions is an array of SectionQuestion objects
             else if (section.SectionQuestions && section.SectionQuestions.length > 0) {
-              sectionQuestions = section.SectionQuestions.map((sq: any) => ({
-                id: sq.questionId,
-                sectionMark: sq.sectionMark || 1
-              }));
+              sectionQuestions = section.SectionQuestions
+                .sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) // Sort by order
+                .map((sq: any) => ({
+                  id: sq.questionId,
+                  sectionMark: sq.sectionMark || 1,
+                  order: sq.order || 0
+                }));
             }
             // If questions is just an array of strings (question IDs)
               else {
               // We'll need to fetch section marks separately
-              sectionQuestions = section.questions.map((id: string) => ({
+              sectionQuestions = section.questions.map((id: string, index: number) => ({
                 id,
-                sectionMark: 1 // Default to 1, will be updated later
+                sectionMark: 1, // Default to 1, will be updated later
+                order: index // Default order based on array position
               }));
               }
             }
@@ -1248,6 +1345,8 @@ export default function QuestionsPage() {
       throw error;
     } finally {
       setSaving(false);
+      // Reset all section loading states after saving completes
+      resetAllSectionLoadingStates();
     }
   };
 
@@ -1680,6 +1779,8 @@ export default function QuestionsPage() {
       await fetchData();
     } finally {
       setSaving(false);
+      // Make sure to turn off the loading state for this specific section
+      setSectionLoadingState(sectionId, direction === 'up' ? 'movingUp' : 'movingDown', false);
     }
   };
   
@@ -1737,8 +1838,9 @@ export default function QuestionsPage() {
         }
         
         // Get response data from the direct API
-        const responseData = await removeResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
-        return responseData;
+        const directResponseData = await removeResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
+        console.log("Direct removal API response:", directResponseData);
+        return directResponseData;
       } catch (directApiError) {
         console.log("Falling back to general remove endpoint", directApiError);
         
@@ -1748,14 +1850,14 @@ export default function QuestionsPage() {
         
         try {
           const fallbackResponse = await fetch(`/api/assessments/${params.id}/questions/remove`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          sectionId, 
-          questionIds 
-        }),
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+              sectionId, 
+              questionIds 
+            }),
             signal: fallbackController.signal
           });
           
@@ -1768,8 +1870,9 @@ export default function QuestionsPage() {
           }
           
           // Get response data from the fallback API
-          const responseData = await fallbackResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
-      return responseData;
+          const fallbackResponseData = await fallbackResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
+          console.log("Fallback removal API response:", fallbackResponseData);
+          return fallbackResponseData;
         } catch (fallbackError) {
           clearTimeout(fallbackTimeoutId);
           
@@ -2299,6 +2402,8 @@ export default function QuestionsPage() {
                   removeQuestionsFromSection={removeQuestionsFromSection}
                   sectionLoadingStates={sectionLoadingStates}
                   setSectionLoadingState={setSectionLoadingState}
+                  assessmentId={params.id as string} // Pass the assessmentId
+                  setAvailableQuestions={setAvailableQuestions}
                 />
               ))
                             )}

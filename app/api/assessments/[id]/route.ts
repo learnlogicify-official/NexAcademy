@@ -38,47 +38,47 @@ const updateAssessmentSchema = z.object({
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const { id } = params;
+    const url = new URL(req.url);
+    
+    // Check if we should include SectionMarks in the response
+    const includeSectionMarks = url.searchParams.get('includeSectionMarks') === 'true';
+    // Check if we should include order in the response
+    const includeOrder = url.searchParams.get('includeOrder') === 'true';
+    
+    console.log(`Getting assessment ${id} with includeSectionMarks=${includeSectionMarks}, includeOrder=${includeOrder}`);
 
-    // Validate assessment ID
-    const resolvedParams = await params;
-    const assessmentId = resolvedParams.id;
-    if (!assessmentId) {
-      return NextResponse.json(
-        { error: "Assessment ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Fetch assessment with related data including sections and their questions
-    const assessment = await prismaAny.assessment.findUnique({
-      where: { id: assessmentId },
+    // Get assessment data
+    const assessment = await prisma.assessment.findUnique({
+      where: { id },
       include: {
         createdBy: true,
-        folder: true,
-        sections: {
+        tags: {
           include: {
-            questions: {
-              include: {
-                question: true
-              },
-              orderBy: {
-                order: 'asc'
-              }
-            }
-          },
+            tag: true
+          }
+        },
+        sections: {
           orderBy: {
             order: 'asc'
+          },
+          include: {
+            questions: includeOrder ? {
+              orderBy: {
+                order: 'asc'
+              },
+              include: {
+                question: {
+                  include: {
+                    mCQQuestion: true,
+                    codingQuestion: true
+                  }
+                }
+              }
+            } : true
           }
         }
       }
@@ -91,33 +91,51 @@ export async function GET(
       );
     }
 
-    // Only allow creator or admin to view assessment details
-    if (assessment.createdById !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: "You don't have permission to view this assessment" },
-        { status: 403 }
-      );
-    }
+    // Format the sections to include question data with order if requested
+    const formattedSections = assessment.sections.map(section => {
+      // Format the questions based on the section.questions data
+      const formattedQuestions = section.questions.map((sq: any) => {
+        // Include proper order information if requested
+        if (includeOrder) {
+          return {
+            id: sq.questionId,
+            sectionMark: sq.sectionMark,
+            order: sq.order || 0,
+            // Include additional question data if available
+            ...(sq.question && {
+              name: sq.question.name,
+              type: sq.question.type,
+              status: sq.question.status,
+              marks: sq.question.mCQQuestion?.defaultMark || sq.question.codingQuestion?.defaultMark || 1
+            })
+          };
+        }
+        
+        // Default format without explicit order
+        return {
+          id: sq.questionId,
+          sectionMark: sq.sectionMark
+        };
+      });
 
-    // Transform the sections to include question IDs in the expected format
-    const sectionsWithQuestions = assessment.sections.map((section: any) => {
       return {
-        ...section,
-        questions: section.questions.map((sq: any) => sq.questionId)
+        id: section.id,
+        title: section.title,
+        description: section.description,
+        order: section.order,
+        questions: formattedQuestions
       };
     });
 
-    // Replace sections in the assessment with our transformed sections
-    const assessmentWithQuestions = {
+    // Return the assessment with formatted sections
+    return NextResponse.json({
       ...assessment,
-      sections: sectionsWithQuestions
-    };
-
-    return NextResponse.json(assessmentWithQuestions);
+      sections: formattedSections
+    });
   } catch (error) {
     console.error("Error fetching assessment:", error);
     return NextResponse.json(
-      { error: "Failed to fetch assessment" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
