@@ -74,6 +74,15 @@ interface SectionCardProps {
   saveChanges: () => Promise<any>;
   setSaving: React.Dispatch<React.SetStateAction<boolean>>;
   removeQuestionsFromSection: (sectionId: string, questionIds: string[]) => Promise<any>;
+  sectionLoadingStates: {
+    [key: string]: {
+      removing?: boolean;
+      movingUp?: boolean;
+      movingDown?: boolean;
+      addingQuestions?: boolean;
+    }
+  };
+  setSectionLoadingState: (sectionId: string, action: string, state: boolean) => void;
 }
 
 const SectionCard: React.FC<SectionCardProps> = ({ 
@@ -92,7 +101,9 @@ const SectionCard: React.FC<SectionCardProps> = ({
   fetchData,
   saveChanges,
   setSaving,
-  removeQuestionsFromSection
+  removeQuestionsFromSection,
+  sectionLoadingStates,
+  setSectionLoadingState
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
@@ -204,49 +215,88 @@ const SectionCard: React.FC<SectionCardProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              disabled={sectionIndex === 0}
+              disabled={sectionIndex === 0 || sectionLoadingStates[section.id]?.movingUp}
               onClick={(e) => {
                 e.stopPropagation(); // Prevent accordion toggle
-                moveSection(section.id, 'up');
+                setSectionLoadingState(section.id, 'movingUp', true);
+                moveSection(section.id, 'up').finally(() => {
+                  setSectionLoadingState(section.id, 'movingUp', false);
+                });
               }}
               className="h-8 w-8"
             >
-              <MoveUp className="h-4 w-4" />
+              {sectionLoadingStates[section.id]?.movingUp ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MoveUp className="h-4 w-4" />
+              )}
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              disabled={sectionIndex === totalSections - 1}
+              disabled={sectionIndex === totalSections - 1 || sectionLoadingStates[section.id]?.movingDown}
               onClick={(e) => {
                 e.stopPropagation(); // Prevent accordion toggle
-                moveSection(section.id, 'down');
+                setSectionLoadingState(section.id, 'movingDown', true);
+                moveSection(section.id, 'down').finally(() => {
+                  setSectionLoadingState(section.id, 'movingDown', false);
+                });
               }}
               className="h-8 w-8"
             >
-              <MoveDown className="h-4 w-4" />
+              {sectionLoadingStates[section.id]?.movingDown ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MoveDown className="h-4 w-4" />
+              )}
             </Button>
           </div>
           <Button
             variant="outline"
             size="sm"
+            disabled={sectionLoadingStates[section.id]?.addingQuestions}
             onClick={(e) => {
               e.stopPropagation(); // Prevent accordion toggle
+              setSectionLoadingState(section.id, 'addingQuestions', true);
               setSelectedSectionForQuestion(section.id);
               setIsAddQuestionModalOpen(true);
+              // Reset when modal is opened
+              setTimeout(() => {
+                setSectionLoadingState(section.id, 'addingQuestions', false);
+              }, 500);
             }}
           >
-            <PlusCircle className="h-4 w-4 mr-1" />
-            Add Questions
+            {sectionLoadingStates[section.id]?.addingQuestions ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Opening...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="h-4 w-4 mr-1" />
+                Add Questions
+              </>
+            )}
           </Button>
           <Button
             variant="ghost"
             size="icon"
+            disabled={sectionLoadingStates[section.id]?.removing}
             onClick={(e) => {
               e.stopPropagation(); // Prevent accordion toggle
-              removeSection(section.id);
+              if (confirm(`Are you sure you want to delete section "${section.name}"?`)) {
+                setSectionLoadingState(section.id, 'removing', true);
+                removeSection(section.id).finally(() => {
+                  setSectionLoadingState(section.id, 'removing', false);
+                });
+              }
             }}
           >
-            <Trash2 className="h-4 w-4 text-destructive" />
+            {sectionLoadingStates[section.id]?.removing ? (
+              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+            ) : (
+              <Trash2 className="h-4 w-4 text-destructive" />
+            )}
           </Button>
         </div>
       </div>
@@ -496,6 +546,7 @@ export default function QuestionsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [addingSectionLoading, setAddingSectionLoading] = useState(false);
   const [assessment, setAssessment] = useState<any>(null);
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
@@ -526,6 +577,27 @@ export default function QuestionsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [questionMarks, setQuestionMarks] = useState<{ [key: string]: number }>({});
+  
+  // Loading states for each section
+  const [sectionLoadingStates, setSectionLoadingStates] = useState<{
+    [key: string]: {
+      removing?: boolean;
+      movingUp?: boolean;
+      movingDown?: boolean;
+      addingQuestions?: boolean;
+    }
+  }>({});
+  
+  // Helper function to set loading state for specific section action
+  const setSectionLoadingState = (sectionId: string, action: string, state: boolean) => {
+    setSectionLoadingStates(prev => ({
+      ...prev,
+      [sectionId]: {
+        ...prev[sectionId],
+        [action]: state
+      }
+    }));
+  };
   
   // Use useMemo to calculate total marks when sections or available questions change
   const totalMarks = useMemo(() => {
@@ -745,6 +817,7 @@ export default function QuestionsPage() {
     fetchData();
   }, [params.id]);
   
+  // Fix for AbortError handling in saveChanges
   const saveChanges = async (sectionsToSave = sections) => {
     setSaving(true);
     try {
@@ -789,40 +862,56 @@ export default function QuestionsPage() {
         dataToSend.sections.map(s => `${s.name}: ${s.questions.length} questions`)
       );
       
-      const response = await fetch(`/api/assessments/${params.id}/questions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dataToSend),
-      });
+      // Set a timeout for the fetch to prevent indefinite waiting
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error response:", errorData);
-        throw new Error(errorData.error || "Failed to save questions");
-      }
-      
-      const responseData = await response.json();
-      console.log("Success response:", responseData);
-      
-      // After successful save, update the local state with the response data if needed
-      if (responseData.sections) {
-        // Transform sections from the response to our format
-        const updatedSections = responseData.sections.map((section: any) => ({
-          id: section.id,
-          name: section.title || section.name,
-          description: section.description,
-          order: section.order,
-          questions: section.questions || [] 
-        }));
+      try {
+        const response = await fetch(`/api/assessments/${params.id}/questions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(dataToSend),
+          signal: controller.signal
+        });
         
-        // Update the sections with the data from the server
-        setSections(updatedSections);
-        console.log("Updated sections from response:", updatedSections);
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+          console.error("Error response:", errorData);
+          throw new Error(errorData.error || "Failed to save questions");
+        }
+        
+        const responseData = await response.json().catch(() => ({ sections: [] }));
+        console.log("Success response:", responseData);
+        
+        // After successful save, update the local state with the response data if needed
+        if (responseData.sections) {
+          // Transform sections from the response to our format
+          const updatedSections = responseData.sections.map((section: any) => ({
+            id: section.id,
+            name: section.title || section.name,
+            description: section.description,
+            order: section.order,
+            questions: section.questions || [] 
+          }));
+          
+          // Update the sections with the data from the server
+          setSections(updatedSections);
+          console.log("Updated sections from response:", updatedSections);
+        }
+        
+        return responseData;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          console.error("Request timed out after 30 seconds");
+          throw new Error("Request timed out. The operation may be taking longer than expected.");
+        }
+        throw error;
       }
-      
-      return responseData;
     } catch (error) {
       console.error("Error saving questions:", error);
       throw error;
@@ -836,6 +925,9 @@ export default function QuestionsPage() {
       toast.error("Section name is required");
       return;
     }
+
+    // Show loading state on the button
+    setAddingSectionLoading(true);
 
     const newSection: Section = {
       id: `section-${Date.now()}`,
@@ -861,6 +953,7 @@ export default function QuestionsPage() {
       toast.error("Failed to save section: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setSaving(false);
+      setAddingSectionLoading(false);
     }
   };
 
@@ -1269,24 +1362,7 @@ export default function QuestionsPage() {
       
       console.log(`Removing ${questionIds.length} question(s) from section ${sectionId}`);
       
-      // Call the API endpoint to remove questions from section
-      const response = await fetch(`/api/assessments/${params.id}/questions/remove`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          sectionId, 
-          questionIds 
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to remove questions");
-      }
-      
-      // Update the local state
+      // Optimistic update of local state first for better UX
       const updatedSections = sections.map(section => {
         if (section.id === sectionId) {
           return {
@@ -1300,13 +1376,88 @@ export default function QuestionsPage() {
         return section;
       });
       
+      // Update the UI immediately
       setSections(updatedSections);
       
-      // Get response data
-      const responseData = await response.json();
-      return responseData;
+      // Set a timeout for the fetch to prevent indefinite waiting
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      try {
+        // Try the direct API approach first (more efficient)
+        const removeResponse = await fetch(`/api/assessments/${params.id}/sections/${sectionId}/questions/remove`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ questionIds }),
+          signal: controller.signal
+        }).catch(error => {
+          clearTimeout(timeoutId);
+          throw error;
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!removeResponse || !removeResponse.ok) {
+          // If direct API fails, try the fallback route
+          console.log("Direct removal API not available, falling back to general remove endpoint");
+          throw new Error("Direct removal endpoint not available");
+        }
+        
+        // Get response data from the direct API
+        const responseData = await removeResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
+        return responseData;
+      } catch (directApiError) {
+        console.log("Falling back to general remove endpoint", directApiError);
+        
+        // Fallback to the general remove endpoint
+        const fallbackController = new AbortController();
+        const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 15000); // 15 second timeout
+        
+        try {
+          const fallbackResponse = await fetch(`/api/assessments/${params.id}/questions/remove`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+              sectionId, 
+              questionIds 
+            }),
+            signal: fallbackController.signal
+          });
+          
+          clearTimeout(fallbackTimeoutId);
+          
+          if (!fallbackResponse.ok) {
+            // If both APIs fail, fall back to saving the entire state
+            console.log("Fallback API also failed, falling back to full state save");
+            throw new Error("Fallback removal endpoint failed");
+          }
+          
+          // Get response data from the fallback API
+          const responseData = await fallbackResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
+          return responseData;
+        } catch (fallbackError) {
+          clearTimeout(fallbackTimeoutId);
+          
+          console.log("All removal APIs failed, falling back to full state save", fallbackError);
+          
+          // Last resort: save the entire state with the local updates we already made
+          await saveChanges(updatedSections);
+          return { message: `Removed ${questionIds.length} questions from section` };
+        }
+      }
     } catch (error) {
       console.error("Error removing questions:", error);
+      toast.error(`Failed to remove questions: ${error instanceof Error ? error.message : String(error)}`);
+      
+      // If all attempts fail, revert the local state by re-fetching
+      fetchData().catch(fetchError => {
+        console.error("Failed to refresh data after error:", fetchError);
+      });
+      
       throw error;
     } finally {
       setSaving(false);
@@ -1368,7 +1519,10 @@ export default function QuestionsPage() {
       
       // Find the current section
       const currentSection = sections.find(s => s.id === selectedSectionForQuestion);
-      if (!currentSection) return;
+      if (!currentSection) {
+        toast.error("Selected section not found");
+        return;
+      }
       
       // Get the questions that aren't already in the section
       const newQuestions = selectedQuestions.filter(questionId => 
@@ -1389,59 +1543,118 @@ export default function QuestionsPage() {
       
       console.log(`Adding ${newQuestions.length} questions to section ${currentSection.id}`);
       
-      // Create a deep copy of sections to avoid reference issues
-      const updatedSections = sections.map(section => {
-        if (section.id === selectedSectionForQuestion) {
-          // Add the new questions to this section
-          // Convert string IDs to objects with id and sectionMark for the API
-          const updatedQuestions = [
-            ...section.questions,
-            ...newQuestions.map(qId => {
-              // Find the question in paginatedQuestions to get its default marks
-              const question = paginatedQuestions.find(q => q.id === qId);
-              const defaultMarks = question?.marks || 1;
-              
-              // If we have a custom mark set, use it; otherwise use the default marks
-              const sectionMark = questionMarks[qId] !== undefined ? questionMarks[qId] : defaultMarks;
-              
-              return {
-                id: qId,
-                sectionMark: sectionMark
-              };
-            })
-          ];
-          
-          console.log(`Section ${section.id} questions updated from ${section.questions.length} to ${updatedQuestions.length} questions`);
-          
-          return {
-            ...section,
-            questions: updatedQuestions
-          };
+      // Create a direct API call for adding questions to avoid re-saving the entire assessment
+      try {
+        // Prepare payload for adding just the new questions
+        const addQuestionsPayload = {
+          sectionId: selectedSectionForQuestion,
+          questions: newQuestions.map(qId => {
+            // Find the question to get its default marks
+            const question = paginatedQuestions.find(q => q.id === qId);
+            const defaultMarks = question?.marks || 1;
+            
+            // If we have a custom mark set, use it; otherwise use the default marks
+            const sectionMark = questionMarks[qId] !== undefined ? questionMarks[qId] : defaultMarks;
+            
+            return {
+              id: qId,
+              sectionMark: sectionMark
+            };
+          })
+        };
+        
+        // Use a smaller, focused API endpoint for just adding questions
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        const addResponse = await fetch(`/api/assessments/${params.id}/sections/${selectedSectionForQuestion}/questions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(addQuestionsPayload),
+          signal: controller.signal
+        }).catch(error => {
+          clearTimeout(timeoutId);
+          throw error;
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!addResponse || !addResponse.ok) {
+          // If the focused API fails or doesn't exist, fall back to the full save
+          console.log("Focused API not available, falling back to full save");
+          throw new Error("Direct add endpoint not available");
         }
-        return {...section}; // Return copy of unchanged sections
-      });
-      
-      // Check if the section was actually updated
-      const updatedSection = updatedSections.find(s => s.id === selectedSectionForQuestion);
-      console.log(`Updated section ${selectedSectionForQuestion} now has ${updatedSection?.questions.length} questions`);
-      
-      // Update state with our deep copy
-      setSections(updatedSections);
-      
-      // Log what we're about to save
-      console.log("About to save sections:", updatedSections);
-      console.log("Section questions before save:", updatedSections.map(s => ({
-        id: s.id,
-        name: s.name,
-        questionsCount: s.questions.length,
-        questions: s.questions
-      })));
-      
-      // Save changes to database with the updated sections
-      await saveChanges(updatedSections);
+        
+        const addResponseData = await addResponse.json().catch(() => ({}));
+        console.log("Questions added successfully via focused API:", addResponseData);
+        
+        // Update local state to match the server
+        const updatedSections = sections.map(section => {
+          if (section.id === selectedSectionForQuestion) {
+            // Add the new questions to this section
+            const updatedQuestions = [
+              ...section.questions,
+              ...newQuestions.map(qId => {
+                const question = paginatedQuestions.find(q => q.id === qId);
+                const defaultMarks = question?.marks || 1;
+                const sectionMark = questionMarks[qId] !== undefined ? questionMarks[qId] : defaultMarks;
+                
+                return {
+                  id: qId,
+                  sectionMark: sectionMark
+                };
+              })
+            ];
+            
+            return {
+              ...section,
+              questions: updatedQuestions
+            };
+          }
+          return section;
+        });
+        
+        setSections(updatedSections);
+      } catch (directApiError) {
+        console.log("Error with direct API, falling back to full save", directApiError);
+        
+        // Fall back to updating the full sections object
+        const updatedSections = sections.map(section => {
+          if (section.id === selectedSectionForQuestion) {
+            // Add the new questions to this section
+            const updatedQuestions = [
+              ...section.questions,
+              ...newQuestions.map(qId => {
+                const question = paginatedQuestions.find(q => q.id === qId);
+                const defaultMarks = question?.marks || 1;
+                const sectionMark = questionMarks[qId] !== undefined ? questionMarks[qId] : defaultMarks;
+                
+                return {
+                  id: qId,
+                  sectionMark: sectionMark
+                };
+              })
+            ];
+            
+            return {
+              ...section,
+              questions: updatedQuestions
+            };
+          }
+          return {...section}; // Return copy of unchanged sections
+        });
+        
+        // Update state with our deep copy
+        setSections(updatedSections);
+        
+        // Save changes to database with the updated sections
+        await saveChanges(updatedSections);
+      }
       
       // Fetch updated questions to make sure we have the latest SectionQuestion data
-      const refreshedQuestions = await fetchQuestionsWithSectionMarks();
+      const refreshedQuestions = await fetchQuestionsWithSectionMarks().catch(() => null);
       if (refreshedQuestions) {
         setAvailableQuestions(refreshedQuestions);
       }
@@ -1455,7 +1668,7 @@ export default function QuestionsPage() {
       toast.success(`${newQuestions.length} questions added to section`);
     } catch (error) {
       console.error("Error adding questions to section:", error);
-      toast.error("Failed to add questions to section");
+      toast.error("Failed to add questions to section: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setSaving(false);
     }
@@ -1464,8 +1677,21 @@ export default function QuestionsPage() {
   // Helper function to fetch questions with section marks
   const fetchQuestionsWithSectionMarks = async () => {
     try {
-      const questionsRes = await fetch("/api/questions?limit=1000&page=1&includeSectionMarks=true&assessmentId=" + params.id);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      const questionsRes = await fetch(
+        `/api/questions?limit=1000&page=1&includeSectionMarks=true&assessmentId=${params.id}`,
+        { signal: controller.signal }
+      ).catch(error => {
+        clearTimeout(timeoutId);
+        throw error;
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!questionsRes.ok) throw new Error("Failed to fetch questions");
+      
       const questionsData = await questionsRes.json();
       
       // Check if the response has a 'questions' property (nested structure)
@@ -1517,6 +1743,9 @@ export default function QuestionsPage() {
       return transformedQuestions;
     } catch (error) {
       console.error("Error fetching questions with section marks:", error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error("Request timed out when fetching questions");
+      }
       return null;
     }
   };
@@ -1645,12 +1874,21 @@ export default function QuestionsPage() {
               </div>
               <Button 
                 onClick={addSection}
-                disabled={!newSectionName.trim()}
+                disabled={!newSectionName.trim() || addingSectionLoading}
                 className="min-w-24"
               >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Section
-            </Button>
+                {addingSectionLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Section
+                  </>
+                )}
+              </Button>
           </div>
         </CardContent>
       </Card>
@@ -1720,6 +1958,7 @@ export default function QuestionsPage() {
                 </CardContent>
               </Card>
             ) : (
+              // Maps sections to SectionCard components 
               sections.map((sectionItem, index) => (
                 <SectionCard
                   key={sectionItem.id}
@@ -1739,12 +1978,14 @@ export default function QuestionsPage() {
                   saveChanges={saveChanges}
                   setSaving={setSaving}
                   removeQuestionsFromSection={removeQuestionsFromSection}
+                  sectionLoadingStates={sectionLoadingStates}
+                  setSectionLoadingState={setSectionLoadingState}
                 />
               ))
-                            )}
-                          </div>
-                        </div>
-                    </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Add Question Modal */}
       <Dialog open={isAddQuestionModalOpen} onOpenChange={(open) => {

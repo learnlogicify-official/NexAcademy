@@ -115,11 +115,11 @@ export async function POST(
       console.log(`Found ${existingSections.length} existing sections`);
       
       // Track sections to keep and new sections to create
-      const existingSectionIds = existingSections.map(s => s.id);
+      const existingSectionIds = existingSections.map((s: any) => s.id);
       const incomingSectionIds = sectionInput.map(s => s.id);
       
       // Identify sections to delete (exist in DB but not in request)
-      const sectionIdsToDelete = existingSectionIds.filter(id => !incomingSectionIds.includes(id));
+      const sectionIdsToDelete = existingSectionIds.filter((id: string) => !incomingSectionIds.includes(id));
       
       // Only delete sections that need to be removed
       if (sectionIdsToDelete.length > 0) {
@@ -144,7 +144,7 @@ export async function POST(
           console.log(`Processing section ${section.name} with ${section.questions.length} questions`);
           
           // Check if section exists
-          const existingSection = existingSections.find(s => s.id === section.id);
+          const existingSection = existingSections.find((s: any) => s.id === section.id);
           
           let newSection;
           if (existingSection) {
@@ -165,11 +165,11 @@ export async function POST(
               select: { questionId: true }
             });
             
-            const currentIds = currentQuestionIds.map(q => q.questionId);
+            const currentIds = currentQuestionIds.map((q: { questionId: string }) => q.questionId);
             const incomingIds = section.questions.map(q => typeof q === 'string' ? q : q.id);
             
             // Find question relationships to delete (exist in DB but not in request)
-            const questionIdsToRemove = currentIds.filter(id => !incomingIds.includes(id));
+            const questionIdsToRemove = currentIds.filter((id: string) => !incomingIds.includes(id));
             
             // Remove questions that are no longer in the section
             if (questionIdsToRemove.length > 0) {
@@ -245,7 +245,7 @@ export async function POST(
               }
             });
             
-            const existingRelationshipIds = existingRelationships.map(r => r.questionId);
+            const existingRelationshipIds = existingRelationships.map((r: { questionId: string }) => r.questionId);
             
             // Prepare SectionQuestion data only for NEW relationships or UPDATED marks
             const sectionQuestionData = [];
@@ -262,7 +262,7 @@ export async function POST(
               
               // If relationship already exists, check if mark needs updating
               if (existingRelationshipIds.includes(questionId)) {
-                const existingRel = existingRelationships.find(r => r.questionId === questionId);
+                const existingRel = existingRelationships.find((r: { questionId: string; sectionMark: number | null }) => r.questionId === questionId);
                 if (existingRel && existingRel.sectionMark !== sectionMark) {
                   sectionQuestionUpdates.push({
                     questionId,
