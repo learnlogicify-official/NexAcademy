@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
-    const { title, courseId, order } = await request.json();
+    const { title, description, courseId, order } = await request.json();
 
     const module = await prisma.module.create({
       data: {
         title,
+        description,
         courseId,
         order,
       },

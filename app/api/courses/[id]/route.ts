@@ -12,6 +12,7 @@ const courseSchema = z.object({
   endDate: z.string().datetime(),
   categoryId: z.string().min(1, "Category is required"),
   visibility: z.enum(["SHOW", "HIDE"]),
+  level: z.enum(["Beginner", "Intermediate", "Advanced"]),
 });
 
 export async function PATCH(
@@ -45,7 +46,7 @@ export async function PATCH(
 
     const body = await req.json();
     const validatedData = courseSchema.parse(body);
-    const { title, subtitle, description, startDate, endDate, categoryId, visibility } = validatedData;
+    const { title, subtitle, description, startDate, endDate, categoryId, visibility, level } = validatedData;
 
     // Check if the course exists
     const existingCourse = await prisma.course.findUnique({
@@ -80,6 +81,7 @@ export async function PATCH(
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         visibility,
+        level,
         category: {
           connect: {
             id: categoryId
@@ -189,7 +191,13 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(course);
+    return NextResponse.json({
+      ...course,
+      startDate: course.startDate.toISOString(),
+      endDate: course.endDate.toISOString(),
+      createdAt: course.createdAt.toISOString(),
+      updatedAt: course.updatedAt.toISOString(),
+    });
   } catch (error) {
     console.error("Error fetching course:", error);
     return NextResponse.json(

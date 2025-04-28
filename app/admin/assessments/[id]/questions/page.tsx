@@ -59,6 +59,9 @@ interface Section {
   description?: string | null;
   order?: number;
   questions: (string | { id: string; sectionMark: number; order?: number })[];
+  shuffleQuestions: boolean;
+  timeLimitEnabled: boolean;
+  timeLimit?: number | null;
 }
 
 // Create a SectionCard component to properly handle the section scope
@@ -76,7 +79,7 @@ interface SectionCardProps {
   allSections: Section[];
   setSections: React.Dispatch<React.SetStateAction<Section[]>>;
   fetchData: () => Promise<void>;
-  saveChanges: () => Promise<any>;
+  saveChanges: (sectionsToSave?: Section[]) => Promise<any>;
   setSaving: React.Dispatch<React.SetStateAction<boolean>>;
   removeQuestionsFromSection: (sectionId: string, questionIds: string[]) => Promise<any>;
   sectionLoadingStates: {
@@ -451,8 +454,13 @@ const SectionCard: React.FC<SectionCardProps> = ({
         }
         return s;
       });
+      
+      // Update local state first
       setSections(updatedSections);
-      await saveChanges();
+      
+      // Pass updated sections to saveChanges to ensure the most recent data is sent to API
+      await saveChanges(updatedSections);
+      
       setIsEditingName(false);
       toast.success("Section name updated successfully");
     } catch (error) {
@@ -737,6 +745,209 @@ const SectionCard: React.FC<SectionCardProps> = ({
       
       {isExpanded && (
         <CardContent className="p-4 overflow-hidden transition-all">
+          {/* Add section settings at the top */}
+          <div className="flex flex-col mb-4 gap-4 p-3 rounded-md border border-border bg-card">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Section Settings</h3>
+            </div>
+            <div className="flex flex-wrap items-center gap-5">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id={`shuffle-questions-${section.id}`}
+                  checked={section.shuffleQuestions}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      setSaving(true);
+                      console.log(`Toggling shuffleQuestions to ${checked} for section ${section.id}`);
+                      
+                      // Create a deep copy of sections to avoid direct state mutation
+                      const updatedSections = [...allSections].map(s => {
+                        if (s.id === section.id) {
+                          console.log(`Updating section ${s.id} shuffleQuestions from ${s.shuffleQuestions} to ${checked}`);
+                          return { ...s, shuffleQuestions: checked };
+                        }
+                        return s;
+                      });
+                      
+                      // First update local state for immediate UI feedback
+                      setSections(updatedSections);
+                      console.log("Local state updated, saving to server...");
+                      
+                      // Prepare data for the direct section settings update
+                      const sectionSettingsData = {
+                        sections: [{
+                          id: section.id,
+                          shuffleQuestions: checked,
+                          timeLimitEnabled: section.timeLimitEnabled,
+                          timeLimit: section.timeLimit
+                        }]
+                      };
+                      
+                      // Make direct API call to update section settings
+                      const settingsResponse = await fetch(`/api/assessments/${assessmentId}/sections`, {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(sectionSettingsData),
+                      });
+                      
+                      if (!settingsResponse.ok) {
+                        // Handle error response
+                        const errorText = await settingsResponse.text();
+                        throw new Error(`Failed to update section settings: ${errorText}`);
+                      }
+                      
+                      toast.success("Section settings updated");
+                    } catch (error) {
+                      toast.error(`Failed to update section settings: ${error instanceof Error ? error.message : String(error)}`);
+                      console.error("Error updating section settings:", error);
+                      // Revert on error by refreshing data from server
+                      await fetchData();
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                />
+                <Label htmlFor={`shuffle-questions-${section.id}`}>Shuffle Questions</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id={`time-limit-${section.id}`}
+                  checked={section.timeLimitEnabled}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      setSaving(true);
+                      console.log(`Toggling timeLimitEnabled to ${checked} for section ${section.id}`);
+                      
+                      // Create a deep copy of sections to avoid direct state mutation
+                      const updatedSections = [...allSections].map(s => {
+                        if (s.id === section.id) {
+                          console.log(`Updating section ${s.id} timeLimitEnabled from ${s.timeLimitEnabled} to ${checked}`);
+                          return { 
+                            ...s, 
+                            timeLimitEnabled: checked,
+                            timeLimit: checked ? (s.timeLimit || 30) : 30 // Keep timeLimit value but it will be ignored when disabled
+                          };
+                        }
+                        return {...s};
+                      });
+                      
+                      // First update local state for immediate UI feedback
+                      setSections(updatedSections);
+                      console.log("Local state updated, saving to server...");
+                      
+                      // Prepare data for the direct section settings update
+                      const sectionSettingsData = {
+                        sections: [{
+                          id: section.id,
+                          shuffleQuestions: section.shuffleQuestions,
+                          timeLimitEnabled: checked,
+                          timeLimit: checked ? (section.timeLimit || 30) : null
+                        }]
+                      };
+                      
+                      // Make direct API call to update section settings
+                      const settingsResponse = await fetch(`/api/assessments/${assessmentId}/sections`, {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(sectionSettingsData),
+                      });
+                      
+                      if (!settingsResponse.ok) {
+                        // Handle error response
+                        const errorText = await settingsResponse.text();
+                        throw new Error(`Failed to update section settings: ${errorText}`);
+                      }
+                      
+                      toast.success("Section settings updated");
+                    } catch (error) {
+                      toast.error(`Failed to update section settings: ${error instanceof Error ? error.message : String(error)}`);
+                      console.error("Error updating section settings:", error);
+                      // Revert on error by refreshing data from server
+                      await fetchData();
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                />
+                <Label htmlFor={`time-limit-${section.id}`}>Enable Time Limit</Label>
+              </div>
+              {section.timeLimitEnabled && (
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="number"
+                    id={`time-limit-value-${section.id}`}
+                    value={section.timeLimit || 30}
+                    onChange={async (e) => {
+                      const value = parseInt(e.target.value);
+                      if (isNaN(value) || value < 1) return;
+                      
+                      try {
+                        setSaving(true);
+                        console.log(`Updating timeLimit to ${value} for section ${section.id}`);
+                        
+                        // Create a deep copy of sections
+                        const updatedSections = [...allSections].map(s => {
+                          if (s.id === section.id) {
+                            return { 
+                              ...s, 
+                              timeLimit: value 
+                            };
+                          }
+                          return {...s};
+                        });
+                        
+                        // Update local state first
+                        setSections(updatedSections);
+                        console.log("Local state updated with new timeLimit, saving to server...");
+                        
+                        // Prepare data for the direct section settings update
+                        const sectionSettingsData = {
+                          sections: [{
+                            id: section.id,
+                            shuffleQuestions: section.shuffleQuestions,
+                            timeLimitEnabled: section.timeLimitEnabled,
+                            timeLimit: value
+                          }]
+                        };
+                        
+                        // Make direct API call to update section settings
+                        const settingsResponse = await fetch(`/api/assessments/${assessmentId}/sections`, {
+                          method: "PUT",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify(sectionSettingsData),
+                        });
+                        
+                        if (!settingsResponse.ok) {
+                          // Handle error response
+                          const errorText = await settingsResponse.text();
+                          throw new Error(`Failed to update time limit: ${errorText}`);
+                        }
+                        
+                        toast.success("Time limit updated");
+                      } catch (error) {
+                        toast.error(`Failed to update time limit: ${error instanceof Error ? error.message : String(error)}`);
+                        console.error("Error updating time limit:", error);
+                        // Revert on error
+                        await fetchData();
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    className="w-20 h-8"
+                    min="1"
+                  />
+                  <span className="text-sm text-muted-foreground">minutes</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {availableQuestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="rounded-full bg-muted p-4">
@@ -1107,7 +1318,10 @@ export default function QuestionsPage() {
               name: section.title, // Map title field from DB to name in our interface
               description: section.description,
               order: section.order,
-            questions: sectionQuestions // Use processed question IDs with section marks
+              questions: sectionQuestions, // Use processed question IDs with section marks
+              shuffleQuestions: typeof section.shuffleQuestions === 'boolean' ? section.shuffleQuestions : false,
+              timeLimitEnabled: typeof section.timeLimitEnabled === 'boolean' ? section.timeLimitEnabled : false,
+              timeLimit: section.timeLimit || 30
             };
           });
         console.log("Transformed sections from API:", sectionsData);
@@ -1115,13 +1329,16 @@ export default function QuestionsPage() {
         } else {
           console.log("No sections found, creating default section");
           // Create a default section if none exists
-        sectionsData = [{
+          sectionsData = [{
             id: "default-" + Date.now(),
             name: "Default Section",
             description: null,
             order: 0,
-            questions: []
-        }];
+            questions: [],
+            shuffleQuestions: false,
+            timeLimitEnabled: false,
+            timeLimit: 30 // Default value needed for TypeScript, will be ignored as timeLimitEnabled is false
+          }];
         setSections(sectionsData);
         }
         
@@ -1254,40 +1471,65 @@ export default function QuestionsPage() {
         id: s.id,
         name: s.name,
         questionsCount: s.questions?.length || 0,
-        hasQuestionsArray: Array.isArray(s.questions)
+        hasQuestionsArray: Array.isArray(s.questions),
+        shuffleQuestions: s.shuffleQuestions,
+        timeLimitEnabled: s.timeLimitEnabled,
+        timeLimit: s.timeLimit
       }))));
       
       // Deep copy sections to avoid reference issues
       const sectionsWithQuestions = sectionsToSave.map(section => {
         // Ensure questions is always an array
         const questions = Array.isArray(section.questions) ? [...section.questions] : [];
+        
+        // Make a clean copy of boolean properties to ensure they are actual booleans
+        const shuffleQuestions = Boolean(section.shuffleQuestions);
+        const timeLimitEnabled = Boolean(section.timeLimitEnabled);
+        
+        // Ensure timeLimit is a number
+        const timeLimit = section.timeLimit !== null && section.timeLimit !== undefined 
+          ? Number(section.timeLimit) 
+          : 30;
+        
         return {
           ...section,
-          questions: questions
+          questions,
+          shuffleQuestions,
+          timeLimitEnabled,
+          timeLimit
         };
       });
       
       // Log the questions array for each section after copy
       sectionsWithQuestions.forEach(section => {
-        console.log(`Section ${section.name} has ${section.questions.length} questions:`, 
-          section.questions.map(q => typeof q === 'string' ? q : `${q.id} (mark: ${q.sectionMark})`)
-        );
+        console.log(`Section ${section.name} has ${section.questions.length} questions, shuffleQuestions=${section.shuffleQuestions}, timeLimitEnabled=${section.timeLimitEnabled}, timeLimit=${section.timeLimit}`);
       });
       
       // Prepare the data to be sent
       const dataToSend = {
-        sections: sectionsWithQuestions.map(section => ({
-          id: section.id,
-          name: section.name,
-          description: section.description || null,
-          order: section.order || 0,
-          questions: section.questions // This can include objects with sectionMark
-        }))
+        sections: sectionsWithQuestions.map(section => {
+          // Handle timeLimit properly
+          let timeLimit = null;
+          if (section.timeLimitEnabled && section.timeLimit) {
+            timeLimit = Number(section.timeLimit);
+          }
+          
+          return {
+            id: section.id,
+            name: section.name,
+            description: section.description || null,
+            order: section.order || 0,
+            questions: section.questions, // This can include objects with sectionMark
+            shuffleQuestions: Boolean(section.shuffleQuestions),
+            timeLimitEnabled: Boolean(section.timeLimitEnabled),
+            timeLimit: timeLimit
+          };
+        })
       };
       
       console.log("Formatted data to send:", JSON.stringify(dataToSend));
       console.log("Data to send - question counts per section:", 
-        dataToSend.sections.map(s => `${s.name}: ${s.questions.length} questions`)
+        dataToSend.sections.map(section => `${section.name}: ${section.questions.length} questions`)
       );
       
       // Set a timeout for the fetch to prevent indefinite waiting
@@ -1295,14 +1537,14 @@ export default function QuestionsPage() {
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       try {
-      const response = await fetch(`/api/assessments/${params.id}/questions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dataToSend),
+        const response = await fetch(`/api/assessments/${params.id}/questions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(dataToSend),
           signal: controller.signal
-      });
+        });
         
         clearTimeout(timeoutId);
       
@@ -1313,22 +1555,61 @@ export default function QuestionsPage() {
       }
       
         const responseData = await response.json().catch(() => ({ sections: [] }));
-      console.log("Success response:", responseData);
-        
+      console.log("Success response from POST /questions:", responseData);
+
         // After successful save, update the local state with the response data if needed
         if (responseData.sections) {
+          // Get set of section IDs from response
+          const responseSectionIds = new Set(responseData.sections.map((s: any) => s.id));
+          
+          // Find any sections in our current state that aren't in the response
+          const missingSections = sectionsWithQuestions.filter(
+            (s: Section) => !responseSectionIds.has(s.id)
+          );
+          
+          // If we have sections that aren't in the response, this often happens
+          // with newly created sections before they're fully persisted
+          if (missingSections.length > 0) {
+            console.log(`Found ${missingSections.length} sections in local state not in response, preserving them:`, 
+              missingSections.map(s => s.id));
+          }
+          
           // Transform sections from the response to our format
-          const updatedSections = responseData.sections.map((section: any) => ({
-            id: section.id,
-            name: section.title || section.name,
-            description: section.description,
-            order: section.order,
-            questions: section.questions || [] 
-          }));
+          const responseUpdatedSections = responseData.sections.map((section: any) => {
+            // Find the matching section in our current state to preserve boolean values
+            const currentSection = sectionsWithQuestions.find((s: Section) => s.id === section.id);
+            
+            return {
+              id: section.id,
+              name: section.title || section.name,
+              description: section.description,
+              order: section.order,
+              questions: section.questions || [],
+              // Use values from our state if available, otherwise use API values with fallbacks
+              shuffleQuestions: currentSection ? currentSection.shuffleQuestions : (
+                typeof section.shuffleQuestions === 'boolean' ? section.shuffleQuestions : false
+              ),
+              timeLimitEnabled: currentSection ? currentSection.timeLimitEnabled : (
+                typeof section.timeLimitEnabled === 'boolean' ? section.timeLimitEnabled : false
+              ),
+              timeLimit: currentSection ? currentSection.timeLimit : (section.timeLimit || 30)
+            };
+          });
+          
+          // Combine response sections with any missing sections from our state
+          const updatedSections = [...responseUpdatedSections, ...missingSections];
           
           // Update the sections with the data from the server
           setSections(updatedSections);
-          console.log("Updated sections from response:", updatedSections);
+          console.log("Updated sections from response + preserved local state:", 
+            updatedSections.map((section: any) => ({
+              id: section.id, 
+              name: section.name, 
+              shuffleQuestions: section.shuffleQuestions,
+              timeLimitEnabled: section.timeLimitEnabled,
+              timeLimit: section.timeLimit
+            }))
+          );
         }
         
         // Update assessment with total marks if available in the response
@@ -1373,7 +1654,10 @@ export default function QuestionsPage() {
       name: newSectionName.trim(),
       description: null,
       order: sections.length, // Set order based on current sections count
-      questions: []
+      questions: [],
+      shuffleQuestions: false,
+      timeLimitEnabled: false,
+      timeLimit: 30 // Default time limit even when disabled, for API validation
     };
 
     console.log("Adding new section:", newSection);

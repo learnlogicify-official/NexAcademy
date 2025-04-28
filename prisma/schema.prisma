@@ -51,6 +51,7 @@ model Course {
   endDate     DateTime
   startDate   DateTime
   visibility  String   @default("SHOW")
+  level       CourseLevel @default(Beginner)
   category    Category @relation(fields: [categoryId], references: [id])
   modules     Module[]
 
@@ -60,14 +61,30 @@ model Course {
 model Module {
   id         String      @id @default(cuid())
   title      String
+  description String?
   courseId   String
   order      Int
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   course     Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
   submodules Submodule[]
+  learningObjectives String[] @default([])
+  videos     Video[]
 
   @@index([courseId])
+}
+
+model Video {
+  id        String   @id @default(cuid())
+  title     String
+  vimeoUrl  String
+  order     Int      @default(0)
+  moduleId  String
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId])
 }
 
 model Submodule {
@@ -244,15 +261,18 @@ model Assessment {
 }
 
 model Section {
-  id           String          @id @default(cuid())
-  title        String
-  description  String?
-  order        Int            @default(0)
-  assessmentId String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  assessment   Assessment     @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  questions    SectionQuestion[]
+  id               String          @id @default(cuid())
+  title            String
+  description      String?
+  order            Int             @default(0)
+  assessmentId     String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  shuffleQuestions Boolean         @default(false)
+  timeLimitEnabled Boolean         @default(false)
+  timeLimit        Int?
+  assessment       Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questions        SectionQuestion[]
 
   @@index([assessmentId])
 }
@@ -327,6 +347,12 @@ enum AssessmentStatus {
   READY
   PUBLISHED
   ARCHIVED
+}
+
+enum CourseLevel {
+  Beginner
+  Intermediate
+  Advanced
 }
 
 // Junction table for many-to-many relationship between Section and Question

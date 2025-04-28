@@ -489,15 +489,30 @@ export default function AdminQuestionsPage() {
       const newSubfolder = await response.json();
       
       // Update the folders state to include the new subfolder
-      setFolders(folders.map(folder => {
-        if (folder.id === selectedFolderForSubfolder) {
-          return {
-            ...folder,
-            subfolders: [...(folder.subfolders || []), newSubfolder]
-          };
-        }
-        return folder;
-      }));
+      setFolders(prevFolders => 
+        prevFolders.map(folder => {
+          if (folder.id === selectedFolderForSubfolder) {
+            return {
+              ...folder,
+              subfolders: [...(folder.subfolders || []), newSubfolder]
+            };
+          }
+          return folder;
+        })
+      );
+
+      // Also update topLevelFolders to maintain consistency
+      setTopLevelFolders(prevFolders => 
+        prevFolders.map(folder => {
+          if (folder.id === selectedFolderForSubfolder) {
+            return {
+              ...folder,
+              subfolders: [...(folder.subfolders || []), newSubfolder]
+            };
+          }
+          return folder;
+        })
+      );
 
       toast({
         title: "Success",

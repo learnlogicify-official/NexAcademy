@@ -44,6 +44,7 @@ const courseFormSchema = z.object({
   }),
   categoryId: z.string().min(1, "Category is required"),
   visibility: z.enum(["SHOW", "HIDE"]).default("SHOW"),
+  level: z.enum(["Beginner", "Intermediate", "Advanced"]).default("Beginner"),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -73,6 +74,7 @@ export function AddCourseModal({
       endDate: undefined,
       categoryId: "",
       visibility: "SHOW",
+      level: "Beginner",
     },
   });
 
@@ -87,6 +89,7 @@ export function AddCourseModal({
         endDate: undefined,
         categoryId: "",
         visibility: "SHOW",
+        level: "Beginner",
       });
     }
   }, [open, form]);
@@ -103,6 +106,7 @@ export function AddCourseModal({
         endDate: undefined,
         categoryId: "",
         visibility: "SHOW",
+        level: "Beginner",
       });
     }
     onOpenChange(newOpen);
@@ -202,7 +206,7 @@ export function AddCourseModal({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <RichTextEditor
-                      content={field.value}
+                      value={field.value}
                       onChange={field.onChange}
                       placeholder="Enter course description..."
                     />
@@ -298,6 +302,33 @@ export function AddCourseModal({
                     <SelectContent>
                       <SelectItem value="SHOW">Show</SelectItem>
                       <SelectItem value="HIDE">Hide</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="level"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Course Level</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select course level" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Intermediate">Intermediate</SelectItem>
+                      <SelectItem value="Advanced">Advanced</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

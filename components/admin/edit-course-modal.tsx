@@ -53,6 +53,7 @@ const courseFormSchema = z.object({
   }),
   categoryId: z.string().min(1, "Category is required"),
   visibility: z.enum(["SHOW", "HIDE"]),
+  level: z.enum(["Beginner", "Intermediate", "Advanced"]),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -70,6 +71,7 @@ interface EditCourseModalProps {
     endDate: string;
     categoryId: string;
     visibility: "SHOW" | "HIDE";
+    level: "Beginner" | "Intermediate" | "Advanced";
   };
 }
 
@@ -93,6 +95,7 @@ export function EditCourseModal({
       endDate: new Date(course.endDate),
       categoryId: course.categoryId,
       visibility: course.visibility,
+      level: course.level,
     },
   });
 
@@ -180,7 +183,7 @@ export function EditCourseModal({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <RichTextEditor
-                      content={field.value}
+                      value={field.value}
                       onChange={field.onChange}
                       placeholder="Enter course description..."
                     />
@@ -288,6 +291,33 @@ export function EditCourseModal({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="level"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Course Level</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select course level" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Intermediate">Intermediate</SelectItem>
+                      <SelectItem value="Advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end gap-4">
               <Button

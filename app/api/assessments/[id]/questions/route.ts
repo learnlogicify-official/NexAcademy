@@ -20,6 +20,9 @@ const sectionSchema = z.object({
   name: z.string(),
   description: z.string().nullable().optional(),
   order: z.number().default(0),
+  shuffleQuestions: z.boolean().default(false),
+  timeLimitEnabled: z.boolean().default(false),
+  timeLimit: z.number().nullable().optional(),
   questions: z.array(
     z.union([
       z.string(),
@@ -162,7 +165,10 @@ export async function POST(
               data: {
                 title: section.name,
                 description: section.description,
-                order: section.order || 0
+                order: section.order || 0,
+                shuffleQuestions: section.shuffleQuestions !== undefined ? section.shuffleQuestions : false,
+                timeLimitEnabled: section.timeLimitEnabled !== undefined ? section.timeLimitEnabled : false,
+                timeLimit: section.timeLimitEnabled ? section.timeLimit : null
               }
             });
             
@@ -199,6 +205,9 @@ export async function POST(
                 title: section.name,
                 description: section.description,
                 order: section.order || 0,
+                shuffleQuestions: section.shuffleQuestions !== undefined ? section.shuffleQuestions : false,
+                timeLimitEnabled: section.timeLimitEnabled !== undefined ? section.timeLimitEnabled : false,
+                timeLimit: section.timeLimitEnabled ? section.timeLimit : null,
                 assessment: {
                   connect: { id: assessmentId }
                 }

@@ -123,6 +123,9 @@ export async function GET(
         title: section.title,
         description: section.description,
         order: section.order,
+        shuffleQuestions: section.shuffleQuestions,
+        timeLimitEnabled: section.timeLimitEnabled,
+        timeLimit: section.timeLimit,
         questions: formattedQuestions
       };
     });
