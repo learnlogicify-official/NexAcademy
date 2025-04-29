@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react"
 import { Video as VideoIcon, Play, CheckCircle2, Pencil, Trash2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Video {
   id: string
@@ -139,10 +140,11 @@ export function VideoSection({ module }: VideoSectionProps) {
       console.warn('Could not extract Vimeo video ID from URL:', vimeoUrl);
       return <div className="flex items-center justify-center h-full text-destructive">Invalid Vimeo URL: <span className="ml-2 font-mono">{vimeoUrl}</span></div>;
     }
+    
     return (
       <iframe
         src={`https://player.vimeo.com/video/${videoId}`}
-        className="w-full h-full rounded-xl"
+        className="w-full h-full rounded-md"
         allow="autoplay; fullscreen; picture-in-picture"
         allowFullScreen
         title="Vimeo Video"
@@ -151,78 +153,139 @@ export function VideoSection({ module }: VideoSectionProps) {
   }
 
   return (
-    <div className="h-[calc(100vh-12rem)] grid grid-cols-1 md:grid-cols-3 gap-5">
-      {/* Video List - Left Side */}
-      <div className="md:col-span-1 h-full">
-        <Card className="h-full overflow-hidden">
-          <CardContent className="p-0 h-full flex flex-col">
-            <div className="p-3 border-b flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">Module Videos</h3>
-                <p className="text-xs text-muted-foreground">
-                  {videos.length} videos
-                </p>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => openDialog()}>
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
+    <div className="w-full h-full flex flex-col md:flex-row gap-4 p-4">
+      {/* Left sidebar: Video list */}
+      <div className="w-full md:w-72 flex-shrink-0">
+        <div className="bg-card border rounded-md h-full flex flex-col">
+          <div className="p-3 border-b flex items-center justify-between">
+            <h3 className="font-medium text-sm">Module Videos</h3>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => openDialog()} 
+              className="h-8 text-xs bg-primary/5 hover:bg-primary/10"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add Video
+            </Button>
             </div>
+          
             <div className="flex-1 overflow-y-auto">
-              <div className="p-2 space-y-1">
-                {videos.map((video) => (
-                  <div
+            {loading ? (
+              <div className="p-3 space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <div className="flex-1">
+                      <Skeleton className="h-3 w-24 mb-1" />
+                      <Skeleton className="h-2 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : videos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm">
+                <VideoIcon className="h-8 w-8 mb-2 opacity-20" />
+                No videos yet
+                <Button 
+                  variant="link" 
+                  onClick={() => openDialog()} 
+                  className="mt-2 h-auto p-0"
+                >
+                  Add your first video
+                </Button>
+              </div>
+            ) : (
+              <ul className="p-1.5">
+                {videos.map((video, index) => (
+                  <li 
                     key={video.id}
                     className={cn(
-                      "flex items-start gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition-colors group",
-                      selectedVideo?.id === video.id && "bg-muted",
+                      "flex items-center text-sm p-2 rounded-md mb-1 cursor-pointer transition-colors",
+                      selectedVideo?.id === video.id 
+                        ? "bg-primary/10 text-primary" 
+                        : "hover:bg-muted",
+                      "group relative"
                     )}
                     onClick={() => setSelectedVideo(video)}
                   >
-                    <div className="relative mt-1">
-                      <Play className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex w-full">
+                      <div className={cn(
+                        "w-8 h-8 rounded flex items-center justify-center mr-2 shrink-0",
+                        selectedVideo?.id === video.id ? "bg-primary/20" : "bg-muted"
+                      )}>
+                        <Play className="h-3.5 w-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">
+                        <p className="font-medium text-xs truncate">
                         {video.title}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">Order: {video.order}</span>
+                        <div className="flex items-center mt-0.5">
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] h-4 px-1 bg-background/50 border-muted"
+                          >
+                            #{video.order}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="absolute right-1 flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-6 w-6" 
+                          onClick={(e) => { e.stopPropagation(); openDialog(video); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-6 w-6 text-destructive" 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(video.id); }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                    <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100" onClick={e => { e.stopPropagation(); openDialog(video) }} title="Edit">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 text-destructive" onClick={e => { e.stopPropagation(); handleDelete(video.id) }} title="Delete">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  </li>
                 ))}
-                {videos.length === 0 && (
-                  <div className="text-center text-muted-foreground py-8">No videos yet.</div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Video Player - Right Side */}
-      <div className="md:col-span-2 h-full flex flex-col">
-        <div className="flex-1 flex flex-col">
-          <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden relative">
-            {selectedVideo ? (
-              renderVimeoPlayer(selectedVideo.vimeoUrl)
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">Select a video</div>
-            )}
-            {selectedVideo && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/40 to-transparent">
-                <h2 className="text-xl font-bold text-white">{selectedVideo.title}</h2>
-                <p className="text-gray-300 text-sm mt-1">Part of {module.title}</p>
-              </div>
+              </ul>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Main content: Video player */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <Card className="flex-1 flex flex-col border overflow-hidden h-full">
+          <CardHeader className="p-3 border-b">
+            <CardTitle className="text-sm">
+              {selectedVideo ? selectedVideo.title : 'Video Player'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 flex-1">
+            <div className="w-full aspect-video bg-gray-900 rounded-md flex items-center justify-center relative">
+              {selectedVideo ? (
+                renderVimeoPlayer(selectedVideo.vimeoUrl)
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full h-full text-muted-foreground">
+                  <VideoIcon className="h-10 w-10 mb-2 opacity-10" />
+                  <p className="text-sm">Select a video to play</p>
+                  {videos.length === 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => openDialog()}
+                      className="mt-4"
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add your first video
+                    </Button>
+                  )}
+              </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Add/Edit Video Dialog */}

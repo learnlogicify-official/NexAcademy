@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Button } from "@/components/ui/button"
-import { CheckCircle, Clock, Trophy, Target, ArrowRight } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, Clock, Trophy, Target, ArrowRight } from "lucide-react";
 
 // Mock data for goals
 const goals = [
@@ -34,7 +34,7 @@ const goals = [
     reward: "React Master Badge",
     type: "course",
   },
-]
+];
 
 export function GoalsWidget() {
   return (
@@ -65,7 +65,9 @@ export function GoalsWidget() {
             </div>
             <Progress value={goal.progress} className="h-2" />
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Reward: {goal.reward}</span>
+              <span className="text-muted-foreground">
+                Reward: {goal.reward}
+              </span>
               {goal.progress === 100 ? (
                 <Button size="sm" className="h-7 gap-1 text-xs">
                   <CheckCircle className="h-3 w-3" /> Claim
@@ -76,6 +78,5 @@ export function GoalsWidget() {
         ))}
       </CardContent>
     </Card>
-  )
+  );
 }
-

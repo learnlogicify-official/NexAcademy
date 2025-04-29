@@ -10,12 +10,13 @@ import { ContentSection } from "@/components/content-section"
 import { PracticeSection } from "@/components/practice-section"
 import { AssessmentSection } from "@/components/assessment-section"
 import { ChapterIntroSection } from "@/components/chapter-intro-section"
-import { BookOpen, ClipboardCheck, Code, FileText, Video, Pencil } from "lucide-react"
+import { BookOpen, ClipboardCheck, Code, FileText, Video, Pencil, Info, Edit, Eye, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ChevronRight, ArrowLeft } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { Card, CardContent } from "@/components/ui/card"
 
 export default function LessonPage({ params }: { params: Promise<{ id: string; moduleId: string }> }) {
   const resolvedParams = use(params) as { id: string; moduleId: string };
@@ -46,9 +47,16 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
 
   if (loading || !module) {
     return (
-      <div className="h-[calc(100vh-4rem)] flex flex-col">
-        <Skeleton className="h-10 w-64 mb-4" />
-        <Skeleton className="h-8 w-full max-w-md mb-4" />
+      <div className="min-h-[calc(100vh-4rem)] flex flex-col bg-black/5 p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div>
+            <Skeleton className="h-4 w-24 mb-2" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+        </div>
+        <Skeleton className="h-32 w-full rounded-xl mb-4" />
+        <Skeleton className="h-12 w-full max-w-xl mx-auto rounded-full mb-4" />
         <Skeleton className="flex-1 w-full rounded-xl" />
       </div>
     );
@@ -58,131 +66,197 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
   const handleEditModule = () => router.push(`/admin/courses/${id}/${moduleId}/edit`);
 
   return (
-    <div className="pt-2 px-1 sm:px-3 max-w-5xl mx-auto">
-      {/* Breadcrumbs and back button */}
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant="ghost" size="icon" asChild className="rounded-full bg-gray-800/50 hover:bg-gray-700/50">
-          <Link href={`/admin/courses/${module?.course?.id || id}`}>
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Back to Course</span>
-          </Link>
-        </Button>
-        <nav className="flex items-center text-sm text-muted-foreground gap-1">
-          <Link href="/admin/courses" className="hover:text-foreground transition-colors">Courses</Link>
-          <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0" />
-          {course ? (
-            <Link href={`/admin/courses/${course.id}`} className="hover:text-foreground transition-colors">{course.title}</Link>
-          ) : (
-            <span className="text-muted-foreground">Course</span>
-          )}
-          <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0" />
-          <span className="text-foreground font-medium truncate max-w-[120px] sm:max-w-[200px]">{module.title}</span>
-        </nav>
-      </div>
-
-      {/* Modern glassy header card */}
-      <div className="relative mb-8 rounded-2xl bg-gradient-to-br from-primary/10 to-background/70 shadow-xl border border-primary/10 backdrop-blur-lg overflow-hidden">
-        <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-xs font-semibold text-primary/80 bg-primary/10 px-3 py-1 rounded-full tracking-wider uppercase">
-                Module {module.order}
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 tracking-tight">
-              {module.title}
-            </h1>
-            <p className="text-muted-foreground text-base mb-2 max-w-2xl">
-              {module.description}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2 min-w-[120px]">
-            {module.course?.level && (
-              <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary text-sm px-4 py-1">
-                {module.course.level}
-              </Badge>
+    <div className="min-h-screen bg-gradient-to-b from-background via-background/90 to-background p-2 sm:p-4">
+      {/* Top navigation with breadcrumbs */}
+      <div className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" asChild className="rounded-full bg-gray-800/50 hover:bg-gray-700/50">
+            <Link href={`/admin/courses/${module?.course?.id || id}`}>
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Back to Course</span>
+            </Link>
+          </Button>
+          <nav className="flex items-center text-sm text-muted-foreground gap-1">
+            <Link href="/admin/courses" className="hover:text-foreground transition-colors">Courses</Link>
+            <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0" />
+            {course ? (
+              <Link href={`/admin/courses/${course.id}`} className="hover:text-foreground transition-colors">{course.title}</Link>
+            ) : (
+              <span className="text-muted-foreground">Course</span>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full border border-primary/20 hover:bg-primary/10 transition"
-              title="Edit Module"
-              onClick={handleEditModule}
-            >
-              <Pencil className="h-5 w-5 text-primary" />
-            </Button>
-          </div>
+            <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0" />
+            <span className="text-foreground font-medium truncate max-w-[120px] sm:max-w-[200px]">{module.title}</span>
+          </nav>
+        </div>
+        <div className="hidden sm:flex items-center gap-2">
+          <Badge variant="outline" className="bg-primary/5 text-xs">
+            Module {module.order}
+          </Badge>
+          {module.course?.level && (
+            <Badge variant="secondary" className="text-xs">
+              {module.course.level}
+            </Badge>
+          )}
         </div>
       </div>
 
-      {/* Modern tabs with pill/underline style */}
-      <div className="rounded-2xl bg-card/80 shadow-lg border border-border overflow-hidden">
-        <Tabs
-          value={activeSection}
-          onValueChange={setActiveSection}
-          className="w-full flex-1 flex flex-col overflow-hidden"
-        >
-          <TabsList className="mb-4 grid grid-cols-5 w-full max-w-3xl mx-auto bg-background/80 rounded-full p-1 mt-4">
-            <TabsTrigger value="intro" className="flex items-center gap-2 rounded-full px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Intro</span>
-            </TabsTrigger>
-            <TabsTrigger value="video" className="flex items-center gap-2 rounded-full px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition">
-              <Video className="h-4 w-4" />
-              <span className="hidden sm:inline">Video</span>
-            </TabsTrigger>
-            <TabsTrigger value="content" className="flex items-center gap-2 rounded-full px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Content</span>
-            </TabsTrigger>
-            <TabsTrigger value="practice" className="flex items-center gap-2 rounded-full px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition">
-              <Code className="h-4 w-4" />
-              <span className="hidden sm:inline">Practice</span>
-            </TabsTrigger>
-            <TabsTrigger value="assessment" className="flex items-center gap-2 rounded-full px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition">
-              <ClipboardCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Quiz</span>
-            </TabsTrigger>
-          </TabsList>
+      <div className="max-w-6xl mx-auto flex flex-col gap-4">
+        {/* Compact header with quick info */}
+        <Card className="overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card/70 border-primary/10 shadow-lg">
+          <CardContent className="p-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4">
+              <div className="bg-primary/10 text-primary rounded-full p-3">
+                <FileText className="h-6 w-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-bold truncate">{module.title}</h1>
+                <p className="text-muted-foreground text-sm line-clamp-1">
+                  {module.description || "No description available"}
+                </p>
+              </div>
+              <div className="flex gap-2 mt-2 sm:mt-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  title="View module"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>Preview</span>
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={handleEditModule}
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  <span>Edit</span>
+                </Button>
+              </div>
+            </div>
+            
+            {/* Quick stats strip */}
+            <div className="bg-black/10 border-t border-primary/5 py-2 px-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">Duration: </span>
+                  <span className="font-medium">~ 60 min</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Video className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">Videos: </span>
+                  <span className="font-medium">{module.videos?.length || 0}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">Content: </span>
+                  <span className="font-medium">2 sections</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Code className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">Exercises: </span>
+                  <span className="font-medium">4 items</span>
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          <div className="flex-1 overflow-hidden p-4 sm:p-8">
-            {/* Chapter Intro section */}
-            <TabsContent value="intro" className="h-full mt-0 overflow-hidden">
-              <ChapterIntroSection module={module} />
-            </TabsContent>
+        {/* Modern streamlined tabs with content */}
+        <Card className="flex-1 overflow-hidden border bg-card/90 shadow-md">
+          <Tabs 
+            value={activeSection} 
+            onValueChange={setActiveSection}
+            className="flex flex-col h-full"
+          >
+            <div className="px-2 border-b bg-muted/20">
+              <TabsList className="h-14 bg-transparent w-full justify-start gap-2 px-2">
+                <TabsTrigger 
+                  value="intro" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                >
+                  <Info className="h-4 w-4 mr-2" />
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="video" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                >
+                  <Video className="h-4 w-4 mr-2" />
+                  Videos
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="content" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Content
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="practice" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                >
+                  <Code className="h-4 w-4 mr-2" />
+                  Practice
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="assessment" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                >
+                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                  Quiz
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            {/* Video section */}
-            <TabsContent value="video" className="h-full mt-0 overflow-hidden">
-              <VideoSection module={module} />
-            </TabsContent>
+            <div className="flex-1 overflow-auto">
+              {/* Chapter Intro section */}
+              <TabsContent value="intro" className="p-0 m-0 h-full data-[state=active]:flex">
+                <ChapterIntroSection module={module} />
+              </TabsContent>
 
-            {/* Content section */}
-            <TabsContent value="content" className="h-full mt-0 overflow-hidden">
-              <ContentSection module={module} />
-            </TabsContent>
+              {/* Video section */}
+              <TabsContent value="video" className="p-0 m-0 h-full data-[state=active]:flex">
+                <VideoSection module={module} />
+              </TabsContent>
 
-            {/* Practice section */}
-            <TabsContent value="practice" className="h-full mt-0 overflow-hidden">
-              <PracticeSection module={module} onNavigateToProblem={() => {}} />
-            </TabsContent>
+              {/* Content section */}
+              <TabsContent value="content" className="p-0 m-0 h-full data-[state=active]:flex">
+                <ContentSection module={module} />
+              </TabsContent>
 
-            {/* Assessment section */}
-            <TabsContent value="assessment" className="h-full mt-0 overflow-hidden">
-              <AssessmentSection module={module} />
-            </TabsContent>
-          </div>
-        </Tabs>
+              {/* Practice section */}
+              <TabsContent value="practice" className="p-0 m-0 h-full data-[state=active]:flex">
+                <PracticeSection module={module} isAdmin={true} />
+              </TabsContent>
+
+              {/* Assessment section */}
+              <TabsContent value="assessment" className="p-0 m-0 h-full data-[state=active]:flex">
+                <AssessmentSection module={module} />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </Card>
       </div>
 
       {/* Floating Action Button for Admin Actions */}
       <Button
-        className="fixed bottom-8 right-8 z-50 shadow-lg rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition"
+        className="fixed bottom-6 right-6 z-50 shadow-lg rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         size="icon"
         onClick={handleEditModule}
         title="Edit Module"
       >
-        <Pencil className="h-6 w-6" />
+        <Pencil className="h-5 w-5" />
       </Button>
     </div>
   );
 }
+ 

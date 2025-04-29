@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 interface CourseCardProps {
   course: {
@@ -351,8 +352,18 @@ export function CourseCard({
   onView,
 }: CourseCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [randomOffset, setRandomOffset] = useState({ x: 0, y: 0 });
   const { toast } = useToast();
   const router = useRouter();
+
+  // Generate a random slight offset for elements to add visual interest
+  useEffect(() => {
+    setRandomOffset({
+      x: Math.random() * 4 - 2,
+      y: Math.random() * 4 - 2
+    });
+  }, []);
 
   const handleDelete = async () => {
     if (onDelete) {
@@ -377,96 +388,302 @@ export function CourseCard({
   const Icon = getCourseIcon(course.title);
   const pattern = getPatternStyle(course.title);
 
+  // Determine course status
+  const now = new Date();
+  const startDate = new Date(course.startDate);
+  const endDate = new Date(course.endDate);
+  const courseStatus = startDate > now 
+    ? "upcoming" 
+    : endDate < now 
+      ? "ended" 
+      : "active";
+
+  // Get status color
+  const getStatusColor = () => {
+    switch (courseStatus) {
+      case "upcoming": return "bg-blue-500/70";
+      case "active": return "bg-green-500/70";
+      case "ended": return "bg-amber-500/70";
+      default: return "bg-gray-500/70";
+    }
+  };
+
   if (variant === "student") {
     return (
-      <Card className="overflow-hidden">
-        <div className="relative h-48">
-          <div className={cn("absolute inset-0", pattern)} />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Icon className="h-16 w-16 text-primary" />
+      <motion.div
+        whileHover={{ y: -5, transition: { duration: 0.2 } }}
+        className="h-full"
+      >
+        <Card className="overflow-hidden h-full border border-border/60 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="relative h-48">
+            <div className={cn("absolute inset-0", pattern)} />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Icon className="h-16 w-16 text-primary" />
+            </div>
           </div>
-        </div>
-        <CardContent className="p-6">
-          <CardTitle className="text-xl font-bold">{course.title}</CardTitle>
-          <CardDescription className="mt-2">{course.subtitle}</CardDescription>
-          <div className="mt-4 flex items-center justify-between">
-            <Badge variant="secondary">{course.category?.name}</Badge>
-            <Button variant="ghost" size="sm" onClick={() => onContinue?.(course.id)}>
-              Continue <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <CardContent className="p-6">
+            <CardTitle className="text-xl font-bold">{course.title}</CardTitle>
+            <CardDescription className="mt-2">{course.subtitle}</CardDescription>
+            <div className="mt-4 flex items-center justify-between">
+              <Badge variant="secondary">{course.category?.name}</Badge>
+              <Button variant="ghost" size="sm" onClick={() => onContinue?.(course.id)}>
+                Continue <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     );
   }
 
   return (
-    <Card className="overflow-hidden">
-      <div className="relative h-48">
-        <div className={cn("absolute inset-0", pattern)} />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Icon className="h-16 w-16 text-primary" />
-        </div>
-      </div>
-      <CardContent className="p-6">
-        <CardTitle className="text-xl font-bold">{course.title}</CardTitle>
-        <CardDescription className="mt-2">{course.subtitle}</CardDescription>
-        <div className="mt-4 flex items-center justify-between">
-          <Badge variant="secondary">{course.category?.name}</Badge>
-          <Badge variant={course.visibility === "SHOW" ? "default" : "secondary"}>
-            {course.visibility === "SHOW" ? "Visible" : "Hidden"}
-          </Badge>
-        </div>
-      </CardContent>
-      <CardFooter className="border-t p-4">
-        <div className="flex w-full items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/admin/courses/${course.id}`)}
-              className="flex items-center gap-2"
-            >
-              <BookOpen className="h-4 w-4" />
-              View Course
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onEdit?.(course)}
-              title="Edit Course"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsDeleteDialogOpen(true)}
-              title="Delete Course"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      whileHover={{ 
+        y: -8,
+        rotateY: 2,
+        rotateX: 1,
+        z: 10
+      }}
+      transition={{ 
+        duration: 0.3,
+        type: "spring",
+        stiffness: 300, 
+        damping: 15
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="h-full perspective-[1000px] cursor-pointer"
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <Card className={cn(
+        "overflow-hidden h-full flex flex-col border-border/40 shadow-md",
+        "transform-gpu transition-all duration-300 backdrop-blur-sm",
+        "bg-gradient-to-br from-background via-background/95 to-background/90",
+        isHovered ? 
+          "shadow-xl border-primary/30 scale-[1.02] shadow-primary/5" : 
+          "scale-100"
+      )}>
+        {/* Top status indicator */}
+        <div className="relative">
+          {/* Card accent strip based on visibility */}
+          <div className={cn(
+            "absolute h-1 top-0 left-0 right-0 z-10",
+            course.visibility === "SHOW"
+              ? "bg-gradient-to-r from-primary via-primary/90 to-primary/20" 
+              : "bg-gradient-to-r from-secondary via-secondary/80 to-secondary/20"
+          )} />
+
+          {/* Course status indicator */}
+          <div className="absolute top-3 left-3 z-10">
+            <div className={cn(
+              "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold text-white/90",
+              getStatusColor()
+            )}>
+              {courseStatus === "upcoming" ? "Upcoming" : courseStatus === "active" ? "Active" : "Ended"}
+            </div>
           </div>
         </div>
-      </CardFooter>
+
+        {/* Course header with pattern background */}
+        <div className="relative h-40 overflow-hidden">
+          {/* Animated background pattern */}
+          <motion.div 
+            className={cn("absolute inset-0")}
+            animate={{ 
+              y: isHovered ? randomOffset.y : 0,
+              x: isHovered ? randomOffset.x : 0,
+              scale: isHovered ? 1.05 : 1
+            }}
+            transition={{ duration: 0.7 }}
+          >
+            {pattern}
+          </motion.div>
+
+          {/* Overlay gradient */}
+          <motion.div 
+            className="absolute inset-0 bg-gradient-to-b from-transparent via-background/30 to-background/95"
+            animate={{ opacity: isHovered ? 0.8 : 0.9 }}
+          />
+
+          {/* Icon with animation */}
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ y: 0 }}
+            animate={{ 
+              scale: isHovered ? 1.1 : 1,
+              rotate: isHovered ? 5 : 0,
+              y: isHovered ? -5 : 0
+            }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 260, 
+              damping: 20 
+            }}
+          >
+            <Icon className="h-24 w-24 text-primary/60 drop-shadow-lg" />
+          </motion.div>
+          
+          {/* Course visibility and info */}
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-10">
+            <Badge 
+              variant={course.visibility === "SHOW" ? "default" : "outline"} 
+              className={cn(
+                "px-3 py-1 backdrop-blur-md",
+                course.visibility === "SHOW" 
+                  ? "bg-primary/30 hover:bg-primary/40 text-primary-foreground" 
+                  : "bg-secondary/20 hover:bg-secondary/30 text-secondary-foreground"
+              )}
+            >
+              <div className="flex items-center">
+                {course.visibility === "SHOW" ? 
+                  <Eye className="h-3 w-3 mr-1.5" /> : 
+                  <EyeOff className="h-3 w-3 mr-1.5" />
+                }
+                {course.visibility === "SHOW" ? "Visible" : "Hidden"}
+              </div>
+            </Badge>
+          </div>
+        </div>
+
+        {/* Course content with smooth transitions */}
+        <CardContent className="p-5 flex-grow backdrop-blur-sm">
+          <motion.div 
+            className="flex flex-col h-full"
+            animate={{ y: isHovered ? -2 : 0 }}
+            transition={{ delay: 0.05, duration: 0.2 }}
+          >
+            <div className="flex-grow space-y-3">
+              {/* Course title with gradient on hover */}
+              <div className="flex items-start justify-between">
+                <motion.div
+                  animate={{
+                    background: isHovered 
+                      ? "linear-gradient(to right, hsl(var(--foreground)), hsl(var(--foreground)/0.8))" 
+                      : "none",
+                    backgroundClip: isHovered ? "text" : "border-box",
+                    WebkitBackgroundClip: isHovered ? "text" : "text",
+                    WebkitTextFillColor: isHovered ? "transparent" : "initial"
+                  }}
+                  transition={{ duration: 0.3 }}
+                  className="text-xl font-bold leading-tight"
+                >
+                  {course.title}
+                </motion.div>
+              </div>
+
+              {/* Course subtitle with ellipsis */}
+              <CardDescription className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                {course.subtitle}
+              </CardDescription>
+              
+              {/* Course metadata in an organized, elegant layout */}
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {/* Category */}
+                {course.category?.name && (
+                  <div className="col-span-2 flex items-center">
+                    <Badge variant="secondary" className="px-2.5 py-0.5 text-xs">
+                      {course.category.name}
+                    </Badge>
+                  </div>
+                )}
+                
+                {/* Course dates */}
+                <div className="inline-flex items-center text-xs text-muted-foreground truncate col-span-2">
+                  <Calendar className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <span className="truncate">
+                    {(() => {
+                      const start = new Date(course.startDate);
+                      const end = new Date(course.endDate);
+                      if (start.getFullYear() === end.getFullYear()) {
+                        return `${format(start, "MMM d")} - ${format(end, "MMM d, yyyy")}`;
+                      } else {
+                        return `${format(start, "MMM d, yyyy")} - ${format(end, "MMM d, yyyy")}`;
+                      }
+                    })()}
+                  </span>
+                </div>
+                
+                {/* Student count if available */}
+                {course.enrolledUsers !== undefined && (
+                  <div className="inline-flex items-center justify-end text-xs text-muted-foreground">
+                    <Users className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span>{course.enrolledUsers} student{course.enrolledUsers !== 1 ? "s" : ""}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </CardContent>
+        
+        {/* Action buttons with glass effect & animations */}
+        <CardFooter className="border-t border-border/30 p-3 pb-4 bg-background/40 backdrop-blur-md">
+          <motion.div 
+            className="grid w-full grid-cols-3 gap-1"
+            animate={{ y: isHovered ? 0 : 3, opacity: isHovered ? 1 : 0.9 }}
+            transition={{ delay: 0.1, duration: 0.2 }}
+          >
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push(`/admin/courses/${course.id}`)}
+                className="w-full flex items-center justify-center bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary shadow-sm"
+              >
+                <BookOpen className="h-3.5 w-3.5 mr-1" />
+                <span className="font-medium text-xs">View</span>
+              </Button>
+            </motion.div>
+            
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit?.(course)}
+                className="w-full flex items-center justify-center backdrop-blur-sm border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                <span className="font-medium text-xs">Edit</span>
+              </Button>
+            </motion.div>
+            
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="w-full flex items-center justify-center backdrop-blur-sm border-destructive/20 hover:bg-destructive/10 hover:text-destructive transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                <span className="font-medium text-xs">Delete</span>
+              </Button>
+            </motion.div>
+          </motion.div>
+        </CardFooter>
+      </Card>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <AlertDialogContent className="max-w-[450px] rounded-xl bg-background/90 backdrop-blur-md border border-destructive/20">
+          <AlertDialogHeader className="space-y-3">
+            <AlertDialogTitle className="text-xl font-bold">Delete Course</AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
               This action cannot be undone. This will permanently delete the course
-              and all its associated data.
+              "{course.title}" and all its associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          <AlertDialogFooter className="gap-3 sm:gap-2 mt-2">
+            <AlertDialogCancel className="rounded-md font-medium">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              className="bg-destructive hover:bg-destructive/90 rounded-md font-medium shadow-sm"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </motion.div>
   );
 } 

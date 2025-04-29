@@ -32,4 +32,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { module
   } catch (error) {
     return NextResponse.json({ error: "Failed to update module" }, { status: 500 });
   }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { moduleId: string } }) {
+  try {
+    await prisma.module.delete({
+      where: { id: params.moduleId },
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to delete module" }, { status: 500 });
+  }
 } 

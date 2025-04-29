@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Bell, User, Search, LogOut } from "lucide-react";
+import { Menu, Bell, User, Search, LogOut, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -159,6 +159,10 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.location.href = "/dashboard"}>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                <span>Switch to Student Dashboard</span>
               </DropdownMenuItem>
               <DropdownMenuItem disabled={isSigningOut} onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />

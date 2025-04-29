@@ -39,9 +39,9 @@ export function AdminSidebar() {
 
           <div className={cn("pt-4", collapsed && "pt-2")}> 
             {!collapsed && (
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
-                Content
-              </h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
+              Content
+            </h3>
             )}
             <div className="space-y-1">
               <Link
@@ -90,9 +90,9 @@ export function AdminSidebar() {
 
           <div className={cn("pt-4", collapsed && "pt-2")}> 
             {!collapsed && (
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
-                Management
-              </h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
+              Management
+            </h3>
             )}
             <div className="space-y-1">
               <Link

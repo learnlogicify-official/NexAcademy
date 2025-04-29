@@ -1,5 +1,6 @@
 "use client";
 
+import React, { use } from "react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Clock, AlarmClock, AlertTriangle, Check, X } from "lucide-react";
@@ -66,7 +67,8 @@ interface PageProps {
 }
 
 export default function AssessmentPreviewPage({ params }: PageProps) {
-  const { id } = params;
+  const resolvedParams = use(params) as { id: string }
+  const { id } = resolvedParams
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [assessment, setAssessment] = useState<Assessment | null>(null);

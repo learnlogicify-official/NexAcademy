@@ -121,7 +121,7 @@ export default function CourseOverviewPage({ params }: PageProps) {
           <p className="text-muted-foreground max-w-md mx-auto">
             Finish all modules and assignments to receive your course completion certificate.
           </p>
-        </div>
+      </div>
       )
     }
   }
@@ -131,12 +131,12 @@ export default function CourseOverviewPage({ params }: PageProps) {
       {/* Header section */}
       <div className="flex flex-col gap-6 w-full">
         <CourseHeader course={course} learningMode={viewMode} onLearningModeChange={(mode) => setViewMode(mode)} />
-      </div>
+              </div>
 
       {/* Course content with sidebar */}
       <div className="flex flex-col lg:flex-row gap-5 w-full">
         <div className="w-full overflow-x-hidden">
-          <div>
+              <div>
             <CourseTabsNavigation onTabChange={setActiveTab} />
             {renderTabContent()}
           </div>
@@ -151,4 +151,4 @@ export default function CourseOverviewPage({ params }: PageProps) {
       </div>
     </div>
   )
-}
+} 

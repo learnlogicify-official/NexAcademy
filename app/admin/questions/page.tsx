@@ -491,13 +491,13 @@ export default function AdminQuestionsPage() {
       // Update the folders state to include the new subfolder
       setFolders(prevFolders => 
         prevFolders.map(folder => {
-          if (folder.id === selectedFolderForSubfolder) {
-            return {
-              ...folder,
-              subfolders: [...(folder.subfolders || []), newSubfolder]
-            };
-          }
-          return folder;
+        if (folder.id === selectedFolderForSubfolder) {
+          return {
+            ...folder,
+            subfolders: [...(folder.subfolders || []), newSubfolder]
+          };
+        }
+        return folder;
         })
       );
 

@@ -4,24 +4,154 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Pencil, Flame, Trophy, BookOpen, FileText, Code, Github } from "lucide-react"
+import {
+  Flame,
+  Trophy,
+  BookOpen,
+  Code,
+  Search,
+  Users,
+  Pencil,
+  Settings,
+  Github,
+  Linkedin,
+  Twitter,
+  Globe,
+} from "lucide-react"
 import { ProfileHeatmap } from "@/components/profile-heatmap"
-import { ProfileOverview } from "@/components/profile-overview"
-import { ProfileBadges } from "@/components/profile-badges"
-import { ProfileCourses } from "@/components/profile-courses"
-import { ProfileSubmissions } from "@/components/profile-submissions"
-import { EditProfileDialog } from "@/components/edit-profile-dialog"
+import { Input } from "@/components/ui/input"
+import { ProgrammingLanguagesCard } from "@/components/programming-languages-card"
+import { SkillsCard } from "@/components/skills-card"
+import { ContactLinksCard } from "@/components/contact-links-card"
+import { ProjectsCard } from "@/components/projects-card"
+import { AchievementsCompactCard } from "@/components/achievements-compact-card"
+import { ProgressCard } from "@/components/progress-card"
+import { ProblemsSolvedCard } from "@/components/problems-solved-card"
 
 // Mock user data
 export const userData = {
+  name: "Ashwin",
+  avatar: "/images/avatar.jpeg",
+  level: 4,
+  levelTitle: "Syntax Samurai",
+  tier: "Platinum",
+  tierEmoji: "💠",
+  currentXP: 4595,
+  nextLevelXP: 5000,
+  streak: 3,
+  achievements: 7,
+  daysActive: 42,
+  username: "ashwin_coder",
+  bio: "Passionate developer learning to code through gamified experiences. Currently focused on web development and Python.",
+  followers: 125,
+  following: 87,
+  location: "San Francisco, CA",
+  website: "ashwin.dev",
+  email: "ashwin@example.com",
+}
+
+// Mock programming languages data
+const programmingLanguages = [
+  { name: "JavaScript", proficiency: 85, color: "bg-yellow-500", icon: "🟨" },
+  { name: "Python", proficiency: 75, color: "bg-blue-500", icon: "🐍" },
+  { name: "TypeScript", proficiency: 70, color: "bg-blue-600", icon: "🔷" },
+  { name: "HTML/CSS", proficiency: 90, color: "bg-orange-500", icon: "🌐" },
+  { name: "React", proficiency: 80, color: "bg-cyan-500", icon: "⚛️" },
+  { name: "Node.js", proficiency: 65, color: "bg-green-500", icon: "🟩" },
+  { name: "SQL", proficiency: 60, color: "bg-purple-500", icon: "🗃️" },
+]
+
+// Mock skills data
+const skills = [
+  { name: "Frontend Dev", level: 4, category: "Development" },
+  { name: "Backend Dev", level: 3, category: "Development" },
+  { name: "UI/UX Design", level: 4, category: "Design" },
+  { name: "DevOps", level: 2, category: "Operations" },
+  { name: "Data Analysis", level: 3, category: "Data" },
+  { name: "Testing", level: 3, category: "Quality Assurance" },
+  { name: "Mobile Dev", level: 2, category: "Development" },
+  { name: "Algorithms", level: 4, category: "Computer Science" },
+  { name: "System Design", level: 3, category: "Computer Science" },
+  { name: "API Design", level: 4, category: "Development" },
+]
+
+// Mock contact links data
+const contactLinks = [
+  {
+    type: "github",
+    username: "ashwin_dev",
+    url: "https://github.com/ashwin_dev",
+    icon: <Github className="h-4 w-4 text-purple-500" />,
+  },
+  {
+    type: "linkedin",
+    username: "ashwin",
+    url: "https://linkedin.com/in/ashwin",
+    icon: <Linkedin className="h-4 w-4 text-purple-500" />,
+  },
+  {
+    type: "twitter",
+    username: "@ashwin_codes",
+    url: "https://twitter.com/ashwin_codes",
+    icon: <Twitter className="h-4 w-4 text-purple-500" />,
+  },
+  {
+    type: "website",
+    username: "ashwin.dev",
+    url: "https://ashwin.dev",
+    icon: <Globe className="h-4 w-4 text-purple-500" />,
+  },
+]
+
+// Mock projects data
+const projects = [
+  {
+    name: "Code Quest",
+    description: "A gamified learning platform for coding challenges and tutorials.",
+    tags: ["React", "Node.js", "MongoDB"],
+    repoUrl: "https://github.com/ashwin_dev/code-quest",
+    liveUrl: "https://code-quest.vercel.app",
+  },
+  {
+    name: "DevFlow",
+    description: "Developer workflow automation tool with CI/CD integration.",
+    tags: ["TypeScript", "Express", "Docker"],
+    repoUrl: "https://github.com/ashwin_dev/devflow",
+  },
+  {
+    name: "DataViz Dashboard",
+    description: "Interactive data visualization dashboard for analytics.",
+    tags: ["D3.js", "React", "Python"],
+    repoUrl: "https://github.com/ashwin_dev/dataviz",
+    liveUrl: "https://dataviz-dashboard.vercel.app",
+  },
+]
+
+// Mock problems solved data
+const problemsData = {
+  totalSolved: 87,
+  categories: [
+    { name: "Easy", count: 42, color: "bg-green-500" },
+    { name: "Medium", count: 35, color: "bg-yellow-500" },
+    { name: "Hard", count: 10, color: "bg-red-500" },
+  ],
+  recentStreak: 5,
+  successRate: 78,
+}
+
+// Mock progress data
+const progressItems = [
+  { name: "Courses Completed", current: 12, max: 20, color: "bg-rose-500" },
+  { name: "Coding Problems", current: 87, max: 150, color: "bg-rose-500" },
+  { name: "Badges Earned", current: 24, max: 50, color: "bg-rose-500" },
+  { name: "Projects Completed", current: 5, max: 10, color: "bg-rose-500" },
+]
+
+export const oldUserData = {
   id: 1,
-  name: "Jamie Smith",
-  username: "jamie_coder",
-  email: "jamie.smith@example.com",
-  avatar: "/placeholder.svg?height=100&width=100",
+  username: "ashwin_coder",
+  email: "ashwin@example.com",
   level: {
     number: 4,
     title: "Syntax Samurai",
@@ -70,7 +200,7 @@ export const userData = {
       description: "Completed Python Basics with excellence",
       icon: "🐍",
       earnedAt: "2025-03-20",
-      isPrimary: false,
+      isPrimary: true,
     },
     {
       id: 4,
@@ -162,6 +292,17 @@ function generateHeatmapData() {
       count = Math.max(count, Math.floor(Math.random() * 5) + 1)
     }
 
+    // Create "HI" pattern in Sep-Oct
+    if ((month === 8 || month === 9) && (day % 7 === 1 || day % 7 === 5)) {
+      count = Math.max(count, 3)
+    }
+    if (month === 8 && day % 7 === 3) {
+      count = Math.max(count, 3)
+    }
+    if (month === 9 && day % 7 === 3) {
+      count = Math.max(count, 3)
+    }
+
     data.push({
       date: date.toISOString().split("T")[0],
       count,
@@ -214,7 +355,6 @@ function generateActivityDetails(count, date) {
 export function EnhancedProfile() {
   const [mounted, setMounted] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("overview")
   const [user, setUser] = useState(userData)
 
   // Prevent hydration errors
@@ -224,209 +364,197 @@ export function EnhancedProfile() {
 
   if (!mounted) return null
 
-  const handleProfileUpdate = (updatedData) => {
-    setUser({ ...user, ...updatedData })
-    setIsEditDialogOpen(false)
-  }
-
   return (
     <div className="space-y-8">
-      {/* Profile Header */}
-      <motion.div
-        className="rounded-xl bg-card p-6 shadow-md"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex flex-col gap-6 md:flex-row md:items-start">
-          {/* Avatar and Basic Info */}
-          <div className="flex flex-col items-center md:items-start md:flex-row md:gap-6">
-            <Avatar className="h-24 w-24 border-2 border-primary/20">
-              <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback className="text-xl">
-                {user.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </AvatarFallback>
-            </Avatar>
+      {/* Profile Hero Section */}
+      <div className="relative">
+        {/* Gradient Banner */}
+        <div
+          className="h-48 w-full rounded-xl overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, #a5b4fc 0%, #c084fc 50%, #f87171 100%)",
+          }}
+        />
 
-            <div className="mt-4 text-center md:text-left md:mt-0">
-              <div className="flex items-center gap-2 flex-wrap justify-center md:justify-start">
-                <h1 className="text-2xl font-bold">{user.name}</h1>
-                <Badge variant="outline" className="text-xs">
-                  @{user.username}
-                </Badge>
-              </div>
+        {/* Search and User Controls */}
+        <div className="absolute top-4 right-4 flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
+            <Input
+              className="w-64 rounded-full bg-white/20 border-none pl-10 text-white placeholder:text-white/70"
+              placeholder="Search friends..."
+            />
+          </div>
+          <Avatar className="h-8 w-8 border border-white/20">
+            <AvatarImage src="/images/avatar.jpeg" alt={user.name} />
+            <AvatarFallback>{user.name[0]}</AvatarFallback>
+          </Avatar>
+        </div>
 
-              <div className="mt-1 flex items-center gap-2 flex-wrap justify-center md:justify-start">
-                <Badge className="level-badge gap-1 px-2 py-1">
-                  <Trophy className="h-3.5 w-3.5" />
-                  Level {user.level.number}: {user.level.title}
-                </Badge>
-                <Badge variant="outline" className="gap-1 px-2 py-1">
-                  <Flame className="h-3.5 w-3.5 text-orange-500" />
-                  {user.streak}-day streak
-                </Badge>
-              </div>
+        {/* Profile Info Section */}
+        <div className="relative px-6 pb-6">
+          {/* Avatar */}
+          <Avatar className="absolute -top-16 left-8 h-32 w-32 border-4 border-white shadow-lg">
+            <AvatarImage src="/images/avatar.jpeg" alt={user.name} />
+            <AvatarFallback className="text-3xl">
+              {user.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </AvatarFallback>
+          </Avatar>
 
-              <div className="mt-3 text-sm text-muted-foreground">
-                <p>{user.bio}</p>
-              </div>
-
-              <div className="mt-3">
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditDialogOpen(true)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit Profile
-                </Button>
-              </div>
+          {/* Profile Actions */}
+          <div className="flex justify-end items-center gap-3 mt-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full px-4 gap-1"
+                onClick={() => setIsEditDialogOpen(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Profile
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-full px-4 gap-1">
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </Button>
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 md:mt-0 md:ml-auto">
-            <div className="flex flex-col items-center rounded-lg bg-secondary/30 p-3">
-              <Trophy className="h-5 w-5 text-primary mb-1" />
-              <span className="text-xl font-bold">{user.xp.current.toLocaleString()}</span>
-              <span className="text-xs text-muted-foreground">Total XP</span>
+          {/* User Info */}
+          <div className="mt-16">
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold">{user.name}</h1>
+              <div className="flex items-center gap-1 text-muted-foreground">@{userData.username}</div>
             </div>
 
-            <div className="flex flex-col items-center rounded-lg bg-secondary/30 p-3">
-              <BookOpen className="h-5 w-5 text-blue-500 mb-1" />
-              <span className="text-xl font-bold">{user.stats.coursesCompleted}</span>
-              <span className="text-xs text-muted-foreground">Courses</span>
+            <div className="mt-3 text-sm space-y-1">
+              <p>{userData.bio}</p>
+              <div className="flex flex-wrap gap-y-1 mt-2">
+                <div className="flex items-center gap-1 text-muted-foreground mr-4">
+                  <Trophy className="h-4 w-4 text-primary" />
+                  <span>
+                    Level {userData.level}: {userData.levelTitle}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-muted-foreground mr-4">
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  <span>{userData.streak}-day streak</span>
+                </div>
+              </div>
+
+              {/* Followers/Following on a new line */}
+              <div className="flex items-center gap-1 text-muted-foreground mt-2">
+                <Users className="h-4 w-4 text-blue-500" />
+                <span>
+                  {userData.followers} followers · {userData.following} following
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-col items-center rounded-lg bg-secondary/30 p-3">
-              <FileText className="h-5 w-5 text-green-500 mb-1" />
-              <span className="text-xl font-bold">{user.stats.assignmentsCompleted}</span>
-              <span className="text-xs text-muted-foreground">Assignments</span>
-            </div>
-
-            <div className="flex flex-col items-center rounded-lg bg-secondary/30 p-3">
-              <Code className="h-5 w-5 text-purple-500 mb-1" />
-              <span className="text-xl font-bold">{user.stats.problemsSolved}</span>
-              <span className="text-xs text-muted-foreground">Problems</span>
+            {/* Social Links */}
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                <Code className="h-3 w-3 mr-1" />
+                @github
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                <Trophy className="h-3 w-3 mr-1" />
+                @leetcode
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                <BookOpen className="h-3 w-3 mr-1" />
+                {userData.website}
+              </Badge>
             </div>
           </div>
         </div>
 
-        {/* Level Progress */}
+        {/* Bento Grid Layout for Profile Cards */}
         <div className="mt-6">
-          <div className="flex items-center justify-between text-sm">
-            <span>Level {user.level.number} Progress</span>
-            <span>
-              {user.xp.current} / {user.xp.nextLevel} XP
-            </span>
-          </div>
-          <div className="mt-2 flex items-center gap-3">
-            <Progress value={user.level.progress} className="h-2 flex-1" />
-            <span className="text-xs text-muted-foreground">{user.level.progress}%</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Activity Heatmap */}
+            <motion.div
+              className="lg:col-span-2 rounded-xl shadow-md overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              <ProfileHeatmap data={oldUserData.heatmapData} />
+            </motion.div>
+
+            {/* Problems Solved Card (replacing Streak Card) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <ProblemsSolvedCard
+                totalSolved={problemsData.totalSolved}
+                categories={problemsData.categories}
+                recentStreak={problemsData.recentStreak}
+                successRate={problemsData.successRate}
+              />
+            </motion.div>
+
+            {/* Programming Languages Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <ProgrammingLanguagesCard languages={programmingLanguages} />
+            </motion.div>
+
+            {/* Skills Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <SkillsCard skills={skills} />
+            </motion.div>
+
+            {/* Contact Links Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+            >
+              <ContactLinksCard links={contactLinks} email={userData.email} />
+            </motion.div>
+
+            {/* Projects Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+            >
+              <ProjectsCard projects={projects} />
+            </motion.div>
+
+            {/* Achievements Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.7 }}
+            >
+              <AchievementsCompactCard achievements={oldUserData.badges} />
+            </motion.div>
+
+            {/* Progress Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
+            >
+              <ProgressCard items={progressItems} />
+            </motion.div>
           </div>
         </div>
-      </motion.div>
-
-      {/* Activity Heatmap */}
-      <motion.div
-        className="rounded-xl bg-card p-6 shadow-md"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Github className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Coding Activity</h2>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 sm:mt-0">
-            <span>Less</span>
-            <div className="flex gap-0.5">
-              <div className="h-3 w-3 rounded-sm bg-primary/10"></div>
-              <div className="h-3 w-3 rounded-sm bg-primary/25"></div>
-              <div className="h-3 w-3 rounded-sm bg-primary/40"></div>
-              <div className="h-3 w-3 rounded-sm bg-primary/60"></div>
-              <div className="h-3 w-3 rounded-sm bg-primary/80"></div>
-            </div>
-            <span>More</span>
-          </div>
-        </div>
-
-        <ProfileHeatmap data={user.heatmapData} />
-
-        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            <Flame className="h-4 w-4 text-orange-500" />
-            <span className="font-medium">{user.streak}-day streak</span>
-            <span className="text-muted-foreground">· {user.stats.daysActive} active days this year</span>
-          </div>
-          <div className="text-muted-foreground">
-            {user.heatmapData.reduce((sum, day) => sum + day.count, 0)} total activities in the last year
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Tabbed Content */}
-      <motion.div
-        className="rounded-xl bg-card shadow-md overflow-hidden"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-          <div className="border-b">
-            <TabsList className="w-full justify-start rounded-none bg-transparent p-0">
-              <TabsTrigger
-                value="overview"
-                className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="badges"
-                className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Badges
-              </TabsTrigger>
-              <TabsTrigger
-                value="courses"
-                className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Courses
-              </TabsTrigger>
-              <TabsTrigger
-                value="submissions"
-                className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Submissions
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="overview" className="p-6">
-            <ProfileOverview user={user} />
-          </TabsContent>
-
-          <TabsContent value="badges" className="p-6">
-            <ProfileBadges badges={user.badges} />
-          </TabsContent>
-
-          <TabsContent value="courses" className="p-6">
-            <ProfileCourses />
-          </TabsContent>
-
-          <TabsContent value="submissions" className="p-6">
-            <ProfileSubmissions />
-          </TabsContent>
-        </Tabs>
-      </motion.div>
-
-      <EditProfileDialog
-        user={user}
-        isOpen={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
-        onSave={handleProfileUpdate}
-      />
+      </div>
     </div>
   )
 }
-

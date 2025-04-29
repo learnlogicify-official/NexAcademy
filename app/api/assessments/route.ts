@@ -145,21 +145,52 @@ export async function POST(req: Request) {
 }
 
 // GET handler to list assessments
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    // Parse query params
+    const url = new URL(req.url);
+    const folderId = url.searchParams.get("folderId");
+    const status = url.searchParams.get("status");
+    const search = url.searchParams.get("search");
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
+
+    const where: any = {};
+    if (folderId) where.folderId = folderId;
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } }
+      ];
+    }
+
+    const total = await db.assessment.count({ where });
     const assessments = await db.assessment.findMany({
+      where,
       include: {
         folder: true,
         createdBy: true,
       },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
     
-    return NextResponse.json(assessments);
+    return NextResponse.json({
+      assessments,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize)
+      }
+    });
   } catch (error) {
     console.error("[ASSESSMENTS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

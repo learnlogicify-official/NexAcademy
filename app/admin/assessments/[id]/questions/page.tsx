@@ -1556,7 +1556,7 @@ export default function QuestionsPage() {
       
         const responseData = await response.json().catch(() => ({ sections: [] }));
       console.log("Success response from POST /questions:", responseData);
-
+        
         // After successful save, update the local state with the response data if needed
         if (responseData.sections) {
           // Get set of section IDs from response

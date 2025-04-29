@@ -73,7 +73,11 @@ export async function GET(
               include: {
                 question: {
                   include: {
-                    mCQQuestion: true,
+                    mCQQuestion: {
+                      include: {
+                        options: true
+                      }
+                    },
                     codingQuestion: true
                   }
                 }
@@ -97,7 +101,7 @@ export async function GET(
       const formattedQuestions = section.questions.map((sq: any) => {
         // Include proper order information if requested
         if (includeOrder) {
-          return {
+          const questionData = {
             id: sq.questionId,
             sectionMark: sq.sectionMark,
             order: sq.order || 0,
@@ -106,9 +110,15 @@ export async function GET(
               name: sq.question.name,
               type: sq.question.type,
               status: sq.question.status,
-              marks: sq.question.mCQQuestion?.defaultMark || sq.question.codingQuestion?.defaultMark || 1
+              marks: sq.question.mCQQuestion?.defaultMark || sq.question.codingQuestion?.defaultMark || 1,
+              text: sq.question.mCQQuestion?.questionText || sq.question.codingQuestion?.questionText || "",
+              difficulty: sq.question.mCQQuestion?.difficulty || sq.question.codingQuestion?.difficulty || sq.question.difficulty || "",
+              options: sq.question.mCQQuestion?.options
+                ? sq.question.mCQQuestion.options.map((opt: any) => ({ id: opt.id, text: opt.text, feedback: opt.feedback }))
+                : []
             })
           };
+          return questionData;
         }
         
         // Default format without explicit order

@@ -11,7 +11,17 @@ const createFolderSchema = z.object({
 
 export async function GET() {
   try {
-    const folders = await db.folder.findMany();
+    // Fetch all root folders and their subfolders (2 levels deep)
+    const folders = await db.folder.findMany({
+      where: { parentId: null },
+      include: {
+        subfolders: {
+          include: {
+            subfolders: true
+          }
+        }
+      }
+    });
     return NextResponse.json(folders);
   } catch (error) {
     console.error('Error fetching folders:', error);

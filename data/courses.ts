@@ -9,6 +9,12 @@ export interface Course {
   lastModuleTitle?: string
   modules: Module[]
   level: "Beginner" | "Intermediate" | "Advanced"
+  instructor?: string
+  duration?: string
+  rating?: number
+  students?: number
+  price?: number
+  thumbnail?: string
 }
 
 export interface Module {
@@ -16,9 +22,20 @@ export interface Module {
   title: string
   description: string
   xpAvailable: number
-  status: "Locked" | "In Progress" | "Completed"
+  status: "Locked" | "In Progress" | "Completed" | "Not Started"
   level: "Beginner" | "Intermediate" | "Advanced"
   order: number
+  duration?: string
+  lessons?: Lesson[]
+}
+
+export interface Lesson {
+  id: string
+  title: string
+  duration: string
+  type: "video" | "article" | "quiz" | "exercise"
+  completed: boolean
+  inProgress: boolean
 }
 
 export interface TestLevel {
@@ -81,7 +98,7 @@ export const pythonBasicsCourse: Course = {
       title: "Functions",
       description: "Learn how to define and use functions to organize your code.",
       xpAvailable: 300,
-      status: "Locked",
+      status: "Not Started",
       level: "Beginner",
       order: 3,
     },
@@ -90,7 +107,7 @@ export const pythonBasicsCourse: Course = {
       title: "Loops",
       description: "Understand how to use loops for repetitive tasks in Python.",
       xpAvailable: 300,
-      status: "Locked",
+      status: "Not Started",
       level: "Beginner",
       order: 4,
     },
@@ -99,7 +116,7 @@ export const pythonBasicsCourse: Course = {
       title: "Lists & Tuples",
       description: "Work with collections of data using lists and tuples.",
       xpAvailable: 300,
-      status: "Locked",
+      status: "Not Started",
       level: "Beginner",
       order: 5,
     },
@@ -153,7 +170,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Working with nested if-else statements and complex conditions",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "control-flow-challenge",
@@ -162,7 +179,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Complex decision making and logical operations",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
   ],
   functions: [
@@ -173,7 +190,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Creating and calling simple functions",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "functions-intermediate",
@@ -182,7 +199,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Working with function parameters and return values",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "functions-challenge",
@@ -191,7 +208,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Recursion, lambda functions, and higher-order functions",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
   ],
   loops: [
@@ -202,7 +219,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Simple for and while loops",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "loops-intermediate",
@@ -211,7 +228,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Working with nested loops and loop control statements",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "loops-challenge",
@@ -220,7 +237,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Complex loop patterns and optimizations",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
   ],
   "lists-tuples": [
@@ -231,7 +248,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Creating and manipulating lists",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "lists-intermediate",
@@ -240,7 +257,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Advanced list operations and methods",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
     {
       id: "lists-challenge",
@@ -249,7 +266,7 @@ export const moduleTestLevels: Record<string, TestLevel[]> = {
       description: "Working with tuples and complex collection operations",
       problemCount: 10,
       xpReward: 100,
-      status: "Locked",
+      status: "Not Started",
     },
   ],
 }
@@ -268,4 +285,3 @@ export const sampleProblem: Problem = {
   constraints: "1 <= a, b <= 10^9",
   starterCode: "def sum_two_numbers(a, b):\n    # Write your code here\n    pass",
 }
-

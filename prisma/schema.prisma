@@ -25,6 +25,7 @@ model User {
   resetToken    String?      @unique
   resetTokenExp DateTime?
   assessments   Assessment[]
+  attempts      Attempt[]
 
   @@index([role])
 }
@@ -70,6 +71,8 @@ model Module {
   submodules Submodule[]
   learningObjectives String[] @default([])
   videos     Video[]
+  articles   Article[]
+  assessments Assessment[] @relation("ModuleAssessments")
 
   @@index([courseId])
 }
@@ -221,6 +224,18 @@ model TestCase {
   @@index([codingQuestionId])
 }
 
+model Attempt {
+  id           String      @id @default(uuid())
+  user         User        @relation(fields: [userId], references: [id])
+  userId       String
+  assessment   Assessment  @relation(fields: [assessmentId], references: [id])
+  assessmentId String
+  startedAt    DateTime    @default(now())
+  endedAt      DateTime?
+  status       String      // e.g., "in-progress", "completed"
+  answers      Json?
+}
+
 model Assessment {
   id                            String           @id @default(cuid())
   name                          String
@@ -251,10 +266,13 @@ model Assessment {
   timeBoundEnabled              Boolean          @default(false)
   timeLimitEnabled              Boolean          @default(false)
   unlimitedAttempts             Boolean          @default(false)
+  proctored                     Boolean          @default(false)
+  attempts                      Attempt[]
   createdBy                     User             @relation(fields: [createdById], references: [id])
   folder                        Folder           @relation(fields: [folderId], references: [id])
   tags                          AssessmentTag[]
   sections                      Section[]
+  modules                       Module[]         @relation("ModuleAssessments")
 
   @@index([createdById])
   @@index([folderId])
@@ -370,4 +388,17 @@ model SectionQuestion {
   @@unique([sectionId, questionId])
   @@index([questionId])
   @@index([sectionId])
+}
+
+model Article {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  order     Int      @default(0)
+  moduleId  String
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId])
 }

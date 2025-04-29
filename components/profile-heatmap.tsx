@@ -3,8 +3,9 @@
 import { useState } from "react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { format, eachDayOfInterval, subDays, isSameDay, startOfWeek, addDays } from "date-fns"
+import { format, eachDayOfInterval, subDays, isSameDay, startOfWeek, addDays, isSameMonth } from "date-fns"
 import { motion } from "framer-motion"
+import { Calendar, Info } from "lucide-react"
 
 interface ActivityData {
   date: string
@@ -24,7 +25,7 @@ interface ProfileHeatmapProps {
 export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
   const [activityType, setActivityType] = useState("all")
 
-  // Generate dates for the last year (365 days)
+  // Generate dates for the full year (365 days)
   const today = new Date()
   const startDate = subDays(today, 364)
 
@@ -77,12 +78,11 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
 
   // Get color based on activity level
   const getActivityColor = (level: number) => {
-    if (level === 0) return "bg-primary/5 hover:bg-primary/10"
-    if (level === 1) return "bg-primary/20 hover:bg-primary/30"
-    if (level === 2) return "bg-primary/35 hover:bg-primary/45"
-    if (level === 3) return "bg-primary/50 hover:bg-primary/60"
-    if (level === 4) return "bg-primary/65 hover:bg-primary/75"
-    return "bg-primary/80 hover:bg-primary/90"
+    if (level === 0) return "bg-[#2C2C2C] hover:bg-gray-600"
+    if (level === 1) return "bg-green-900 hover:bg-green-800"
+    if (level === 2) return "bg-green-700 hover:bg-green-600"
+    if (level === 3) return "bg-green-600 hover:bg-green-500"
+    return "bg-green-500 hover:bg-green-400"
   }
 
   // Get activity details for a specific date
@@ -99,20 +99,35 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
     return activity.details
   }
 
-  // Get month labels
+  // Get month labels with their positions
   const getMonthLabels = () => {
     const months = []
     let currentMonth = null
+    let monthStartWeek = 0
 
     for (let i = 0; i < weeks.length; i++) {
       const month = format(weeks[i][0], "MMM")
       if (month !== currentMonth) {
-        months.push({
-          month,
-          index: i,
-        })
+        if (currentMonth !== null) {
+          // Add the previous month with its span
+          months.push({
+            month: currentMonth,
+            startWeek: monthStartWeek,
+            endWeek: i - 1,
+          })
+        }
         currentMonth = month
+        monthStartWeek = i
       }
+    }
+
+    // Add the last month
+    if (currentMonth !== null) {
+      months.push({
+        month: currentMonth,
+        startWeek: monthStartWeek,
+        endWeek: weeks.length - 1,
+      })
     }
 
     return months
@@ -120,9 +135,24 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
 
   const monthLabels = getMonthLabels()
 
+  // Calculate fixed width for each week
+  const weekWidth = 14 // Width of each week column in pixels
+  const weekGap = 2 // Gap between weeks in pixels
+  const monthGap = 8 // Gap between months in pixels
+
+  // Calculate activity stats
+  const totalDays = data.length
+  const activeDays = data.filter((day) => day.count > 0).length
+  const totalActivities = data.reduce((sum, day) => sum + day.count, 0)
+  const activityPercentage = Math.round((activeDays / totalDays) * 100)
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="w-full bg-[#121212] p-4 rounded-lg h-[360px] flex flex-col justify-between">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-green-500" />
+          <h3 className="text-lg font-medium text-gray-100">Activity Contributions</h3>
+        </div>
         <Select value={activityType} onValueChange={setActivityType}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Activity type" />
@@ -137,36 +167,28 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
         </Select>
       </div>
 
-      <div className="overflow-x-auto pb-2">
-        <div className="min-w-[750px]">
-          <div className="flex mb-1">
-            <div className="w-8"></div>
-            <div className="flex-1 flex">
-              {monthLabels.map((label, i) => (
+      <div
+        className="min-w-[600px] max-w-[890px] overflow-x-auto custom-scrollbar"
+        style={{
+          scrollbarWidth: "thin",
+          scrollbarColor: "#3a3a3a #121212",
+        }}
+      >
+        <div className="flex flex-col">
+          <div className="flex gap-[2px]">
+            {weeks.map((week, weekIndex) => {
+              // Check if this week starts a new month
+              const isNewMonth = weekIndex > 0 && !isSameMonth(weeks[weekIndex][0], weeks[weekIndex - 1][0])
+
+              return (
                 <div
-                  key={i}
-                  className="text-xs text-muted-foreground"
+                  key={weekIndex}
+                  className="flex flex-col gap-[2px]"
                   style={{
-                    marginLeft: i === 0 ? 0 : `${(label.index - monthLabels[i - 1].index - 1) * 16}px`,
-                    paddingLeft: i === 0 ? 0 : "8px",
+                    marginLeft: isNewMonth ? `${monthGap}px` : "0px",
+                    width: `${weekWidth}px`,
                   }}
                 >
-                  {label.month}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex">
-            <div className="w-8 flex flex-col justify-around text-xs text-muted-foreground">
-              <div>Mon</div>
-              <div>Wed</div>
-              <div>Fri</div>
-            </div>
-
-            <div className="flex-1 flex gap-1">
-              {weeks.map((week, weekIndex) => (
-                <div key={weekIndex} className="flex flex-col gap-1">
                   {week.map((day, dayIndex) => {
                     const activityLevel = getActivityLevel(day)
                     const activityDetails = getActivityDetails(day)
@@ -178,10 +200,10 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <motion.div
-                              className={`h-4 w-4 rounded-[3px] ${
+                              className={`h-3 w-3 rounded-[2px] ${
                                 isFutureDay ? "bg-transparent" : getActivityColor(activityLevel)
                               } ${
-                                isToday ? "ring-1 ring-primary ring-offset-1 ring-offset-background" : ""
+                                isToday ? "ring-1 ring-green-500 ring-offset-1 ring-offset-background" : ""
                               } transition-colors`}
                               initial={{ scale: 0.8, opacity: 0 }}
                               animate={{ scale: 1, opacity: isFutureDay ? 0.2 : 1 }}
@@ -218,12 +240,90 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
                     )
                   })}
                 </div>
-              ))}
-            </div>
+              )
+            })}
+          </div>
+
+          <div className="flex mt-2">
+            {monthLabels.map((label, i) => {
+              // Calculate the width of this month based on number of weeks
+              const weeksInMonth = label.endWeek - label.startWeek + 1
+              const monthWidth = weeksInMonth * weekWidth + (weeksInMonth - 1) * weekGap
+
+              // Calculate the position of this month
+              const previousMonthsWeeks = label.startWeek
+              const previousMonthsGaps = i // Number of month gaps before this month
+
+              return (
+                <div
+                  key={i}
+                  className="text-xs text-gray-400"
+                  style={{
+                    width: `${monthWidth}px`,
+                    marginLeft: i === 0 ? 0 : `${monthGap}px`,
+                    textAlign: "center",
+                  }}
+                >
+                  {label.month}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Activity Summary */}
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-[#2C2C2C]"></div>
+            <span className="text-gray-400">No activity</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-green-900"></div>
+            <span className="text-gray-400">1 activity</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-green-700"></div>
+            <span className="text-gray-400">2 activities</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-green-600"></div>
+            <span className="text-gray-400">3 activities</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-green-500"></div>
+            <span className="text-gray-400">4+ activities</span>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+          <div className="text-sm">
+            <span className="text-gray-400">Active days: </span>
+            <span className="text-gray-200 font-medium">
+              {activeDays} ({activityPercentage}%)
+            </span>
+          </div>
+          <div className="text-sm">
+            <span className="text-gray-400">Total activities: </span>
+            <span className="text-gray-200 font-medium">{totalActivities}</span>
+          </div>
+          <div className="text-sm flex items-center gap-1">
+            <span className="text-gray-400">Average: </span>
+            <span className="text-gray-200 font-medium">{(totalActivities / totalDays).toFixed(1)} per day</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-3.5 w-3.5 text-gray-500" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Average activities per day over the last year</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
