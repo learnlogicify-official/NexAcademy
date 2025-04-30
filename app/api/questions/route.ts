@@ -4,6 +4,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
+// Add this mapping function near the top of the file
+function mapLanguage(lang) {
+  switch ((lang || '').toUpperCase()) {
+    case 'PYTHON':
+      return 'PYTHON3';
+    case 'PYTHON3':
+      return 'PYTHON3';
+    case 'PYTHON2':
+      return 'PYTHON2';
+    case 'JAVASCRIPT':
+      return 'JAVASCRIPT';
+    case 'JAVA':
+      return 'JAVA';
+    case 'C++':
+    case 'CPP':
+      return 'CPP';
+    case 'C#':
+    case 'CSHARP':
+      return 'CSHARP';
+    case 'PHP':
+      return 'PHP';
+    case 'RUBY':
+      return 'RUBY';
+    case 'SWIFT':
+      return 'SWIFT';
+    case 'GO':
+      return 'GO';
+    case 'RUST':
+      return 'RUST';
+    default:
+      throw new Error(`Unsupported language: ${lang}`);
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -285,8 +319,8 @@ export async function POST(request: NextRequest) {
                   defaultMark: Number(body.defaultMark) || 1,
                   isAllOrNothing: Boolean(body.codingQuestion.isAllOrNothing || body.isAllOrNothing || body.allOrNothingGrading || false),
                   languageOptions: {
-                    create: body.codingQuestion.languageOptions.map((lang: any) => ({
-                      language: lang.language,
+                    create: body.codingQuestion.languageOptions.map((lang) => ({
+                      language: mapLanguage(lang.language),
                       solution: lang.solution || "",
                       preloadCode: lang.preloadCode || ""
                     }))

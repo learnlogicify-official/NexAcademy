@@ -192,13 +192,15 @@ model MCQOption {
 }
 
 model CodingQuestion {
-  id              String           @id @default(cuid())
-  questionId      String           @unique
+  id              String             @id @default(cuid())
+  questionId      String             @unique
   questionText    String
-  defaultMark     Float            @default(1.0)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  question        Question         @relation(fields: [questionId], references: [id])
+  defaultMark     Float              @default(1.0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  difficulty      QuestionDifficulty @default(MEDIUM)
+  isAllOrNothing  Boolean            @default(false)
+  question        Question           @relation(fields: [questionId], references: [id])
   languageOptions LanguageOption[]
   testCases       TestCase[]
 }
@@ -365,6 +367,10 @@ enum ProgrammingLanguage {
   GO
   JAVASCRIPT
   RUBY
+  CSHARP
+  PHP
+  SWIFT
+  RUST
 }
 
 enum AssessmentStatus {
