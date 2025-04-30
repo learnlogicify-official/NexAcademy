@@ -54,9 +54,59 @@ export const authOptions: AuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account }) {
+      // Only proceed for Google sign-in
+      if (account?.provider === "google" && user.email) {
+        try {
+          // Check if user exists in database
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email },
+          });
+
+          // If user doesn't exist, create a new one
+          if (!existingUser) {
+            console.log(`Creating new user for Google account: ${user.email}`);
+            
+            // Generate a random password for OAuth users
+            const randomPassword = Math.random().toString(36).slice(-10);
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+            // Create new user with STUDENT role by default
+            await prisma.user.create({
+              data: {
+                email: user.email,
+                name: user.name,
+                password: hashedPassword,
+                role: Role.STUDENT,
+              },
+            });
+            
+            console.log(`Successfully created user for: ${user.email}`);
+          }
+        } catch (error) {
+          console.error("Error during Google sign in:", error);
+          return false;
+        }
+      }
+      
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      // Initial sign in
       if (user) {
         token.role = user.role;
+        
+        // For Google sign-in, we need to fetch the user from DB 
+        // since the new user might have just been created
+        if (account?.provider === "google") {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email! },
+          });
+          
+          if (dbUser) {
+            token.role = dbUser.role;
+          }
+        }
       }
       return token;
     },
