@@ -1,7 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   BookOpen,
@@ -28,6 +27,7 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ className, open, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navigation = [
     {
@@ -104,20 +104,24 @@ export function AdminSidebar({ className, open, onClose }: AdminSidebarProps) {
                   {group.items.map((item) => {
                     const isActive = pathname === item.href;
                     return (
-                      <Link
+                      <button
                         key={item.href}
-                        href={item.href}
-                        onClick={onClose}
+                        onClick={() => {
+                          router.push(item.href);
+                          if (onClose) onClose();
+                        }}
                         className={cn(
-                          "group flex items-center rounded-md px-2 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                          "group flex w-full items-center rounded-md px-2 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-primary",
                           isActive
                             ? "bg-accent text-accent-foreground"
                             : "text-muted-foreground"
                         )}
+                        aria-current={isActive ? "page" : undefined}
+                        tabIndex={0}
                       >
                         <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                         {item.name}
-                      </Link>
+                      </button>
                     );
                   })}
                 </div>

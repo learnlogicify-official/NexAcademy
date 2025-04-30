@@ -17,8 +17,9 @@ import { CurrencyDisplay } from "@/components/currency-display"
 import Image from "next/image"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { signOut } from "next-auth/react"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -37,6 +38,7 @@ export function TopBar({
 }: TopBarProps) {
   const isMobile = useMobile()
   const pathname = usePathname()
+  const router = useRouter()
   const [isSmallMobile, setIsSmallMobile] = useState(false)
 
   // Check if screen is small mobile (below sm breakpoint)
@@ -164,11 +166,11 @@ export function TopBar({
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/profile")}>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
@@ -184,7 +186,12 @@ export function TopBar({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                await signOut({ redirect: false });
+                router.push('/auth/signin?success=signed_out');
+              }}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>

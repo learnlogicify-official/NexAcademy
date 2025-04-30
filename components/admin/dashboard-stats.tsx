@@ -25,26 +25,13 @@ export function DashboardStats() {
     const fetchStats = async () => {
       try {
         setError(null);
-        const [coursesRes, usersRes, categoriesRes] = await Promise.all([
-          fetch("/api/courses/count"),
-          fetch("/api/users/count"),
-          fetch("/api/categories/count"),
-        ]);
-
-        if (!coursesRes.ok || !usersRes.ok || !categoriesRes.ok) {
-          throw new Error("Failed to fetch stats");
-        }
-
-        const [coursesData, usersData, categoriesData] = await Promise.all([
-          coursesRes.json(),
-          usersRes.json(),
-          categoriesRes.json(),
-        ]);
-
+        const res = await fetch("/api/admin/stats");
+        if (!res.ok) throw new Error("Failed to fetch stats");
+        const data = await res.json();
         setStats({
-          totalCourses: coursesData.count || 0,
-          totalUsers: usersData.count || 0,
-          totalCategories: categoriesData.count || 0,
+          totalCourses: data.courses || 0,
+          totalUsers: data.users || 0,
+          totalCategories: data.categories || 0,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);

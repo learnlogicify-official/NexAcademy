@@ -153,9 +153,10 @@ export async function DELETE(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     if (!params?.id) {
       return NextResponse.json(
         { error: "Course ID is required" },
