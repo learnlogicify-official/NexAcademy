@@ -12,12 +12,16 @@ export async function GET(req: NextRequest, { params }: { params: { moduleId: st
 
 // Add a new article to a module
 export async function POST(req: NextRequest, { params }: { params: { moduleId: string } }) {
-  const { title, content, order } = await req.json();
+  const { title, content, order, summary, readingTime, tags, status } = await req.json();
   const article = await prisma.article.create({
     data: {
       title,
       content,
       order,
+      summary,
+      readingTime,
+      tags: tags || [],
+      status: status || "DRAFT",
       moduleId: params.moduleId,
     },
   });

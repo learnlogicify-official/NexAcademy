@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, ReactNode } from "react"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Bookmark, BookmarkCheck, Share2, ChevronRight } from "lucide-react"
@@ -18,9 +18,10 @@ interface CourseHeaderProps {
   course: Course
   learningMode: "guided" | "explore"
   onLearningModeChange: (mode: "guided" | "explore") => void
+  enrollButton?: ReactNode
 }
 
-export function CourseHeader({ course, learningMode, onLearningModeChange }: CourseHeaderProps) {
+export function CourseHeader({ course, learningMode, onLearningModeChange, enrollButton }: CourseHeaderProps) {
   const [isBookmarked, setIsBookmarked] = useState(false)
   const theme = getCourseTheme(course.title, [])
   const Icon = theme.icon
@@ -99,6 +100,8 @@ export function CourseHeader({ course, learningMode, onLearningModeChange }: Cou
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {enrollButton}
         </div>
         <div className="relative h-40 sm:h-48 bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
           <div className="absolute inset-0 flex items-center justify-center opacity-10">

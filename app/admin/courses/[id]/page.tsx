@@ -12,6 +12,9 @@ import { MessageSquare, Award } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { use } from "react"
 import { AdminModulesGrid } from "@/components/admin/AdminModulesGrid"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
+import { EnrollUsersModal } from "@/components/admin/enroll-users-modal"
 
 interface Course {
   id: string
@@ -36,6 +39,10 @@ export default function CourseOverviewPage({ params }: PageProps) {
   const [viewMode, setViewMode] = useState<"guided" | "explore">("guided")
   const [activeTab, setActiveTab] = useState("overview")
   const router = useRouter()
+  const { toast } = useToast()
+  const [isEnrolling, setIsEnrolling] = useState(false)
+  const [enrolled, setEnrolled] = useState(false)
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false)
 
   const fetchCourse = async () => {
     try {
@@ -70,6 +77,24 @@ export default function CourseOverviewPage({ params }: PageProps) {
 
   const navigateToLesson = (moduleId: string) => {
     router.push(`/my-learning/${resolvedParams.id}/lessons/${moduleId}`)
+  }
+
+  const handleEnroll = async (course: Course) => {
+    setIsEnrolling(true)
+    try {
+      const response = await fetch(`/api/courses/${course.id}/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || "Failed to enroll")
+      setEnrolled(true)
+      toast({ title: "Enrolled!", description: data.message || "Successfully enrolled in course." })
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to enroll.", variant: "destructive" })
+    } finally {
+      setIsEnrolling(false)
+    }
   }
 
   if (loading) {
@@ -130,8 +155,28 @@ export default function CourseOverviewPage({ params }: PageProps) {
     <div className="space-y-8 w-full overflow-x-hidden">
       {/* Header section */}
       <div className="flex flex-col gap-6 w-full">
-        <CourseHeader course={course} learningMode={viewMode} onLearningModeChange={(mode) => setViewMode(mode)} />
-              </div>
+        <CourseHeader
+          course={course}
+          learningMode={viewMode}
+          onLearningModeChange={(mode) => setViewMode(mode)}
+          enrollButton={
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setEnrollModalOpen(true)}
+              className="bg-green-600/90 hover:bg-green-700 text-white shadow-sm"
+            >
+              Enroll
+            </Button>
+          }
+        />
+        <EnrollUsersModal
+          open={enrollModalOpen}
+          onOpenChange={setEnrollModalOpen}
+          courseId={course.id}
+          onSuccess={() => toast({ title: "Enrolled!", description: "Users enrolled successfully." })}
+        />
+      </div>
 
       {/* Course content with sidebar */}
       <div className="flex flex-col lg:flex-row gap-5 w-full">

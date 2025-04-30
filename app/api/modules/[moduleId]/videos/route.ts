@@ -12,12 +12,16 @@ export async function GET(req: NextRequest, { params }: { params: { moduleId: st
 
 // Add a new video to a module
 export async function POST(req: NextRequest, { params }: { params: { moduleId: string } }) {
-  const { vimeoUrl, title, order } = await req.json();
+  const { vimeoUrl, title, order, description, duration, thumbnailUrl, status } = await req.json();
   const video = await prisma.video.create({
     data: {
       vimeoUrl,
       title,
       order,
+      description,
+      duration,
+      thumbnailUrl,
+      status: status || "DRAFT",
       moduleId: params.moduleId,
     },
   });

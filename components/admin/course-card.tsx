@@ -356,6 +356,8 @@ export function CourseCard({
   const [randomOffset, setRandomOffset] = useState({ x: 0, y: 0 });
   const { toast } = useToast();
   const router = useRouter();
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
 
   // Generate a random slight offset for elements to add visual interest
   useEffect(() => {
@@ -364,6 +366,27 @@ export function CourseCard({
       y: Math.random() * 4 - 2
     });
   }, []);
+
+  // Check if already enrolled (for admin, enrolledUsers is a count, so skip if not available)
+  // In a real app, you might want to check with user context or fetch enrollment status
+
+  const handleEnroll = async () => {
+    setIsEnrolling(true);
+    try {
+      const response = await fetch(`/api/courses/${course.id}/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to enroll");
+      setEnrolled(true);
+      toast({ title: "Enrolled!", description: data.message || "Successfully enrolled in course." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to enroll.", variant: "destructive" });
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (onDelete) {
@@ -636,7 +659,6 @@ export function CourseCard({
                 <span className="font-medium text-xs">View</span>
               </Button>
             </motion.div>
-            
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
@@ -648,7 +670,6 @@ export function CourseCard({
                 <span className="font-medium text-xs">Edit</span>
               </Button>
             </motion.div>
-            
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"

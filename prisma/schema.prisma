@@ -26,6 +26,8 @@ model User {
   resetTokenExp DateTime?
   assessments   Assessment[]
   attempts      Attempt[]
+  enrolledIn    Enrollment[] @relation("UserEnrollments")
+  enrolledBy    Enrollment[] @relation("EnrolledByUser")
 
   @@index([role])
 }
@@ -55,6 +57,7 @@ model Course {
   level       CourseLevel @default(Beginner)
   category    Category @relation(fields: [categoryId], references: [id])
   modules     Module[]
+  enrollments Enrollment[]
 
   @@index([categoryId])
 }
@@ -78,14 +81,18 @@ model Module {
 }
 
 model Video {
-  id        String   @id @default(cuid())
-  title     String
-  vimeoUrl  String
-  order     Int      @default(0)
-  moduleId  String
-  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  vimeoUrl    String
+  order       Int          @default(0)
+  duration    Int?         // Duration in seconds
+  thumbnailUrl String?     // URL to the video thumbnail
+  status      VideoStatus  @default(DRAFT)
+  moduleId    String
+  module      Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([moduleId])
 }
@@ -373,6 +380,11 @@ enum CourseLevel {
   Advanced
 }
 
+enum VideoStatus {
+  DRAFT
+  PUBLISHED
+}
+
 // Junction table for many-to-many relationship between Section and Question
 model SectionQuestion {
   id         String   @id @default(cuid())
@@ -391,14 +403,40 @@ model SectionQuestion {
 }
 
 model Article {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  order     Int      @default(0)
-  moduleId  String
-  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String       @id @default(cuid())
+  title       String
+  content     String
+  summary     String?
+  readingTime Int?         // Estimated reading time in minutes
+  tags        String[]     @default([])
+  status      ArticleStatus @default(DRAFT)
+  order       Int          @default(0)
+  moduleId    String
+  module      Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([moduleId])
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Enrollment {
+  id           String   @id @default(cuid())
+  userId       String
+  courseId     String
+  enrolledAt   DateTime @default(now())
+  enrolledBy   String?
+  status       String   @default("active") // active, completed, dropped, etc.
+  user         User     @relation("UserEnrollments", fields: [userId], references: [id])
+  course       Course   @relation(fields: [courseId], references: [id])
+  enrolledByUser User?  @relation("EnrolledByUser", fields: [enrolledBy], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@index([userId])
+  @@index([enrolledBy])
 }
