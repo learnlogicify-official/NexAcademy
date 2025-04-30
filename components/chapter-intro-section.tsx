@@ -2,10 +2,11 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Code, FileText, Lightbulb, Target, Video, ClipboardCheck } from "lucide-react"
+import { Clock, Code, FileText, Lightbulb, Target, Video, ClipboardCheck, Download, ExternalLink, BookOpen, CheckCircle2, ChevronRight, GraduationCap, Pencil } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { motion } from "framer-motion"
 
 // Custom scrollbar hiding styles
 const scrollbarHideStyles = `
@@ -29,9 +30,17 @@ interface ChapterIntroSectionProps {
     }
     learningObjectives?: string[]
   }
+  videoCount?: number
+  videoCompleted?: number
+  lessonCount?: number
+  lessonCompleted?: number
+  practiceCount?: number
+  practiceCompleted?: number
+  assessmentCount?: number
+  assessmentCompleted?: number
 }
 
-export function ChapterIntroSection({ module }: ChapterIntroSectionProps) {
+export function ChapterIntroSection({ module, videoCount = 0, videoCompleted = 0, lessonCount = 0, lessonCompleted = 0, practiceCount = 0, practiceCompleted = 0, assessmentCount = 0, assessmentCompleted = 0 }: ChapterIntroSectionProps) {
   const [editing, setEditing] = useState(false);
   const [objectives, setObjectives] = useState<string[]>(module.learningObjectives ?? []);
   const [saving, setSaving] = useState(false);
@@ -152,6 +161,34 @@ export function ChapterIntroSection({ module }: ChapterIntroSectionProps) {
     }
   }
 
+  // Get module-specific skills (to be displayed as tags)
+  const getModuleSkills = (moduleId: string) => {
+    const allSkills = {
+      "variables-data-types": ["Variables", "Data Types", "Type Conversion", "Python Basics"],
+      "control-flow": ["Conditionals", "Boolean Logic", "Decision Making", "If-Else"],
+      "functions": ["Functions", "Parameters", "Return Values", "Code Reuse"],
+      "loops": ["For Loops", "While Loops", "Iteration", "Break/Continue"],
+      "lists-tuples": ["Lists", "Tuples", "Collections", "Indexing"],
+      default: ["Programming", "Problem Solving", "Algorithm Design"]
+    };
+    return allSkills[moduleId as keyof typeof allSkills] || allSkills.default;
+  };
+
+  const skills = getModuleSkills(module.id);
+
+  // Progress animation delay sequence
+  const baseDelay = 0.1;
+
+  // Related resources (would come from API in a real app)
+  const resources = [
+    { title: "Essential Notes", type: "PDF", url: "#", icon: <FileText className="h-4 w-4"/> },
+    { title: "Practice Code", type: "GitHub", url: "#", icon: <Code className="h-4 w-4"/> },
+    { title: "Video Tutorial", type: "Video", url: "#", icon: <Video className="h-4 w-4"/> }
+  ];
+
+  const totalProgress = (videoCompleted + lessonCompleted + practiceCompleted + assessmentCompleted) / 
+                         (videoCount + lessonCount + practiceCount + assessmentCount) * 100 || 0;
+
   const learningObjectives = getLearningObjectives(module.id)
   const chapterContent = getChapterContent(module.id)
 
@@ -164,27 +201,97 @@ export function ChapterIntroSection({ module }: ChapterIntroSectionProps) {
         <Card className="overflow-hidden border-0 shadow-md bg-[#121212] flex-1 flex flex-col">
           <CardContent className="p-6 pb-10 flex-1 flex flex-col overflow-y-auto scrollbar-hide">
             <div className="flex-1">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <Badge className="mb-2 bg-blue-500/20 text-blue-400 border-blue-500/30">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Badge className="mb-0 bg-gradient-to-r from-blue-500/80 to-violet-500/80 text-white border-none px-3 py-1 text-xs">
                     {module.course?.level || module.level}
                   </Badge>
-                  {/* Title removed from here as it's already in the header */}
+                  <Badge variant="outline" className="bg-black/30 border-white/10 text-gray-300 text-xs">
+                    <Clock className="h-3 w-3 mr-1 text-gray-400" />
+                    {chapterContent.duration}
+                  </Badge>
                 </div>
-                <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm">{chapterContent.duration}</span>
+                
+                <div className="flex items-center gap-1.5 bg-black/30 border border-white/5 px-3 py-1.5 rounded-full">
+                  <div className="text-xs font-medium text-gray-300">Module Progress</div>
+                  <div className="w-16 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-violet-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${totalProgress}%` }}
+                      transition={{ duration: 1, delay: 0.2 }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-gray-300">{Math.round(totalProgress)}%</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                    <Target className="h-5 w-5 text-blue-400" />
+              {/* Description Section */}
+              <div className="mb-8 bg-gradient-to-br from-blue-900/20 to-purple-900/20 p-5 rounded-xl border border-blue-500/10">
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-blue-300">
+                  <Lightbulb className="h-5 w-5 text-blue-400" />
+                  About This Module
+                </h3>
+                <p className="text-gray-300 mb-4">
+                  {module.description || "This module covers essential concepts that will help you build a strong foundation. Follow the learning path and complete all sections to master this topic."}
+                </p>
+                <div className="pl-4 border-l-2 border-blue-500/30 italic text-gray-400 text-sm">
+                  "The best way to learn programming is by doing. Take your time with the exercises, and don't be afraid to experiment with the code."
+                </div>
+              </div>
+
+              {/* Two-column section for Progress and Objectives */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Progress Column */}
+                <div className="bg-black/30 p-5 rounded-xl border border-white/5">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-green-400">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Completion Progress
+                  </h3>
+                  <div className="space-y-5">
+                    <ProgressBar 
+                      label="Videos" 
+                      icon={<Video className='h-4 w-4 text-indigo-400' />} 
+                      completed={videoCompleted} 
+                      total={videoCount} 
+                      color="from-indigo-600 to-indigo-400" 
+                      delay={baseDelay}
+                    />
+                    <ProgressBar 
+                      label="Lessons" 
+                      icon={<BookOpen className='h-4 w-4 text-blue-400' />} 
+                      completed={lessonCompleted} 
+                      total={lessonCount} 
+                      color="from-blue-600 to-blue-400" 
+                      delay={baseDelay * 2}
+                    />
+                    <ProgressBar 
+                      label="Practice" 
+                      icon={<Code className='h-4 w-4 text-cyan-400' />} 
+                      completed={practiceCompleted} 
+                      total={practiceCount} 
+                      color="from-cyan-600 to-cyan-400" 
+                      delay={baseDelay * 3}
+                    />
+                    <ProgressBar 
+                      label="Assessments" 
+                      icon={<ClipboardCheck className='h-4 w-4 text-purple-400' />} 
+                      completed={assessmentCompleted} 
+                      total={assessmentCount} 
+                      color="from-purple-600 to-purple-400" 
+                      delay={baseDelay * 4}
+                    />
+                        </div>
+                </div>
+
+                {/* Objectives Column */}
+                <div className="bg-black/30 p-5 rounded-xl border border-white/5">
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-blue-400">
+                    <Target className="h-5 w-5" />
                     Learning Objectives
                     {!editing && (
-                      <Button size="sm" variant="ghost" className="ml-2" onClick={() => setEditing(true)}>
-                        Edit
+                      <Button size="sm" variant="ghost" className="ml-2 h-7 px-2 hover:bg-white/10" onClick={() => setEditing(true)}>
+                        <Pencil className="h-3 w-3" />
                       </Button>
                     )}
                   </h3>
@@ -198,92 +305,155 @@ export function ChapterIntroSection({ module }: ChapterIntroSectionProps) {
                           <Input
                             value={objective}
                             onChange={e => handleObjectiveChange(idx, e.target.value)}
-                            className="flex-1"
-                            placeholder={`Objective ${idx + 1}`}
+                            className="bg-black/30 border-white/10"
                           />
-                          <Button size="icon" variant="ghost" onClick={() => handleRemoveObjective(idx)} disabled={objectives.length <= 1}>
+                          <Button size="icon" variant="ghost" onClick={() => handleRemoveObjective(idx)}>
                             ×
                           </Button>
-                        </div>
+                      </div>
                       ))}
+                      <Button size="sm" onClick={handleAddObjective} className="mt-2">Add Objective</Button>
                       <div className="flex gap-2 mt-2">
-                        <Button size="sm" onClick={handleAddObjective} variant="secondary">Add Objective</Button>
-                        <Button size="sm" onClick={handleSave} disabled={saving} variant="default">Save</Button>
-                        <Button size="sm" onClick={() => setEditing(false)} variant="ghost">Cancel</Button>
+                        <Button size="sm" onClick={handleSave} disabled={saving}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>
                       </div>
                       {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
                     </div>
                   ) : (
-                    <ul className="space-y-1.5">
-                      {(objectives.length > 0 ? objectives : getLearningObjectives(module.id)).map((objective, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <div className="h-5 w-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mt-0.5 flex-shrink-0">
-                            {index + 1}
-                          </div>
-                          <span className="text-sm">{objective}</span>
-                        </li>
+                    <motion.ul 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                      className="space-y-2.5 mt-1 text-gray-300"
+                    >
+                      {(objectives.length > 0 ? objectives : getLearningObjectives(module.id)).map((objective, idx) => (
+                        <motion.li 
+                          key={idx} 
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.1 * idx, duration: 0.4 }}
+                          className="flex items-start gap-2"
+                        >
+                          <div className="mt-0.5 text-blue-500">
+                            <ChevronRight className="h-4 w-4" />
+                      </div>
+                          <span>{objective}</span>
+                        </motion.li>
                       ))}
-                    </ul>
+                    </motion.ul>
                   )}
-                </div>
+                      </div>
+                    </div>
 
-                <div>
-                  <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                    <Lightbulb className="h-5 w-5 text-amber-400" />
-                    Chapter Content
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gray-800/50 p-3 rounded-lg flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0">
-                        <Video className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Videos</div>
-                        <div className="font-medium text-sm">{chapterContent.videoCount}</div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/50 p-3 rounded-lg flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center flex-shrink-0">
-                        <FileText className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Readings</div>
-                        <div className="font-medium text-sm">{chapterContent.readingCount}</div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/50 p-3 rounded-lg flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
-                        <Code className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Exercises</div>
-                        <div className="font-medium text-sm">{chapterContent.exerciseCount}</div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/50 p-3 rounded-lg flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
-                        <ClipboardCheck className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Quizzes</div>
-                        <div className="font-medium text-sm">{chapterContent.quizCount}</div>
-                      </div>
-                    </div>
-                  </div>
+              {/* Skills Section */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="mb-8 bg-black/30 p-5 rounded-xl border border-white/5"
+              >
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-amber-400">
+                  <GraduationCap className="h-5 w-5" />
+                  Skills You'll Learn
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {skills.map((skill, index) => (
+                    <Badge 
+                      key={index}
+                      className="bg-gradient-to-r from-amber-800/30 to-amber-600/30 border-amber-500/30 text-amber-300 px-3 py-1.5"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
                 </div>
-              </div>
-            </div>
+              </motion.div>
 
-            <div className="bg-gray-800/30 p-4 rounded-lg mt-auto mb-6">
-              <h3 className="text-lg font-medium mb-1">How to use this chapter:</h3>
-              <p className="text-gray-300 text-sm">
-                Start with the introduction video, then read through the content material. Practice with the coding
-                exercises and finally take the quiz to test your knowledge.
-              </p>
+              {/* Resources Section */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="mb-8 bg-black/30 p-5 rounded-xl border border-white/5"
+              >
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-purple-400">
+                  <Download className="h-5 w-5" />
+                  Related Resources
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {resources.map((resource, index) => (
+                    <a 
+                      href={resource.url} 
+                      key={index}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-black/30 border border-white/5 text-gray-300 hover:bg-purple-900/20 hover:border-purple-500/30 transition-colors"
+                    >
+                      <div className="bg-purple-900/30 p-2 rounded-md">
+                        {resource.icon}
+                      </div>
+                      <div>
+                        <div className="font-medium">{resource.title}</div>
+                        <div className="text-xs text-gray-500 flex items-center">
+                          {resource.type}
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                    </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* How to use section */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+                className="bg-gradient-to-r from-indigo-900/20 to-violet-900/20 p-5 rounded-xl border border-indigo-500/10 mt-auto"
+              >
+                <h3 className="text-lg font-medium mb-2 text-indigo-300">How to use this module:</h3>
+                <ol className="space-y-1 text-gray-300 ml-5 list-decimal">
+                  <li>Start with the <span className="text-indigo-300 font-medium">Videos</span> tab to get introduced to the concepts</li>
+                  <li>Read through the <span className="text-blue-300 font-medium">Lessons</span> tab to deepen your understanding</li>
+                  <li>Complete the exercises in the <span className="text-cyan-300 font-medium">Practice</span> tab</li>
+                  <li>Test your knowledge in the <span className="text-purple-300 font-medium">Assessment</span> tab</li>
+                </ol>
+              </motion.div>
             </div>
           </CardContent>
         </Card>
       </div>
     </>
+  )
+}
+
+function ProgressBar({ label, icon, completed, total, color, delay = 0 }: { 
+  label: string, 
+  icon: React.ReactNode, 
+  completed: number, 
+  total: number, 
+  color: string,
+  delay?: number
+}) {
+  const percent = total > 0 ? (completed / total) * 100 : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <div className="bg-black/40 rounded-md p-1.5 border border-white/5">
+            {icon}
+          </div>
+          {label}
+        </div>
+        <span className="text-xs text-gray-400 font-medium bg-black/30 px-2 py-0.5 rounded-full">
+          {completed} / {total}
+        </span>
+      </div>
+      <div className="w-full h-2.5 bg-gray-800/50 rounded-full overflow-hidden">
+        <motion.div 
+          className={`h-full bg-gradient-to-r ${color}`} 
+          initial={{ width: 0 }}
+          animate={{ width: `${percent}%` }}
+          transition={{ duration: 1, delay }}
+        />
+      </div>
+    </div>
   )
 }

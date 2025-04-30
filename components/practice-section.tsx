@@ -77,18 +77,17 @@ export function PracticeSection({ module, onNavigateToAssessment, isAdmin }: Pra
     async function fetchAttempts() {
       if (!userId || assessments.length === 0) return;
       try {
-        const results = await Promise.all(
-          assessments.map(a =>
-            fetch(`/api/assessments/${a.id}/attempts?userId=${userId}&latest=1`).then(res => res.ok ? res.json() : null)
-          )
-        );
-        const attemptMap: Record<string, any> = {};
-        results.forEach((attempt, idx) => {
-          if (attempt && attempt.length > 0) {
-            attemptMap[assessments[idx].id] = attempt[0];
-          }
+        const res = await fetch('/api/attempts/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            assessmentIds: assessments.map(a => a.id),
+          }),
         });
-        setAttempts(attemptMap);
+        if (!res.ok) throw new Error('Failed to fetch attempts');
+        const data = await res.json();
+        setAttempts(data || {});
       } catch (e) {
         // ignore
       }

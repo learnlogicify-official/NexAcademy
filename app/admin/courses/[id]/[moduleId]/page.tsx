@@ -10,13 +10,15 @@ import { ContentSection } from "@/components/content-section"
 import { PracticeSection } from "@/components/practice-section"
 import { AssessmentSection } from "@/components/assessment-section"
 import { ChapterIntroSection } from "@/components/chapter-intro-section"
-import { BookOpen, ClipboardCheck, Code, FileText, Video, Pencil, Info, Edit, Eye, Clock } from "lucide-react"
+import { BookOpen, ClipboardCheck, Code, FileText, Video, Pencil, Info, Edit, Eye, Clock, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ChevronRight, ArrowLeft } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
+import { motion } from "framer-motion"
 
 export default function LessonPage({ params }: { params: Promise<{ id: string; moduleId: string }> }) {
   const resolvedParams = use(params) as { id: string; moduleId: string };
@@ -27,6 +29,10 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
   const [course, setCourse] = useState<any>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const [videoCount, setVideoCount] = useState(0);
+  const [lessonCount, setLessonCount] = useState(0);
+  const [practiceCount, setPracticeCount] = useState(0);
+  const [assessmentCount, setAssessmentCount] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -45,19 +51,45 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
       });
   }, [moduleId]);
 
+  useEffect(() => {
+    async function fetchCounts() {
+      if (!moduleId) return;
+      try {
+        const [videosRes, articlesRes, assessmentsRes] = await Promise.all([
+          fetch(`/api/modules/${moduleId}/videos`),
+          fetch(`/api/modules/${moduleId}/articles`),
+          fetch(`/api/modules/${moduleId}/assessments`),
+        ]);
+        const videos = await videosRes.json();
+        const articles = await articlesRes.json();
+        const assessments = await assessmentsRes.json();
+        setVideoCount(Array.isArray(videos) ? videos.length : 0);
+        setLessonCount(Array.isArray(articles) ? articles.length : 0);
+        setPracticeCount(Array.isArray(assessments) ? assessments.length : 0);
+        setAssessmentCount(Array.isArray(assessments) ? assessments.length : 0);
+      } catch (e) {
+        setVideoCount(0);
+        setLessonCount(0);
+        setPracticeCount(0);
+        setAssessmentCount(0);
+      }
+    }
+    fetchCounts();
+  }, [moduleId]);
+
   if (loading || !module) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex flex-col bg-black/5 p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Skeleton className="h-10 w-10 rounded-full" />
+      <div className="min-h-[calc(100vh-4rem)] flex flex-col bg-black/5 p-6">
+        <div className="animate-pulse flex items-center gap-3 mb-6">
+          <Skeleton className="h-12 w-12 rounded-full bg-gray-800/50" />
           <div>
-            <Skeleton className="h-4 w-24 mb-2" />
-            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-5 w-32 mb-2 bg-gray-800/50" />
+            <Skeleton className="h-4 w-48 bg-gray-800/30" />
           </div>
         </div>
-        <Skeleton className="h-32 w-full rounded-xl mb-4" />
-        <Skeleton className="h-12 w-full max-w-xl mx-auto rounded-full mb-4" />
-        <Skeleton className="flex-1 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl mb-6 bg-gray-800/50" />
+        <Skeleton className="h-14 w-full max-w-2xl mx-auto rounded-full mb-6 bg-gray-800/30" />
+        <Skeleton className="flex-1 w-full rounded-xl bg-gray-800/20" />
       </div>
     );
   }
@@ -65,197 +97,294 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
   // Floating action button for admin actions
   const handleEditModule = () => router.push(`/admin/courses/${id}/${moduleId}/edit`);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background/90 to-background p-2 sm:p-4">
-      {/* Top navigation with breadcrumbs */}
-      <div className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild className="rounded-full bg-gray-800/50 hover:bg-gray-700/50">
-            <Link href={`/admin/courses/${module?.course?.id || id}`}>
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back to Course</span>
-            </Link>
-          </Button>
-          <nav className="flex items-center text-sm text-muted-foreground gap-1">
-            <Link href="/admin/courses" className="hover:text-foreground transition-colors">Courses</Link>
-            <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0" />
-            {course ? (
-              <Link href={`/admin/courses/${course.id}`} className="hover:text-foreground transition-colors">{course.title}</Link>
-            ) : (
-              <span className="text-muted-foreground">Course</span>
-            )}
-            <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0" />
-            <span className="text-foreground font-medium truncate max-w-[120px] sm:max-w-[200px]">{module.title}</span>
-          </nav>
-        </div>
-        <div className="hidden sm:flex items-center gap-2">
-          <Badge variant="outline" className="bg-primary/5 text-xs">
-            Module {module.order}
-          </Badge>
-          {module.course?.level && (
-            <Badge variant="secondary" className="text-xs">
-              {module.course.level}
-            </Badge>
-          )}
-        </div>
-      </div>
+  // Calculate module progress based on video count and lesson count
+  const totalItems = videoCount + lessonCount + assessmentCount;
+  const completedItems = Math.floor(Math.random() * totalItems); // Placeholder for actual completion tracking
+  const progressPercentage = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
 
-      <div className="max-w-6xl mx-auto flex flex-col gap-4">
-        {/* Compact header with quick info */}
-        <Card className="overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card/70 border-primary/10 shadow-lg">
-          <CardContent className="p-0">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4">
-              <div className="bg-primary/10 text-primary rounded-full p-3">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-bold truncate">{module.title}</h1>
-                <p className="text-muted-foreground text-sm line-clamp-1">
-                  {module.description || "No description available"}
-                </p>
-              </div>
-              <div className="flex gap-2 mt-2 sm:mt-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 text-xs"
-                  title="View module"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>Preview</span>
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="gap-1 text-xs"
-                  onClick={handleEditModule}
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                  <span>Edit</span>
-                </Button>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-black to-zinc-900 p-0">
+      {/* Hero section with module details */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative bg-gradient-to-r from-violet-900/90 via-indigo-800/70 to-blue-900/90 overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 py-12 sm:py-16 relative z-10">
+          {/* Navigation */}
+          <div className="flex items-center gap-3 text-white/80 mb-10">
+            <Button variant="ghost" size="icon" asChild className="rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md">
+              <Link href={`/admin/courses/${module?.course?.id || id}`}>
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Back to Course</span>
+              </Link>
+            </Button>
+            <nav className="flex items-center text-sm gap-1 backdrop-blur-sm bg-black/20 rounded-full px-4 py-2">
+              <Link href="/admin/courses" className="hover:text-white transition-colors font-medium">Courses</Link>
+              <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0 opacity-40" />
+              {course ? (
+                <Link href={`/admin/courses/${course.id}`} className="hover:text-white transition-colors font-medium">{course.title}</Link>
+              ) : (
+                <span className="text-white/60">Course</span>
+              )}
+              <ChevronRight className="h-4 w-4 mx-1 flex-shrink-0 opacity-40" />
+              <span className="text-white font-bold truncate max-w-[120px] sm:max-w-[300px]">{module.title}</span>
+            </nav>
+            <div className="ml-auto flex items-center gap-2">
+              <Badge className="bg-white/10 hover:bg-white/20 border-0 text-xs backdrop-blur-md">
+                Module {module.order}
+              </Badge>
+              {module.course?.level && (
+                <Badge variant="secondary" className="bg-blue-500/80 text-white border-0 text-xs">
+                  {module.course.level}
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          {/* Module header */}
+          <div className="flex flex-col md:flex-row items-start gap-6 md:gap-10 mb-6">
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 transform rotate-3 shadow-[0_0_25px_rgba(79,70,229,0.5)]">
+              <FileText className="h-12 w-12 text-white" />
+            </div>
+            <div className="flex-1">
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                className="text-3xl md:text-4xl font-extrabold text-white mb-2 tracking-tight"
+              >
+                {module.title}
+              </motion.h1>
+              <p className="text-white/70 text-lg max-w-3xl">
+                {module.description || "No description available"}
+              </p>
+              
+              {/* Progress bar */}
+              <div className="mt-6 mb-2">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-white/80 font-medium">Module progress</span>
+                  <span className="text-white/80 font-medium">{Math.round(progressPercentage)}%</span>
+                </div>
+                <div className="h-2 w-full bg-black/50 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercentage}%` }}
+                    transition={{ delay: 0.5, duration: 1, ease: "easeOut" }}
+                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                  />
+                </div>
               </div>
             </div>
             
-            {/* Quick stats strip */}
-            <div className="bg-black/10 border-t border-primary/5 py-2 px-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-              <div className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>
-                  <span className="text-muted-foreground">Duration: </span>
-                  <span className="font-medium">~ 60 min</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Video className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>
-                  <span className="text-muted-foreground">Videos: </span>
-                  <span className="font-medium">{module.videos?.length || 0}</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>
-                  <span className="text-muted-foreground">Content: </span>
-                  <span className="font-medium">2 sections</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Code className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>
-                  <span className="text-muted-foreground">Exercises: </span>
-                  <span className="font-medium">4 items</span>
-                </span>
+            <div className="flex flex-wrap gap-2 md:self-start">
+              <Button
+                variant="outline" 
+                size="sm"
+                className="gap-1 text-sm text-white bg-white/10 hover:bg-white/20 border-white/20 backdrop-blur-md"
+                title="View module"
+              >
+                <Eye className="h-4 w-4" />
+                <span>Preview</span>
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 border-0 hover:opacity-90"
+                onClick={handleEditModule}
+              >
+                <Edit className="h-4 w-4" />
+                <span>Edit</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Stats cards */}
+      <div className="max-w-7xl mx-auto px-4 -mt-8 mb-8 z-20 relative">
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          {/* Video count stat */}
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl border border-white/10 shadow-lg overflow-hidden group hover:shadow-[0_0_25px_rgba(79,70,229,0.2)] transition-all duration-300">
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <div className="bg-indigo-700/30 rounded-lg p-3 group-hover:bg-indigo-600/40 transition-colors duration-300">
+                  <Video className="h-6 w-6 text-indigo-400" />
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-white">{videoCount}</div>
+                  <div className="text-white/60 text-sm">Videos</div>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <div className="h-1 w-full bg-gradient-to-r from-indigo-600 to-indigo-400"></div>
+          </div>
 
-        {/* Modern streamlined tabs with content */}
-        <Card className="flex-1 overflow-hidden border bg-card/90 shadow-md">
+          {/* Lesson count stat */}
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl border border-white/10 shadow-lg overflow-hidden group hover:shadow-[0_0_25px_rgba(79,70,229,0.2)] transition-all duration-300">
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-700/30 rounded-lg p-3 group-hover:bg-blue-600/40 transition-colors duration-300">
+                  <BookOpen className="h-6 w-6 text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-white">{lessonCount}</div>
+                  <div className="text-white/60 text-sm">Lessons</div>
+                </div>
+              </div>
+            </div>
+            <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-blue-400"></div>
+          </div>
+
+          {/* Practice count stat */}
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl border border-white/10 shadow-lg overflow-hidden group hover:shadow-[0_0_25px_rgba(79,70,229,0.2)] transition-all duration-300">
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <div className="bg-cyan-700/30 rounded-lg p-3 group-hover:bg-cyan-600/40 transition-colors duration-300">
+                  <Code className="h-6 w-6 text-cyan-400" />
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-white">{practiceCount}</div>
+                  <div className="text-white/60 text-sm">Practice Items</div>
+                </div>
+              </div>
+            </div>
+            <div className="h-1 w-full bg-gradient-to-r from-cyan-600 to-cyan-400"></div>
+          </div>
+
+          {/* Assessment count stat */}
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl border border-white/10 shadow-lg overflow-hidden group hover:shadow-[0_0_25px_rgba(79,70,229,0.2)] transition-all duration-300">
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <div className="bg-purple-700/30 rounded-lg p-3 group-hover:bg-purple-600/40 transition-colors duration-300">
+                  <ClipboardCheck className="h-6 w-6 text-purple-400" />
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-white">{assessmentCount}</div>
+                  <div className="text-white/60 text-sm">Assessments</div>
+                </div>
+              </div>
+            </div>
+            <div className="h-1 w-full bg-gradient-to-r from-purple-600 to-purple-400"></div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Main content with tabs */}
+      <div className="max-w-7xl mx-auto px-4 pb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+          className="rounded-2xl overflow-hidden border border-white/10 bg-zinc-900/50 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
+        >
           <Tabs 
             value={activeSection} 
             onValueChange={setActiveSection}
-            className="flex flex-col h-full"
+            className="flex flex-col min-h-[600px]"
           >
-            <div className="px-2 border-b bg-muted/20">
-              <TabsList className="h-14 bg-transparent w-full justify-start gap-2 px-2">
+            <div className="bg-gradient-to-r from-black/70 to-zinc-900/70 border-b border-white/10">
+              <TabsList className="h-16 bg-transparent w-full justify-start gap-2 px-4 flex-wrap">
                 <TabsTrigger 
                   value="intro" 
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:border-0 data-[state=inactive]:bg-black/20 data-[state=inactive]:text-white/70 rounded-lg px-4 py-2.5 h-10 transition-all duration-200"
                 >
                   <Info className="h-4 w-4 mr-2" />
                   Overview
                 </TabsTrigger>
                 <TabsTrigger 
                   value="video" 
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:border-0 data-[state=inactive]:bg-black/20 data-[state=inactive]:text-white/70 rounded-lg px-4 py-2.5 h-10 transition-all duration-200"
                 >
                   <Video className="h-4 w-4 mr-2" />
                   Videos
                 </TabsTrigger>
                 <TabsTrigger 
                   value="content" 
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:border-0 data-[state=inactive]:bg-black/20 data-[state=inactive]:text-white/70 rounded-lg px-4 py-2.5 h-10 transition-all duration-200"
                 >
                   <BookOpen className="h-4 w-4 mr-2" />
-                  Content
+                  Lessons
                 </TabsTrigger>
                 <TabsTrigger 
                   value="practice" 
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:border-0 data-[state=inactive]:bg-black/20 data-[state=inactive]:text-white/70 rounded-lg px-4 py-2.5 h-10 transition-all duration-200"
                 >
                   <Code className="h-4 w-4 mr-2" />
                   Practice
                 </TabsTrigger>
                 <TabsTrigger 
                   value="assessment" 
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-3 py-2 h-10"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:border-0 data-[state=inactive]:bg-black/20 data-[state=inactive]:text-white/70 rounded-lg px-4 py-2.5 h-10 transition-all duration-200"
                 >
                   <ClipboardCheck className="h-4 w-4 mr-2" />
-                  Quiz
+                  Assessment
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            <div className="flex-1 overflow-auto">
-              {/* Chapter Intro section */}
+            <div className="flex-1 overflow-auto bg-gradient-to-b from-zinc-900/90 to-black/90">
               <TabsContent value="intro" className="p-0 m-0 h-full data-[state=active]:flex">
-                <ChapterIntroSection module={module} />
+                <ChapterIntroSection 
+                  module={module}
+                  videoCount={videoCount}
+                  videoCompleted={0}
+                  lessonCount={lessonCount}
+                  lessonCompleted={0}
+                  practiceCount={practiceCount}
+                  practiceCompleted={0}
+                  assessmentCount={assessmentCount}
+                  assessmentCompleted={0}
+                />
               </TabsContent>
 
-              {/* Video section */}
               <TabsContent value="video" className="p-0 m-0 h-full data-[state=active]:flex">
                 <VideoSection module={module} />
               </TabsContent>
 
-              {/* Content section */}
               <TabsContent value="content" className="p-0 m-0 h-full data-[state=active]:flex">
                 <ContentSection module={module} />
               </TabsContent>
 
-              {/* Practice section */}
               <TabsContent value="practice" className="p-0 m-0 h-full data-[state=active]:flex">
                 <PracticeSection module={module} isAdmin={true} />
               </TabsContent>
 
-              {/* Assessment section */}
               <TabsContent value="assessment" className="p-0 m-0 h-full data-[state=active]:flex">
                 <AssessmentSection module={module} />
               </TabsContent>
             </div>
           </Tabs>
-        </Card>
+        </motion.div>
       </div>
 
       {/* Floating Action Button for Admin Actions */}
-      <Button
-        className="fixed bottom-6 right-6 z-50 shadow-lg rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        size="icon"
-        onClick={handleEditModule}
-        title="Edit Module"
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
+        className="fixed bottom-6 right-6 z-50"
       >
-        <Pencil className="h-5 w-5" />
-      </Button>
+        <Button
+          className="relative rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] hover:shadow-[0_0_30px_rgba(124,58,237,0.7)] group overflow-hidden border-0"
+          size="lg"
+          onClick={handleEditModule}
+          title="Edit Module"
+        >
+          <span className="absolute inset-0 bg-gradient-to-r from-violet-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+          <Pencil className="h-5 w-5 z-10 relative" />
+          <span className="ml-2 z-10 relative">Edit Module</span>
+        </Button>
+      </motion.div>
     </div>
   );
 }
