@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Code, ChevronRight, ChevronDown, Folder, FolderOpen, Copy, CheckCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Editor } from '@tinymce/tinymce-react';
 import { CodeEditor } from "@/components/ui/code-editor";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
@@ -384,6 +384,71 @@ export function CodingQuestionFormModal({
   const [showValidationResults, setShowValidationResults] = useState(false);
   const [copiedTestCases, setCopiedTestCases] = useState<Set<string>>(new Set());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Add a ref for the editor
+  const editorRef = useRef<any>(null);
+  
+  // Add state for dark/light mode
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  
+  // Detect dark mode
+  useEffect(() => {
+    // Check if the user prefers dark mode
+    const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Check if we have a .dark class on the html element
+    const htmlIsDark = document.documentElement.classList.contains('dark');
+    
+    // Set the dark mode state
+    setIsDarkMode(prefersDarkMode || htmlIsDark);
+    
+    // Listen for changes in the color scheme preference
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsDarkMode(e.matches || document.documentElement.classList.contains('dark'));
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    
+    // Listen for changes in the HTML class
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(
+            window.matchMedia('(prefers-color-scheme: dark)').matches || 
+            document.documentElement.classList.contains('dark')
+          );
+        }
+      });
+    });
+    
+    observer.observe(document.documentElement, { attributes: true });
+    
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+      observer.disconnect();
+    };
+  }, []);
+  
+  // Update TinyMCE theme when dark mode changes
+  useEffect(() => {
+    // If the editor is initialized and the mode changes, update the theme
+    if (editorRef.current) {
+      // Get the container element
+      const container = editorRef.current.getContainer();
+      
+      // Remove old theme classes
+      container.classList.remove('tox-tinymce-dark', 'tox-tinymce-light');
+      
+      // Add the appropriate theme class
+      container.classList.add(isDarkMode ? 'tox-tinymce-dark' : 'tox-tinymce-light');
+      
+      // Update content area style
+      const contentArea = editorRef.current.getDoc().body;
+      contentArea.style.backgroundColor = isDarkMode ? '#1e293b' : '#ffffff';
+      contentArea.style.color = isDarkMode ? '#e2e8f0' : '#1e293b';
+    }
+  }, [isDarkMode]);
 
   // Add a debug function to check specific language options
   const inspectLanguageOption = (langId: string) => {
@@ -1517,13 +1582,81 @@ export function CodingQuestionFormModal({
             <Label htmlFor="questionText" className={formErrors.questionText ? "text-destructive" : ""}>
               Question Text {formErrors.questionText && <span className="text-destructive text-sm">*</span>}
             </Label>
-            <RichTextEditor
-              value={formData.questionText}
-              onChange={(value) => setFormData(prev => ({ ...prev, questionText: value }))}
-              placeholder="Enter the question text with formatting, images, and code"
-              className={cn("min-h-[250px]", formErrors.questionText ? "border-destructive" : "")}
-              editorClassName="min-h-[200px]"
-            />
+            <div className={cn("min-h-[250px]", formErrors.questionText ? "border-destructive" : "")}>
+              <Editor
+                apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
+                value={formData.questionText}
+                onInit={(_, editor) => editorRef.current = editor}
+                init={{
+                  menubar: true,
+                  plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
+                    'searchreplace', 'visualblocks', 'code',
+                    'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                  ],
+                  toolbar:
+                    'undo redo | formatselect | bold italic backcolor | \
+                    alignleft aligncenter alignright alignjustify | \
+                    bullist numlist outdent indent | removeformat | help',
+                  skin: isDarkMode ? 'oxide-dark' : 'oxide',
+                  content_css: isDarkMode ? 'dark' : 'default',
+                  content_style: `
+                    body { 
+                      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
+                      font-size: 16px;
+                      line-height: 1.6;
+                      ${isDarkMode ? 'color: #e2e8f0;' : 'color: #1e293b;'} 
+                    }
+                    p { margin: 0 0 1em 0; }
+                    h1, h2, h3, h4, h5, h6 { 
+                      margin-top: 1.5em; 
+                      margin-bottom: 0.5em; 
+                      line-height: 1.3;
+                      font-weight: 600;
+                    }
+                    h1 { font-size: 1.8em; }
+                    h2 { font-size: 1.5em; }
+                    h3 { font-size: 1.3em; }
+                    h4 { font-size: 1.2em; }
+                    ul, ol { 
+                      margin-bottom: 1em;
+                      padding-left: 1.5em;
+                    }
+                    li { margin-bottom: 0.5em; }
+                    img {
+                      max-width: 100%;
+                      height: auto;
+                    }
+                    blockquote {
+                      margin-left: 0;
+                      padding-left: 1em;
+                      border-left: 3px solid ${isDarkMode ? '#64748b' : '#94a3b8'};
+                      font-style: italic;
+                    }
+                    pre {
+                      background-color: ${isDarkMode ? '#1e293b' : '#f1f5f9'};
+                      border-radius: 0.25rem;
+                      padding: 1em;
+                      white-space: pre-wrap;
+                    }
+                    table {
+                      border-collapse: collapse;
+                      width: 100%;
+                    }
+                    table td, table th {
+                      border: 1px solid ${isDarkMode ? '#3f3f46' : '#e2e8f0'};
+                      padding: 0.5em;
+                    }
+                  `,
+                  height: 300,
+                  min_height: 250,
+                  resize: false,
+                  branding: false,
+                  promote: false
+                }}
+                onEditorChange={(content) => setFormData(prev => ({ ...prev, questionText: content }))}
+              />
+            </div>
             {formErrors.questionText && (
               <p className="text-destructive text-sm">{formErrors.questionText}</p>
             )}
