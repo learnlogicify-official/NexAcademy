@@ -109,3 +109,47 @@
     scrollbar-width: none; /* Firefox */
   }
 }
+
+/* Always keep TinyMCE popups above modals */
+.tox-tinymce-aux,
+.tox-tinymce-aux * {
+  z-index: 1000000 !important;
+}
+.tox-tinymce-aux {
+  pointer-events: auto !important;
+}
+.tox.tox-silver-sink {
+  z-index: 1000000 !important;
+  pointer-events: auto !important;
+}
+
+/* Let TinyMCE dropdown menus size to content, but scroll if too tall */
+.tox-menu.tox-collection.tox-collection--list {
+  height: auto !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
+}
+
+/* Also ensure the parent containers do not block scrolling */
+.tox.tox-silver-sink,
+.tox-tinymce-aux {
+  pointer-events: auto !important;
+  overflow: visible !important;
+}
+
+/* Raise TinyMCE popups and menus to max z-index for debugging */
+.tox-tinymce-aux,
+.tox.tox-silver-sink,
+.tox-menu.tox-collection.tox-collection--list {
+  z-index: 2147483647 !important;
+}
+
+/* Force pointer events on TinyMCE menus and children */
+.tox-menu.tox-collection.tox-collection--list,
+.tox-menu.tox-collection.tox-collection--list * {
+  pointer-events: auto !important;
+}
+.tox-tinymce-aux,
+.tox.tox-silver-sink {
+  pointer-events: auto !important;
+}

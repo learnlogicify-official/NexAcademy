@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useTheme } from 'next-themes';
 
 interface QuestionRowProps {
   question: Question;
@@ -32,6 +33,7 @@ export function QuestionRow({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<Question | null>(null);
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     if (allQuestionsExpanded !== undefined) {
@@ -105,7 +107,7 @@ export function QuestionRow({
             <div className="flex flex-col">
               <span className="font-medium text-foreground">{question.name}</span>
               <span className="text-xs text-muted-foreground truncate max-w-md">
-                {question.folder?.name || 'Uncategorized'}
+                {question.folderId ? question.folderId : 'Uncategorized'}
               </span>
             </div>
           </div>
@@ -250,7 +252,7 @@ export function QuestionRow({
                       <div className="prose prose-sm max-w-none dark:prose-invert">
                         {displayQuestion.type === 'MCQ' && displayQuestion.mCQQuestion && (
                           <>
-                            <div className="bg-muted/30 p-4 rounded-lg border shadow-sm mb-6" dangerouslySetInnerHTML={{ __html: displayQuestion.mCQQuestion.questionText || 'No question text available' }} />
+                            <div className="prose prose-sm max-w-none dark:prose-invert bg-muted/30 p-4 rounded-lg border shadow-sm mb-6" dangerouslySetInnerHTML={{ __html: displayQuestion.mCQQuestion.questionText || 'No question text available' }} />
                             
                             <div className="space-y-4">
                               <div className="flex items-center gap-2 font-medium text-base">
@@ -301,7 +303,17 @@ export function QuestionRow({
                         
                         {displayQuestion.type === 'CODING' && displayQuestion.codingQuestion && (
                           <>
-                            <div className="bg-muted/30 p-4 rounded-lg border shadow-sm mb-6" dangerouslySetInnerHTML={{ __html: displayQuestion.codingQuestion.questionText || 'No question text available' }} />
+                            <div
+                              className="bg-muted/30 p-4 rounded-lg border shadow-sm mb-6"
+                              style={{
+                                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif',
+                                fontSize: '16px',
+                                lineHeight: '2.1',
+                                color: resolvedTheme === 'dark' ? '#e2e8f0' : '#1e293b',
+                                wordBreak: 'break-word'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: displayQuestion.codingQuestion.questionText || 'No question text available' }}
+                            />
                             
                             {displayQuestion.codingQuestion.testCases && displayQuestion.codingQuestion.testCases.length > 0 && (
                               <div className="space-y-4 mt-4">

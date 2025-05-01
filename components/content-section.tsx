@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
-import { Editor } from '@tinymce/tinymce-react';
 import { createPortal } from "react-dom";
 import FullScreenEditor from "@/components/full-screen-editor";
 
@@ -630,7 +629,7 @@ export function ContentSection({ module }: ContentSectionProps) {
 
         {/* Add/Edit Article Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="sm:max-w-4xl">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editArticle ? "Edit Lesson" : "Add Lesson"}</DialogTitle>
               <DialogDescription>
@@ -745,75 +744,7 @@ export function ContentSection({ module }: ContentSectionProps) {
               
               <div className="space-y-2">
                 <label className="text-sm font-medium">Content</label>
-                <Editor
-                  apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                  value={editorContent}
-                  init={{
-                    height: 400,
-                    menubar: false,
-                    plugins: [
-                      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
-                      'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                      'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount', 'fullscreen'
-                    ],
-                    toolbar:
-                      'undo redo | formatselect | bold italic backcolor | fullscreen | \
-                      alignleft aligncenter alignright alignjustify | \
-                      bullist numlist outdent indent | removeformat | help',
-                    content_style: `
-                      body { 
-                        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
-                        font-size: 16px;
-                        line-height: 1.6;
-                        color: #f8fafc; 
-                      }
-                      p { margin: 0 0 1em 0; }
-                      h1, h2, h3, h4, h5, h6 { 
-                        margin-top: 1.5em; 
-                        margin-bottom: 0.5em; 
-                        line-height: 1.3;
-                        font-weight: 600;
-                      }
-                      h1 { font-size: 1.8em; }
-                      h2 { font-size: 1.5em; }
-                      h3 { font-size: 1.3em; }
-                      h4 { font-size: 1.2em; }
-                      ul, ol { 
-                        margin-bottom: 1em;
-                        padding-left: 1.5em;
-                      }
-                      li { margin-bottom: 0.5em; }
-                      img {
-                        max-width: 100%;
-                        height: auto;
-                      }
-                      blockquote {
-                        margin-left: 0;
-                        padding-left: 1em;
-                        border-left: 3px solid #64748b;
-                        font-style: italic;
-                      }
-                      pre {
-                        background-color: #1e293b;
-                        border-radius: 0.25rem;
-                        padding: 1em;
-                        white-space: pre-wrap;
-                      }
-                      table {
-                        border-collapse: collapse;
-                        width: 100%;
-                      }
-                      table td, table th {
-                        border: 1px solid #3f3f46;
-                        padding: 0.5em;
-                      }
-                    `,
-                    resize: false,
-                    branding: false,
-                    promote: false
-                  }}
-                  onEditorChange={handleEditorChange}
-                />
+                {/* Placeholder for a new rich text editor */}
               </div>
             </div>
             <DialogFooter>

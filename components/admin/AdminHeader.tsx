@@ -91,7 +91,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[380px]">
+            <DropdownMenuContent align="end" className="w-[380px]" onClick={e => e.stopPropagation()}>
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-[300px] overflow-y-auto">
@@ -144,7 +144,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56" onClick={e => e.stopPropagation()}>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">

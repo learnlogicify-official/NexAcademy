@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Code, ChevronRight, ChevronDown, Terminal, X } from "lucide-react";
+import { Plus, Trash2, Code, ChevronRight, ChevronDown, Terminal, X, FileEdit, Type, Folder, FileText, BarChart, Hash, CheckCircle, CheckCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { CodeEditor } from "@/components/ui/code-editor";
@@ -17,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useJudge0Languages } from '../hooks/useJudge0Languages';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 
 interface EditCodingQuestionModalProps {
   isOpen: boolean;
@@ -64,6 +63,14 @@ export function EditCodingQuestionModal({
   const [showTestCaseForm, setShowTestCaseForm] = useState(false);
   const [testCasesCollapsed, setTestCasesCollapsed] = useState(false);
   const { languages, loading, error } = useJudge0Languages();
+  const editorRef = React.useRef<any>(null);
+
+  // Label modern style
+  const labelClass = "block text-[1.08rem] font-semibold tracking-wide text-foreground/90 mb-1 transition-colors duration-200 group-focus-within:text-primary";
+  // Input/Textarea modern style
+  const inputClass = "rounded-xl shadow-sm border border-primary/20 focus:ring-2 focus:ring-primary/40 bg-gradient-to-br from-background/80 to-muted/40 px-4 py-2 text-base font-medium transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/50 focus:bg-background/90";
+  // SelectTrigger modern style
+  const selectTriggerClass = "rounded-xl shadow-sm border border-primary/20 focus:ring-2 focus:ring-primary/40 bg-gradient-to-br from-background/80 to-muted/40 px-4 py-2 text-base font-medium transition-all duration-200 hover:border-primary/40 focus:border-primary/60";
 
   // Get correct programming language for code editor
   const getEditorLanguage = (langId: string): string => {
@@ -148,6 +155,14 @@ export function EditCodingQuestionModal({
       }
     }
   }, [initialData, isOpen, toast]);
+
+  useEffect(() => {
+    if (isOpen && editorRef.current) {
+      setTimeout(() => {
+        editorRef.current.focus();
+      }, 100);
+    }
+  }, [isOpen]);
 
   const handleLanguageSelect = (languageId: string) => {
     if (selectedLanguages.includes(languageId)) {
@@ -393,77 +408,149 @@ export function EditCodingQuestionModal({
   };
 
   return (
-    <div className="edit-coding-question-modal">
-      <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto pr-2 pb-4 relative">
-        <div className="space-y-4">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent
+        className="max-w-[90vw] max-h-[95vh] overflow-hidden rounded-2xl shadow-2xl border-0 p-0"
+      >
+        <DialogClose className="absolute right-4 top-4 rounded-full opacity-80 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-50">
+          <X className="h-5 w-5" />
+          <span className="sr-only">Close</span>
+        </DialogClose>
+        
+        {/* Enhanced Modern Header */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-blue-600 to-indigo-700 opacity-90"></div>
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTJoMnYyem0wLTRoLTJ2LTJoMnYyem0wLTRoLTJWMWgydjI1eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
+          <div className="relative z-10 flex items-center gap-5 px-8 pt-8 pb-6">
+            <div className="flex-shrink-0 flex h-14 w-14 items-center justify-center rounded-full bg-white/10  shadow-lg text-white">
+              <Code className="h-7 w-7 text-white drop-shadow-md" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-white drop-shadow-md flex items-center gap-2 transform transition-all">
+                {initialData ? "Update Coding Question" : "Create New Coding Question"}
+                <span className="inline-block animate-pulse bg-green-400 w-2 h-2 rounded-full ml-2"></span>
+              </h2>
+              <span className="text-white/90 mt-1 text-base font-normal max-w-3xl block">
+                {initialData 
+                  ? "Update your coding question with the necessary information, language options, and test cases."
+                  : "Create a new coding question by providing details, setting up programming languages, and adding test cases."}
+              </span>
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background/80 to-transparent z-10"></div>
+        </div>
+        
+        {/* Form with correct fullscreen handling */}
+        <form 
+          onSubmit={handleSubmit} 
+          className="space-y-6 pr-2 pb-4 relative px-8 pt-6"
+        >
+          <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="question-name">Question Name</Label>
+              <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 ">
+                <Label className={labelClass + " flex items-center gap-2"} htmlFor="question-name">
+                  <Type className="h-4 w-4 text-primary/80" /> Question Name
+                </Label>
               <Input
                 id="question-name"
                 placeholder="Enter question name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 required
+                  className={inputClass + " focus:shadow-lg focus:ring-2 focus:ring-primary/40"}
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="question-folder">Folder</Label>
+              <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 ">
+                <Label className={labelClass + " flex items-center gap-2"} htmlFor="question-folder">
+                  <Folder className="h-4 w-4 text-primary/80" /> Folder
+                </Label>
               <div className="flex gap-2">
                 <Select 
                   value={formData.folderId} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, folderId: value }))}
                 >
-                  <SelectTrigger className="w-full">
+                    <SelectTrigger className={selectTriggerClass + " focus:shadow-lg focus:ring-2 focus:ring-primary/40"}>
                     <SelectValue placeholder="Select a folder" />
                   </SelectTrigger>
-                  <SelectContent>
+                    <SelectContent className="rounded-xl border border-primary/10 shadow-lg">
                     {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
+                        <SelectItem key={folder.id} value={folder.id} className="hover:bg-primary/5 cursor-pointer focus:bg-primary/5">
                         {folder.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Button type="button" variant="outline" onClick={onAddFolder}>
+                  <Button type="button" variant="outline" onClick={onAddFolder} className="rounded-full bg-white/70 dark:bg-background/70 hover:bg-primary/10 hover:text-primary transition-colors">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="question-text">Question Text</Label>
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 ">
+              <Label className={labelClass + " flex items-center gap-2"} htmlFor="question-text">
+                <FileText className="h-4 w-4 text-primary/80" /> Question Text
+              </Label>
+              <div 
+                className="min-h-[250px] border rounded-xl overflow-hidden shadow-inner transition-all focus-within:border-primary/30 focus-within:shadow-md"
+                style={{ position: "relative", zIndex: 0 }}
+              >
             <RichTextEditor
               value={formData.questionText}
               onChange={(value) => setFormData(prev => ({ ...prev, questionText: value }))}
               placeholder="Enter question text/description..."
-              className="min-h-[250px]"
-              editorClassName="min-h-[200px]"
+                  className="min-h-[200px]"
+                  editorProps={{
+                    menubar: true,
+                    plugins: [
+                      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
+                      'searchreplace', 'visualblocks', 'code',
+                      'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                    ],
+                    toolbar:
+                      'undo redo | formatselect | bold italic backcolor | \
+                      alignleft aligncenter alignright alignjustify | \
+                      bullist numlist outdent indent | removeformat | help',
+                    z_index: 99999,
+                  }}
+                  onInit={(editor) => { editorRef.current = editor; }}
             />
           </div>
-
+            </div>
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="difficulty">Difficulty</Label>
+              <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 ">
+                <Label className={labelClass + " flex items-center gap-2"} htmlFor="difficulty">
+                  <BarChart className="h-4 w-4 text-primary/80" /> Difficulty
+                </Label>
               <Select 
                 value={formData.difficulty} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}
               >
-                <SelectTrigger>
+                  <SelectTrigger className={selectTriggerClass + " focus:shadow-lg focus:ring-2 focus:ring-primary/40"}>
                   <SelectValue placeholder="Select difficulty" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EASY">Easy</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HARD">Hard</SelectItem>
+                  <SelectContent className="rounded-xl border border-primary/10 shadow-lg">
+                    <SelectItem value="EASY" className="hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-green-500"></span> Easy
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="MEDIUM" className="hover:bg-yellow-50 dark:hover:bg-yellow-900/20 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-yellow-500"></span> Medium
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="HARD" className="hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-red-500"></span> Hard
+                      </div>
+                    </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="default-mark">Default Mark</Label>
+              <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 ">
+                <Label className={labelClass + " flex items-center gap-2"} htmlFor="default-mark">
+                  <Hash className="h-4 w-4 text-primary/80" /> Default Mark
+                </Label>
               <Input
                 id="default-mark"
                 type="number"
@@ -471,144 +558,49 @@ export function EditCodingQuestionModal({
                 step="0.5"
                 value={formData.defaultMark}
                 onChange={(e) => setFormData(prev => ({ ...prev, defaultMark: parseFloat(e.target.value) || 0 }))}
+                  className={inputClass + " focus:shadow-lg focus:ring-2 focus:ring-primary/40"}
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 ">
+                <Label className={labelClass + " flex items-center gap-2"} htmlFor="status">
+                  <CheckCircle className="h-4 w-4 text-primary/80" /> Status
+                </Label>
               <Select 
                 value={formData.status} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
               >
-                <SelectTrigger>
+                  <SelectTrigger className={selectTriggerClass + " focus:shadow-lg focus:ring-2 focus:ring-primary/40"}>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="READY">Ready</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectContent className="rounded-xl border border-primary/10 shadow-lg">
+                    <SelectItem value="DRAFT" className="hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span> Draft
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Programming Languages</Label>
+                    </SelectItem>
+                    <SelectItem value="READY" className="hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer">
               <div className="flex items-center gap-2">
-                <Button 
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddAllLanguages}
-                  className="mr-2"
-                >
-                  Add All Languages
-                </Button>
-                <Label htmlFor="defaultLanguage" className="text-sm">Default Language:</Label>
-                <Select 
-                  value={defaultLanguage} 
-                  onValueChange={handleSetDefaultLanguage}
-                  disabled={selectedLanguages.length === 0}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select default" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedLanguages.map((langId) => (
-                      <SelectItem key={`lang-select-${langId}`} value={langId}>
-                        {getLanguageName(langId)}
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span> Ready
+                      </div>
                       </SelectItem>
-                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-              {languages.map((lang) => (
-                <Button
-                  key={lang.id}
-                  type="button"
-                  variant={selectedLanguages.includes(String(lang.id)) ? (String(lang.id) === defaultLanguage ? "default" : "secondary") : "outline"}
-                  className={cn(
-                    "flex items-center gap-2 w-full justify-start",
-                    String(lang.id) === defaultLanguage && "border-2 border-primary"
-                  )}
-                  onClick={() => handleLanguageSelect(String(lang.id))}
-                >
-                  <Code className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{lang.name}</span>
-                  {String(lang.id) === defaultLanguage && (
-                    <span className="ml-auto text-xs bg-primary/20 px-1 rounded">Default</span>
-                  )}
-                </Button>
-              ))}
             </div>
 
-            {selectedLanguages.length > 0 && (
-              <Tabs value={activeLanguageTab} onValueChange={setActiveLanguageTab}>
-                <TabsList className="w-full overflow-x-auto">
-                  <div className="flex gap-2 min-w-max">
-                    {selectedLanguages.map((langId, index) => (
-                      <TabsTrigger key={`${langId}-${index}`} value={langId} className="whitespace-nowrap">
-                        {getLanguageName(langId)}
-                      </TabsTrigger>
-                    ))}
-                  </div>
-                </TabsList>
-                {selectedLanguages.map((langId, index) => {
-                  const langOption = getLanguageOption(langId);
-                  return (
-                    <TabsContent key={`${langId}-${index}`} value={langId}>
-                      <div className="space-y-4">
-                        <Tabs defaultValue="solution">
-                          <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="solution">Solution</TabsTrigger>
-                            <TabsTrigger value="preload">Preload Code</TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="solution">
-                            <CodeEditor
-                              value={langOption?.solution || ""}
-                              onChange={(value) => updateLanguageOption(langId, 'solution', value)}
-                              language={getEditorLanguage(langId)}
-                              className="h-[200px]"
-                            />
-                          </TabsContent>
-                          <TabsContent value="preload">
-                            <CodeEditor
-                              value={langOption?.preloadCode || ""}
-                              onChange={(value) => updateLanguageOption(langId, 'preloadCode', value)}
-                              language={getEditorLanguage(langId)}
-                              className="h-[150px]"
-                            />
-                            <p className="text-sm text-muted-foreground mt-2">
-                              This code will be preloaded in the editor for students
-                            </p>
-                          </TabsContent>
-                        </Tabs>
-                      </div>
-                    </TabsContent>
-                  );
-                })}
-              </Tabs>
-            )}
-          </div>
+            {/* Languages section - already styled */}
 
-          <div className="space-y-4 mt-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  className="p-0 h-7"
-                  onClick={() => setTestCasesCollapsed(!testCasesCollapsed)}
-                >
-                  {testCasesCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-                <Label>Test Cases</Label>
+            {/* Test cases section styling */}
+            <div className="mt-8 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-md p-5 ">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
+                  <Terminal className="h-5 w-5 text-primary" />
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+                <div>
+                  <div className="text-lg font-semibold tracking-wide text-foreground/90">Test Cases</div>
+                  <p className="text-sm text-muted-foreground">Define test cases to verify student solutions</p>
+                </div>
+                <div className="ml-auto">
+                  <div className="flex items-center gap-3">
                   <Switch
                     id="all-or-nothing"
                     checked={allOrNothingGrading}
@@ -618,48 +610,58 @@ export function EditCodingQuestionModal({
                         distributeGradesEvenly();
                       }
                     }}
+                      className="data-[state=checked]:bg-primary"
                   />
-                  <Label htmlFor="all-or-nothing">All or Nothing Grading</Label>
-                  <div className="ml-2 text-sm text-muted-foreground">
-                    {allOrNothingGrading 
-                      ? "Grades are distributed evenly. All tests must pass to get any points." 
-                      : "Each test case contributes its percentage to the total grade."}
+                    <Label className="text-sm font-medium" htmlFor="all-or-nothing">All or Nothing Grading</Label>
                   </div>
-                </div>
-                {formData.testCases.length > 0 && (
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={distributeGradesEvenly}
-                  >
-                    Distribute Grades Evenly
-                  </Button>
-                )}
+                  <div className="text-xs text-muted-foreground mt-1 ml-6">
+                    {allOrNothingGrading 
+                      ? "All tests must pass to get any points" 
+                      : "Each test contributes its percentage to grade"}
+                  </div>
               </div>
             </div>
 
-            {!testCasesCollapsed && (
-              <>
-                {/* Test Case Stats */}
+              {/* Test case stats */}
                 {formData.testCases.length > 0 && (
-                  <div className="text-sm text-right mb-2">
-                    <span className="mr-4">Sample test cases: {formData.testCases.filter(tc => tc.type === "sample").length}</span>
-                    <span className="mr-4">Hidden test cases: {formData.testCases.filter(tc => tc.type === "hidden").length}</span>
-                    <span>
-                      Total grading: {formData.testCases.reduce((sum, testCase) => sum + (testCase.gradePercentage || 0), 0)}%
-                      {formData.testCases.reduce((sum, testCase) => sum + (testCase.gradePercentage || 0), 0) !== 100 && !allOrNothingGrading && (
-                        <span className="text-destructive ml-2">(Should equal 100%)</span>
-                      )}
+                <div className="flex items-center justify-end gap-4 mb-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                    <span>Sample: {formData.testCases.filter(tc => tc.type === "sample").length}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+                    <span>Hidden: {formData.testCases.filter(tc => tc.type === "hidden").length}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Total:</span>
+                    <span className={cn(
+                      "font-medium",
+                      !allOrNothingGrading && 
+                      Math.abs(formData.testCases.reduce((sum, tc) => sum + (tc.gradePercentage || 0), 0) - 100) > 0.01 
+                        ? "text-destructive" 
+                        : "text-foreground"
+                    )}>
+                      {formData.testCases.reduce((sum, tc) => sum + (tc.gradePercentage || 0), 0)}%
                     </span>
+                  </div>
                   </div>
                 )}
 
-                {/* Test Cases Table */}
-                {formData.testCases.length > 0 && formData.testCases.map((testCase, index) => (
-                  <div key={testCase.id || index} className="space-y-4 p-4 border rounded-lg">
+              {/* Test case list */}
+              <div className="space-y-4">
+                {formData.testCases.map((testCase, index) => (
+                  <div 
+                    key={testCase.id || index} 
+                    className={cn(
+                      "p-4 border rounded-xl transition-all duration-200",
+                      testCase.type === "sample" 
+                        ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30" 
+                        : "bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-900/30"
+                    )}
+                  >
                     <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id={`sample-${testCase.id}`}
@@ -677,10 +679,18 @@ export function EditCodingQuestionModal({
                                 setTimeout(() => distributeGradesEvenly(), 0);
                               }
                             }}
+                            className={cn(
+                              "border-2 text-white",
+                              testCase.type === "sample" 
+                                ? "data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" 
+                                : "data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
+                            )}
                           />
-                          <Label htmlFor={`sample-${testCase.id}`}>Sample</Label>
+                          <Label className="text-sm font-medium" htmlFor={`sample-${testCase.id}`}>
+                            Sample
+                          </Label>
                         </div>
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex items-center space-x-2">
                           <Checkbox
                             id={`hidden-${testCase.id}`}
                             checked={testCase.type === "hidden"}
@@ -697,18 +707,29 @@ export function EditCodingQuestionModal({
                                 setTimeout(() => distributeGradesEvenly(), 0);
                               }
                             }}
+                            className={cn(
+                              "border-2 text-white",
+                              testCase.type === "hidden" 
+                                ? "data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500" 
+                                : "data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                            )}
                           />
-                          <Label htmlFor={`hidden-${testCase.id}`}>Hidden</Label>
+                          <Label className="text-sm font-medium" htmlFor={`hidden-${testCase.id}`}>
+                            Hidden
+                          </Label>
                         </div>
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex items-center space-x-2">
                           <Checkbox
                             id={`show-on-failure-${testCase.id}`}
                             checked={testCase.showOnFailure}
                             onCheckedChange={(checked) => 
                               updateTestCase(testCase.id, "showOnFailure", !!checked)
                             }
+                            className="border-2 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                           />
-                          <Label htmlFor={`show-on-failure-${testCase.id}`}>Show on failure</Label>
+                          <Label className="text-sm font-medium" htmlFor={`show-on-failure-${testCase.id}`}>
+                            Show on failure
+                          </Label>
                         </div>
                       </div>
                       <Button
@@ -716,35 +737,36 @@ export function EditCodingQuestionModal({
                         variant="ghost"
                         size="icon"
                         onClick={() => deleteTestCase(index)}
+                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-4">
                       <div className="space-y-2">
-                        <Label>Input</Label>
+                        <Label className="text-sm font-medium">Input</Label>
                         <Textarea
                           value={testCase.input}
                           onChange={(e) => updateTestCase(testCase.id, "input", e.target.value)}
                           placeholder="Enter test case input"
-                          className="min-h-[100px] font-mono"
+                          className="font-mono text-sm min-h-[100px] rounded-lg border-muted bg-card/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/40 transition-all"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Expected Output</Label>
+                        <Label className="text-sm font-medium">Expected Output</Label>
                         <Textarea
                           value={testCase.output}
                           onChange={(e) => updateTestCase(testCase.id, "output", e.target.value)}
                           placeholder="Enter expected output"
-                          className="min-h-[100px] font-mono"
+                          className="font-mono text-sm min-h-[100px] rounded-lg border-muted bg-card/50 focus:border-primary/30 focus:ring-1 focus:ring-primary/40 transition-all"
                         />
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label>Grade Percentage (0-100):</Label>
-                      <div className="flex items-center">
+                    <div className="mt-4">
+                      <Label className="text-sm font-medium">Grade Percentage</Label>
+                      <div className="flex items-center mt-2">
                         <Input
                           type="number"
                           value={testCase.gradePercentage}
@@ -753,157 +775,83 @@ export function EditCodingQuestionModal({
                             const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
                             updateTestCase(testCase.id, "gradePercentage", value);
                           }}
-                          className="w-24"
+                          className={cn(
+                            "w-16 h-8 px-2 text-sm font-mono rounded-md border-muted",
+                            testCase.type === "sample" && "opacity-50"
+                          )}
                           min={0}
                           max={100}
                           disabled={allOrNothingGrading || testCase.type === "sample"}
                         />
-                        <span className="ml-2">%</span>
+                        <span className="ml-2 text-sm">%</span>
+                        <div className="ml-4 h-1 bg-muted flex-1 rounded overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full", 
+                              testCase.type === "sample" 
+                                ? "bg-blue-500/20" 
+                                : "bg-primary"
+                            )} 
+                            style={{ width: `${Math.min(100, testCase.gradePercentage)}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
 
-                {/* Test Case Form Button */}
-                {!editingTestCaseIndex && !showTestCaseForm && (
+                {/* Add test case button */}
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full border-dashed"
-                    onClick={() => setShowTestCaseForm(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Add Test Case
-                  </Button>
-                )}
-
-                {/* New/Edit Test Case Form */}
-                {(showTestCaseForm || editingTestCaseIndex !== null) && (
-                  <div className="space-y-4 border p-4 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-medium">
-                        {editingTestCaseIndex !== null ? "Edit Test Case" : "Add Test Case"}
-                      </h3>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => {
-                          setEditingTestCaseIndex(null);
-                          setNewTestCase({
-                            input: "",
-                            output: "",
-                            isHidden: false,
-                            showOnFailure: true,
-                            gradePercentage: 0
-                          });
-                          setShowTestCaseForm(false);
-                        }}
-                      >
-                        <X className="h-4 w-4" />
+                  onClick={addTestCase}
+                  className="w-full border-dashed border-2 border-muted-foreground/20 rounded-xl py-6 text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-colors"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Add Test Case
                       </Button>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="test-input">Input</Label>
-                        <Textarea
-                          id="test-input"
-                          placeholder="Enter test input"
-                          value={newTestCase.input}
-                          onChange={(e) => setNewTestCase(prev => ({ ...prev, input: e.target.value }))}
-                          rows={4}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="test-output">Expected Output</Label>
-                        <Textarea
-                          id="test-output"
-                          placeholder="Enter expected output"
-                          value={newTestCase.output}
-                          onChange={(e) => setNewTestCase(prev => ({ ...prev, output: e.target.value }))}
-                          rows={4}
-                        />
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="test-hidden">Test Case Type</Label>
-                        <Select 
-                          value={newTestCase.isHidden ? "hidden" : "sample"} 
-                          onValueChange={(value) => setNewTestCase(prev => ({ ...prev, isHidden: value === "hidden" }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="sample">Sample (visible to students)</SelectItem>
-                            <SelectItem value="hidden">Hidden (only for evaluation)</SelectItem>
-                          </SelectContent>
-                        </Select>
+          {/* Enhanced Modern Footer */}
+          <div className="relative pt-6 mt-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent"></div>
+            <div className="flex flex-col sm:flex-row justify-end gap-3 py-4 bg-gradient-to-br from-background via-background/95 to-background/90  rounded-b-xl px-8 border border-muted/20 border-t-0 shadow-lg">
+              <div className="flex-1 flex items-center">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-30"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="test-grade">Grade Percentage</Label>
-                        <Input
-                          id="test-grade"
-                          type="number"
-                          min="0"
-                          max="100"
-                          placeholder="Grade percentage"
-                          value={newTestCase.gradePercentage}
-                          onChange={(e) => setNewTestCase(prev => ({ ...prev, gradePercentage: parseFloat(e.target.value) || 0 }))}
-                        />
+                  <span className="hidden md:inline-block">
+                    {initialData ? "Updating existing question" : "Creating new question"}
+                  </span>
                       </div>
-                      
-                      <div className="flex items-center h-full pt-8">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id="show-on-failure"
-                            checked={newTestCase.showOnFailure}
-                            onCheckedChange={(checked) => 
-                              setNewTestCase(prev => ({ ...prev, showOnFailure: checked === true }))
-                            }
-                          />
-                          <Label htmlFor="show-on-failure">Show on failure</Label>
                         </div>
-                      </div>
-                    </div>
-                    
+              <div className="flex gap-3">
                     <Button 
                       type="button" 
                       variant="outline" 
-                      onClick={() => {
-                        if (editingTestCaseIndex !== null) {
-                          updateTestCase(formData.testCases[editingTestCaseIndex].id, "type", newTestCase.isHidden ? "hidden" : "sample");
-                          updateTestCase(formData.testCases[editingTestCaseIndex].id, "showOnFailure", newTestCase.showOnFailure);
-                          updateTestCase(formData.testCases[editingTestCaseIndex].id, "gradePercentage", newTestCase.gradePercentage);
-                        } else {
-                          addTestCase();
-                        }
-                        setShowTestCaseForm(false);
-                      }}
-                      disabled={!newTestCase.input.trim() || !newTestCase.output.trim()}
-                    >
-                      {editingTestCaseIndex !== null ? "Update Test Case" : "Add Test Case"}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-6 sticky bottom-0 bg-background pb-2 border-t mt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+                  className="rounded-full px-6 py-2 font-medium border-2 border-muted-foreground/20 hover:border-primary/60 transition-all shadow-sm hover:shadow-md hover:bg-muted/50 "
+                  onClick={onClose}
+                >
               Cancel
             </Button>
-            <Button type="submit">
-              Save Changes
+                <Button
+                  type="submit"
+                  className="rounded-full px-8 py-2 font-bold bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-primary/90 transition-all duration-300 relative overflow-hidden group"
+                >
+                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-400/20 via-transparent to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                  <span className="relative flex items-center">
+                    <CheckCheck className="mr-2 h-4 w-4" /> Save Changes
+                  </span>
             </Button>
           </div>
         </div>
-      </form>
     </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 } 

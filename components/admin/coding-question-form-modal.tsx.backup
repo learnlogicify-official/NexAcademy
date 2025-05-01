@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Code, ChevronRight, ChevronDown, Folder, FolderOpen, Copy, CheckCheck, 
   Search, X, Globe, Cpu, Binary, Smartphone, ListFilter, FileCode, FileEdit, Type, BarChart, Hash, CheckCircle, Terminal, FileText } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Editor } from '@tinymce/tinymce-react';
 import { CodeEditor } from "@/components/ui/code-editor";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
@@ -48,8 +49,6 @@ import { cn } from "@/lib/utils";
 import { useJudge0Languages } from '../hooks/useJudge0Languages';
 import { Badge } from "@/components/ui/badge";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { Editor } from '@tinymce/tinymce-react';
-import type { Editor as TinyMCEEditor } from 'tinymce';
 
 interface Folder {
   id: string;
@@ -376,6 +375,7 @@ export function CodingQuestionFormModal({
   const [showValidationResults, setShowValidationResults] = useState(false);
   const [copiedTestCases, setCopiedTestCases] = useState<Set<string>>(new Set());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Add a ref for the editor
   const editorRef = useRef<any>(null);
@@ -441,16 +441,6 @@ export function CodingQuestionFormModal({
       contentArea.style.color = isDarkMode ? '#e2e8f0' : '#1e293b';
     }
   }, [isDarkMode]);
-
-  // Focus TinyMCE editor when modal opens
-  useEffect(() => {
-    if (isOpen && editorRef.current) {
-      // Short delay to ensure the editor is fully initialized
-      setTimeout(() => {
-        editorRef.current.focus();
-      }, 100);
-    }
-  }, [isOpen]);
 
   // Add a debug function to check specific language options
   const inspectLanguageOption = (langId: string) => {
@@ -1649,46 +1639,82 @@ export function CodingQuestionFormModal({
   // SelectTrigger modern style
   const selectTriggerClass = "rounded-xl shadow-sm border border-primary/20 focus:ring-2 focus:ring-primary/40 bg-gradient-to-br from-background/80 to-muted/40 px-4 py-2 text-base font-medium transition-all duration-200 hover:border-primary/40 focus:border-primary/60";
 
-  // Add this effect inside CodingQuestionFormModal
+  // Inside the component's function body, add these new state variables after other useState declarations
+  // const [editorPosition, setEditorPosition] = useState<{top: number, left: number, width: number, height: number} | null>(null);
+  // const [showPortalEditor, setShowPortalEditor] = useState(false);
+  // const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  // Add this useEffect to handle editor positioning and visibility
+  // useEffect(() => {
+  //   // Only run in browser environment
+  //   if (typeof window === 'undefined') return;
+  //   
+  //   // Only position the editor when the modal is open
+  //   if (isOpen && editorContainerRef.current) {
+  //     const rect = editorContainerRef.current.getBoundingClientRect();
+  //     setEditorPosition({
+  //       top: rect.top,
+  //       left: rect.left,
+  //       width: rect.width,
+  //       height: rect.height
+  //     });
+  //     setShowPortalEditor(true);
+  //   } else {
+  //     setShowPortalEditor(false);
+  //   }
+  // }, [isOpen]);
+
+  // useEffect(() => {
+  //   const handleResize = () => {
+  //     if (editorContainerRef.current && showPortalEditor) {
+  //       const rect = editorContainerRef.current.getBoundingClientRect();
+  //       setEditorPosition({
+  //         top: rect.top,
+  //         left: rect.left,
+  //         width: rect.width,
+  //         height: rect.height
+  //       });
+  //     }
+  //   };
+  //
+  //   window.addEventListener('resize', handleResize);
+  //   return () => window.removeEventListener('resize', handleResize);
+  // }, [showPortalEditor]);
+
+  // Add this near your other state variables
+  const [tinyMceLoaded, setTinyMceLoaded] = useState(false);
+  const [tinyMceKey, setTinyMceKey] = useState(Date.now());
+  const questionTextRef = useRef<HTMLDivElement>(null);
+
+  // Add this useEffect for deferred initialization
   useEffect(() => {
-    function handleWheel(e: Event) {
-      const event = e as WheelEvent;
-      const menu = (event.target as HTMLElement)?.closest('.tox-menu.tox-collection--list') as HTMLElement | null;
-      if (menu) {
-        // Calculate if the menu can scroll
-        const atTop = menu.scrollTop === 0;
-        const atBottom = menu.scrollHeight - menu.scrollTop === menu.clientHeight;
-        if (
-          (event.deltaY < 0 && atTop) ||
-          (event.deltaY > 0 && atBottom)
-        ) {
-          // If at the edge, let the event bubble (to allow parent scroll)
-          return;
-        }
-        // Otherwise, scroll the menu and prevent default
-        menu.scrollTop += event.deltaY;
-        event.preventDefault();
-      }
-    }
-    document.addEventListener('wheel', handleWheel, { passive: false } as AddEventListenerOptions);
+    if (!isOpen) return;
+    
+    // Delay TinyMCE initialization to ensure modal is fully rendered
+    const timer = setTimeout(() => {
+      setTinyMceLoaded(true);
+      // Generate new key to force complete re-initialization
+      setTinyMceKey(Date.now());
+    }, 500);
+    
     return () => {
-      document.removeEventListener('wheel', handleWheel, { passive: false } as AddEventListenerOptions);
+      clearTimeout(timer);
+      // Reset on modal close
+      if (!isOpen) {
+        setTinyMceLoaded(false);
+      }
     };
-  }, []);
+  }, [isOpen]);
+  
+  // Add function to handle editor change
+  const handleEditorChange = (content: string) => {
+    setFormData(prev => ({ ...prev, questionText: content }));
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-[90vw] max-h-[95vh] overflow-hidden rounded-2xl shadow-2xl border-0 p-0"
-        onInteractOutside={event => {
-          // Prevent modal close if clicking on TinyMCE menu or popup
-          if (
-            event.target instanceof HTMLElement &&
-            (event.target.closest('.tox-tinymce-aux') || event.target.closest('.tox-menu'))
-          ) {
-            event.preventDefault();
-          }
-        }}
+        className="max-w-[90vw] max-h-[95vh] rounded-2xl shadow-2xl border-0 p-0"
       >
         <DialogClose className="absolute right-4 top-4 rounded-full opacity-80 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-50">
           <X className="h-5 w-5" />
@@ -1702,9 +1728,9 @@ export function CodingQuestionFormModal({
         {/* Enhanced Modern Header */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-blue-600 to-indigo-700 opacity-90"></div>
-          {/* Removed the decorative SVG X background */}
+          {/* Removed the decorative SVG X background here */}
           <div className="relative z-10 flex items-center gap-5 px-8 pt-8 pb-6">
-            <div className="flex-shrink-0 flex h-14 w-14 items-center justify-center rounded-full bg-white/10 shadow-lg text-white">
+            <div className="flex-shrink-0 flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm shadow-lg text-white">
               <Code className="h-7 w-7 text-white drop-shadow-md" />
             </div>
             <div className="flex-1">
@@ -1724,7 +1750,7 @@ export function CodingQuestionFormModal({
         {/* End Enhanced Modern Header */}
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(95vh-170px)] overflow-y-auto pr-2 pb-4 relative px-8 pt-6">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 backdrop-blur">
               <Label htmlFor="name" className={cn(labelClass, formErrors.name && "text-destructive")}>
                 <div className="flex items-center gap-2">
                   <Type className="h-4 w-4 text-primary/80" /> 
@@ -1743,7 +1769,7 @@ export function CodingQuestionFormModal({
                 <p className="text-destructive text-sm">{formErrors.name}</p>
               )}
             </div>
-            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 backdrop-blur">
               <Label htmlFor="folder" className={cn(labelClass, formErrors.folderId && "text-destructive")}>
                 <div className="flex items-center gap-2">
                   <Folder className="h-4 w-4 text-primary/80" />
@@ -1797,8 +1823,7 @@ export function CodingQuestionFormModal({
             </div>
           </div>
 
-          {/* TinyMCE Editor Section - with z-index fix */}
-          <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
+          <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 backdrop-blur">
             <Label htmlFor="questionText" className={cn(labelClass, formErrors.questionText && "text-destructive")}>
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary/80" />
@@ -1806,56 +1831,121 @@ export function CodingQuestionFormModal({
               </div>
             </Label>
             <div 
+              ref={questionTextRef}
               className={cn(
                 "min-h-[250px] border rounded-xl overflow-hidden shadow-inner transition-all",
-                formErrors.questionText ? "border-destructive" : "border-primary/10"
+                formErrors.questionText ? "border-destructive" : "border-primary/10",
+                tinyMceLoaded ? "focus-within:border-primary/30 focus-within:shadow-md" : "bg-muted/30"
               )}
             >
-              <Editor
-                apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                value={formData.questionText}
-                onInit={(_evt: unknown, editor: TinyMCEEditor) => { editorRef.current = editor; }}
-                onEditorChange={(content: string) => setFormData(prev => ({ ...prev, questionText: content }))}
-                init={{
-                  menubar: true,
-                  plugins: [
-                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
-                    'searchreplace', 'visualblocks', 'code',
-                    'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-                  ],
-                  toolbar:
-                    'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
-                  skin: isDarkMode ? 'oxide-dark' : 'oxide',
-                  content_css: isDarkMode ? 'dark' : 'default',
-                  z_index: 999999,
-                  popup_container: 'body',
-                  fixed_toolbar_container: 'body',
-                  inline: false,
-                  promotion: false,
-                  branding: false,
-                  relative_urls: false,
-                  remove_script_host: false,
-                  document_base_url: typeof window !== 'undefined' ? window.location.origin : '',
-                  browser_spellcheck: true,
-                  object_resizing: false,
-                  contextmenu: false,
-                  statusbar: false,
-                  elementpath: false,
-                  resize: false,
-                  content_style: `
-                    body { background: ${isDarkMode ? '#1e293b' : '#fff'}; color: ${isDarkMode ? '#e2e8f0' : '#1e293b'}; }
-                    table td, table th { border: 1px solid #3f3f46; padding: 0.5em; }
-                  `,
-                }}
-              />
+              {tinyMceLoaded ? (
+                <Editor
+                  key={tinyMceKey} // Force re-render on modal open
+                  apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
+                  value={formData.questionText}
+                  onInit={(_, editor) => {
+                    editorRef.current = editor;
+                  }}
+                  init={{
+                    menubar: true,
+                    plugins: [
+                      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
+                      'searchreplace', 'visualblocks', 'code',
+                      'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                    ],
+                    toolbar:
+                      'undo redo | formatselect | bold italic backcolor | \
+                      alignleft aligncenter alignright alignjustify | \
+                      bullist numlist outdent indent | removeformat | help',
+                    skin: isDarkMode ? 'oxide-dark' : 'oxide',
+                    content_css: isDarkMode ? 'dark' : 'default',
+                    content_style: `
+                      body { 
+                        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
+                        font-size: 16px;
+                        line-height: 1.6;
+                        ${isDarkMode ? 'color: #e2e8f0;' : 'color: #1e293b;'} 
+                      }
+                      p { margin: 0 0 1em 0; }
+                      h1, h2, h3, h4, h5, h6 { 
+                        margin-top: 1.5em; 
+                        margin-bottom: 0.5em; 
+                        line-height: 1.3;
+                        font-weight: 600;
+                      }
+                      h1 { font-size: 1.8em; }
+                      h2 { font-size: 1.5em; }
+                      h3 { font-size: 1.3em; }
+                      h4 { font-size: 1.2em; }
+                      ul, ol { 
+                        margin-bottom: 1em;
+                        padding-left: 1.5em;
+                      }
+                      li { margin-bottom: 0.5em; }
+                      img {
+                        max-width: 100%;
+                        height: auto;
+                      }
+                      blockquote {
+                        margin-left: 0;
+                        padding-left: 1em;
+                        border-left: 3px solid #64748b;
+                        font-style: italic;
+                      }
+                      pre {
+                        background-color: #1e293b;
+                        border-radius: 0.25rem;
+                        padding: 1em;
+                        white-space: pre-wrap;
+                      }
+                      table {
+                        border-collapse: collapse;
+                        width: 100%;
+                      }
+                      table td, table th {
+                        border: 1px solid #3f3f46;
+                        padding: 0.5em;
+                      }
+                    `,
+                    // Critical settings for modals
+                    popup_container: 'body',
+                    fixed_toolbar_container: 'body',
+                    inline: false,
+                    promotion: false,
+                    branding: false,
+                    z_index: 999999,
+                    
+                    // Additional settings for better compatibility
+                    relative_urls: false,
+                    remove_script_host: false,
+                    document_base_url: window.location.origin,
+                    browser_spellcheck: true,
+                    object_resizing: false,
+                    
+                    // Simplify menu handling - disable problematic components
+                    contextmenu: false,
+                    statusbar: false,
+                    elementpath: false,
+                    resize: false,
+                  }}
+                  onEditorChange={handleEditorChange}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full p-4">
+                  <div className="animate-pulse flex flex-col items-center gap-4">
+                    <div className="h-6 w-[70%] bg-muted-foreground/20 rounded"></div>
+                    <div className="h-4 w-[90%] bg-muted-foreground/10 rounded"></div>
+                    <div className="h-4 w-[60%] bg-muted-foreground/10 rounded"></div>
+                  </div>
+                </div>
+              )}
             </div>
             {formErrors.questionText && (
               <p className="text-destructive text-sm">{formErrors.questionText}</p>
             )}
-          </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 backdrop-blur">
               <Label htmlFor="difficulty" className={labelClass}>
                 <div className="flex items-center gap-2">
                   <BarChart className="h-4 w-4 text-primary/80" />
@@ -1888,7 +1978,7 @@ export function CodingQuestionFormModal({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 backdrop-blur">
               <Label htmlFor="status" className={labelClass}>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-primary/80" />
@@ -1916,12 +2006,12 @@ export function CodingQuestionFormModal({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 backdrop-blur">
               <Label htmlFor="defaultMark" className={labelClass}>
                 <div className="flex items-center gap-2">
                   <Hash className="h-4 w-4 text-primary/80" />
                   Default Mark
-          </div>
+                </div>
               </Label>
               <Input
                 id="defaultMark"
@@ -1937,17 +2027,13 @@ export function CodingQuestionFormModal({
           </div>
 
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label
-                className={formErrors.languageOptions ? "text-destructive" : ""}
-              >
-                Programming Languages{" "}
-                {formErrors.languageOptions && (
-                  <span className="text-destructive text-sm">*</span>
-                )}
+            <div className="flex justify-between items-center mb-2 px-5 py-3 rounded-t-xl bg-gradient-to-r from-primary/10 via-background/80 to-background/60 border-b border-primary/20 shadow-sm">
+              <Label className={formErrors.languageOptions ? "text-destructive text-xl font-extrabold tracking-tight flex items-center gap-2" : "text-xl font-extrabold tracking-tight flex items-center gap-2"}>
+                <Code className="h-6 w-6 text-primary mr-2" />
+                Programming Languages {formErrors.languageOptions && <span className="text-destructive text-base">*</span>}
               </Label>
               <div className="flex items-center gap-2">
-                <Button
+                <Button 
                   type="button"
                   variant="outline"
                   size="sm"
@@ -1956,36 +2042,21 @@ export function CodingQuestionFormModal({
                 >
                   Add All Languages
                 </Button>
-                <Label
-                  htmlFor="defaultLanguage"
-                  className={cn(
-                    "text-sm",
-                    formErrors.defaultLanguage ? "text-destructive" : ""
-                  )}
-                >
-                  Default Language:{" "}
-                  {formErrors.defaultLanguage && (
-                    <span className="text-destructive text-sm">*</span>
-                  )}
+                <Label htmlFor="defaultLanguage" className={cn("text-base font-semibold", formErrors.defaultLanguage ? "text-destructive" : "")}> 
+                  Default Language: {formErrors.defaultLanguage && <span className="text-destructive text-base">*</span>}
                 </Label>
-                <Select
-                  value={defaultLanguage}
+                <Select 
+                  value={defaultLanguage} 
                   onValueChange={handleSetDefaultLanguage}
                   disabled={selectedLanguages.length === 0}
                 >
-                  <SelectTrigger
-                    className={cn(
-                      "w-[180px]",
-                      formErrors.defaultLanguage ? "border-destructive" : ""
-                    )}
-                  >
+                  <SelectTrigger className={cn("w-[180px]", formErrors.defaultLanguage ? "border-destructive" : "")}> 
                     <SelectValue placeholder="Select default" />
                   </SelectTrigger>
                   <SelectContent>
                     {selectedLanguages.map((langId) => (
                       <SelectItem key={langId} value={langId}>
-                        {languages.find((l) => String(l.id) === langId)?.name ||
-                          langId}
+                        {languages.find(l => String(l.id) === langId)?.name || langId}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1993,14 +2064,10 @@ export function CodingQuestionFormModal({
               </div>
             </div>
             {formErrors.languageOptions && (
-              <p className="text-destructive text-sm">
-                {formErrors.languageOptions}
-              </p>
+              <p className="text-destructive text-sm">{formErrors.languageOptions}</p>
             )}
             {formErrors.defaultLanguage && (
-              <p className="text-destructive text-sm">
-                {formErrors.defaultLanguage}
-              </p>
+              <p className="text-destructive text-sm">{formErrors.defaultLanguage}</p>
             )}
             <div className="border rounded-lg overflow-hidden">
               {/* Language Selection Panel - Redesigned with flat list */}
@@ -2009,56 +2076,39 @@ export function CodingQuestionFormModal({
                 <div className="w-full md:w-1/3 border-r p-3">
                   <div className="mb-4">
                     <div className="relative">
-                      <Input
-                        type="search"
-                        placeholder="Search languages..."
+                      <Input 
+                        type="search" 
+                        placeholder="Search languages..." 
                         className="w-full pl-9"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                      {searchTerm && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-1 top-1 h-7 w-7 p-0"
-                          onClick={() => setSearchTerm("")}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   </div>
-
+                  
                   <div className="max-h-[350px] overflow-y-auto pr-2">
                     {/* Filter languages based on search term */}
                     <div className="space-y-1">
                       {languages
-                        .filter(
-                          (lang) =>
-                            searchTerm.trim() === "" ||
-                            lang.name
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase())
+                        .filter(lang => 
+                          searchTerm.trim() === '' || 
+                          lang.name.toLowerCase().includes(searchTerm.toLowerCase())
                         )
-                        .map((lang) => (
+                        .map(lang => (
                           <div
-                            key={lang.id}
+                  key={lang.id}
                             className={cn(
                               "flex items-center justify-between px-3 py-2 cursor-pointer rounded-md transition-colors",
-                              selectedLanguages.includes(String(lang.id))
+                              selectedLanguages.includes(String(lang.id)) 
                                 ? "bg-primary/10 text-primary shadow-sm"
                                 : "hover:bg-accent"
                             )}
-                            onClick={() =>
-                              handleLanguageSelect(String(lang.id))
-                            }
+                            onClick={() => handleLanguageSelect(String(lang.id))}
                           >
                             <div className="flex items-center gap-2 truncate">
                               <Code className="h-4 w-4 opacity-80" />
-                              <span className="truncate font-medium text-sm">
-                                {lang.name}
-                              </span>
+                              <span className="truncate font-medium text-sm">{lang.name}</span>
                             </div>
                             <div className="flex items-center">
                               {selectedLanguages.includes(String(lang.id)) ? (
@@ -2072,7 +2122,7 @@ export function CodingQuestionFormModal({
                     </div>
                   </div>
                 </div>
-
+                
                 {/* Selected Languages - Improved UI */}
                 <div className="w-full md:w-2/3 p-4">
                   <div className="flex justify-between items-center mb-4">
@@ -2084,8 +2134,8 @@ export function CodingQuestionFormModal({
                       </Badge>
                     </h3>
                     <div className="flex gap-2">
-                      <Button
-                        type="button"
+                      <Button 
+                  type="button"
                         variant="outline"
                         size="sm"
                         onClick={addAllLanguages}
@@ -2095,53 +2145,40 @@ export function CodingQuestionFormModal({
                         <Plus className="h-3.5 w-3.5 mr-1.5" />
                         Add All
                       </Button>
-
-                      <Select
-                        value={defaultLanguage}
+                      
+                      <Select 
+                        value={defaultLanguage} 
                         onValueChange={handleSetDefaultLanguage}
                         disabled={selectedLanguages.length === 0}
                       >
-                        <SelectTrigger
-                          className={cn(
-                            "w-[160px] h-8 text-xs",
-                            formErrors.defaultLanguage
-                              ? "border-destructive"
-                              : ""
-                          )}
-                        >
+                        <SelectTrigger className={cn("w-[160px] h-8 text-xs", formErrors.defaultLanguage ? "border-destructive" : "")}>
                           <SelectValue placeholder="Default Language" />
                         </SelectTrigger>
                         <SelectContent>
-                          {selectedLanguages.length > 0 &&
-                            selectedLanguages.map((langId) => {
-                              const lang = languages.find(
-                                (l) => String(l.id) === langId
-                              );
-                              return (
-                                <SelectItem key={langId} value={langId}>
-                                  {lang?.name || langId}
-                                </SelectItem>
-                              );
-                            })}
+                          {selectedLanguages.length > 0 && selectedLanguages.map((langId) => {
+                            const lang = languages.find(l => String(l.id) === langId);
+                            return (
+                              <SelectItem key={langId} value={langId}>
+                                {lang?.name || langId}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
-
+                  
                   {selectedLanguages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
                       <Code className="h-12 w-12 mb-2 opacity-20" />
-                      <p className="text-sm font-medium">
-                        No languages selected
-                      </p>
+                      <p className="text-sm font-medium">No languages selected</p>
                       <p className="text-xs mt-1 max-w-[300px] text-center">
-                        Select programming languages from the list on the left
-                        or click "Add All" to include all available languages.
+                        Select programming languages from the list on the left or click "Add All" to include all available languages.
                       </p>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSearchTerm("")}
+                        onClick={() => setSearchTerm('')}
                         className="mt-4"
                       >
                         Browse Languages
@@ -2149,82 +2186,68 @@ export function CodingQuestionFormModal({
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[350px] overflow-y-auto pr-2">
-                      {selectedLanguages.map((langId) => {
-                        const language = languages.find(
-                          (l) => String(l.id) === langId
-                        );
+                      {selectedLanguages.map(langId => {
+                        const language = languages.find(l => String(l.id) === langId);
                         const isDefaultLang = langId === defaultLanguage;
-
+                        
                         return (
-                          <div
+                          <div 
                             key={langId}
                             className={cn(
-                              "group relative min-h-[110px] transition-all duration-200 overflow-hidden rounded-md flex flex-col box-border",
-                              isDefaultLang
-                                ? "bg-gradient-to-br from-primary/5 to-primary/10 shadow-md"
+                              "group relative min-h-[110px] transition-all duration-200 rounded-md flex flex-col",
+                              isDefaultLang 
+                                ? "bg-gradient-to-br from-primary/5 to-primary/10 shadow-md" 
                                 : "bg-card hover:shadow-md"
                             )}
                           >
                             {/* Card border with gradient effect */}
-                            <div
-                              className={cn(
-                                "absolute inset-0 pointer-events-none border",
-                                isDefaultLang
-                                  ? "border-primary/40 shadow-sm"
-                                  : "border-border group-hover:border-primary/20"
-                              )}
-                            />
-
+                            <div className={cn(
+                              "absolute inset-0 pointer-events-none border rounded-md",
+                              isDefaultLang 
+                                ? "border-primary/40 shadow-sm" 
+                                : "border-border group-hover:border-primary/20"
+                            )} />
+                            
                             {/* Subtle background pattern for depth */}
-                            <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]" />
-
+                            <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] rounded-md" />
+                            
                             {/* Default badge */}
                             {isDefaultLang && (
-                              <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 font-medium shadow-sm">
+                              <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 font-medium shadow-sm rounded-tr-md rounded-bl-md z-10">
                                 DEFAULT
                               </div>
                             )}
-
+                            
                             {/* Content container */}
-                            <div className="relative h-full p-4 flex flex-col box-border">
-                              <div className="flex flex-nowrap items-start gap-3 w-full box-border">
-                                <div className="flex items-center flex-shrink-0 gap-3 box-border">
-                                  {/* Icon with better styling */}
-                                  <div
-                                    className={cn(
-                                      "flex items-center justify-center w-8 h-8 rounded-md shadow-sm",
-                                      isDefaultLang
-                                        ? "bg-primary/15 text-primary ring-1 ring-primary/20"
-                                        : "bg-muted text-muted-foreground"
-                                    )}
-                                  >
-                                    <FileCode className="h-4 w-4" />
-                                  </div>
-
-                                  {/* Language name and ID with better typography */}
-                                  <div className="min-w-0 flex-1 w-full overflow-hidden box-border">
-                                    <h4
-                                      className={cn(
-                                        "font-medium text-sm truncate block w-full min-w-0 box-border",
-                                        isDefaultLang && "text-primary"
-                                      )}
-                                      title={language?.name || langId}
-                                    >
-                                      {language?.name || langId}
-                                    </h4>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1 min-w-0 box-border">
-                                      <code
-                                        className="bg-muted/50 px-1 rounded text-[10px] font-mono truncate max-w-[60px] block min-w-0 box-border"
-                                        title={langId}
-                                      >
-                                        {langId}
-                                      </code>
-                                    </p>
-                                  </div>
+                            <div className="relative h-full p-4 flex flex-col">
+                              <div className="flex items-start gap-3 w-full">
+                                {/* Icon with better styling */}
+                                <div className={cn(
+                                  "flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-md shadow-sm",
+                                  isDefaultLang 
+                                    ? "bg-primary/15 text-primary ring-1 ring-primary/20" 
+                                    : "bg-muted text-muted-foreground"
+                                )}>
+                                  <FileCode className="h-4 w-4" />
                                 </div>
-
+                                
+                                {/* Language name and ID with better typography */}
+                                <div className="min-w-0 flex-1">
+                                  <h4 className={cn(
+                                    "font-medium text-sm truncate block",
+                                    isDefaultLang && "text-primary"
+                                  )} title={language?.name || langId}>
+                                    {language?.name || langId}
+                                  </h4>
+                                  <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                    <code className="bg-muted/50 px-1 rounded text-[10px] font-mono truncate max-w-[60px] inline-block" title={langId}>
+                                      {langId}
+                                    </code>
+                                  </p>
+                                </div>
+                                
                                 {/* Remove button with improved positioning and styling */}
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 box-border">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -2239,24 +2262,19 @@ export function CodingQuestionFormModal({
                                   </Button>
                                 </div>
                               </div>
-
+                              
                               {/* Buttons with modernized styling */}
-                              <div className="mt-auto pt-3 flex flex-wrap justify-end gap-2 box-border">
+                              <div className="mt-auto pt-3 flex flex-wrap justify-end gap-2">
                                 {!isDefaultLang && (
                                   <Button
                                     type="button"
-                                    variant={
-                                      isDefaultLang ? "default" : "secondary"
-                                    }
+                                    variant={isDefaultLang ? "default" : "secondary"}
                                     size="sm"
                                     className={cn(
                                       "h-7 px-3 text-xs justify-center rounded-md transition-colors",
-                                      !isDefaultLang &&
-                                        "bg-muted/70 hover:bg-primary/10 hover:text-primary"
+                                      !isDefaultLang && "bg-muted/70 hover:bg-primary/10 hover:text-primary"
                                     )}
-                                    onClick={() =>
-                                      handleSetDefaultLanguage(langId)
-                                    }
+                                    onClick={() => handleSetDefaultLanguage(langId)}
                                   >
                                     <CheckCheck className="h-3 w-3 mr-1" />
                                     Set Default
@@ -2275,16 +2293,12 @@ export function CodingQuestionFormModal({
                                   Edit Code
                                 </Button>
                               </div>
-
+                              
                               {/* Subtle indicator dot for selected status */}
-                              <div
-                                className={cn(
-                                  "absolute w-1.5 h-1.5 rounded-full top-4 left-4 z-10 box-border",
-                                  isDefaultLang
-                                    ? "bg-primary"
-                                    : "bg-muted-foreground/40"
-                                )}
-                              />
+                              <div className={cn(
+                                "absolute w-1.5 h-1.5 rounded-full top-4 left-4 z-10",
+                                isDefaultLang ? "bg-primary" : "bg-muted-foreground/40"
+                              )} />
                             </div>
                           </div>
                         );
@@ -2294,115 +2308,79 @@ export function CodingQuestionFormModal({
                 </div>
               </div>
             </div>
-          </div>
+            </div>
 
-          {selectedLanguages.length > 0 && (
+            {selectedLanguages.length > 0 && (
             <div className="mt-6 border rounded-lg overflow-hidden bg-card">
               {/* Enhanced header with modern design */}
-              <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-primary/5 via-muted/40 to-background/80 rounded-t-lg shadow-sm border-b border-muted/40 relative">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center justify-center rounded-full bg-primary/10 p-2">
-                    <Terminal className="h-6 w-6 text-primary" />
+              <div className="flex items-center justify-between px-8 py-5 bg-gradient-to-r from-primary/10 via-background/80 to-background/60 rounded-t-2xl shadow-lg border-b-2 border-primary/20 relative">
+                <div className="flex items-center gap-4">
+                  <span className="inline-flex items-center justify-center rounded-full bg-primary/15 p-3 shadow-md">
+                    <Terminal className="h-7 w-7 text-primary" />
                   </span>
-                  <span className="text-lg font-semibold text-foreground tracking-tight flex items-center gap-2">
+                  <span className="text-2xl font-extrabold text-primary tracking-tight flex items-center gap-3 drop-shadow-sm">
                     Code Editor
                     <span className="group relative">
-                      <svg
-                        className="h-4 w-4 text-muted-foreground cursor-pointer"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                      <svg className="h-5 w-5 text-muted-foreground cursor-pointer" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                       <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-max min-w-[180px] bg-background border border-muted-foreground/10 text-xs text-muted-foreground rounded-md shadow-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-20 transition-opacity">
-                        This editor lets you define the solution and starter
-                        code for each selected language. Use the dropdown to
-                        switch languages.
+                        This editor lets you define the solution and starter code for each selected language. Use the dropdown to switch languages.
                       </span>
                     </span>
                   </span>
-                  {activeLanguageTab &&
-                    languages.find(
-                      (l) => String(l.id) === activeLanguageTab
-                    ) && (
-                      <div className="flex items-center gap-1.5 ml-3 text-muted-foreground text-xs bg-muted/40 px-2 py-0.5 rounded">
-                        <span className="font-medium text-foreground">
-                          {languages.find(
-                            (l) => String(l.id) === activeLanguageTab
-                          )?.name || ""}
-                        </span>
-                        {activeLanguageTab === defaultLanguage && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] bg-primary/10 border-primary/20 text-primary font-normal h-4 py-0 ml-1"
-                          >
-                            default
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                  {activeLanguageTab && languages.find(l => String(l.id) === activeLanguageTab) && (
+                    <div className="flex items-center gap-2 ml-4 text-muted-foreground text-sm bg-muted/40 px-3 py-1 rounded-lg border border-primary/10 shadow-sm">
+                      <span className="font-semibold text-foreground">
+                        {languages.find(l => String(l.id) === activeLanguageTab)?.name || ''}
+                      </span>
+                      {activeLanguageTab === defaultLanguage && (
+                        <Badge variant="outline" className="text-[11px] bg-primary/10 border-primary/20 text-primary font-semibold h-5 py-0 ml-2">
+                          default
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Language selector dropdown, visually integrated */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-medium mr-1 hidden sm:inline">
-                    Language:
-                  </span>
-                  <Select
-                    value={activeLanguageTab}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground font-semibold mr-2 hidden sm:inline">Language:</span>
+                  <Select 
+                    value={activeLanguageTab} 
                     onValueChange={setActiveLanguageTab}
                   >
-                    <SelectTrigger className="min-w-[160px] h-9 bg-background/95 border shadow rounded-lg hover:shadow-md transition-all flex items-center gap-2 px-3">
-                      <Code className="h-4 w-4 text-primary" />
+                    <SelectTrigger className="min-w-[180px] h-10 bg-background/95 border-2 border-primary/20 shadow-lg rounded-xl hover:shadow-xl transition-all flex items-center gap-2 px-4 text-base font-semibold">
+                      <Code className="h-5 w-5 text-primary" />
                       <SelectValue placeholder="Select language">
-                        {languages.find(
-                          (l) => String(l.id) === activeLanguageTab
-                        )?.name || "Select language"}
+                        {languages.find(l => String(l.id) === activeLanguageTab)?.name || 'Select language'}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="shadow-md border-primary/10 rounded-md overflow-hidden">
-                      <div className="px-1 py-1 border-b bg-muted/30">
-                        <p className="text-xs text-muted-foreground px-2 py-1">
+                    <SelectContent className="shadow-xl border-primary/10 rounded-xl overflow-hidden">
+                      <div className="px-2 py-2 border-b bg-muted/30">
+                        <p className="text-sm text-muted-foreground px-2 py-1 font-semibold">
                           {selectedLanguages.length} languages selected
                         </p>
                       </div>
-                      <div className="max-h-[250px] overflow-y-auto p-1">
+                      <div className="max-h-[250px] overflow-y-auto p-2">
                         {selectedLanguages.map((langId) => {
-                          const lang = languages.find(
-                            (l) => String(l.id) === langId
-                          );
+                          const lang = languages.find(l => String(l.id) === langId);
                           const isDefault = langId === defaultLanguage;
                           return (
-                            <SelectItem
-                              key={langId}
+                            <SelectItem 
+                              key={langId} 
                               value={langId}
                               className={cn(
-                                "flex items-center cursor-pointer rounded-md pl-2 pr-8 py-1.5 relative transition-colors",
-                                activeLanguageTab === langId
-                                  ? "bg-primary/10"
-                                  : "hover:bg-accent",
-                                isDefault &&
-                                  "border-l-2 border-primary pl-[7px]"
+                                "flex items-center cursor-pointer rounded-lg pl-3 pr-10 py-2 relative transition-colors text-base font-medium",
+                                activeLanguageTab === langId ? "bg-primary/10" : "hover:bg-accent",
+                                isDefault && "border-l-4 border-primary pl-[11px]"
                               )}
                             >
                               <div className="flex items-center gap-2 w-full">
-                                <Code
-                                  className={cn(
-                                    "h-3.5 w-3.5",
-                                    isDefault
-                                      ? "text-primary"
-                                      : "text-muted-foreground"
-                                  )}
-                                />
+                                <Code className={cn(
+                                  "h-4 w-4",
+                                  isDefault ? "text-primary" : "text-muted-foreground"
+                                )} />
                                 <span>{lang?.name || langId}</span>
                                 {isDefault && (
-                                  <Badge
-                                    variant="outline"
-                                    className="ml-auto text-[10px] bg-primary/10 text-primary"
-                                  >
+                                  <Badge variant="outline" className="ml-auto text-[11px] bg-primary/10 text-primary font-semibold">
                                     default
                                   </Badge>
                                 )}
@@ -2411,11 +2389,11 @@ export function CodingQuestionFormModal({
                           );
                         })}
                       </div>
-                      <div className="p-1 border-t bg-muted/30 flex">
+                      <div className="p-2 border-t bg-muted/30 flex">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="w-full h-7 text-xs justify-center mt-0.5"
+                          className="w-full h-8 text-base font-semibold justify-center mt-0.5"
                           onClick={() => {
                             if (activeLanguageTab !== defaultLanguage) {
                               handleSetDefaultLanguage(activeLanguageTab);
@@ -2423,7 +2401,7 @@ export function CodingQuestionFormModal({
                           }}
                           disabled={activeLanguageTab === defaultLanguage}
                         >
-                          <CheckCheck className="h-3.5 w-3.5 mr-1.5" />
+                          <CheckCheck className="h-4 w-4 mr-2" />
                           Set as Default
                         </Button>
                       </div>
@@ -2431,141 +2409,156 @@ export function CodingQuestionFormModal({
                   </Select>
                 </div>
                 {/* Subtle shadow divider at bottom of header */}
-                <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-muted/40 to-transparent pointer-events-none" />
+                <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none shadow-lg" />
               </div>
               {/* End enhanced header, rest of code editor UI remains unchanged */}
               <div className="relative">
                 <Tabs value={activeLanguageTab} className="w-full">
-                  {selectedLanguages.map((langId) => {
-                    const langOption = getLanguageOption(langId);
-                    const langName =
-                      languages.find((l) => String(l.id) === langId)?.name ||
-                      langId;
-
-                    return (
-                      <TabsContent
-                        key={langId}
-                        value={langId}
-                        className="p-0 border-0 mt-0"
-                      >
+                {selectedLanguages.map((langId) => {
+                  const langOption = getLanguageOption(langId);
+                    const langName = languages.find(l => String(l.id) === langId)?.name || langId;
+                  
+                  return (
+                      <TabsContent key={langId} value={langId} className="p-0 border-0 mt-0">
                         <Tabs defaultValue="solution" className="w-full">
                           <div className="flex items-center px-4 py-2 bg-card border-b">
                             <TabsList className="bg-muted/30 p-0.5 h-auto rounded-md">
-                              <TabsTrigger
-                                value="solution"
-                                className="data-[state=active]:bg-background text-xs py-1 h-7 px-3 rounded-sm transition-all"
-                              >
+                              <TabsTrigger value="solution" className="data-[state=active]:bg-background text-xs py-1 h-7 px-3 rounded-sm transition-all">
                                 <FileCode className="h-3.5 w-3.5 mr-1.5" />
                                 Solution Code
                               </TabsTrigger>
-                              <TabsTrigger
-                                value="preload"
-                                className="data-[state=active]:bg-background text-xs py-1 h-7 px-3 rounded-sm transition-all"
-                              >
+                              <TabsTrigger value="preload" className="data-[state=active]:bg-background text-xs py-1 h-7 px-3 rounded-sm transition-all">
                                 <FileEdit className="h-3.5 w-3.5 mr-1.5" />
                                 Preload Code
                               </TabsTrigger>
-                            </TabsList>
+                        </TabsList>
                           </div>
-
-                          <TabsContent
-                            value="solution"
-                            className="mt-0 p-0 border-0"
-                          >
-                            <div className="p-4">
-                              <div className="mb-3">
-                                <h4 className="text-sm font-medium mb-1 text-foreground">
-                                  Solution Code
-                                </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  Write the correct solution that will be used
-                                  to validate test cases.
-                                </p>
-                              </div>
-                              <div className="relative overflow-hidden border shadow-sm bg-background transition-all hover:shadow-md focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/20">
-                                <div className="absolute top-0 right-0 bg-muted/20 px-3 py-1 text-[10px] text-muted-foreground border-l border-b rounded-bl-md z-10">
+                          
+                          <TabsContent value="solution" className="mt-0 p-0 border-0">
+                            {/* Language info and toolbar */}
+                            <div className="flex items-center justify-between mb-4 px-3 py-2 rounded-t-lg bg-gradient-to-r from-primary/10 via-background/70 to-background/40 shadow border-b border-primary/10">
+                              <div className="flex items-center gap-3">
+                                <Code className="h-5 w-5 text-primary drop-shadow" />
+                                <span className="font-bold text-base tracking-tight text-foreground flex items-center gap-2">
                                   {langName}
-                                </div>
-                                <CodeEditor
-                                  value={langOption?.solution || ""}
-                                  onChange={(value) =>
-                                    updateLanguageOption(
-                                      langId,
-                                      "solution",
-                                      value
-                                    )
-                                  }
-                                  language={
-                                    getEditorLanguage(langId) || "javascript"
-                                  }
-                                  placeholder={`Enter ${langName} solution code`}
-                                  className="overflow-hidden"
-                                  height="320px"
-                                />
+                                  {langId === defaultLanguage && (
+                                    <span className="ml-3 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold border border-primary/20">Default</span>
+                                  )}
+                                </span>
                               </div>
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-9 px-4 text-sm font-semibold rounded-lg bg-muted/40 hover:bg-primary/10 border border-primary/10 shadow-sm transition-all"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(langOption?.solution || '');
+                                  toast({
+                                    description: "Code copied to clipboard",
+                                    duration: 2000
+                                  });
+                                }}
+                              >
+                                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                                  <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+                                </svg>
+                                Copy
+                              </Button>
+                            </div>
+                            {/* Enhanced editor container */}
+                            <div className="border border-primary/30 bg-[#1e1e1e] overflow-hidden">
+                              <CodeEditor
+                                value={langOption?.solution || ""}
+                                onChange={(value) => updateLanguageOption(langId, "solution", value)}
+                                language={getEditorLanguage(langId) || "javascript"}
+                                className="font-mono text-[15px] bg-[#1e1e1e] text-white border-0 rounded-none focus:shadow-none"
+                                height="340px"
+                                placeholder={`Enter ${langName} solution code`}
+                              />
+                            </div>
+                            {/* Helpful tip */}
+                            <div className="text-xs text-muted-foreground mt-3 ml-2 font-medium">
+                              <kbd className="px-2 py-1 bg-muted/70 rounded border text-xs mr-2 shadow-sm">Ctrl+Space</kbd>
+                              <span className="opacity-80">for code completion</span>
                             </div>
                           </TabsContent>
-
-                          <TabsContent
-                            value="preload"
-                            className="mt-0 p-0 border-0"
-                          >
-                            <div className="p-4">
-                              <div className="mb-3">
-                                <h4 className="text-sm font-medium mb-1 text-foreground">
-                                  Preload Code
-                                </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  Write starter code that will be shown to
-                                  students when they begin solving the problem.
-                                </p>
+                          
+                          <TabsContent value="preload" className="mt-0 p-0 border-0">
+                            {/* Language info and toolbar */}
+                            <div className="flex items-center justify-between mb-4 px-3 py-2 rounded-t-lg bg-gradient-to-r from-primary/10 via-background/70 to-background/40 shadow border-b border-primary/10">
+                              <div className="flex items-center gap-3">
+                                <FileEdit className="h-5 w-5 text-primary drop-shadow" />
+                                <span className="font-bold text-base tracking-tight text-foreground flex items-center gap-2">
+                                  Starter Code
+                                  {langId === defaultLanguage && (
+                                    <span className="ml-3 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold border border-primary/20">Default</span>
+                                  )}
+                                </span>
                               </div>
-                              <div className="relative overflow-hidden border shadow-sm bg-background transition-all hover:shadow-md focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/20">
-                                <div className="absolute top-0 right-0 bg-muted/20 px-3 py-1 text-[10px] text-muted-foreground border-l border-b rounded-bl-md z-10">
-                                  {langName}
-                                </div>
-                                <CodeEditor
-                                  value={langOption?.preloadCode || ""}
-                                  onChange={(value) =>
-                                    updateLanguageOption(
-                                      langId,
-                                      "preloadCode",
-                                      value
-                                    )
-                                  }
-                                  language={
-                                    getEditorLanguage(langId) || "javascript"
-                                  }
-                                  placeholder={`Enter ${langName} preload code`}
-                                  className="overflow-hidden"
-                                  height="320px"
-                                />
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-9 px-4 text-sm font-semibold rounded-lg bg-muted/40 hover:bg-primary/10 border border-primary/10 shadow-sm transition-all"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(langOption?.preloadCode || '');
+                                  toast({
+                                    description: "Code copied to clipboard",
+                                    duration: 2000
+                                  });
+                                }}
+                              >
+                                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                                  <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+                                </svg>
+                                Copy
+                              </Button>
+                            </div>
+                            {/* Enhanced editor container */}
+                            <div className="border border-primary/30 bg-[#1e1e1e] overflow-hidden">
+                              <CodeEditor
+                                value={langOption?.preloadCode || ""}
+                                onChange={(value) => updateLanguageOption(langId, "preloadCode", value)}
+                                language={getEditorLanguage(langId) || "javascript"}
+                                className="font-mono text-[15px] bg-[#1e1e1e] text-white border-0 rounded-none focus:shadow-none"
+                                height="340px"
+                                placeholder={`Enter ${langName} preload code`}
+                              />
+                            </div>
+                            {/* Description and helpful tip */}
+                            <div className="flex flex-col gap-1 mt-3 ml-2">
+                              <p className="text-sm text-muted-foreground font-medium">
+                                 This code will be preloaded in the editor for students
+                              </p>
+                              <div className="text-xs text-muted-foreground ml-1 font-medium">
+                                <kbd className="px-2 py-1 bg-muted/70 rounded border text-xs mr-2 shadow-sm">Ctrl+Space</kbd>
+                                <span className="opacity-80">for code completion</span>
                               </div>
                             </div>
                           </TabsContent>
                         </Tabs>
                       </TabsContent>
-                    );
-                  })}
-                </Tabs>
-              </div>
+                  );
+                })}
+              </Tabs>
+          </div>
             </div>
           )}
 
           {/* Test Cases */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <Label className={formErrors.testCases ? "text-destructive" : ""}>
-                Test Cases{" "}
-                {formErrors.testCases && (
-                  <span className="text-destructive text-sm">*</span>
-                )}
+              <Label className={formErrors.testCases ? "text-destructive text-xl font-extrabold tracking-tight flex items-center gap-2" : "text-xl font-extrabold tracking-tight flex items-center gap-2"}>
+                <BarChart className="h-6 w-6 text-primary mr-2" />
+                Test Cases {formErrors.testCases && <span className="text-destructive text-base">*</span>}
               </Label>
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
                   onClick={testApi}
                 >
                   Test API
@@ -2577,7 +2570,11 @@ export function CodingQuestionFormModal({
                   disabled={isValidating}
                   className="w-full"
                 >
-                  {isValidating ? <>Validating...</> : <>Validate Test Cases</>}
+                  {isValidating ? (
+                    <>Validating...</>
+                  ) : (
+                    <>Validate Test Cases</>
+                  )}
                 </Button>
               </div>
             </div>
@@ -2598,100 +2595,57 @@ export function CodingQuestionFormModal({
               />
               <Label htmlFor="all-or-nothing">All or Nothing Grading</Label>
               <div className="ml-2 text-sm text-muted-foreground">
-                {allOrNothingGrading
-                  ? "Grades are distributed evenly. All tests must pass to get any points."
+                {allOrNothingGrading 
+                  ? "Grades are distributed evenly. All tests must pass to get any points." 
                   : "Each test case contributes its percentage to the total grade."}
               </div>
             </div>
 
             {formData.testCases.length > 0 && (
-              <div
-                className={cn(
-                  "text-sm text-right mb-2",
-                  formErrors.gradeDistribution ? "text-destructive" : ""
-                )}
-              >
-                <span className="mr-4">
-                  Sample test cases:{" "}
-                  {
-                    formData.testCases.filter((tc) => tc.type === "sample")
-                      .length
-                  }
-                </span>
-                <span className="mr-4">
-                  Hidden test cases:{" "}
-                  {
-                    formData.testCases.filter((tc) => tc.type === "hidden")
-                      .length
-                  }
-                </span>
+              <div className={cn("text-sm text-right mb-2", formErrors.gradeDistribution ? "text-destructive" : "")}> 
+                <span className="mr-4">Sample test cases: {formData.testCases.filter(tc => tc.type === "sample").length}</span>
+                <span className="mr-4">Hidden test cases: {formData.testCases.filter(tc => tc.type === "hidden").length}</span>
                 <span>
-                  Total grading:{" "}
-                  {formData.testCases.reduce(
-                    (sum, testCase) => sum + testCase.gradePercentage,
-                    0
+                  Total grading: {formData.testCases.reduce((sum, testCase) => sum + testCase.gradePercentage, 0)}%
+                  {formData.testCases.reduce((sum, testCase) => sum + testCase.gradePercentage, 0) !== 100 && !allOrNothingGrading && (
+                    <span className="text-destructive ml-2">(Should equal 100%)</span>
                   )}
-                  %
-                  {formData.testCases.reduce(
-                    (sum, testCase) => sum + testCase.gradePercentage,
-                    0
-                  ) !== 100 &&
-                    !allOrNothingGrading && (
-                      <span className="text-destructive ml-2">
-                        (Should equal 100%)
-                      </span>
-                    )}
                 </span>
               </div>
             )}
             {formErrors.gradeDistribution && (
-              <p className="text-destructive text-sm">
-                {formErrors.gradeDistribution}
-              </p>
+              <p className="text-destructive text-sm">{formErrors.gradeDistribution}</p>
             )}
 
             {formData.testCases.map((testCase, index) => {
               const testCaseInputError = formErrors[`testCase${index}Input`];
               const testCaseOutputError = formErrors[`testCase${index}Output`];
               const testCaseGradeError = formErrors[`testCase${index}Grade`];
-              const hasError =
-                testCaseInputError || testCaseOutputError || testCaseGradeError;
-
+              const hasError = testCaseInputError || testCaseOutputError || testCaseGradeError;
+              
               return (
-                <div
-                  key={testCase.id}
-                  className={cn(
-                    "space-y-4 p-4 border rounded-lg",
-                    hasError ? "border-destructive" : ""
-                  )}
-                >
+                <div key={testCase.id} className={cn("space-y-4 p-6 border-2 rounded-xl bg-gradient-to-br from-background/80 to-muted/40 shadow-md", hasError ? "border-destructive" : "border-primary/20")}> 
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id={`sample-${testCase.id}`}
                           checked={testCase.type === "sample"}
-                          onCheckedChange={(checked) =>
-                            handleTestCaseTypeChange(
-                              testCase.id,
-                              checked ? "sample" : "hidden"
-                            )
+                          onCheckedChange={(checked) => 
+                            handleTestCaseTypeChange(testCase.id, checked ? "sample" : "hidden")
                           }
                         />
-                        <Label htmlFor={`sample-${testCase.id}`}>Sample</Label>
+                        <Label htmlFor={`sample-${testCase.id}`} className="font-semibold text-base">Sample</Label>
                       </div>
                       <div className="flex items-center space-x-2 ml-4">
                         <Checkbox
                           id={`hidden-${testCase.id}`}
                           checked={testCase.type === "hidden"}
-                          onCheckedChange={(checked) =>
-                            handleTestCaseTypeChange(
-                              testCase.id,
-                              checked ? "hidden" : "sample"
-                            )
+                          onCheckedChange={(checked) => 
+                            handleTestCaseTypeChange(testCase.id, checked ? "hidden" : "sample")
                           }
                         />
-                        <Label htmlFor={`hidden-${testCase.id}`}>Hidden</Label>
+                        <Label htmlFor={`hidden-${testCase.id}`} className="font-semibold text-base">Hidden</Label>
                       </div>
                       <div className="flex items-center space-x-2 ml-4">
                         <Checkbox
@@ -2700,13 +2654,11 @@ export function CodingQuestionFormModal({
                           onCheckedChange={(checked) => {
                             // Convert to boolean explicitly (true or false)
                             const boolValue = checked === true;
-
+                           
                             updateTestCaseShowOnFailure(testCase.id, boolValue);
                           }}
                         />
-                        <Label htmlFor={`show-on-failure-${testCase.id}`}>
-                          Show on failure
-                        </Label>
+                        <Label htmlFor={`show-on-failure-${testCase.id}`} className="font-semibold text-base">Show on failure</Label>
                       </div>
                     </div>
                     <Button
@@ -2719,72 +2671,41 @@ export function CodingQuestionFormModal({
                       <span className="sr-only">Remove test case</span>
                     </Button>
                   </div>
-
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label
-                        className={testCaseInputError ? "text-destructive" : ""}
-                      >
-                        Input{" "}
-                        {testCaseInputError && (
-                          <span className="text-destructive text-sm">*</span>
-                        )}
+                      <Label className={testCaseInputError ? "text-destructive font-bold text-base" : "font-bold text-base"}>
+                        Input {testCaseInputError && <span className="text-destructive text-sm">*</span>}
                       </Label>
                       <Textarea
                         value={testCase.input}
-                        onChange={(e) =>
-                          updateTestCase(testCase.id, "input", e.target.value)
-                        }
+                        onChange={(e) => updateTestCase(testCase.id, "input", e.target.value)}
                         placeholder="Enter test case input"
-                        className={cn(
-                          "min-h-[100px] font-mono",
-                          testCaseInputError ? "border-destructive" : ""
-                        )}
+                        className={cn("min-h-[100px] font-mono bg-background/80 border-2 border-primary/10 rounded-lg shadow-sm focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all", testCaseInputError ? "border-destructive" : "")}
                       />
                       {testCaseInputError && (
-                        <p className="text-destructive text-sm">
-                          {testCaseInputError}
-                        </p>
+                        <p className="text-destructive text-sm">{testCaseInputError}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label
-                        className={
-                          testCaseOutputError ? "text-destructive" : ""
-                        }
-                      >
-                        Expected Output{" "}
-                        {testCaseOutputError && (
-                          <span className="text-destructive text-sm">*</span>
-                        )}
+                      <Label className={testCaseOutputError ? "text-destructive font-bold text-base" : "font-bold text-base"}>
+                        Expected Output {testCaseOutputError && <span className="text-destructive text-sm">*</span>}
                       </Label>
                       <Textarea
                         value={testCase.output}
-                        onChange={(e) =>
-                          updateTestCase(testCase.id, "output", e.target.value)
-                        }
+                        onChange={(e) => updateTestCase(testCase.id, "output", e.target.value)}
                         placeholder="Enter expected output"
-                        className={cn(
-                          "min-h-[100px] font-mono",
-                          testCaseOutputError ? "border-destructive" : ""
-                        )}
+                        className={cn("min-h-[100px] font-mono bg-background/80 border-2 border-primary/10 rounded-lg shadow-sm focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all", testCaseOutputError ? "border-destructive" : "")}
                       />
                       {testCaseOutputError && (
-                        <p className="text-destructive text-sm">
-                          {testCaseOutputError}
-                        </p>
+                        <p className="text-destructive text-sm">{testCaseOutputError}</p>
                       )}
                     </div>
                   </div>
-
+                  
                   <div className="space-y-2">
-                    <Label
-                      className={testCaseGradeError ? "text-destructive" : ""}
-                    >
-                      Grade Percentage (0-100):{" "}
-                      {testCaseGradeError && (
-                        <span className="text-destructive text-sm">*</span>
-                      )}
+                    <Label className={testCaseGradeError ? "text-destructive font-bold text-base" : "font-bold text-base"}>
+                      Grade Percentage (0-100): {testCaseGradeError && <span className="text-destructive text-sm">*</span>}
                     </Label>
                     <div className="flex items-center">
                       <Input
@@ -2792,16 +2713,10 @@ export function CodingQuestionFormModal({
                         value={testCase.gradePercentage}
                         onChange={(e) => {
                           if (allOrNothingGrading) return;
-                          const value = Math.min(
-                            100,
-                            Math.max(0, parseInt(e.target.value) || 0)
-                          );
+                          const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
                           updateTestCase(testCase.id, "gradePercentage", value);
                         }}
-                        className={cn(
-                          "w-24",
-                          testCaseGradeError ? "border-destructive" : ""
-                        )}
+                        className={cn("w-24 border-2 border-primary/10 rounded-lg shadow-sm focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all font-semibold text-base", testCaseGradeError ? "border-destructive" : "")}
                         min={0}
                         max={100}
                         disabled={allOrNothingGrading}
@@ -2809,15 +2724,13 @@ export function CodingQuestionFormModal({
                       <span className="ml-2">%</span>
                     </div>
                     {testCaseGradeError && (
-                      <p className="text-destructive text-sm">
-                        {testCaseGradeError}
-                      </p>
+                      <p className="text-destructive text-sm">{testCaseGradeError}</p>
                     )}
                   </div>
                 </div>
               );
             })}
-
+            
             {/* Show validation summary */}
             {showValidationResults && validationResults.length > 0 && (
               <Card className="mt-4">
@@ -2828,17 +2741,11 @@ export function CodingQuestionFormModal({
                   <div className="flex gap-4">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-5 w-5 text-green-500" />
-                      <span>
-                        {validationResults.filter((r) => r.isMatch).length}{" "}
-                        passed
-                      </span>
+                      <span>{validationResults.filter(r => r.isMatch).length} passed</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <XCircle className="h-5 w-5 text-red-500" />
-                      <span>
-                        {validationResults.filter((r) => !r.isMatch).length}{" "}
-                        failed
-                      </span>
+                      <span>{validationResults.filter(r => !r.isMatch).length} failed</span>
                     </div>
                   </div>
                 </CardContent>
@@ -2858,33 +2765,33 @@ export function CodingQuestionFormModal({
             </div>
           </div>
 
-          {/* Enhanced Modern Footer - with no backdrop-blur */}
+          {/* Enhanced Modern Footer */}
           <div className="relative pt-6 mt-8">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent"></div>
-            <div className="flex flex-col sm:flex-row justify-end gap-3 py-4 bg-gradient-to-br from-background via-background/95 to-background/90 rounded-b-xl px-8 border border-muted/20 border-t-0 shadow-lg">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 py-4 bg-gradient-to-br from-background via-background/95 to-background/90 backdrop-blur-sm rounded-b-xl px-8 border border-muted/20 border-t-0 shadow-lg">
               <div className="flex-1 flex items-center">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-30"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </div>
+                  </div>
                   <span className="hidden md:inline-block">
                     {initialData ? "Updating existing question" : "Creating new question"}
                   </span>
-                  </div>
                 </div>
+              </div>
               <div className="flex gap-3">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="rounded-full px-6 py-2 font-medium border-2 border-muted-foreground/20 hover:border-primary/60 transition-all shadow-sm hover:shadow-md hover:bg-muted/50"
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isValidating}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full px-6 py-2 font-medium border-2 border-muted-foreground/20 hover:border-primary/60 transition-all shadow-sm hover:shadow-md hover:bg-muted/50 backdrop-blur-sm"
+                  onClick={onClose}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isValidating}
                   className="rounded-full px-8 py-2 font-bold bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-primary/90 transition-all duration-300 relative overflow-hidden group"
                 >
                   <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-400/20 via-transparent to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
@@ -2893,12 +2800,22 @@ export function CodingQuestionFormModal({
                       ? <><CheckCheck className="mr-2 h-4 w-4" /> Update Question</> 
                       : <><Plus className="mr-2 h-4 w-4" /> Create Question</>}
                   </span>
-            </Button>
+                </Button>
               </div>
             </div>
           </div>
+          {/* End Enhanced Modern Footer */}
         </form>
       </DialogContent>
+
+      {/* Update the ValidationResultsModal with the copy function */}
+      <ValidationResultsModal
+        isOpen={validationDialogOpen}
+        onClose={() => setValidationDialogOpen(false)}
+        results={validationResults}
+        testCases={formData.testCases}
+        onCopyOutput={copyOutputToExpected}
+      />
     </Dialog>
   );
 } 

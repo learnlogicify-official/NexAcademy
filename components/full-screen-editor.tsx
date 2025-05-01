@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { Editor } from '@tinymce/tinymce-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -70,76 +69,7 @@ export default function FullScreenEditor({
         </div>
         
         <div className="flex-1 bg-background rounded-lg overflow-hidden">
-          <Editor
-            apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-            value={content}
-            init={{
-              menubar: true,
-              plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
-                'searchreplace', 'visualblocks', 'code',
-                'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-              ],
-              toolbar:
-                'undo redo | formatselect | bold italic backcolor | \
-                alignleft aligncenter alignright alignjustify | \
-                bullist numlist outdent indent | removeformat | help',
-              content_style: `
-                body { 
-                  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
-                  font-size: 16px;
-                  line-height: 1.6;
-                  color: #f8fafc; 
-                }
-                p { margin: 0 0 1em 0; }
-                h1, h2, h3, h4, h5, h6 { 
-                  margin-top: 1.5em; 
-                  margin-bottom: 0.5em; 
-                  line-height: 1.3;
-                  font-weight: 600;
-                }
-                h1 { font-size: 1.8em; }
-                h2 { font-size: 1.5em; }
-                h3 { font-size: 1.3em; }
-                h4 { font-size: 1.2em; }
-                ul, ol { 
-                  margin-bottom: 1em;
-                  padding-left: 1.5em;
-                }
-                li { margin-bottom: 0.5em; }
-                img {
-                  max-width: 100%;
-                  height: auto;
-                }
-                blockquote {
-                  margin-left: 0;
-                  padding-left: 1em;
-                  border-left: 3px solid #64748b;
-                  font-style: italic;
-                }
-                pre {
-                  background-color: #1e293b;
-                  border-radius: 0.25rem;
-                  padding: 1em;
-                  white-space: pre-wrap;
-                }
-                table {
-                  border-collapse: collapse;
-                  width: 100%;
-                }
-                table td, table th {
-                  border: 1px solid #3f3f46;
-                  padding: 0.5em;
-                }
-              `,
-              height: '100%',
-              min_height: 500,
-              resize: false,
-              branding: false,
-              promote: false
-            }}
-            onEditorChange={onContentChange}
-          />
+          {/* Placeholder for a new rich text editor */}
         </div>
         
         <div className="flex justify-end gap-2 mt-4">

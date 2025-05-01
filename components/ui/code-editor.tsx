@@ -11,6 +11,7 @@ import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 import { githubDark, githubLight } from '@uiw/codemirror-theme-github';
 import { xcodeLight, xcodeDark } from '@uiw/codemirror-theme-xcode';
 import { useTheme } from 'next-themes';
+import { autocompletion } from '@codemirror/autocomplete';
 
 interface CodeEditorProps {
   value: string;
@@ -88,10 +89,10 @@ export function CodeEditor({
     // Set the appropriate extension
     const ext = languageExtensions[langMode];
     if (ext) {
-      setExtension(ext);
+      setExtension([ext, autocompletion({ activateOnTyping: true })]);
     } else {
       console.warn(`No language extension found for: ${langMode} (original: ${language}). Falling back to JavaScript syntax highlighting.`);
-      setExtension(languageExtensions.javascript);
+      setExtension([languageExtensions.javascript, autocompletion({ activateOnTyping: true })]);
     }
   }, [language]);
 
@@ -101,7 +102,7 @@ export function CodeEditor({
         value={value}
         height={height}
         theme={getTheme()}
-        extensions={extension ? [extension] : []}
+        extensions={extension ? extension : [autocompletion({ activateOnTyping: true })]}
         onChange={onChange}
         placeholder={placeholder}
         basicSetup={{
