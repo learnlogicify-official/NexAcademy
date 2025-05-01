@@ -2231,7 +2231,7 @@ export default function AdminQuestionsPage() {
                 onClose={() => setIsFormModalOpen(false)}
                 onSubmit={handleFormSubmit}
                 initialData={editingQuestion}
-                folders={folders as any}
+                folders={buildFolderTree(folders)}
                 subfolders={[]}
                 onAddFolder={() => setIsCreateFolderModalOpen(true)}
                 onAddSubfolder={handleCreateSubfolder}
