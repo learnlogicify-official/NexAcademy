@@ -28,6 +28,18 @@ export const authOptions: AuthOptions = {
           where: {
             email: credentials.email,
           },
+          select: {
+            id: true,
+            email: true,
+            password: true,
+            name: true,
+            role: true,
+            username: true,
+            bio: true,
+            profilePic: true,
+            preferredLanguage: true,
+            hasOnboarded: true,
+          },
         });
 
         if (!user || !user.password) {
@@ -92,20 +104,31 @@ export const authOptions: AuthOptions = {
       return true;
     },
     async jwt({ token, user, account }) {
-      // Initial sign in
-      if (user) {
-        token.role = user.role;
-        
-        // For Google sign-in, we need to fetch the user from DB 
-        // since the new user might have just been created
-        if (account?.provider === "google") {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-          });
-          
-          if (dbUser) {
-            token.role = dbUser.role;
-          }
+      // Always fetch the latest user data from DB if we have an email
+      const email = user?.email || token.email;
+      if (email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            username: true,
+            bio: true,
+            profilePic: true,
+            preferredLanguage: true,
+            hasOnboarded: true,
+          },
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.username = dbUser.username;
+          token.bio = dbUser.bio;
+          token.profilePic = dbUser.profilePic;
+          token.preferredLanguage = dbUser.preferredLanguage;
+          token.hasOnboarded = dbUser.hasOnboarded;
         }
       }
       return token;
@@ -113,6 +136,12 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.role = token.role as Role;
+        session.user.id = token.id as string;
+        session.user.username = token.username as string | undefined;
+        session.user.bio = token.bio as string | undefined;
+        session.user.profilePic = token.profilePic as string | undefined;
+        session.user.preferredLanguage = token.preferredLanguage as string | undefined;
+        session.user.hasOnboarded = token.hasOnboarded as boolean | undefined;
       }
       return session;
     },
@@ -132,12 +161,22 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       role: Role;
+      username?: string | null;
+      bio?: string | null;
+      profilePic?: string | null;
+      preferredLanguage?: string | null;
+      hasOnboarded?: boolean;
     };
   }
 
   interface User {
     id: string;
     role: Role;
+    username?: string | null;
+    bio?: string | null;
+    profilePic?: string | null;
+    preferredLanguage?: string | null;
+    hasOnboarded?: boolean;
   }
 }
 
@@ -145,5 +184,11 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role: Role;
+    id?: string;
+    username?: string | null;
+    bio?: string | null;
+    profilePic?: string | null;
+    preferredLanguage?: string | null;
+    hasOnboarded?: boolean;
   }
 } 

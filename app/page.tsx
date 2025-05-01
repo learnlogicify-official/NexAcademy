@@ -8,6 +8,8 @@ export default async function Home() {
     redirect("/auth/signin");
   }
 
+  // TODO: Add logic to check if user is logged in and hasOnboarded is false, then redirect to /onboarding
+
   redirect("/dashboard");
 }
 

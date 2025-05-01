@@ -28,6 +28,7 @@ import { ProjectsCard } from "@/components/projects-card"
 import { AchievementsCompactCard } from "@/components/achievements-compact-card"
 import { ProgressCard } from "@/components/progress-card"
 import { ProblemsSolvedCard } from "@/components/problems-solved-card"
+import { useSession } from "next-auth/react"
 
 // Mock user data
 export const userData = {
@@ -353,16 +354,18 @@ function generateActivityDetails(count, date) {
 }
 
 export function EnhancedProfile() {
-  const [mounted, setMounted] = useState(false)
+  const { data: session, status } = useSession();
+  const [mounted, setMounted] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [user, setUser] = useState(userData)
 
-  // Prevent hydration errors
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
-  if (!mounted) return null
+  if (!mounted || status === "loading") return null;
+
+  // Use session user if available, otherwise fallback to mock userData
+  const user = session?.user || userData;
 
   return (
     <div className="space-y-8">
@@ -427,11 +430,12 @@ export function EnhancedProfile() {
           <div className="mt-16">
             <div className="flex flex-col">
               <h1 className="text-2xl font-bold">{user.name}</h1>
-              <div className="flex items-center gap-1 text-muted-foreground">@{userData.username}</div>
+              <div className="flex items-center gap-1 text-muted-foreground text-base font-mono">@{user.username}</div>
+              
             </div>
 
             <div className="mt-3 text-sm space-y-1">
-              <p>{userData.bio}</p>
+              <p>{user.bio}</p>
               <div className="flex flex-wrap gap-y-1 mt-2">
                 <div className="flex items-center gap-1 text-muted-foreground mr-4">
                   <Trophy className="h-4 w-4 text-primary" />

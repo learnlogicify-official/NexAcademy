@@ -153,3 +153,42 @@
 .tox.tox-silver-sink {
   pointer-events: auto !important;
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap');
+
+.sci-fi-panel {
+  box-shadow: 0 0 40px 0 #a21caf55, 0 0 0 2px #06b6d4cc;
+  border: 2px solid transparent;
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(24px) saturate(1.2);
+  position: relative;
+}
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+.animate-gradient-move {
+  background-size: 200% 200%;
+  animation: gradient-move 6s linear infinite;
+}
+.font-sci-fi {
+  font-family: 'Orbitron', 'Space Grotesk', 'Montserrat', sans-serif;
+}
+.drop-shadow-glow {
+  text-shadow: 0 0 8px #a21caf, 0 0 16px #06b6d4;
+}
+.shadow-neon {
+  box-shadow: 0 0 12px #a21caf88, 0 0 24px #06b6d488;
+}
+
+.terminal-panel {
+  background: rgba(17, 24, 39, 0.85); /* slate-900/80 */
+  border: 1.5px solid rgba(51, 65, 85, 0.6); /* slate-700/60 */
+  box-shadow: 0 2px 24px 0 #0f172a44;
+  font-family: 'JetBrains Mono', 'Fira Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+
+.pixel-border-effect {
+  box-shadow: 0 0 0 4px #f472b6, 0 0 0 8px #fff0, 0 0 0 12px #f472b6;
+  border-radius: 18px;
+}

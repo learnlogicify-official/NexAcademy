@@ -6,18 +6,36 @@ import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NotistackProvider } from "@/components/providers/snackbar-provider";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+function OnboardingRedirect() {
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    if (
+      session?.user &&
+      !session.user.hasOnboarded &&
+      pathname !== "/onboarding"
+    ) {
+      router.replace("/onboarding");
+    }
+  }, [status, session, pathname, router]);
+
+  return null;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
     <SessionProvider>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
+      <OnboardingRedirect />
+      <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <NotistackProvider>
             {children}

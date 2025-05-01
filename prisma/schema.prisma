@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -28,6 +27,13 @@ model User {
   attempts      Attempt[]
   enrolledBy    Enrollment[] @relation("EnrolledByUser")
   enrolledIn    Enrollment[] @relation("UserEnrollments")
+
+  // Onboarding fields:
+  username          String?  @unique
+  bio               String?  @db.VarChar(200)
+  profilePic        String?
+  preferredLanguage String?
+  hasOnboarded      Boolean  @default(false)
 
   @@index([role])
 }
