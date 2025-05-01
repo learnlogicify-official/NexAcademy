@@ -29,6 +29,9 @@ import { useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import axios from "axios";
 import { useRouter } from 'next/navigation';
+import { XMLParser } from 'fast-xml-parser';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useJudge0Languages } from '../../../components/hooks/useJudge0Languages';
 
 interface QuestionFormData {
   id: string;
@@ -155,6 +158,7 @@ interface Folder {
     id: string;
     name: string;
   }[];
+  parentId?: string;
 }
 
 interface QuestionSubmitData {
@@ -301,11 +305,24 @@ export default function AdminQuestionsPage() {
   // Add a new state variable to track if all questions should be expanded
   const [allQuestionsExpanded, setAllQuestionsExpanded] = useState(false);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importedQuestions, setImportedQuestions] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [selectedDefaultLanguage, setSelectedDefaultLanguage] = useState<string>("");
+  const { languages, loading, error } = useJudge0Languages();
 
   useEffect(() => {
     fetchQuestions(filters, currentPage);
     fetchFolders();
   }, [filters, currentPage]);
+
+  useEffect(() => {
+    if (languages && languages.length > 0) {
+      setSelectedDefaultLanguage(String(languages[0].id));
+    }
+  }, [languages]);
 
   const fetchQuestions = async (currentFilters?: FilterState, page: number = 1) => {
     try {
@@ -1070,9 +1087,12 @@ export default function AdminQuestionsPage() {
   };
 
   const handleEdit = (question: Question) => {
-    console.log("handleEdit - Question passed to edit:", JSON.stringify(question, null, 2));
-    // Call the handleEditQuestion function directly
-    handleEditQuestion(question);
+    handleEditQuestion({
+      ...question,
+      folderId: question.folderId || '',
+      createdAt: question.createdAt?.toString() || '',
+      updatedAt: question.updatedAt?.toString() || '',
+    } as any);
   };
 
   const prepareDataForMCQModal = () => {
@@ -1243,6 +1263,244 @@ export default function AdminQuestionsPage() {
     }
   };
 
+  const handleImportFile = async (file: File) => {
+    setImportError(null);
+    setImportLoading(true);
+    try {
+      const text = await file.text();
+      setFileContent(text); // Store raw XML content for debugging
+      const parsed = parseMoodleCodingQuestions(text);
+      setImportedQuestions(parsed);
+    } catch (err) {
+      setImportError('Failed to parse XML. Please check the file format.');
+      setImportedQuestions([]);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  // Also update handleBulkUpload to ensure test case outputs are strings
+  const handleBulkUpload = async () => {
+    if (!bulkFolderId) {
+      toast({
+        title: "Error",
+        description: "Please select a folder for the imported questions",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setImportLoading(true);
+    setImportError(null);
+    let successCount = 0;
+    let failCount = 0;
+    
+    // Helper function to convert any language value to our supported format
+    const mapLanguageToSupported = (lang: string): string => {
+      if (!lang) {
+        return selectedDefaultLanguage || (languages && languages.length > 0 ? String(languages[0].id) : "");
+      }
+      
+      // If it's already a valid language ID from Judge0
+      if (languages && languages.some((sl: any) => String(sl.id) === String(lang))) {
+        return String(lang);
+      }
+      
+      // Try to find the language by name instead of ID
+      if (languages) {
+        const foundByName = languages.find((sl: any) => 
+          sl.name && sl.name.toLowerCase() === lang.toLowerCase()
+        );
+        if (foundByName) {
+          return String(foundByName.id);
+        }
+      }
+      
+      // If no match found, use the default language
+      console.log(`Language not found in Judge0: ${lang}, using default language instead`);
+      return selectedDefaultLanguage || (languages && languages.length > 0 ? String(languages[0].id) : "");
+    };
+    
+    try {
+      for (const q of importedQuestions) {
+        try {
+          // Map the default language to a supported one
+          const questionDefaultLanguage = mapLanguageToSupported(q.defaultLanguage || selectedDefaultLanguage);
+          
+          // Create consistent form data that matches the schema
+          const formData = {
+            name: q.name,
+            type: 'CODING',
+            status: bulkStatus, // Use the selected status from form
+            folderId: bulkFolderId, // Use the selected folder from form
+            questionText: q.questionText,
+            difficulty: q.difficulty,
+            defaultMark: q.defaultMark,
+            defaultLanguage: questionDefaultLanguage, // Set default language here too
+            codingQuestion: {
+              languageOptions: q.languageOptions.map((lang: any) => {
+                const mappedLanguage = mapLanguageToSupported(lang.language);
+                console.log(`Mapping language ${lang.language} to ${mappedLanguage}`);
+                return {
+                  ...lang,
+                  language: mappedLanguage
+                };
+              }),
+              testCases: q.testCases.map((tc: any) => ({
+                input: tc.input,
+                // Ensure output is always a string
+                output: String(tc.output),
+                isHidden: tc.isHidden,
+                isSample: tc.isSample,
+                showOnFailure: tc.showOnFailure
+              })),
+              isAllOrNothing: q.allOrNothingGrading,
+              defaultLanguage: questionDefaultLanguage // Use the question's default language
+            }
+          };
+          
+          console.log("Submitting question:", JSON.stringify(formData, null, 2));
+          
+          const response = await axios.post('/api/questions', formData);
+          successCount++;
+        } catch (err) {
+          console.error("Error importing question:", err);
+          failCount++;
+        }
+      }
+    } catch (err) {
+      console.error("Bulk import error:", err);
+    } finally {
+      setImportLoading(false);
+      toast({
+        title: 'Import Complete',
+        description: `${successCount} questions imported, ${failCount} failed.`,
+        variant: failCount === 0 ? 'default' : 'destructive'
+      });
+      setIsImportModalOpen(false);
+      setImportedQuestions([]);
+      fetchQuestions();
+    }
+  };
+
+  // Add the parseMoodleCodingQuestions function as a nested function inside the component
+  const parseMoodleCodingQuestions = (xmlString: string) => {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '',
+      processEntities: true,
+      isArray: (name: string) => name === 'question' || name === 'testcase',
+    });
+    const xml = parser.parse(xmlString);
+    if (!xml.quiz || !xml.quiz.question) return [];
+    const questions = xml.quiz.question.filter((q: any) => q.type === 'coderunner');
+    
+    // Get the default language ID to use from state variables
+    const defaultLangId = selectedDefaultLanguage || 
+      (languages && languages.length > 0 ? String(languages[0].id) : "");
+    
+    console.log("Parsing Moodle XML questions with default language:", defaultLangId);
+    
+    return questions.map((q: any, idx: number) => {
+      // Extract language from the question
+      let detectedLanguage = "";
+      
+      // First try to extract from prototypetype which sometimes contains language info
+      if (q.prototypetype?.text) {
+        const prototypeType = q.prototypetype.text.toLowerCase();
+        console.log(`Question ${idx + 1} prototype: ${prototypeType}`);
+        
+        // Common Moodle CodeRunner prototypes
+        if (prototypeType.includes('python')) detectedLanguage = 'python';
+        else if (prototypeType.includes('java')) detectedLanguage = 'java';
+        else if (prototypeType.includes('c#') || prototypeType.includes('csharp')) detectedLanguage = 'csharp';
+        else if (prototypeType.includes('c++') || prototypeType.includes('cpp')) detectedLanguage = 'cpp'; 
+        else if (prototypeType.includes('javascript') || prototypeType.includes('js')) detectedLanguage = 'javascript';
+        else if (prototypeType.includes('php')) detectedLanguage = 'php';
+        else if (prototypeType.includes('ruby')) detectedLanguage = 'ruby';
+        else if (prototypeType.includes('go')) detectedLanguage = 'go';
+      }
+      
+      // Also try to extract from question name or text as fallback
+      if (!detectedLanguage) {
+        const questionName = q.name?.text?.toLowerCase() || '';
+        const questionText = q.questiontext?.text?.toLowerCase() || '';
+        const combinedText = questionName + ' ' + questionText;
+        
+        if (combinedText.includes('python')) detectedLanguage = 'python';
+        else if (combinedText.includes('java ') || combinedText.includes('java.')) detectedLanguage = 'java';
+        else if (combinedText.includes('c#') || combinedText.includes('csharp')) detectedLanguage = 'csharp';
+        else if (combinedText.includes('c++') || combinedText.includes('cpp')) detectedLanguage = 'cpp';
+        else if (combinedText.includes('javascript') || combinedText.includes('js')) detectedLanguage = 'javascript';
+        else if (combinedText.includes('php')) detectedLanguage = 'php';
+        else if (combinedText.includes('ruby')) detectedLanguage = 'ruby';
+        else if (combinedText.includes('go ') || combinedText.includes('golang')) detectedLanguage = 'go';
+      }
+      
+      const solution = q.answer?.['#cdata-section'] || q.answer || '';
+      console.log(`Question ${idx + 1} detected language: ${detectedLanguage || 'none'}`);
+      
+      // Map the detected language to Judge0 language ID using the handleBulkUpload's version 
+      // of the function since it's in the component scope
+      const mappedDefaultLang = detectedLanguage 
+        ? (languages?.find((l: any) => l.name?.toLowerCase() === detectedLanguage.toLowerCase())?.id || defaultLangId)
+        : defaultLangId;
+      
+      // Create language options for all available Judge0 languages
+      const languageOptions = [];
+      
+      if (languages && languages.length > 0) {
+        // First add the detected/default language as the primary option
+        languageOptions.push({
+          id: `lang-${mappedDefaultLang}-${Date.now()}`,
+          language: mappedDefaultLang,
+          solution: solution,
+          preloadCode: ''
+        });
+        
+        // Then add all other languages with empty solutions
+        languages.forEach((lang: any) => {
+          const langId = String(lang.id);
+          // Skip if this is the same as our detected language
+          if (langId === mappedDefaultLang) return;
+          
+          languageOptions.push({
+            id: `lang-${langId}-${Date.now() + languageOptions.length}`,
+            language: langId,
+            solution: '', // Empty solution for other languages
+            preloadCode: ''
+          });
+        });
+      } else {
+        // Fallback if no languages available
+        languageOptions.push({
+          id: `lang-${mappedDefaultLang}-${Date.now()}`,
+          language: mappedDefaultLang,
+          solution: solution,
+          preloadCode: ''
+        });
+      }
+      
+      return {
+        name: q.name?.text || `Question ${idx + 1}`,
+        questionText: q.questiontext?.text || '',
+        defaultMark: Number(q.defaultgrade) || 1,
+        difficulty: 'MEDIUM',
+        languageOptions: languageOptions,
+        testCases: (q.testcases?.testcase || []).map((tc: any) => ({
+          input: tc.stdin?.text || '',
+          // Ensure output is always a string
+          output: String(tc.expected?.text || ''),
+          isHidden: tc.useasexample !== '1',
+          isSample: tc.useasexample === '1',
+          showOnFailure: tc.hiderestiffail === '1'
+        })),
+        allOrNothingGrading: q.allornothing === '1',
+        defaultLanguage: mappedDefaultLang
+      };
+    });
+  };
+
   return (
     <div className="container mx-auto py-6 bg-background">
       <div className="flex justify-between items-center mb-6">
@@ -1275,10 +1533,585 @@ export default function AdminQuestionsPage() {
             </Button>
           </div>
           
-          <AikenImportButton 
-            folders={folders}
-            onSuccess={() => fetchQuestions(filters, currentPage)}
-          />
+          <Dialog open={isImportModalOpen} onOpenChange={(open) => {
+            setIsImportModalOpen(open);
+            // Reset all state when closing the modal
+            if (!open) {
+              setImportedQuestions([]);
+              setImportLoading(false);
+              setImportError(null);
+              setFileContent(null);
+              setBulkFolderId('');
+              setBulkStatus('DRAFT');
+              setSelectedDefaultLanguage(''); // Always reset to empty string
+              console.log('Modal closed, reset language to empty string');
+            } else {
+              console.log('Import modal opened with language:', selectedDefaultLanguage);
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="ml-2">
+                <Upload className="mr-2 h-4 w-4" />
+                Import Coding Questions (Moodle XML)
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl flex items-center">
+                  <Code className="h-5 w-5 mr-2 text-primary" />
+                  Import Coding Questions from Moodle XML
+                </DialogTitle>
+                <DialogDescription className="text-base opacity-90">
+                  Upload a Moodle XML file containing coderunner questions to import them into your question bank.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="mt-6 space-y-6">
+                {/* Step 1: File Upload */}
+                <div className="border rounded-lg p-4 bg-card">
+                  <div className="flex items-center mb-3">
+                    <div className="h-6 w-6 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center text-sm font-semibold mr-2">1</div>
+                    <h3 className="text-base font-medium">Upload Moodle XML File</h3>
+                  </div>
+                  
+                  {fileContent ? (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-primary/10 rounded-md mr-3">
+                            <FileText className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {importedQuestions.length > 0 ? (
+                                <span className="flex items-center">
+                                  <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
+                                  File processed successfully
+                                </span>
+                              ) : (
+                                "XML File Uploaded"
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {importedQuestions.length} questions found
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => {
+                            setFileContent(null);
+                            setImportedQuestions([]);
+                            setImportError(null);
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" />
+                          Change File
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 hover:bg-primary/[0.03] transition-colors">
+                      <input
+                        type="file"
+                        accept=".xml"
+                        onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleImportFile(e.target.files[0]);
+                          }
+                        }}
+                        className="hidden"
+                        id="xml-upload"
+                      />
+                      <label htmlFor="xml-upload" className="cursor-pointer flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                          <Upload className="h-7 w-7 text-primary" />
+                        </div>
+                        <span className="text-sm font-medium mb-1">Click to upload XML file</span>
+                        <span className="text-xs text-muted-foreground">or drag and drop</span>
+                        <span className="mt-2 text-xs px-2 py-1 bg-muted rounded-md inline-block">
+                          Only Moodle XML files with coderunner questions
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Loading State */}
+                {importLoading && (
+                  <div className="flex items-center justify-center p-6 my-4 border rounded-lg bg-primary/5 animate-pulse">
+                    <Loader2 className="animate-spin mr-3 h-6 w-6 text-primary" />
+                    <p className="text-base">Processing XML file...</p>
+                  </div>
+                )}
+                
+                {/* Error Display */}
+                {importError && (
+                  <div className="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-5">
+                    <h3 className="font-medium flex items-center text-base mb-2">
+                      <X className="h-5 w-5 mr-2" /> Error Parsing XML
+                    </h3>
+                    <p className="ml-7 text-sm">{importError}</p>
+                    <p className="ml-7 text-xs mt-3 text-destructive/80">Check the browser console for more details.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-3 border-destructive/30 hover:bg-destructive/10 ml-7" 
+                      onClick={() => {
+                        if (fileContent) {
+                          console.log("MANUAL XML DEBUG:");
+                          try {
+                            const parser = new XMLParser({
+                              ignoreAttributes: false,
+                              attributeNamePrefix: '',
+                              processEntities: true
+                            });
+                            const parsed = parser.parse(fileContent);
+                            console.log("RAW XML STRUCTURE:", JSON.stringify(parsed, null, 2));
+                            
+                            // Attempt to find testcases
+                            const findTestcases = (obj: any) => {
+                              if (!obj) return [];
+                              if (obj.testcases) {
+                                console.log("FOUND TESTCASES:", JSON.stringify(obj.testcases, null, 2));
+                              }
+                              if (obj.testcase) {
+                                console.log("FOUND TESTCASE:", JSON.stringify(obj.testcase, null, 2));
+                              }
+                              if (typeof obj === 'object') {
+                                Object.keys(obj).forEach(key => {
+                                  findTestcases(obj[key]);
+                                });
+                              }
+                            };
+                            findTestcases(parsed);
+                          } catch (e) {
+                            console.error("Manual parse error:", e);
+                          }
+                        }
+                      }}
+                    >
+                      Debug XML in Console
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Step 2: Configure Import */}
+                {importedQuestions.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="border rounded-lg p-4 bg-card">
+                      <div className="flex items-center mb-3">
+                        <div className="h-6 w-6 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center text-sm font-semibold mr-2">2</div>
+                        <h3 className="text-base font-medium">Configure Import Settings</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        {/* Target Folder - Improved selection */}
+                        <div className="space-y-3">
+                          <Label htmlFor="targetFolder" className="font-medium flex items-center gap-1.5">
+                            <FolderIcon className="h-4 w-4 text-primary opacity-80" />
+                            Target Folder
+                          </Label>
+                          
+                          <div className="border rounded-lg overflow-hidden bg-card flex flex-col h-64">
+                            {/* Search bar for folders */}
+                            <div className="p-2 border-b relative">
+                              <Search className="absolute left-3 top-[11px] h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                placeholder="Search folders..." 
+                                className="pl-8 h-8 text-sm"
+                                onChange={(e) => {
+                                  const searchTerm = e.target.value.toLowerCase();
+                                  // Find matching folders and automatically expand them
+                                  if (searchTerm) {
+                                    const newExpanded = new Set<string>();
+                                    folders.forEach(folder => {
+                                      if (folder.name.toLowerCase().includes(searchTerm)) {
+                                        newExpanded.add(folder.id);
+                                      }
+                                      folder.subfolders?.forEach(subfolder => {
+                                        if (subfolder.name.toLowerCase().includes(searchTerm)) {
+                                          newExpanded.add(folder.id);
+                                        }
+                                      });
+                                    });
+                                    setExpandedFolders(newExpanded);
+                                  }
+                                }}
+                              />
+                            </div>
+                            
+                            {/* Folder tree with virtualized scrolling */}
+                            <div className="overflow-y-auto p-2 h-full">
+                              {folders.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full py-4 text-muted-foreground">
+                                  <FolderIcon className="h-8 w-8 mb-2 opacity-50" />
+                                  <p className="text-sm">No folders available</p>
+                                  <Button 
+                                    variant="link" 
+                                    className="text-xs text-primary mt-1"
+                                    onClick={() => setIsCreateFolderModalOpen(true)}
+                                  >
+                                    Create a folder
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {folders.map(folder => (
+                                    <div key={folder.id} className="text-sm">
+                                      <div className="flex items-center gap-1 py-1">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon"
+                                          className="h-5 w-5 p-0 mr-1"
+                                          onClick={() => {
+                                            setExpandedFolders(prev => {
+                                              const newSet = new Set(prev);
+                                              if (newSet.has(folder.id)) {
+                                                newSet.delete(folder.id);
+                                              } else {
+                                                newSet.add(folder.id);
+                                              }
+                                              return newSet;
+                                            });
+                                          }}
+                                        >
+                                          {expandedFolders.has(folder.id) ? 
+                                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : 
+                                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                          }
+                                        </Button>
+                                        
+                                        <div className="flex-1 flex items-center">
+                                          <label className="flex items-center gap-2 hover:bg-muted/50 p-1.5 rounded-md transition-colors cursor-pointer flex-1">
+                                            <input 
+                                              type="radio" 
+                                              name="folderSelect" 
+                                              value={folder.id}
+                                              checked={bulkFolderId === folder.id} 
+                                              onChange={() => setBulkFolderId(folder.id)}
+                                              className="h-4 w-4 text-primary"
+                                            />
+                                            <Folder className="h-4 w-4 text-primary" /> 
+                                            <span className="text-sm font-medium">{folder.name}</span>
+                                          </label>
+                                        </div>
+                                      </div>
+                                      
+                                      {expandedFolders.has(folder.id) && folder.subfolders?.length > 0 && (
+                                        <div className="ml-5 pl-3 border-l-2 space-y-1 mt-1">
+                                          {folder.subfolders.map(subfolder => (
+                                            <label key={subfolder.id} className="flex items-center gap-2 hover:bg-muted/50 p-1.5 rounded-md transition-colors cursor-pointer">
+                                              <input 
+                                                type="radio" 
+                                                name="folderSelect" 
+                                                value={subfolder.id}
+                                                checked={bulkFolderId === subfolder.id} 
+                                                onChange={() => setBulkFolderId(subfolder.id)}
+                                                className="h-4 w-4 text-primary"
+                                              />
+                                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                              <span className="text-sm">{subfolder.name}</span>
+                                            </label>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Footer actions */}
+                            <div className="p-2 border-t bg-muted/10 flex justify-between items-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => {
+                                  // Toggle expand all folders
+                                  if (expandedFolders.size === folders.length) {
+                                    setExpandedFolders(new Set());
+                                  } else {
+                                    setExpandedFolders(new Set(folders.map(f => f.id)));
+                                  }
+                                }}
+                              >
+                                {expandedFolders.size === folders.length ? (
+                                  <><ChevronUp className="h-3 w-3 mr-1" /> Collapse All</>
+                                ) : (
+                                  <><ChevronDown className="h-3 w-3 mr-1" /> Expand All</>
+                                )}
+                              </Button>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => setIsCreateFolderModalOpen(true)}
+                              >
+                                <FolderPlus className="h-3 w-3 mr-1" /> New Folder
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Selected folder display */}
+                          {bulkFolderId && (
+                            <div className="flex items-center mt-1.5 text-sm">
+                              <span className="text-muted-foreground mr-2">Selected:</span>
+                              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 flex items-center">
+                                <FolderIcon className="h-3 w-3 mr-1" />
+                                {(() => {
+                                  // Find folder name
+                                  for (const folder of folders) {
+                                    if (folder.id === bulkFolderId) {
+                                      return folder.name;
+                                    }
+                                    for (const subfolder of folder.subfolders || []) {
+                                      if (subfolder.id === bulkFolderId) {
+                                        return `${folder.name} > ${subfolder.name}`;
+                                      }
+                                    }
+                                  }
+                                  return 'Unknown Folder';
+                                })()}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-6">
+                          {/* Question Status */}
+                          <div className="space-y-3">
+                            <Label htmlFor="questionStatus" className="font-medium flex items-center gap-1.5">
+                              <CheckCircle className="h-4 w-4 text-primary opacity-80" />
+                              Question Status
+                            </Label>
+                            <Select 
+                              value={bulkStatus} 
+                              onValueChange={(val) => setBulkStatus(val as 'DRAFT' | 'READY')}
+                            >
+                              <SelectTrigger id="questionStatus" className="w-full">
+                                <SelectValue placeholder="Question status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="DRAFT">
+                                  <div className="flex items-center">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
+                                    Draft
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="READY">
+                                  <div className="flex items-center">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                                    Ready
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {/* Difficulty setting */}
+                          <div className="space-y-3">
+                            <Label htmlFor="difficulty" className="font-medium flex items-center gap-1.5">
+                              <Settings className="h-4 w-4 text-primary opacity-80" />
+                              Default Difficulty
+                            </Label>
+                            <Select 
+                              defaultValue="MEDIUM"
+                              onValueChange={(val) => {
+                                setImportedQuestions(prev => prev.map(q => ({ ...q, difficulty: val })));
+                              }}
+                            >
+                              <SelectTrigger id="difficulty" className="w-full">
+                                <SelectValue placeholder="Select difficulty" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="EASY">
+                                  <div className="flex items-center">
+                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 mr-2">Easy</Badge>
+                                    Straightforward problems
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="MEDIUM">
+                                  <div className="flex items-center">
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 mr-2">Medium</Badge>
+                                    Moderate complexity
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="HARD">
+                                  <div className="flex items-center">
+                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 mr-2">Hard</Badge>
+                                    Challenging problems
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {/* Default Language */}
+                          <div className="space-y-3">
+                            <Label htmlFor="defaultLanguage" className="font-medium flex items-center gap-1.5">
+                              <Code className="h-4 w-4 text-primary opacity-80" />
+                              Default Language
+                            </Label>
+                            <Select 
+                              value={selectedDefaultLanguage}
+                              onValueChange={setSelectedDefaultLanguage}
+                            >
+                              <SelectTrigger id="defaultLanguage" className="w-full">
+                                <SelectValue placeholder="Default programming language" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {languages && languages.length > 0 ? (
+                                  languages.map((lang: any) => (
+                                    <SelectItem key={lang.id} value={String(lang.id)}>
+                                      {lang.name}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="" disabled>
+                                    {loading ? "Loading languages..." : error ? "Error loading languages" : "No languages available"}
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Step 3: Preview Questions */}
+                    <div className="border rounded-lg p-4 bg-card">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                          <div className="h-6 w-6 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center text-sm font-semibold mr-2">3</div>
+                          <h3 className="text-base font-medium">Preview Questions</h3>
+                        </div>
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                          {importedQuestions.length} Questions Found
+                        </Badge>
+                      </div>
+                      
+                      <div className="max-h-72 overflow-y-auto border rounded-lg p-4 space-y-4 bg-background/50">
+                        {importedQuestions.map((q, idx) => (
+                          <div key={idx} className="rounded-lg border bg-card overflow-hidden">
+                            <div className="p-3 border-b bg-muted/30 flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <span className="h-5 w-5 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-semibold">
+                                  {idx + 1}
+                                </span>
+                                <h4 className="font-medium text-sm">{q.name}</h4>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={
+                                  q.difficulty === 'EASY' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  q.difficulty === 'MEDIUM' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  'bg-red-50 text-red-700 border-red-200'
+                                }>
+                                  {q.difficulty}
+                                </Badge>
+                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                  {q.testCases.length} Tests
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="p-3">
+                              <div 
+                                className="text-xs text-muted-foreground mb-3 bg-background/60 p-3 rounded-md whitespace-pre-wrap" 
+                                dangerouslySetInnerHTML={{ 
+                                  __html: q.questionText.substring(0, 250) + (q.questionText.length > 250 ? '...' : '') 
+                                }}
+                                style={{ 
+                                  lineHeight: '1.5',
+                                  maxHeight: '200px',
+                                  overflowY: 'auto'
+                                }}
+                              />
+                              
+                              {/* Expandable section to view test cases */}
+                              {q.testCases.length > 0 && (
+                                <Collapsible className="mt-2">
+                                  <CollapsibleTrigger asChild>
+                                    <Button variant="outline" size="sm" className="p-1 h-7 text-xs flex items-center w-full justify-start border-dashed">
+                                      <ChevronRight className="h-3.5 w-3.5 mr-1 text-primary" />
+                                      <span className="text-xs">View Test Cases</span>
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent>
+                                    <div className="bg-muted/20 p-2 rounded-md mt-2 space-y-2">
+                                      {q.testCases.map((tc: any, tcIdx: number) => (
+                                        <div key={tcIdx} className="text-xs border rounded-md overflow-hidden">
+                                          <div className="flex items-center gap-2 p-2 bg-muted/40 border-b">
+                                            <Badge variant={tc.isSample ? "default" : "outline"} className="text-[10px] h-4">
+                                              {tc.isSample ? 'Sample' : 'Hidden'}
+                                            </Badge>
+                                            <span className="text-muted-foreground">Test #{tcIdx + 1}</span>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-0 divide-x">
+                                            <div className="p-2">
+                                              <span className="font-medium text-[10px] uppercase text-muted-foreground flex items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 7 3 3 3-3"/><path d="M6 10V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2v-2"/></svg>
+                                                Input
+                                              </span>
+                                              <pre className="bg-background p-1.5 rounded text-[10px] mt-1 overflow-x-auto">{tc.input || '<empty>'}</pre>
+                                            </div>
+                                            <div className="p-2">
+                                              <span className="font-medium text-[10px] uppercase text-muted-foreground flex items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 17 3-3 3 3"/><path d="M6 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-12a2 2 0 0 0-2 2v2"/></svg>
+                                                Expected
+                                              </span>
+                                              <pre className="bg-background p-1.5 rounded text-[10px] mt-1 overflow-x-auto">
+                                                {typeof tc.output === 'object' && tc.output !== null && 'text' in tc.output
+                                                  ? tc.output.text
+                                                  : tc.output || '<empty>'}
+                                              </pre>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <DialogFooter className="flex items-center justify-between mt-6 pt-4 border-t">
+                <div>
+                  {importedQuestions.length > 0 && !importLoading && (
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-medium flex items-center gap-1.5 text-primary">
+                        <CheckCircle className="h-4 w-4" />
+                        {importedQuestions.length} questions ready to import
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        All questions will be imported as {bulkStatus === 'DRAFT' ? 'drafts' : 'ready for use'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>Cancel</Button>
+                  <Button 
+                    onClick={handleBulkUpload} 
+                    disabled={importedQuestions.length === 0 || importLoading || !bulkFolderId}
+                    className="min-w-[120px]"
+                  >
+                    {importLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                    Import {importedQuestions.length > 0 ? `(${importedQuestions.length})` : ''}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           
           <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
@@ -1341,7 +2174,7 @@ export default function AdminQuestionsPage() {
                 onClose={() => setIsFormModalOpen(false)}
                 onSubmit={handleFormSubmit}
                 initialData={editingQuestion}
-                folders={folders}
+                folders={folders as any}
                 subfolders={[]}
                 onAddFolder={() => setIsCreateFolderModalOpen(true)}
                 onAddSubfolder={handleCreateSubfolder}
@@ -1371,12 +2204,11 @@ export default function AdminQuestionsPage() {
                 onClose={() => setIsCodingFormModalOpen(false)}
                 onSubmit={handleFormSubmit}
                 initialData={editingQuestion}
-                folders={folders}
+                folders={folders as any}
                 onAddFolder={() => setIsCreateFolderModalOpen(true)}
               />
             </DialogContent>
           </Dialog>
-
         </div>
       </div>
 
@@ -1680,7 +2512,12 @@ export default function AdminQuestionsPage() {
                     filteredQuestions.map((question) => (
                       <QuestionRow
                         key={question.id}
-                        question={question}
+                        question={{
+                          ...question,
+                          folderId: question.folderId || '',
+                          createdAt: question.createdAt?.toString() || '',
+                          updatedAt: question.updatedAt?.toString() || '',
+                        } as any}
                         onSelect={(id) => handleSelectQuestion(id, !selectedQuestions.includes(id))}
                         isSelected={selectedQuestions.includes(question.id)}
                         onPreview={() => handleEdit(question)}

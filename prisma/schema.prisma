@@ -207,15 +207,13 @@ model CodingQuestion {
 
 model LanguageOption {
   id               String              @id @default(cuid())
-  language         ProgrammingLanguage
+  language         String              // Changed from ProgrammingLanguage to String to allow numeric IDs
   preloadCode      String?
   solution         String
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
-  codingQuestionId String
-  codingQuestion   CodingQuestion      @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
-
-  @@index([codingQuestionId])
+  codingQuestionId String?
+  codingQuestion   CodingQuestion?     @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
 }
 
 model TestCase {

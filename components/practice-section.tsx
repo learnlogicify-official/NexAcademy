@@ -92,7 +92,7 @@ export function PracticeSection({ module, onNavigateToAssessment, isAdmin }: Pra
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState<string>("createdAt")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  
+
   useEffect(() => {
     async function fetchAssessments() {
       setLoading(true)
@@ -388,13 +388,13 @@ export function PracticeSection({ module, onNavigateToAssessment, isAdmin }: Pra
           <div>
             <CardTitle className="text-xl font-bold">Practice Assessments</CardTitle>
             <CardDescription className="text-zinc-400">
-              Test your understanding of {module.title.toLowerCase()} with these assessments.
+            Test your understanding of {module.title.toLowerCase()} with these assessments.
             </CardDescription>
           </div>
-          
+
           {isAdmin && (
             <Button onClick={() => setAddModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="h-4 w-4 mr-1" /> Add Assessment
+                <Plus className="h-4 w-4 mr-1" /> Add Assessment
             </Button>
           )}
         </CardHeader>
@@ -724,76 +724,76 @@ export function PracticeSection({ module, onNavigateToAssessment, isAdmin }: Pra
         </CardContent>
       </Card>
 
-      {/* Add Assessment Modal */}
-      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+          {/* Add Assessment Modal */}
+          <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="max-w-4xl w-full bg-zinc-900 border border-white/10">
-          <DialogHeader>
+              <DialogHeader>
             <DialogTitle className="text-xl font-bold">Add Assessment to Module</DialogTitle>
-          </DialogHeader>
-          <div className="flex gap-6">
-            {/* Sidebar: Folder tree */}
+              </DialogHeader>
+              <div className="flex gap-6">
+                {/* Sidebar: Folder tree */}
             <div className="w-56 border-r border-white/10 pr-4 overflow-y-auto max-h-[70vh]">
-              <div className="font-semibold mb-2">Folders</div>
-              <div className="space-y-1">
-                <button
+                  <div className="font-semibold mb-2">Folders</div>
+                  <div className="space-y-1">
+                    <button
                   className={`block w-full text-left px-2 py-1 rounded ${!selectedFolder ? "bg-indigo-600/20 text-indigo-400" : "hover:bg-zinc-800"}`}
-                  onClick={() => setSelectedFolder(null)}
-                >
-                  All Folders
-                </button>
-                <FolderTree folders={folders} selectedFolder={selectedFolder} setSelectedFolder={setSelectedFolder} />
-              </div>
-            </div>
-            {/* Main: Filters and list */}
-            <div className="flex-1 flex flex-col gap-4">
-              <div className="flex gap-2 items-center mb-2">
-                <Input
-                  placeholder="Search assessments..."
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setModalPage(1); }}
-                  className="w-64"
-                />
-                <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setModalPage(1); }}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Statuses</SelectItem>
-                    <SelectItem value="DRAFT">Draft</SelectItem>
-                    <SelectItem value="READY">Ready</SelectItem>
-                    <SelectItem value="PUBLISHED">Published</SelectItem>
-                    <SelectItem value="ARCHIVED">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {modalLoading ? (
+                      onClick={() => setSelectedFolder(null)}
+                    >
+                      All Folders
+                    </button>
+                    <FolderTree folders={folders} selectedFolder={selectedFolder} setSelectedFolder={setSelectedFolder} />
+                  </div>
+                </div>
+                {/* Main: Filters and list */}
+                <div className="flex-1 flex flex-col gap-4">
+                  <div className="flex gap-2 items-center mb-2">
+                    <Input
+                      placeholder="Search assessments..."
+                      value={search}
+                      onChange={e => { setSearch(e.target.value); setModalPage(1); }}
+                      className="w-64"
+                    />
+                    <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setModalPage(1); }}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">All Statuses</SelectItem>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="READY">Ready</SelectItem>
+                        <SelectItem value="PUBLISHED">Published</SelectItem>
+                        <SelectItem value="ARCHIVED">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {modalLoading ? (
                 <div className="flex items-center justify-center h-40">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
                   <span className="ml-3 text-zinc-400">Loading assessments...</span>
                 </div>
-              ) : modalError ? (
+                  ) : modalError ? (
                 <div className="flex items-center justify-center h-40 text-red-500">
                   <span>{modalError}</span>
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
-                    {modalAssessments.map(a => (
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                        {modalAssessments.map(a => (
                       <Card key={a.id} className="bg-zinc-800 border border-white/10">
-                        <CardContent className="p-3 flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
+                            <CardContent className="p-3 flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
                             <ClipboardCheck className="h-4 w-4 text-indigo-400" />
-                            <span className="font-medium text-white truncate">{a.title || a.name}</span>
+                                <span className="font-medium text-white truncate">{a.title || a.name}</span>
                             <Badge className={getStatusColor(a.status)}>
                               {a.status}
                             </Badge>
-                          </div>
-                          {a.description && (
-                            <div
+                              </div>
+                              {a.description && (
+                                <div
                               className="text-zinc-400 text-xs line-clamp-2"
-                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(a.description) }}
-                            />
-                          )}
+                                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(a.description) }}
+                                />
+                              )}
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex gap-1">
                               <Badge variant="outline" className="text-[10px] border-zinc-700 text-zinc-400">
@@ -806,16 +806,16 @@ export function PracticeSection({ module, onNavigateToAssessment, isAdmin }: Pra
                                 </Badge>
                               )}
                             </div>
-                            <Button
-                              size="sm"
+                              <Button
+                                size="sm"
                               className="text-xs bg-indigo-600 hover:bg-indigo-700"
-                              disabled={addingInModal === a.id || assessments.some(m => m.id === a.id)}
-                              onClick={async () => {
+                                disabled={addingInModal === a.id || assessments.some(m => m.id === a.id)}
+                                onClick={async () => {
                                 setAddingInModal(a.id);
                                 await handleAddAssessment(a.id);
                                 setAddingInModal(null);
-                              }}
-                            >
+                                }}
+                              >
                               {addingInModal === a.id ? (
                                 <>
                                   <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-white mr-1"></div>
@@ -828,45 +828,45 @@ export function PracticeSection({ module, onNavigateToAssessment, isAdmin }: Pra
                                   <Plus className="h-3 w-3 mr-1" /> Add
                                 </>
                               )}
-                            </Button>
+                              </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                  {/* Pagination */}
-                  <div className="flex justify-between items-center mt-2">
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                      {/* Pagination */}
+                      <div className="flex justify-between items-center mt-2">
                     <span className="text-xs text-zinc-500">
-                      Page {modalPagination.page} of {modalPagination.totalPages} ({modalPagination.total} total)
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={modalPagination.page <= 1}
-                        onClick={() => setModalPage(p => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={modalPagination.page >= modalPagination.totalPages}
-                        onClick={() => setModalPage(p => Math.min(modalPagination.totalPages, p + 1))}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+                          Page {modalPagination.page} of {modalPagination.totalPages} ({modalPagination.total} total)
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={modalPagination.page <= 1}
+                            onClick={() => setModalPage(p => Math.max(1, p - 1))}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={modalPagination.page >= modalPagination.totalPages}
+                            onClick={() => setModalPage(p => Math.min(modalPagination.totalPages, p + 1))}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddModalOpen(false)}>Close</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
     </div>
   )
 }

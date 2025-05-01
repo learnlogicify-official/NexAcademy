@@ -1,44 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const JUDGE0_API_URL = process.env.NEXT_PUBLIC_JUDGE0_API_URL || "https://judge0-ce.p.rapidapi.com";
-const JUDGE0_API_KEY = process.env.NEXT_PUBLIC_RAPIDAPI_KEY;
-const JUDGE0_API_HOST = process.env.NEXT_PUBLIC_JUDGE0_API_HOST || "judge0-ce.p.rapidapi.com";
+// Use Judge0 Extra CE for the most languages
+const JUDGE0_LANGUAGES_URL = 'https://extra-ce.judge0.com/languages/';
+
+// In-memory cache for languages
+let cachedLanguages: any[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+// Helper to fetch languages (can be imported elsewhere)
+export async function fetchJudge0Languages() {
+  const now = Date.now();
+  if (cachedLanguages && now - cacheTimestamp < CACHE_DURATION) {
+    return cachedLanguages;
+  }
+  const response = await fetch(JUDGE0_LANGUAGES_URL);
+  if (!response.ok) throw new Error('Failed to fetch Judge0 languages');
+  const data = await response.json();
+  cachedLanguages = data;
+  cacheTimestamp = now;
+  return data;
+}
 
 export async function GET() {
   try {
-    
-    
-    // Test the connection by fetching languages
-    const response = await fetch(`${JUDGE0_API_URL}/languages`, {
-      method: "GET",
-      headers: {
-        "X-RapidAPI-Key": JUDGE0_API_KEY || "",
-        "X-RapidAPI-Host": JUDGE0_API_HOST
-      },
-    });
-    
-    if (!response.ok) {
-      console.error("Server-side Judge0 API error:", response.status, response.statusText);
-      const text = await response.text();
-      console.error("Error details:", text);
-      return NextResponse.json({ 
-        error: `API request failed with status ${response.status}`,
-        details: text 
-      }, { status: response.status });
-    }
-    
-    const data = await response.json();
-    
-    
-    return NextResponse.json({ success: true, data });
+    const languages = await fetchJudge0Languages();
+    return NextResponse.json({ success: true, data: languages });
   } catch (error) {
-    console.error("Server-side Judge0 API error:", error);
-    return NextResponse.json({ 
-      error: "Error accessing Judge0 API",
-      details: error instanceof Error ? error.message : String(error) 
+    console.error('Error fetching Judge0 languages:', error);
+    return NextResponse.json({
+      error: 'Error accessing Judge0 Extra CE languages',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
+
+const JUDGE0_API_URL = process.env.NEXT_PUBLIC_JUDGE0_API_URL || "https://judge0-ce.p.rapidapi.com";
+const JUDGE0_API_KEY = process.env.NEXT_PUBLIC_RAPIDAPI_KEY;
+const JUDGE0_API_HOST = process.env.NEXT_PUBLIC_JUDGE0_API_HOST || "judge0-ce.p.rapidapi.com";
 
 export async function POST(request: NextRequest) {
   try {

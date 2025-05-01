@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Code, ChevronRight, ChevronDown, Folder, FolderOpen, Copy, CheckCheck } from "lucide-react";
+import { Plus, Trash2, Code, ChevronRight, ChevronDown, Folder, FolderOpen, Copy, CheckCheck, 
+  Search, X, Globe, Cpu, Binary, Smartphone, ListFilter, FileCode, FileEdit } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Editor } from '@tinymce/tinymce-react';
 import { CodeEditor } from "@/components/ui/code-editor";
@@ -45,19 +46,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-const SUPPORTED_LANGUAGES = [
-  { id: "PYTHON", name: "Python" },
-  { id: "JAVASCRIPT", name: "JavaScript" },
-  { id: "JAVA", name: "Java" },
-  { id: "CPP", name: "C++" },
-  { id: "CSHARP", name: "C#" },
-  { id: "PHP", name: "PHP" },
-  { id: "RUBY", name: "Ruby" },
-  { id: "SWIFT", name: "Swift" },
-  { id: "GO", name: "Go" },
-  { id: "RUST", name: "Rust" },
-];
+import { useJudge0Languages } from '../hooks/useJudge0Languages';
+import { Badge } from "@/components/ui/badge";
 
 interface Folder {
   id: string;
@@ -459,26 +449,39 @@ export function CodingQuestionFormModal({
 
   // Get correct programming language for code editor
   const getEditorLanguage = (langId: string): string => {
-    // Convert to lowercase for case-insensitive matching
-    const lowercaseLangId = langId.toLowerCase();
+    // Make sure we have a string value
+    const langIdStr = String(langId).toLowerCase();
+    console.log(`Getting editor language for: ${langIdStr}`);
     
-    // Map our language IDs to editor-supported language modes
-    // This is critical to ensure syntax highlighting works correctly
-    switch(lowercaseLangId) {
-      case 'python': return 'python';
-      case 'javascript': return 'javascript';
-      case 'java': return 'java';
-      case 'cpp': return 'cpp';
-      case 'csharp': return 'csharp';
-      case 'php': return 'php';
-      case 'ruby': return 'ruby';
-      case 'swift': return 'swift';
-      case 'go': return 'go';
-      case 'rust': return 'rust';
+    // First check if this is a numeric Judge0 language ID
+    if (!isNaN(Number(langIdStr))) {
+      // Map common Judge0 language IDs to editor modes
+      switch(langIdStr) {
+        case "4": return "javascript"; // Node.js
+        case "11": return "python";    // Python 3
+        case "10": return "python";    // Python 2
+        case "26": return "python";    // Python 3.6
+        case "71": return "python";    // Python 3.8
+        case "29": return "java";      // Java
+        case "54": return "cpp";       // C++
+        case "55": return "java";      // Java
+        case "56": return "php";       // PHP
       default: 
-        console.warn(`Unsupported language ID: ${langId}, falling back to plaintext`);
-        return 'plaintext';
+          console.warn(`Unknown Judge0 language ID: ${langIdStr}, falling back to plaintext`);
+          return "plaintext";
+      }
     }
+    
+    // Otherwise try to map by language name
+    if (langIdStr.includes('python')) return 'python';
+    if (langIdStr.includes('javascript') || langIdStr === 'js') return 'javascript';
+    if (langIdStr.includes('java')) return 'java';
+    if (langIdStr.includes('c++') || langIdStr.includes('cpp')) return 'cpp';
+    if (langIdStr.includes('php')) return 'php';
+    
+    // For any other languages, log a warning and fall back to plaintext
+    console.warn(`Unsupported language: ${langIdStr}, falling back to plaintext mode`);
+        return 'plaintext';
   };
   
   // Debug function to check if language is correctly detected
@@ -1021,7 +1024,7 @@ export function CodingQuestionFormModal({
 
   const getLanguageName = (uniqueId: string) => {
     const baseLanguage = uniqueId.split('-')[0];
-    return SUPPORTED_LANGUAGES.find(l => l.id === baseLanguage)?.name || baseLanguage;
+    return languages.find(l => String(l.id) === baseLanguage)?.name || baseLanguage;
   };
 
   const getLanguageOption = (langId: string) => {
@@ -1222,7 +1225,7 @@ export function CodingQuestionFormModal({
     if (!languageOption) {
       toast({
         title: "Language option not found",
-        description: `No configuration found for ${SUPPORTED_LANGUAGES.find(l => l.id === defaultLanguage)?.name}`,
+        description: `No configuration found for ${languages.find(l => String(l.id) === defaultLanguage)?.name}`,
         variant: "destructive",
       });
       return;
@@ -1451,7 +1454,7 @@ export function CodingQuestionFormModal({
 
   // Improved function to add all 10 languages at once
   const addAllLanguages = () => {
-    const allLangIds = SUPPORTED_LANGUAGES.map(lang => lang.id);
+    const allLangIds = languages.map(lang => String(lang.id));
     
     
     // Keep existing language options to preserve solutions and preload code
@@ -1465,7 +1468,7 @@ export function CodingQuestionFormModal({
     
     // For each supported language
     for (const langId of allLangIds) {
-      // Use the exact language ID from SUPPORTED_LANGUAGES
+      // Use the exact language ID from languages
       const exactLangId = langId;
       
       // If we already have this language, keep its existing data
@@ -1488,12 +1491,12 @@ export function CodingQuestionFormModal({
     
     // Keep the current active tab if it exists, otherwise use the first language
     if (!allLangIds.includes(activeLanguageTab)) {
-      setActiveLanguageTab(allLangIds[0]);
+      setActiveLanguageTab(allLangIds[0] || '');
     }
     
     // Keep the current default language if it exists, otherwise use the first language
     if (!allLangIds.includes(defaultLanguage)) {
-      setDefaultLanguage(allLangIds[0]);
+      setDefaultLanguage(allLangIds[0] || '');
     }
     
   
@@ -1501,6 +1504,130 @@ export function CodingQuestionFormModal({
       ...prev,
       languageOptions: newLangOptions
     }));
+  };
+
+  const { languages, loading, error } = useJudge0Languages();
+
+  // Add these state hooks below other useState declarations around line 375
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['popular']));
+
+  // Add this helper function after the updateTestCase function
+  // Around line 1400
+
+  // Add a helper function to categorize languages
+  const getLanguageCategories = () => {
+    if (!languages || languages.length === 0) return {};
+    
+    // Define category mappings
+    const categories: Record<string, { name: string, languages: any[] }> = {
+      popular: { name: 'Popular Languages', languages: [] },
+      web: { name: 'Web Development', languages: [] },
+      systems: { name: 'Systems Programming', languages: [] },
+      scripting: { name: 'Scripting Languages', languages: [] },
+      functional: { name: 'Functional Languages', languages: [] },
+      mobile: { name: 'Mobile Development', languages: [] },
+      other: { name: 'Other Languages', languages: [] },
+    };
+    
+    // Define popular language IDs
+    const popularIDs = ["71", "63", "62", "54", "51", "68", "60", "73"];
+    
+    // Define primary category mapping for each language ID
+    // Each language ID should only appear once as a key
+    const languageCategories: Record<string, string> = {
+      // Popular languages will be added separately using popularIDs
+      
+      // Web development (JS, PHP, Ruby, etc.)
+      "4": "web", // Node.js
+      "56": "web", // PHP
+      "72": "web", // Ruby
+      "76": "web", // HTML
+      
+      // Systems programming (C, C++, Rust, etc.)
+      "50": "systems", // C
+      "53": "systems", // C
+      "73": "systems", // Rust
+      "81": "systems", // Assembly
+      
+      // Scripting languages (Python, Perl, etc.)
+      "43": "scripting", // Bash
+      "41": "scripting", // Perl
+      "74": "scripting", // TypeScript
+      
+      // Functional languages (Haskell, etc.)
+      "45": "functional", // Haskell
+      "47": "functional", // Scala
+      "66": "functional", // Lisp
+      "44": "functional", // Clojure
+      
+      // Mobile development (Swift, etc.)
+      "83": "mobile", // Swift
+      "78": "mobile", // Kotlin
+      "79": "mobile" // Objective-C
+    };
+    
+    // Assign primary languages to categories
+    // Python (71), JavaScript (63), Java (62), C++ (54), C# (51), PHP (68), Go (60), Rust (73)
+    languageCategories["71"] = "scripting";   // Python
+    languageCategories["63"] = "web";         // JavaScript
+    languageCategories["62"] = "mobile";      // Java (also used for Android)
+    languageCategories["54"] = "systems";     // C++
+    languageCategories["51"] = "systems";     // C#
+    languageCategories["68"] = "web";         // PHP
+    languageCategories["60"] = "systems";     // Go
+    languageCategories["73"] = "systems";     // Rust
+    
+    // Filter languages based on search term
+    const filteredLanguages = searchTerm.trim() === '' 
+      ? languages
+      : languages.filter(lang => 
+          lang.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    
+    // Populate categories
+    filteredLanguages.forEach(lang => {
+      const langId = String(lang.id);
+      const category = languageCategories[langId] || "other";
+      
+      // Add to mapped category
+      if (categories[category]) {
+        categories[category].languages.push(lang);
+      } else {
+        categories.other.languages.push(lang);
+      }
+      
+      // Also add to popular if it's in the popularIDs array
+      if (popularIDs.includes(langId)) {
+        // Only add to popular category if not already there
+        if (!categories.popular.languages.some(l => String(l.id) === langId)) {
+          categories.popular.languages.push(lang);
+        }
+      }
+    });
+    
+    // Filter out empty categories
+    const nonEmptyCategories: Record<string, { name: string, languages: any[] }> = {};
+    Object.entries(categories).forEach(([key, category]) => {
+      if (category.languages.length > 0) {
+        nonEmptyCategories[key] = category;
+      }
+    });
+    
+    return nonEmptyCategories;
+  };
+
+  // Add toggle function for expanding/collapsing categories
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -1585,7 +1712,7 @@ export function CodingQuestionFormModal({
             <div className={cn("min-h-[250px]", formErrors.questionText ? "border-destructive" : "")}>
               <Editor
                 apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                value={formData.questionText}
+              value={formData.questionText}
                 onInit={(_, editor) => editorRef.current = editor}
                 init={{
                   menubar: true,
@@ -1740,7 +1867,7 @@ export function CodingQuestionFormModal({
                   <SelectContent>
                     {selectedLanguages.map((langId) => (
                       <SelectItem key={langId} value={langId}>
-                        {SUPPORTED_LANGUAGES.find(l => l.id === langId)?.name || langId}
+                        {languages.find(l => String(l.id) === langId)?.name || langId}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1753,74 +1880,442 @@ export function CodingQuestionFormModal({
             {formErrors.defaultLanguage && (
               <p className="text-destructive text-sm">{formErrors.defaultLanguage}</p>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-              {SUPPORTED_LANGUAGES.map((lang) => (
+            <div className="border rounded-lg overflow-hidden">
+              {/* Language Selection Panel - Redesigned with flat list */}
+              <div className="flex flex-col md:flex-row border-b">
+                {/* Search Panel */}
+                <div className="w-full md:w-1/3 border-r p-3">
+                  <div className="mb-4">
+                    <div className="relative">
+                      <Input 
+                        type="search" 
+                        placeholder="Search languages..." 
+                        className="w-full pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      {searchTerm && (
                 <Button
+                          variant="ghost" 
+                          size="sm" 
+                          className="absolute right-1 top-1 h-7 w-7 p-0" 
+                          onClick={() => setSearchTerm('')}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-[350px] overflow-y-auto pr-2">
+                    {/* Filter languages based on search term */}
+                    <div className="space-y-1">
+                      {languages
+                        .filter(lang => 
+                          searchTerm.trim() === '' || 
+                          lang.name.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
+                        .map(lang => (
+                          <div
                   key={lang.id}
+                            className={cn(
+                              "flex items-center justify-between px-3 py-2 cursor-pointer rounded-md transition-colors",
+                              selectedLanguages.includes(String(lang.id)) 
+                                ? "bg-primary/10 text-primary shadow-sm"
+                                : "hover:bg-accent"
+                            )}
+                            onClick={() => handleLanguageSelect(String(lang.id))}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <Code className="h-4 w-4 opacity-80" />
+                              <span className="truncate font-medium text-sm">{lang.name}</span>
+                            </div>
+                            <div className="flex items-center">
+                              {selectedLanguages.includes(String(lang.id)) ? (
+                                <CheckCheck className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Plus className="h-4 w-4 opacity-60" />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Selected Languages - Improved UI */}
+                <div className="w-full md:w-2/3 p-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-medium flex items-center gap-2">
+                      <Terminal className="h-4 w-4 text-primary" />
+                      Selected Languages
+                      <Badge variant="outline" className="ml-1">
+                        {selectedLanguages.length}
+                      </Badge>
+                    </h3>
+                    <div className="flex gap-2">
+                      <Button 
                   type="button"
-                  variant={selectedLanguages.includes(lang.id) ? 
-                    lang.id === defaultLanguage ? "default" : "secondary" : "outline"}
+                        variant="outline"
+                        size="sm"
+                        onClick={addAllLanguages}
+                        className="text-xs"
+                        disabled={languages.length === 0}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1.5" />
+                        Add All
+                      </Button>
+                      
+                      <Select 
+                        value={defaultLanguage} 
+                        onValueChange={handleSetDefaultLanguage}
+                        disabled={selectedLanguages.length === 0}
+                      >
+                        <SelectTrigger className={cn("w-[160px] h-8 text-xs", formErrors.defaultLanguage ? "border-destructive" : "")}>
+                          <SelectValue placeholder="Default Language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedLanguages.length > 0 && selectedLanguages.map((langId) => {
+                            const lang = languages.find(l => String(l.id) === langId);
+                            return (
+                              <SelectItem key={langId} value={langId}>
+                                {lang?.name || langId}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {selectedLanguages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
+                      <Code className="h-12 w-12 mb-2 opacity-20" />
+                      <p className="text-sm font-medium">No languages selected</p>
+                      <p className="text-xs mt-1 max-w-[300px] text-center">
+                        Select programming languages from the list on the left or click "Add All" to include all available languages.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSearchTerm('')}
+                        className="mt-4"
+                      >
+                        Browse Languages
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[350px] overflow-y-auto pr-2">
+                      {selectedLanguages.map(langId => {
+                        const language = languages.find(l => String(l.id) === langId);
+                        const isDefaultLang = langId === defaultLanguage;
+                        
+                        return (
+                          <div 
+                            key={langId}
                   className={cn(
-                    "flex items-center gap-2 w-full justify-start",
-                    lang.id === defaultLanguage && "border-2 border-primary"
-                  )}
-                  onClick={() => handleLanguageSelect(lang.id)}
-                >
-                  <Code className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{lang.name}</span>
-                  {lang.id === defaultLanguage && (
-                    <span className="ml-auto text-xs bg-primary/20 px-1 rounded">Default</span>
-                  )}
+                              "group relative min-h-[110px] transition-all duration-200 overflow-hidden rounded-md flex flex-col box-border",
+                              isDefaultLang 
+                                ? "bg-gradient-to-br from-primary/5 to-primary/10 shadow-md" 
+                                : "bg-card hover:shadow-md"
+                            )}
+                          >
+                            {/* Card border with gradient effect */}
+                            <div className={cn(
+                              "absolute inset-0 pointer-events-none border",
+                              isDefaultLang 
+                                ? "border-primary/40 shadow-sm" 
+                                : "border-border group-hover:border-primary/20"
+                            )} />
+                            
+                            {/* Subtle background pattern for depth */}
+                            <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]" />
+                            
+                            {/* Default badge */}
+                            {isDefaultLang && (
+                              <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 font-medium shadow-sm">
+                                DEFAULT
+                              </div>
+                            )}
+                            
+                            {/* Content container */}
+                            <div className="relative h-full p-4 flex flex-col box-border">
+                              <div className="flex flex-nowrap items-start gap-3 w-full box-border">
+                                <div className="flex items-center flex-shrink-0 gap-3 box-border">
+                                  {/* Icon with better styling */}
+                                  <div className={cn(
+                                    "flex items-center justify-center w-8 h-8 rounded-md shadow-sm",
+                                    isDefaultLang 
+                                      ? "bg-primary/15 text-primary ring-1 ring-primary/20" 
+                                      : "bg-muted text-muted-foreground"
+                                  )}>
+                                    <FileCode className="h-4 w-4" />
+                                  </div>
+                                  
+                                  {/* Language name and ID with better typography */}
+                                  <div className="min-w-0 flex-1 w-full overflow-hidden box-border">
+                                    <h4 className={cn(
+                                      "font-medium text-sm truncate block w-full min-w-0 box-border",
+                                      isDefaultLang && "text-primary"
+                                    )} title={language?.name || langId}>
+                                      {language?.name || langId}
+                                    </h4>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1 min-w-0 box-border">
+                                      <code className="bg-muted/50 px-1 rounded text-[10px] font-mono truncate max-w-[60px] block min-w-0 box-border" title={langId}>
+                                        {langId}
+                                      </code>
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* Remove button with improved positioning and styling */}
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 box-border">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full hover:bg-destructive/10 hover:text-destructive p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLanguageSelect(langId);
+                                    }}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
                 </Button>
-              ))}
+                                </div>
+                              </div>
+                              
+                              {/* Buttons with modernized styling */}
+                              <div className="mt-auto pt-3 flex flex-wrap justify-end gap-2 box-border">
+                                {!isDefaultLang && (
+                                  <Button
+                                    type="button"
+                                    variant={isDefaultLang ? "default" : "secondary"}
+                                    size="sm"
+                                    className={cn(
+                                      "h-7 px-3 text-xs justify-center rounded-md transition-colors",
+                                      !isDefaultLang && "bg-muted/70 hover:bg-primary/10 hover:text-primary"
+                                    )}
+                                    onClick={() => handleSetDefaultLanguage(langId)}
+                                  >
+                                    <CheckCheck className="h-3 w-3 mr-1" />
+                                    Set Default
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-3 text-xs justify-center rounded-md border-muted-foreground/20 hover:bg-accent hover:border-accent"
+                                  onClick={() => {
+                                    setActiveLanguageTab(langId);
+                                  }}
+                                >
+                                  <Code className="h-3 w-3 mr-1" />
+                                  Edit Code
+                                </Button>
+                              </div>
+                              
+                              {/* Subtle indicator dot for selected status */}
+                              <div className={cn(
+                                "absolute w-1.5 h-1.5 rounded-full top-4 left-4 z-10 box-border",
+                                isDefaultLang ? "bg-primary" : "bg-muted-foreground/40"
+                              )} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
             </div>
 
             {selectedLanguages.length > 0 && (
-              <Tabs value={activeLanguageTab} onValueChange={setActiveLanguageTab}>
-                <TabsList className="w-full overflow-x-auto">
-                  <div className="flex gap-2 min-w-max">
-                    {selectedLanguages.map((langId) => (
-                      <TabsTrigger key={langId} value={langId} className="whitespace-nowrap">
-                        {SUPPORTED_LANGUAGES.find(l => l.id === langId)?.name || langId}
-                      </TabsTrigger>
-                    ))}
+            <div className="mt-6 border rounded-lg overflow-hidden bg-card">
+              {/* Enhanced header with modern design */}
+              <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-primary/5 via-muted/40 to-background/80 rounded-t-lg shadow-sm border-b border-muted/40 relative">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center justify-center rounded-full bg-primary/10 p-2">
+                    <Terminal className="h-6 w-6 text-primary" />
+                  </span>
+                  <span className="text-lg font-semibold text-foreground tracking-tight flex items-center gap-2">
+                    Code Editor
+                    <span className="group relative">
+                      <svg className="h-4 w-4 text-muted-foreground cursor-pointer" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                      <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-max min-w-[180px] bg-background border border-muted-foreground/10 text-xs text-muted-foreground rounded-md shadow-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-20 transition-opacity">
+                        This editor lets you define the solution and starter code for each selected language. Use the dropdown to switch languages.
+                      </span>
+                    </span>
+                  </span>
+                  {activeLanguageTab && languages.find(l => String(l.id) === activeLanguageTab) && (
+                    <div className="flex items-center gap-1.5 ml-3 text-muted-foreground text-xs bg-muted/40 px-2 py-0.5 rounded">
+                      <span className="font-medium text-foreground">
+                        {languages.find(l => String(l.id) === activeLanguageTab)?.name || ''}
+                      </span>
+                      {activeLanguageTab === defaultLanguage && (
+                        <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20 text-primary font-normal h-4 py-0 ml-1">
+                          default
+                        </Badge>
+                      )}
                   </div>
-                </TabsList>
+                  )}
+                </div>
+                {/* Language selector dropdown, visually integrated */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium mr-1 hidden sm:inline">Language:</span>
+                  <Select 
+                    value={activeLanguageTab} 
+                    onValueChange={setActiveLanguageTab}
+                  >
+                    <SelectTrigger className="min-w-[160px] h-9 bg-background/95 border shadow rounded-lg hover:shadow-md transition-all flex items-center gap-2 px-3">
+                      <Code className="h-4 w-4 text-primary" />
+                      <SelectValue placeholder="Select language">
+                        {languages.find(l => String(l.id) === activeLanguageTab)?.name || 'Select language'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="shadow-md border-primary/10 rounded-md overflow-hidden">
+                      <div className="px-1 py-1 border-b bg-muted/30">
+                        <p className="text-xs text-muted-foreground px-2 py-1">
+                          {selectedLanguages.length} languages selected
+                        </p>
+                      </div>
+                      <div className="max-h-[250px] overflow-y-auto p-1">
+                        {selectedLanguages.map((langId) => {
+                          const lang = languages.find(l => String(l.id) === langId);
+                          const isDefault = langId === defaultLanguage;
+                          return (
+                            <SelectItem 
+                              key={langId} 
+                              value={langId}
+                              className={cn(
+                                "flex items-center cursor-pointer rounded-md pl-2 pr-8 py-1.5 relative transition-colors",
+                                activeLanguageTab === langId ? "bg-primary/10" : "hover:bg-accent",
+                                isDefault && "border-l-2 border-primary pl-[7px]"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                <Code className={cn(
+                                  "h-3.5 w-3.5",
+                                  isDefault ? "text-primary" : "text-muted-foreground"
+                                )} />
+                                <span>{lang?.name || langId}</span>
+                                {isDefault && (
+                                  <Badge variant="outline" className="ml-auto text-[10px] bg-primary/10 text-primary">
+                                    default
+                                  </Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </div>
+                      <div className="p-1 border-t bg-muted/30 flex">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full h-7 text-xs justify-center mt-0.5"
+                          onClick={() => {
+                            if (activeLanguageTab !== defaultLanguage) {
+                              handleSetDefaultLanguage(activeLanguageTab);
+                            }
+                          }}
+                          disabled={activeLanguageTab === defaultLanguage}
+                        >
+                          <CheckCheck className="h-3.5 w-3.5 mr-1.5" />
+                          Set as Default
+                        </Button>
+                      </div>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Subtle shadow divider at bottom of header */}
+                <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-muted/40 to-transparent pointer-events-none" />
+              </div>
+              {/* End enhanced header, rest of code editor UI remains unchanged */}
+              <div className="relative">
+                <Tabs value={activeLanguageTab} className="w-full">
                 {selectedLanguages.map((langId) => {
                   const langOption = getLanguageOption(langId);
+                    const langName = languages.find(l => String(l.id) === langId)?.name || langId;
                   
                   return (
-                    <TabsContent key={langId} value={langId} className="space-y-4">
-                      <Tabs defaultValue="solution">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="solution">Solution</TabsTrigger>
-                          <TabsTrigger value="preload">Preload Code</TabsTrigger>
+                      <TabsContent key={langId} value={langId} className="p-0 border-0 mt-0">
+                        <Tabs defaultValue="solution" className="w-full">
+                          <div className="flex items-center px-4 py-2 bg-card border-b">
+                            <TabsList className="bg-muted/30 p-0.5 h-auto rounded-md">
+                              <TabsTrigger value="solution" className="data-[state=active]:bg-background text-xs py-1 h-7 px-3 rounded-sm transition-all">
+                                <FileCode className="h-3.5 w-3.5 mr-1.5" />
+                                Solution Code
+                              </TabsTrigger>
+                              <TabsTrigger value="preload" className="data-[state=active]:bg-background text-xs py-1 h-7 px-3 rounded-sm transition-all">
+                                <FileEdit className="h-3.5 w-3.5 mr-1.5" />
+                                Preload Code
+                              </TabsTrigger>
                         </TabsList>
-                        <TabsContent value="solution">
+                          </div>
+                          
+                          <TabsContent value="solution" className="mt-0 p-0 border-0">
+                            <div className="p-4">
+                              <div className="mb-3">
+                                <h4 className="text-sm font-medium mb-1 text-foreground">
+                                  Solution Code
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  Write the correct solution that will be used to validate test cases.
+                                </p>
+                              </div>
+                              <div className="relative overflow-hidden border shadow-sm bg-background transition-all hover:shadow-md focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/20">
+                                <div className="absolute top-0 right-0 bg-muted/20 px-3 py-1 text-[10px] text-muted-foreground border-l border-b rounded-bl-md z-10">
+                                  {langName}
+                                </div>
                           <CodeEditor
                             value={langOption?.solution || ""}
                             onChange={(value) => updateLanguageOption(langId, "solution", value)}
-                            language={getEditorLanguage(langId)}
-                            placeholder={`Enter ${SUPPORTED_LANGUAGES.find(l => l.id === langId)?.name || langId} solution code`}
-                            className="border rounded-md"
+                                  language={getEditorLanguage(langId) || "javascript"}
+                                  placeholder={`Enter ${langName} solution code`}
+                                  className="overflow-hidden"
+                                  height="320px"
                           />
+                              </div>
+                            </div>
                         </TabsContent>
-                        <TabsContent value="preload">
+                          
+                          <TabsContent value="preload" className="mt-0 p-0 border-0">
+                            <div className="p-4">
+                              <div className="mb-3">
+                                <h4 className="text-sm font-medium mb-1 text-foreground">
+                                  Preload Code
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  Write starter code that will be shown to students when they begin solving the problem.
+                                </p>
+                              </div>
+                              <div className="relative overflow-hidden border shadow-sm bg-background transition-all hover:shadow-md focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/20">
+                                <div className="absolute top-0 right-0 bg-muted/20 px-3 py-1 text-[10px] text-muted-foreground border-l border-b rounded-bl-md z-10">
+                                  {langName}
+                                </div>
                           <CodeEditor
                             value={langOption?.preloadCode || ""}
                             onChange={(value) => updateLanguageOption(langId, "preloadCode", value)}
-                            language={getEditorLanguage(langId)}
-                            placeholder={`Enter ${SUPPORTED_LANGUAGES.find(l => l.id === langId)?.name || langId} preload code`}
-                            className="border rounded-md"
+                                  language={getEditorLanguage(langId) || "javascript"}
+                                  placeholder={`Enter ${langName} preload code`}
+                                  className="overflow-hidden"
+                                  height="320px"
                           />
+                              </div>
+                            </div>
                         </TabsContent>
                       </Tabs>
                     </TabsContent>
                   );
                 })}
               </Tabs>
-            )}
           </div>
+            </div>
+          )}
 
           {/* Test Cases */}
           <div className="space-y-4">

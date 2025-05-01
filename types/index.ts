@@ -19,17 +19,9 @@ export interface Folder {
 export type QuestionType = "MCQ" | "CODING"
 export type QuestionStatus = "DRAFT" | "READY"
 export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD"
-export type ProgrammingLanguage = 
-  | "PYTHON" 
-  | "JAVASCRIPT" 
-  | "JAVA" 
-  | "CPP" 
-  | "CSHARP" 
-  | "PHP" 
-  | "RUBY" 
-  | "SWIFT" 
-  | "GO" 
-  | "RUST"
+
+// Replace the enum with a string type - languages will be dynamically loaded from Judge0
+export type ProgrammingLanguage = string;
 
 export interface MCQOption {
   id: string;

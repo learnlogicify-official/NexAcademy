@@ -16,19 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
-const SUPPORTED_LANGUAGES = [
-  { id: "PYTHON", name: "Python" },
-  { id: "JAVASCRIPT", name: "JavaScript" },
-  { id: "JAVA", name: "Java" },
-  { id: "CPP", name: "C++" },
-  { id: "CSHARP", name: "C#" },
-  { id: "PHP", name: "PHP" },
-  { id: "RUBY", name: "Ruby" },
-  { id: "SWIFT", name: "Swift" },
-  { id: "GO", name: "Go" },
-  { id: "RUST", name: "Rust" },
-];
+import { useJudge0Languages } from '../hooks/useJudge0Languages';
 
 interface EditCodingQuestionModalProps {
   isOpen: boolean;
@@ -75,6 +63,7 @@ export function EditCodingQuestionModal({
   });
   const [showTestCaseForm, setShowTestCaseForm] = useState(false);
   const [testCasesCollapsed, setTestCasesCollapsed] = useState(false);
+  const { languages, loading, error } = useJudge0Languages();
 
   // Get correct programming language for code editor
   const getEditorLanguage = (langId: string): string => {
@@ -216,8 +205,27 @@ export function EditCodingQuestionModal({
     }
   };
 
+  const handleAddAllLanguages = () => {
+    if (!languages || languages.length === 0) return;
+    const allLangIds = languages.map(lang => String(lang.id));
+    setSelectedLanguages(allLangIds);
+    // Optionally, add languageOptions for each
+    setFormData(prev => ({
+      ...prev,
+      languageOptions: allLangIds.map(langId => ({
+        id: `lang-${langId}-${Date.now()}`,
+        language: langId,
+        solution: '',
+        preloadCode: ''
+      }))
+    }));
+    // Set the first language as default and active
+    setDefaultLanguage(allLangIds[0] || '');
+    setActiveLanguageTab(allLangIds[0] || '');
+  };
+
   const getLanguageName = (langId: string) => {
-    return SUPPORTED_LANGUAGES.find(l => l.id === langId)?.name || langId;
+    return languages.find(l => String(l.id) === langId)?.name || langId;
   };
 
   const getLanguageOption = (langId: string) => {
@@ -356,7 +364,7 @@ export function EditCodingQuestionModal({
     
     // Prepare and deduplicate language options
     const dedupedOptions = formData.languageOptions.filter(opt => 
-      selectedLanguages.includes(opt.language)
+      selectedLanguages.includes(String(opt.language))
     );
     
     return {
@@ -491,53 +499,7 @@ export function EditCodingQuestionModal({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    // Add all languages at once
-                    const allLangIds = SUPPORTED_LANGUAGES.map(lang => lang.id);
-                    
-                    // Keep existing language options
-                    const currentOptions = new Map();
-                    formData.languageOptions.forEach(opt => {
-                      currentOptions.set(opt.language, opt);
-                    });
-                    
-                    // Create language options for all supported languages
-                    const newLangOptions = [];
-                    
-                    // For each supported language
-                    for (const langId of allLangIds) {
-                      // If we already have this language, keep its existing data
-                      if (currentOptions.has(langId)) {
-                        newLangOptions.push(currentOptions.get(langId));
-                      } else {
-                        // Otherwise create a new empty option
-                        newLangOptions.push({
-                          id: `lang-${langId}-${Date.now()}`,
-                          language: langId,
-                          solution: "",
-                          preloadCode: ""
-                        });
-                      }
-                    }
-                    
-                    // Update state
-                    setSelectedLanguages(allLangIds);
-                    
-                    // Keep the current active tab or use the first language
-                    if (!allLangIds.includes(activeLanguageTab)) {
-                      setActiveLanguageTab(allLangIds[0]);
-                    }
-                    
-                    // Keep the current default language or use the first language
-                    if (!allLangIds.includes(defaultLanguage)) {
-                      setDefaultLanguage(allLangIds[0]);
-                    }
-                    
-                    setFormData(prev => ({
-                      ...prev,
-                      languageOptions: newLangOptions
-                    }));
-                  }}
+                  onClick={handleAddAllLanguages}
                   className="mr-2"
                 >
                   Add All Languages
@@ -562,21 +524,20 @@ export function EditCodingQuestionModal({
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-              {SUPPORTED_LANGUAGES.map((lang) => (
+              {languages.map((lang) => (
                 <Button
                   key={lang.id}
                   type="button"
-                  variant={selectedLanguages.includes(lang.id) ? 
-                    lang.id === defaultLanguage ? "default" : "secondary" : "outline"}
+                  variant={selectedLanguages.includes(String(lang.id)) ? (String(lang.id) === defaultLanguage ? "default" : "secondary") : "outline"}
                   className={cn(
                     "flex items-center gap-2 w-full justify-start",
-                    lang.id === defaultLanguage && "border-2 border-primary"
+                    String(lang.id) === defaultLanguage && "border-2 border-primary"
                   )}
-                  onClick={() => handleLanguageSelect(lang.id)}
+                  onClick={() => handleLanguageSelect(String(lang.id))}
                 >
                   <Code className="h-4 w-4 shrink-0" />
                   <span className="truncate">{lang.name}</span>
-                  {lang.id === defaultLanguage && (
+                  {String(lang.id) === defaultLanguage && (
                     <span className="ml-auto text-xs bg-primary/20 px-1 rounded">Default</span>
                   )}
                 </Button>

@@ -4,9 +4,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-// Add this mapping function near the top of the file
-function mapLanguage(lang) {
-  switch ((lang || '').toUpperCase()) {
+// Update the language mapping function to support numeric Judge0 language IDs
+function mapLanguage(lang: string | number): string {
+  // Handle numeric language IDs from Judge0
+  if (!isNaN(Number(lang))) {
+    // It's a numeric language ID, keep it as a string
+    return String(lang);
+  }
+
+  // For backward compatibility, handle the old string-based values
+  switch ((String(lang) || '').toUpperCase()) {
     case 'PYTHON':
       return 'PYTHON3';
     case 'PYTHON3':
@@ -34,7 +41,9 @@ function mapLanguage(lang) {
     case 'RUST':
       return 'RUST';
     default:
-      throw new Error(`Unsupported language: ${lang}`);
+      // For any other language, just pass it through as a string
+      // This will handle new Judge0 language IDs that we don't know about yet
+      return String(lang);
   }
 }
 
