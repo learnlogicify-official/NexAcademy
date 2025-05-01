@@ -870,7 +870,8 @@ export default function AdminQuestionsPage() {
       input: tc.input || "",
       output: tc.output || tc.expectedOutput || "", // Handle both output and expectedOutput fields
       isHidden: tc.isHidden === true,
-      type: tc.isHidden === true ? "hidden" : "sample"
+      type: tc.isHidden === true ? "hidden" : "sample",
+      showOnFailure: tc.showOnFailure === true // Always include showOnFailure, default to false if undefined
     }));
     console.log("EDIT QUESTION - Formatted test cases:", JSON.stringify(testCases, null, 2));
     
@@ -1441,7 +1442,7 @@ export default function AdminQuestionsPage() {
       (languages && languages.length > 0 ? String(languages[0].id) : "");
 
     console.log(
-      "Parsing Moodle XML questions with default language:",
+      "Parsing XML questions with default language:",
       defaultLangId
     );
 
@@ -1586,38 +1587,19 @@ export default function AdminQuestionsPage() {
   // In the component body, just before rendering the folder picker:
   const folderTreeForPicker = buildFolderTree(folders);
 
+  // Add reloadQuestions function for Aiken import success
+  const reloadQuestions = async () => {
+    await fetchQuestions();
+    await fetchFolders();
+  };
+
   return (
     <div className="container mx-auto py-6 bg-background">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-foreground">Question bank</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('table')}
-              title="Table View"
-            >
-              <TableIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              title="List View"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-          </div>
-          
+          {/* Remove the three view mode icons and export button, only keep import buttons */}
+          <AikenImportButton folders={folders} onSuccess={reloadQuestions} />
           <Dialog open={isImportModalOpen} onOpenChange={(open) => {
             setIsImportModalOpen(open);
             // Reset all state when closing the modal
@@ -1637,17 +1619,17 @@ export default function AdminQuestionsPage() {
             <DialogTrigger asChild>
               <Button variant="outline" className="ml-2">
                 <Upload className="mr-2 h-4 w-4" />
-                Import Coding Questions (Moodle XML)
+                Import Coding Questions (XML)
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-xl flex items-center">
                   <Code className="h-5 w-5 mr-2 text-primary" />
-                  Import Coding Questions from Moodle XML
+                  Import Coding Questions from XML
                 </DialogTitle>
                 <DialogDescription className="text-base opacity-90">
-                  Upload a Moodle XML file containing coderunner questions to import them into your question bank.
+                  Upload a XML file containing coderunner questions to import them into your question bank.
                 </DialogDescription>
               </DialogHeader>
               
@@ -1656,7 +1638,7 @@ export default function AdminQuestionsPage() {
                 <div className="border rounded-lg p-4 bg-card">
                   <div className="flex items-center mb-3">
                     <div className="h-6 w-6 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center text-sm font-semibold mr-2">1</div>
-                    <h3 className="text-base font-medium">Upload Moodle XML File</h3>
+                    <h3 className="text-base font-medium">Upload XML File</h3>
                   </div>
                   
                   {fileContent ? (
@@ -1717,7 +1699,7 @@ export default function AdminQuestionsPage() {
                         <span className="text-sm font-medium mb-1">Click to upload XML file</span>
                         <span className="text-xs text-muted-foreground">or drag and drop</span>
                         <span className="mt-2 text-xs px-2 py-1 bg-muted rounded-md inline-block">
-                          Only Moodle XML files with coderunner questions
+                          Only XML files with coderunner questions
                         </span>
                       </label>
                     </div>
@@ -1815,7 +1797,7 @@ export default function AdminQuestionsPage() {
                                       if (folder.name.toLowerCase().includes(searchTerm)) {
                                         newExpanded.add(folder.id);
                                       }
-                                      folder.subfolders?.forEach(subfolder => {
+                                      folder.subfolders?.forEach((subfolder: any) => {
                                         if (subfolder.name.toLowerCase().includes(searchTerm)) {
                                           newExpanded.add(folder.id);
                                         }
@@ -2197,11 +2179,7 @@ export default function AdminQuestionsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          {/* Restore Create Question button and its dialog/modal */}
           <Dialog open={isQuestionTypeModalOpen} onOpenChange={setIsQuestionTypeModalOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleCreateQuestion}>
@@ -2236,24 +2214,18 @@ export default function AdminQuestionsPage() {
               </div>
             </DialogContent>
           </Dialog>
-
           {/* MCQ Question Modal */}
           <Dialog open={isFormModalOpen} onOpenChange={(open) => {
             setIsFormModalOpen(open);
             if (!open) {
-              console.log("MCQ Modal Closed - Resetting editing state");
               setEditingQuestion(undefined);
               setSelectedQuestionType(null);
-            } else {
-              console.log("MCQ Modal Opened - Current editing question:", JSON.stringify(editingQuestion, null, 2));
             }
           }}>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
                 <DialogTitle>{editingQuestion ? "Edit Question" : "Create New Question"}</DialogTitle>
               </DialogHeader>
-              {/* Log before rendering */}
-              <div style={{display: 'none'}}>{(() => { console.log("Rendering MCQ Form Modal with data:", JSON.stringify(editingQuestion, null, 2)); return null; })()}</div>
               <QuestionFormModal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -2266,30 +2238,24 @@ export default function AdminQuestionsPage() {
               />
             </DialogContent>
           </Dialog>
-
           {/* Coding Question Modal */}
           <Dialog open={isCodingFormModalOpen} onOpenChange={(open) => {
             setIsCodingFormModalOpen(open);
             if (!open) {
-              console.log("Coding Modal Closed - Resetting editing state");
               setEditingQuestion(undefined);
               setSelectedQuestionType(null);
-            } else {
-              console.log("Coding Modal Opened - Current editing question:", JSON.stringify(editingQuestion, null, 2));
             }
           }}>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>{editingQuestion ? "Edit Coding Question" : "Create New Coding Question"}</DialogTitle>
               </DialogHeader>
-              {/* Log before rendering */}
-              <div style={{display: 'none'}}>{(() => { console.log("Rendering Coding Form Modal with data:", JSON.stringify(editingQuestion, null, 2)); return null; })()}</div>
               <CodingQuestionFormModal
                 isOpen={isCodingFormModalOpen}
                 onClose={() => setIsCodingFormModalOpen(false)}
                 onSubmit={handleFormSubmit}
                 initialData={editingQuestion}
-                folders={folders as any}
+                folders={buildFolderTree(folders)}
                 onAddFolder={() => setIsCreateFolderModalOpen(true)}
               />
             </DialogContent>

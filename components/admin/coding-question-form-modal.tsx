@@ -55,7 +55,7 @@ interface Folder {
   id: string;
   name: string;
   parentId: string | null;
-  subfolders?: { id: string; name: string }[];
+  subfolders?: Folder[];
 }
 
 interface CodingQuestionFormModalProps {
@@ -1653,41 +1653,63 @@ export function CodingQuestionFormModal({
                 value={formData.folderId}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, folderId: value }))}
               >
-                <SelectTrigger className={cn(selectTriggerClass, formErrors.folderId && "border-destructive")}>
+                <SelectTrigger className={cn(selectTriggerClass, formErrors.folderId && "border-destructive")}> 
                   <SelectValue placeholder="Select folder">
                     {(() => {
-                      // First try to find the subfolder
-                      for (const folder of folders) {
-                        if (folder.subfolders) {
-                          const subfolder = folder.subfolders.find(sub => sub.id === formData.folderId);
-                          if (subfolder) {
-                            return `${folder.name} / ${subfolder.name}`;
+                      // Recursively find the folder/subfolder path for display
+                      function findFolderPath(folders: Folder[], id: string): string | null {
+                        for (const folder of folders) {
+                          if (folder.id === id) return folder.name;
+                          if (folder.subfolders) {
+                            const sub = folder.subfolders.find(sub => sub.id === id);
+                            if (sub) return `${folder.name} / ${sub.name}`;
                           }
                         }
+                        return null;
                       }
-                      // If not a subfolder, find the main folder
-                      const folder = folders.find(f => f.id === formData.folderId);
-                      return folder?.name || "Select a folder";
+                      return findFolderPath(folders, formData.folderId) || "Select a folder";
                     })()}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border border-primary/10 shadow-lg">
-                  {folders.map((folder) => (
-                    <div key={folder.id}>
-                      <SelectItem value={folder.id} className="hover:bg-primary/5 cursor-pointer focus:bg-primary/5">
-                        {folder.name}
-                      </SelectItem>
-                      {folder.subfolders?.map((subfolder) => (
-                        <SelectItem 
-                          key={subfolder.id} 
-                          value={subfolder.id}
-                          className="pl-6 hover:bg-primary/5 cursor-pointer focus:bg-primary/5"
-                        >
-                          └─ {subfolder.name}
-                        </SelectItem>
-                      ))}
-                    </div>
-                  ))}
+                <SelectContent className="rounded-xl border border-primary/10 shadow-lg max-h-72 overflow-y-auto">
+                  {(() => {
+                    // Recursive rendering function with proper typing
+                    const renderFolderTree = (folders: Folder[], level = 0): React.ReactNode[] => {
+                      return folders.flatMap(folder => {
+                        const items: React.ReactNode[] = [
+                          <SelectItem 
+                            key={folder.id} 
+                            value={folder.id} 
+                            className={cn(
+                              "flex items-center gap-2 py-2.5 px-2 hover:bg-primary/5 rounded-md transition-colors",
+                              level > 0 && `pl-${2 + level * 4}`
+                            )}
+                          >
+                            <div className="flex items-center gap-2 truncate w-full">
+                              {level > 0 && (
+                                <span className="inline-block w-[8px] h-[1px] bg-muted-foreground/50"></span>
+                              )}
+                              <Folder className={cn(
+                                "h-4 w-4 flex-shrink-0",
+                                level === 0 ? "text-primary" : "text-muted-foreground"
+                              )} />
+                              <span className={cn(
+                                "truncate",
+                                level === 0 ? "font-medium" : "text-sm"
+                              )}>
+                                {folder.name}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ];
+                        if (folder.subfolders && folder.subfolders.length > 0) {
+                          items.push(...renderFolderTree(folder.subfolders as Folder[], level + 1));
+                        }
+                        return items;
+                      });
+                    };
+                    return renderFolderTree(folders);
+                  })()}
                 </SelectContent>
               </Select>
               {formErrors.folderId && (
@@ -1712,7 +1734,7 @@ export function CodingQuestionFormModal({
             >
               <Editor
                 apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
-                value={formData.questionText}
+              value={formData.questionText}
                 onInit={(_evt: unknown, editor: TinyMCEEditor) => { editorRef.current = editor; }}
                 onEditorChange={(content: string) => setFormData(prev => ({ ...prev, questionText: content }))}
                 init={{
@@ -2784,19 +2806,19 @@ export function CodingQuestionFormModal({
             <Button
               type="submit"
               disabled={isValidating || isSubmitting}
-              className="rounded-full px-8 py-2 font-bold bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-primary/90 transition-all duration-300 relative overflow-hidden group"
-            >
-              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-400/20 via-transparent to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-              <span className="relative flex items-center">
+                  className="rounded-full px-8 py-2 font-bold bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-primary/90 transition-all duration-300 relative overflow-hidden group"
+                >
+                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-400/20 via-transparent to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                  <span className="relative flex items-center">
                 {isSubmitting ? (
                   <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                   </svg>
                 ) : initialData 
-                  ? <><CheckCheck className="mr-2 h-4 w-4" /> Update Question</> 
-                  : <><Plus className="mr-2 h-4 w-4" /> Create Question</>}
-              </span>
+                      ? <><CheckCheck className="mr-2 h-4 w-4" /> Update Question</> 
+                      : <><Plus className="mr-2 h-4 w-4" /> Create Question</>}
+                  </span>
             </Button>
               </div>
             </div>

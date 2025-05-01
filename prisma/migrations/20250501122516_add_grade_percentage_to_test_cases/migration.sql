@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "TestCase" ADD COLUMN     "gradePercentage" DOUBLE PRECISION NOT NULL DEFAULT 0.0;

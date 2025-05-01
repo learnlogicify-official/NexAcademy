@@ -224,6 +224,7 @@ model TestCase {
   isSample         Boolean        @default(false)
   isHidden         Boolean        @default(false)
   showOnFailure    Boolean        @default(false)
+  gradePercentage  Float          @default(0.0)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   codingQuestionId String
