@@ -222,90 +222,171 @@ export async function PUT(
     }
 
     // Update the question with new data and user information
-    const updatedQuestion = await prisma.question.update({
-      where: { id: questionId },
-      data: {
-        name,
-        type,
-        folderId,
-        status,
-        lastModifiedBy: session.user.id,
-        lastModifiedByName: session.user.name || "Unknown User",
-        updatedAt: new Date(),
-        mCQQuestion: type === 'MCQ' ? {
-          update: {
-            questionText,
-            defaultMark: Number(defaultMark) || 1,
-            isMultiple: Boolean(mCQQuestion?.isMultiple || isMultiple),
-            shuffleChoice: Boolean(mCQQuestion?.shuffleChoice || shuffleChoice),
-            difficulty,
-            generalFeedback,
-            options: {
-              deleteMany: {},
-              create: (mCQQuestion?.options || []).map((option: any) => ({
-                text: option.text,
-                grade: Number(option.grade) || 0,
-                feedback: option.feedback || ''
-              }))
+    let updatedQuestion;
+    
+    try {
+      // Begin a transaction to ensure all updates are atomic
+      updatedQuestion = await prisma.$transaction(async (tx) => {
+        // 1. Update the basic question data
+        const question = await tx.question.update({
+          where: { id: questionId },
+          data: {
+            name,
+            type,
+            folderId,
+            status,
+            lastModifiedBy: session.user.id,
+            lastModifiedByName: session.user.name || "Unknown User",
+            updatedAt: new Date(),
+          },
+          include: {
+            mCQQuestion: true,
+            codingQuestion: true
+          }
+        });
+
+        // 2. Handle MCQ Question updates
+        if (type === 'MCQ' && mCQQuestion) {
+          // Delete existing options
+          await tx.mCQOption.deleteMany({
+            where: { mcqQuestionId: question.mCQQuestion?.id }
+          });
+
+          // Update MCQ question
+          await tx.mCQQuestion.update({
+            where: { questionId },
+            data: {
+              questionText,
+              defaultMark: Number(defaultMark) || 1,
+              isMultiple: Boolean(mCQQuestion.isMultiple || isMultiple),
+              shuffleChoice: Boolean(mCQQuestion.shuffleChoice || shuffleChoice),
+              difficulty,
+              generalFeedback,
+              // Create new options
+              options: {
+                create: (mCQQuestion.options || []).map((option: any) => ({
+                  text: option.text,
+                  grade: Number(option.grade) || 0,
+                  feedback: option.feedback || ''
+                }))
+              }
+            }
+          });
+        }
+        
+        // 3. Handle Coding Question updates
+        if (type === 'CODING' && codingQuestion) {
+          // Get the coding question ID
+          const codingQuestionId = question.codingQuestion?.id;
+          
+          if (!codingQuestionId) {
+            throw new Error('Coding question not found');
+          }
+          
+          // Update the coding question basic info with only essential fields
+          await tx.codingQuestion.update({
+            where: { questionId },
+            data: {
+              questionText,
+              defaultMark: Number(defaultMark) || 1,
+              defaultLanguage: codingQuestion.defaultLanguage || null,
+              // Skip the isAllOrNothing field for now
+            }
+          });
+          
+          // Use raw SQL to update the isAllOrNothing field
+          const isAllOrNothingValue = Boolean(
+            codingQuestion?.isAllOrNothing || 
+            codingQuestion?.allOrNothingGrading || 
+            allOrNothingGrading || 
+            false
+          );
+          
+          await tx.$executeRaw`
+            UPDATE "CodingQuestion" 
+            SET "isAllOrNothing" = ${isAllOrNothingValue}, 
+                "difficulty" = ${difficulty || "MEDIUM"}::TEXT::"QuestionDifficulty"
+            WHERE "questionId" = ${questionId}
+          `;
+          
+          // Delete existing language options
+          await tx.languageOption.deleteMany({
+            where: { codingQuestionId }
+          });
+          
+          // Create new language options
+          if (codingQuestion.languageOptions && Array.isArray(codingQuestion.languageOptions)) {
+            for (const lang of codingQuestion.languageOptions) {
+              await tx.languageOption.create({
+                data: {
+                  codingQuestionId,
+                  language: lang.language,
+                  solution: lang.solution || '',
+                  preloadCode: lang.preloadCode || ''
+                }
+              });
             }
           }
-        } : undefined,
-        codingQuestion: type === 'CODING' ? {
-          update: {
-            questionText,
-            defaultMark: Number(defaultMark) || 1,
-            isAllOrNothing: Boolean(codingQuestion?.isAllOrNothing || codingQuestion?.allOrNothingGrading || allOrNothingGrading || false),
-            difficulty: difficulty || "MEDIUM",
-            languageOptions: {
-              deleteMany: {},
-              create: (codingQuestion?.languageOptions || []).map((lang: any) => ({
-                language: lang.language,
-                solution: lang.solution,
-                preloadCode: lang.preloadCode || ""
-              }))
-            },
-            testCases: {
-              deleteMany: {},
-              create: (codingQuestion?.testCases || []).map((testCase: any) => {
-                // Map type string to boolean fields
-                const isSample = testCase.isSample ;
-                const isHidden = testCase.isHidden ;
-                
-                return {
-                  input: testCase.input,
-                  output: testCase.output,
-                  isSample: isSample,
-                  isHidden: isHidden,
-                  showOnFailure: Boolean(testCase.showOnFailure),
-                  grade: Number(testCase.grade) || Number(testCase.gradePercentage) || 0
-                };
-              })
+          
+          // Delete existing test cases
+          await tx.testCase.deleteMany({
+            where: { codingQuestionId }
+          });
+          
+          // Create new test cases
+          if (codingQuestion.testCases && Array.isArray(codingQuestion.testCases)) {
+            for (const testCase of codingQuestion.testCases) {
+              // Handle boolean flags
+              const isSample = testCase.isSample === true;
+              const isHidden = testCase.isHidden === true;
+              const showOnFailure = testCase.showOnFailure === true;
+              
+              await tx.testCase.create({
+                data: {
+                  codingQuestionId,
+                  input: String(testCase.input || ''),
+                  output: String(testCase.output || ''),
+                  isSample,
+                  isHidden,
+                  showOnFailure
+                  // No 'grade' field - it's not in the schema
+                }
+              });
             }
-          }
-        } : undefined
-      },
-      include: {
-        mCQQuestion: {
-          include: {
-            options: true
-          }
-        },
-        codingQuestion: {
-          include: {
-            languageOptions: true,
-            testCases: true
           }
         }
-      }
-    });
-
-   
+        
+        // Return the updated question with all related data
+        return await tx.question.findUnique({
+          where: { id: questionId },
+          include: {
+            mCQQuestion: {
+              include: {
+                options: true
+              }
+            },
+            codingQuestion: {
+              include: {
+                languageOptions: true,
+                testCases: true
+              }
+            }
+          }
+        });
+      });
+    } catch (transactionError) {
+      console.error('Transaction error:', transactionError);
+      return NextResponse.json(
+        { error: `Transaction failed: ${transactionError instanceof Error ? transactionError.message : String(transactionError)}` },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(updatedQuestion);
   } catch (error) {
     console.error('Error updating question:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update question' },
+      { error: `Error updating question: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

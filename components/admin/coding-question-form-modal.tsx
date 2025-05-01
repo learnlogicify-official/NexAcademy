@@ -376,6 +376,7 @@ export function CodingQuestionFormModal({
   const [showValidationResults, setShowValidationResults] = useState(false);
   const [copiedTestCases, setCopiedTestCases] = useState<Set<string>>(new Set());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Add a ref for the editor
   const editorRef = useRef<any>(null);
@@ -734,113 +735,12 @@ export function CodingQuestionFormModal({
     }
   }, [initialData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    
-    // Clear previous errors
-    setFormErrors({});
-    
-    // Initialize validation errors object
-    const errors: Record<string, string> = {};
-    let isValid = true;
-    
-    // Validate required fields
-    if (!formData.name.trim()) {
-      errors.name = 'Question name is required';
-      isValid = false;
-    }
-    
-    if (!formData.folderId) {
-      errors.folderId = 'Folder is required';
-      isValid = false;
-    }
-    
-    if (!formData.questionText.trim()) {
-      errors.questionText = 'Question text is required';
-      isValid = false;
-    }
-    
-    if (formData.languageOptions.length === 0) {
-      errors.languageOptions = 'At least one programming language is required';
-      isValid = false;
-    }
-    
-    // Validate default language
-    if (!defaultLanguage) {
-      errors.defaultLanguage = 'Default language must be selected';
-      isValid = false;
-    }
-    
-    if (formData.testCases.length === 0) {
-      errors.testCases = 'At least one test case is required';
-      isValid = false;
-    } else {
-      // Validate each test case
-      const invalidTestCases = formData.testCases.filter((tc, index) => {
-        if (tc.input.trim() === '') {
-          errors[`testCase${index}Input`] = `Test case ${index + 1} missing input`;
-          return true;
-        }
-        if (tc.output.trim() === '') {
-          errors[`testCase${index}Output`] = `Test case ${index + 1} missing expected output`;
-          return true;
-        }
-        if (tc.gradePercentage < 0 || tc.gradePercentage > 100) {
-          errors[`testCase${index}Grade`] = `Test case ${index + 1} has invalid grade (0-100)`;
-          return true;
-        }
-        return false;
-      });
-      
-      if (invalidTestCases.length > 0) {
-        isValid = false;
-      }
-    }
-
-    // Validate total grade percentage
-    if (!allOrNothingGrading) {
-      const totalGradePercentage = formData.testCases.reduce(
-        (total, tc) => total + tc.gradePercentage, 
-        0
-      );
-      
-      if (Math.abs(totalGradePercentage - 100) > 0.01) {
-        errors.gradeDistribution = `Total grade percentage is ${totalGradePercentage.toFixed(2)}%. It must equal 100%`;
-        isValid = false;
-      }
-    }
-    
-    // Store form errors for UI display
-    if (!isValid) {
-     
-      setFormErrors(errors);
-      
-      // Create a formatted error message
-      const errorMessages = Object.values(errors);
-      
-      toast({
-        title: "Validation Errors",
-        description: (
-          <div className="space-y-1">
-            {errorMessages.map((msg, index) => (
-              <div key={index} className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>{msg}</span>
-              </div>
-            ))}
-          </div>
-        ),
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // If validation passes, create properly formatted submission data
+    setIsSubmitting(true);
     try {
       // Use a more robust data preparation
       const codingQuestion = prepareCodingQuestionData();
-      
       // Perform final validation check on structure
       const structureErrors = validateDataStructure(codingQuestion);
       if (structureErrors.length > 0) {
@@ -858,19 +758,16 @@ export function CodingQuestionFormModal({
           ),
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
-      
-      // Call the onSubmit callback with the data
-      onSubmit(codingQuestion);
-      
-      // Show success toast with appropriate message (don't close modal until we know it succeeded)
+      // Await the onSubmit call and only close on success
+      await onSubmit(codingQuestion);
       toast({
         title: "Success",
         description: initialData ? "Coding question updated successfully" : "Coding question created successfully",
       });
-      
-      // Close the modal
+      setIsSubmitting(false);
       onClose();
     } catch (error) {
       console.error("Error in form submission:", error);
@@ -879,6 +776,8 @@ export function CodingQuestionFormModal({
         description: initialData ? "Failed to update question" : "Failed to create question",
         variant: "destructive",
       });
+      setIsSubmitting(false);
+      // Do not close the modal
     }
   };
 
@@ -941,14 +840,14 @@ export function CodingQuestionFormModal({
       
       return {
         id: testCase.id || `tc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        input: testCase.input,
-        output: testCase.output,
+        input: String(testCase.input),
+        output: String(testCase.output),
+        expectedOutput: String(testCase.output), // Always send both fields
         type,
         isSample,
         isHidden,
         showOnFailure,
-        gradePercentage: testCase.gradePercentage,
-        grade: testCase.gradePercentage, // Include both for compatibility
+        gradePercentage: testCase.gradePercentage
       };
     });
     
@@ -2884,15 +2783,20 @@ export function CodingQuestionFormModal({
             </Button>
             <Button
               type="submit"
-              disabled={isValidating}
-                  className="rounded-full px-8 py-2 font-bold bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-primary/90 transition-all duration-300 relative overflow-hidden group"
-                >
-                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-400/20 via-transparent to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-                  <span className="relative flex items-center">
-                    {initialData 
-                      ? <><CheckCheck className="mr-2 h-4 w-4" /> Update Question</> 
-                      : <><Plus className="mr-2 h-4 w-4" /> Create Question</>}
-                  </span>
+              disabled={isValidating || isSubmitting}
+              className="rounded-full px-8 py-2 font-bold bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-primary/90 transition-all duration-300 relative overflow-hidden group"
+            >
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-400/20 via-transparent to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+              <span className="relative flex items-center">
+                {isSubmitting ? (
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                ) : initialData 
+                  ? <><CheckCheck className="mr-2 h-4 w-4" /> Update Question</> 
+                  : <><Plus className="mr-2 h-4 w-4" /> Create Question</>}
+              </span>
             </Button>
               </div>
             </div>

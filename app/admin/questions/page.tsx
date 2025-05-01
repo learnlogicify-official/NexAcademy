@@ -230,6 +230,26 @@ interface Stats {
   ready: number;
 }
 
+// Utility to build a folder tree from a flat array
+function buildFolderTree(flatFolders: { id: string; name: string; parentId?: string }[]): any[] {
+  const idToFolder = new Map<string, any>();
+  const roots: any[] = [];
+  flatFolders.forEach((folder: any) => {
+    idToFolder.set(folder.id, { ...folder, subfolders: [] });
+  });
+  idToFolder.forEach((folder: any) => {
+    if (folder.parentId) {
+      const parent = idToFolder.get(folder.parentId);
+      if (parent) {
+        parent.subfolders.push(folder);
+      }
+    } else {
+      roots.push(folder);
+    }
+  });
+  return roots;
+}
+
 export default function AdminQuestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -845,7 +865,7 @@ export default function AdminQuestionsPage() {
     console.log("EDIT QUESTION - Formatted language options:", JSON.stringify(languageOptions, null, 2));
     
     // Format test cases with standard property names
-    const testCases = (codingQuestion.testCases || []).map((tc: any) => ({
+    const testCases = (codingQuestion.testCases || []).map((tc: any, tcIdx: number) => ({
       id: tc.id || "",
       input: tc.input || "",
       output: tc.output || tc.expectedOutput || "", // Handle both output and expectedOutput fields
@@ -1285,7 +1305,7 @@ export default function AdminQuestionsPage() {
       toast({
         title: "Error",
         description: "Please select a folder for the imported questions",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1294,43 +1314,56 @@ export default function AdminQuestionsPage() {
     setImportError(null);
     let successCount = 0;
     let failCount = 0;
-    
+
     // Helper function to convert any language value to our supported format
     const mapLanguageToSupported = (lang: string): string => {
       if (!lang) {
-        return selectedDefaultLanguage || (languages && languages.length > 0 ? String(languages[0].id) : "");
+        return (
+          selectedDefaultLanguage ||
+          (languages && languages.length > 0 ? String(languages[0].id) : "")
+        );
       }
-      
+
       // If it's already a valid language ID from Judge0
-      if (languages && languages.some((sl: any) => String(sl.id) === String(lang))) {
+      if (
+        languages &&
+        languages.some((sl: any) => String(sl.id) === String(lang))
+      ) {
         return String(lang);
       }
-      
+
       // Try to find the language by name instead of ID
       if (languages) {
-        const foundByName = languages.find((sl: any) => 
-          sl.name && sl.name.toLowerCase() === lang.toLowerCase()
+        const foundByName = languages.find(
+          (sl: any) => sl.name && sl.name.toLowerCase() === lang.toLowerCase()
         );
         if (foundByName) {
           return String(foundByName.id);
         }
       }
-      
+
       // If no match found, use the default language
-      console.log(`Language not found in Judge0: ${lang}, using default language instead`);
-      return selectedDefaultLanguage || (languages && languages.length > 0 ? String(languages[0].id) : "");
+      console.log(
+        `Language not found in Judge0: ${lang}, using default language instead`
+      );
+      return (
+        selectedDefaultLanguage ||
+        (languages && languages.length > 0 ? String(languages[0].id) : "")
+      );
     };
-    
+
     try {
       for (const q of importedQuestions) {
         try {
           // Map the default language to a supported one
-          const questionDefaultLanguage = mapLanguageToSupported(q.defaultLanguage || selectedDefaultLanguage);
-          
+          const questionDefaultLanguage = mapLanguageToSupported(
+            q.defaultLanguage || selectedDefaultLanguage
+          );
+
           // Create consistent form data that matches the schema
           const formData = {
             name: q.name,
-            type: 'CODING',
+            type: "CODING",
             status: bulkStatus, // Use the selected status from form
             folderId: bulkFolderId, // Use the selected folder from form
             questionText: q.questionText,
@@ -1340,28 +1373,33 @@ export default function AdminQuestionsPage() {
             codingQuestion: {
               languageOptions: q.languageOptions.map((lang: any) => {
                 const mappedLanguage = mapLanguageToSupported(lang.language);
-                console.log(`Mapping language ${lang.language} to ${mappedLanguage}`);
+                console.log(
+                  `Mapping language ${lang.language} to ${mappedLanguage}`
+                );
                 return {
                   ...lang,
-                  language: mappedLanguage
+                  language: mappedLanguage,
                 };
               }),
               testCases: q.testCases.map((tc: any) => ({
-                input: tc.input,
-                // Ensure output is always a string
+                input: String(tc.input),
                 output: String(tc.output),
-                isHidden: tc.isHidden,
-                isSample: tc.isSample,
-                showOnFailure: tc.showOnFailure
+                isHidden: !!tc.isHidden,
+                isSample: !!tc.isSample,
+                showOnFailure: !!tc.showOnFailure,
+                // add other fields as needed
               })),
               isAllOrNothing: q.allOrNothingGrading,
-              defaultLanguage: questionDefaultLanguage // Use the question's default language
-            }
+              defaultLanguage: questionDefaultLanguage, // Use the question's default language
+            },
           };
-          
-          console.log("Submitting question:", JSON.stringify(formData, null, 2));
-          
-          const response = await axios.post('/api/questions', formData);
+
+          console.log(
+            "Submitting question:",
+            JSON.stringify(formData, null, 2)
+          );
+
+          const response = await axios.post("/api/questions", formData);
           successCount++;
         } catch (err) {
           console.error("Error importing question:", err);
@@ -1373,9 +1411,9 @@ export default function AdminQuestionsPage() {
     } finally {
       setImportLoading(false);
       toast({
-        title: 'Import Complete',
+        title: "Import Complete",
         description: `${successCount} questions imported, ${failCount} failed.`,
-        variant: failCount === 0 ? 'default' : 'destructive'
+        variant: failCount === 0 ? "default" : "destructive",
       });
       setIsImportModalOpen(false);
       setImportedQuestions([]);
@@ -1387,88 +1425,111 @@ export default function AdminQuestionsPage() {
   const parseMoodleCodingQuestions = (xmlString: string) => {
     const parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNamePrefix: '',
+      attributeNamePrefix: "",
       processEntities: true,
-      isArray: (name: string) => name === 'question' || name === 'testcase',
+      isArray: (name: string) => name === "question" || name === "testcase",
     });
     const xml = parser.parse(xmlString);
     if (!xml.quiz || !xml.quiz.question) return [];
-    const questions = xml.quiz.question.filter((q: any) => q.type === 'coderunner');
-    
+    const questions = xml.quiz.question.filter(
+      (q: any) => q.type === "coderunner"
+    );
+
     // Get the default language ID to use from state variables
-    const defaultLangId = selectedDefaultLanguage || 
+    const defaultLangId =
+      selectedDefaultLanguage ||
       (languages && languages.length > 0 ? String(languages[0].id) : "");
-    
-    console.log("Parsing Moodle XML questions with default language:", defaultLangId);
-    
+
+    console.log(
+      "Parsing Moodle XML questions with default language:",
+      defaultLangId
+    );
+
     return questions.map((q: any, idx: number) => {
       // Extract language from the question
       let detectedLanguage = "";
-      
+
       // First try to extract from prototypetype which sometimes contains language info
       if (q.prototypetype?.text) {
         const prototypeType = q.prototypetype.text.toLowerCase();
         console.log(`Question ${idx + 1} prototype: ${prototypeType}`);
-        
+
         // Common Moodle CodeRunner prototypes
-        if (prototypeType.includes('python')) detectedLanguage = 'python';
-        else if (prototypeType.includes('java')) detectedLanguage = 'java';
-        else if (prototypeType.includes('c#') || prototypeType.includes('csharp')) detectedLanguage = 'csharp';
-        else if (prototypeType.includes('c++') || prototypeType.includes('cpp')) detectedLanguage = 'cpp'; 
-        else if (prototypeType.includes('javascript') || prototypeType.includes('js')) detectedLanguage = 'javascript';
-        else if (prototypeType.includes('php')) detectedLanguage = 'php';
-        else if (prototypeType.includes('ruby')) detectedLanguage = 'ruby';
-        else if (prototypeType.includes('go')) detectedLanguage = 'go';
+        if (prototypeType.includes("python")) detectedLanguage = "python";
+        else if (prototypeType.includes("java")) detectedLanguage = "java";
+        else if (
+          prototypeType.includes("c#") ||
+          prototypeType.includes("csharp")
+        )
+          detectedLanguage = "csharp";
+        else if (prototypeType.includes("c++") || prototypeType.includes("cpp"))
+          detectedLanguage = "cpp";
+        else if (
+          prototypeType.includes("javascript") ||
+          prototypeType.includes("js")
+        )
+          detectedLanguage = "javascript";
+        else if (prototypeType.includes("php")) detectedLanguage = "php";
+        else if (prototypeType.includes("ruby")) detectedLanguage = "ruby";
+        else if (prototypeType.includes("go")) detectedLanguage = "go";
       }
-      
+
       // Also try to extract from question name or text as fallback
       if (!detectedLanguage) {
-        const questionName = q.name?.text?.toLowerCase() || '';
-        const questionText = q.questiontext?.text?.toLowerCase() || '';
-        const combinedText = questionName + ' ' + questionText;
-        
-        if (combinedText.includes('python')) detectedLanguage = 'python';
-        else if (combinedText.includes('java ') || combinedText.includes('java.')) detectedLanguage = 'java';
-        else if (combinedText.includes('c#') || combinedText.includes('csharp')) detectedLanguage = 'csharp';
-        else if (combinedText.includes('c++') || combinedText.includes('cpp')) detectedLanguage = 'cpp';
-        else if (combinedText.includes('javascript') || combinedText.includes('js')) detectedLanguage = 'javascript';
-        else if (combinedText.includes('php')) detectedLanguage = 'php';
-        else if (combinedText.includes('ruby')) detectedLanguage = 'ruby';
-        else if (combinedText.includes('go ') || combinedText.includes('golang')) detectedLanguage = 'go';
+        const questionName = q.name?.text?.toLowerCase() || "";
+        const questionText = q.questiontext?.text?.toLowerCase() || "";
+        const combinedText = questionName + " " + questionText;
+
+        if (combinedText.includes("python")) detectedLanguage = "python";
+        else if (
+          combinedText.includes("java ") ||
+          combinedText.includes("java.")
+        )
+          detectedLanguage = "java";
+        else if (combinedText.includes("c#") || combinedText.includes("csharp"))
+          detectedLanguage = "csharp";
+        else if (combinedText.includes("c++") || combinedText.includes("cpp"))
+          detectedLanguage = "cpp";
+        else if (
+          combinedText.includes("javascript") ||
+          combinedText.includes("js")
+        )
+          detectedLanguage = "javascript";
+        else if (combinedText.includes("php")) detectedLanguage = "php";
+        else if (combinedText.includes("ruby")) detectedLanguage = "ruby";
+        else if (
+          combinedText.includes("go ") ||
+          combinedText.includes("golang")
+        )
+          detectedLanguage = "go";
       }
-      
-      const solution = q.answer?.['#cdata-section'] || q.answer || '';
-      console.log(`Question ${idx + 1} detected language: ${detectedLanguage || 'none'}`);
-      
-      // Map the detected language to Judge0 language ID using the handleBulkUpload's version 
-      // of the function since it's in the component scope
-      const mappedDefaultLang = detectedLanguage 
-        ? (languages?.find((l: any) => l.name?.toLowerCase() === detectedLanguage.toLowerCase())?.id || defaultLangId)
-        : defaultLangId;
-      
+
+      const solution = q.answer?.["#cdata-section"] || q.answer || "";
+      console.log(
+        `Question ${idx + 1} detected language: ${detectedLanguage || "none"}`
+      );
+
+      // Map the detected language to Judge0 language ID using robust matching
+      let mappedDefaultLang = defaultLangId;
+      if (detectedLanguage && languages && languages.length > 0) {
+        const foundLang = languages.find(
+          (l: any) => l.name && l.name.toLowerCase().includes(detectedLanguage.toLowerCase())
+        );
+        if (foundLang) {
+          mappedDefaultLang = String(foundLang.id);
+        }
+      }
+
       // Create language options for all available Judge0 languages
       const languageOptions = [];
-      
       if (languages && languages.length > 0) {
-        // First add the detected/default language as the primary option
-        languageOptions.push({
-          id: `lang-${mappedDefaultLang}-${Date.now()}`,
-          language: mappedDefaultLang,
-          solution: solution,
-          preloadCode: ''
-        });
-        
-        // Then add all other languages with empty solutions
         languages.forEach((lang: any) => {
           const langId = String(lang.id);
-          // Skip if this is the same as our detected language
-          if (langId === mappedDefaultLang) return;
-          
           languageOptions.push({
             id: `lang-${langId}-${Date.now() + languageOptions.length}`,
             language: langId,
-            solution: '', // Empty solution for other languages
-            preloadCode: ''
+            solution: langId === mappedDefaultLang ? solution : "",
+            preloadCode: "",
           });
         });
       } else {
@@ -1477,29 +1538,53 @@ export default function AdminQuestionsPage() {
           id: `lang-${mappedDefaultLang}-${Date.now()}`,
           language: mappedDefaultLang,
           solution: solution,
-          preloadCode: ''
+          preloadCode: "",
         });
       }
-      
+
       return {
         name: q.name?.text || `Question ${idx + 1}`,
-        questionText: q.questiontext?.text || '',
+        questionText: q.questiontext?.text || "",
         defaultMark: Number(q.defaultgrade) || 1,
-        difficulty: 'MEDIUM',
+        difficulty: "MEDIUM",
         languageOptions: languageOptions,
-        testCases: (q.testcases?.testcase || []).map((tc: any) => ({
-          input: tc.stdin?.text || '',
-          // Ensure output is always a string
-          output: String(tc.expected?.text || ''),
-          isHidden: tc.useasexample !== '1',
-          isSample: tc.useasexample === '1',
-          showOnFailure: tc.hiderestiffail === '1'
-        })),
-        allOrNothingGrading: q.allornothing === '1',
-        defaultLanguage: mappedDefaultLang
+        testCases: (q.testcases?.testcase || []).map((tc: any, tcIdx: number) => {
+          // Debug: log the raw testcase object
+          console.log(`Parsing test case #${tcIdx + 1} for question '${q.name?.text || `Question`}':`, tc);
+          // Robust extraction for input
+          let input = '';
+          if (tc.stdin) {
+            if (typeof tc.stdin === 'string') input = tc.stdin;
+            else if (tc.stdin['#cdata-section']) input = tc.stdin['#cdata-section'];
+            else if (tc.stdin.text) input = tc.stdin.text;
+          }
+          // Output: always use tc.expected.text if it exists
+          let output = '';
+          if (tc.expected && typeof tc.expected === 'object' && 'text' in tc.expected) {
+            output = tc.expected.text;
+          } else if (tc.expected) {
+            if (typeof tc.expected === 'string') output = tc.expected;
+            else if (tc.expected['#cdata-section']) output = tc.expected['#cdata-section'];
+          }
+          // Debug: log the extracted input/output
+          console.log(`Extracted input:`, input);
+          console.log(`Extracted output:`, output);
+          return {
+            input,
+            output: String(output),
+            isHidden: tc.useasexample !== '1',
+            isSample: tc.useasexample === '1',
+            showOnFailure: tc.hiderestiffail === '1'
+          };
+        }),
+        allOrNothingGrading: q.allornothing === "1",
+        defaultLanguage: mappedDefaultLang,
       };
     });
   };
+
+  // In the component body, just before rendering the folder picker:
+  const folderTreeForPicker = buildFolderTree(folders);
 
   return (
     <div className="container mx-auto py-6 bg-background">
@@ -1726,7 +1811,7 @@ export default function AdminQuestionsPage() {
                                   // Find matching folders and automatically expand them
                                   if (searchTerm) {
                                     const newExpanded = new Set<string>();
-                                    folders.forEach(folder => {
+                                    folderTreeForPicker.forEach(folder => {
                                       if (folder.name.toLowerCase().includes(searchTerm)) {
                                         newExpanded.add(folder.id);
                                       }
@@ -1744,7 +1829,7 @@ export default function AdminQuestionsPage() {
                             
                             {/* Folder tree with virtualized scrolling */}
                             <div className="overflow-y-auto p-2 h-full">
-                              {folders.length === 0 ? (
+                              {folderTreeForPicker.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full py-4 text-muted-foreground">
                                   <FolderIcon className="h-8 w-8 mb-2 opacity-50" />
                                   <p className="text-sm">No folders available</p>
@@ -1758,7 +1843,7 @@ export default function AdminQuestionsPage() {
                                 </div>
                               ) : (
                                 <div className="space-y-1">
-                                  {folders.map(folder => (
+                                  {folderTreeForPicker.map(folder => (
                                     <div key={folder.id} className="text-sm">
                                       <div className="flex items-center gap-1 py-1">
                                         <Button 
@@ -1801,7 +1886,7 @@ export default function AdminQuestionsPage() {
                                       
                                       {expandedFolders.has(folder.id) && folder.subfolders?.length > 0 && (
                                         <div className="ml-5 pl-3 border-l-2 space-y-1 mt-1">
-                                          {folder.subfolders.map(subfolder => (
+                                          {folder.subfolders.map((subfolder: any) => (
                                             <label key={subfolder.id} className="flex items-center gap-2 hover:bg-muted/50 p-1.5 rounded-md transition-colors cursor-pointer">
                                               <input 
                                                 type="radio" 
@@ -1831,14 +1916,14 @@ export default function AdminQuestionsPage() {
                                 className="text-xs h-7"
                                 onClick={() => {
                                   // Toggle expand all folders
-                                  if (expandedFolders.size === folders.length) {
+                                  if (expandedFolders.size === folderTreeForPicker.length) {
                                     setExpandedFolders(new Set());
                                   } else {
-                                    setExpandedFolders(new Set(folders.map(f => f.id)));
+                                    setExpandedFolders(new Set(folderTreeForPicker.map(f => f.id)));
                                   }
                                 }}
                               >
-                                {expandedFolders.size === folders.length ? (
+                                {expandedFolders.size === folderTreeForPicker.length ? (
                                   <><ChevronUp className="h-3 w-3 mr-1" /> Collapse All</>
                                 ) : (
                                   <><ChevronDown className="h-3 w-3 mr-1" /> Expand All</>
@@ -1864,7 +1949,7 @@ export default function AdminQuestionsPage() {
                                 <FolderIcon className="h-3 w-3 mr-1" />
                                 {(() => {
                                   // Find folder name
-                                  for (const folder of folders) {
+                                  for (const folder of folderTreeForPicker) {
                                     if (folder.id === bulkFolderId) {
                                       return folder.name;
                                     }
@@ -2661,7 +2746,7 @@ export default function AdminQuestionsPage() {
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-              ) : folders.length === 0 ? (
+              ) : folderTreeForPicker.length === 0 ? (
                 <div className="text-center py-10 bg-accent/20 rounded-lg">
                   <FolderIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                   <h3 className="text-lg font-medium mb-2">No folders yet</h3>
@@ -2745,7 +2830,7 @@ export default function AdminQuestionsPage() {
                     {expandedFolders.has(folder.id) && (
                       <div className="bg-muted/30 border-l-2 border-l-amber-200 ml-6">
                         {folder.subfolders && folder.subfolders.length > 0 ? (
-                          folder.subfolders.map((subfolder) => (
+                          folder.subfolders.map((subfolder: any) => (
                             <div key={subfolder.id} className="flex items-center justify-between py-3 px-6 hover:bg-accent/5 border-l-2 border-l-accent ml-2">
                               <div className="flex items-center gap-2">
                                 <div className="w-3"></div> {/* Indent space */}
