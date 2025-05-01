@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { signOut } from "next-auth/react"
+import { useSession } from "next-auth/react"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -40,6 +41,7 @@ export function TopBar({
   const pathname = usePathname()
   const router = useRouter()
   const [isSmallMobile, setIsSmallMobile] = useState(false)
+  const { data: session } = useSession()
 
   // Check if screen is small mobile (below sm breakpoint)
   useEffect(() => {
@@ -166,7 +168,13 @@ export function TopBar({
           <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/profile")}>
+            <DropdownMenuItem onClick={() => {
+              if (session?.user?.username) {
+                router.push(`/profile/${session.user.username}`)
+              } else {
+                router.push("/profile")
+              }
+            }}>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>

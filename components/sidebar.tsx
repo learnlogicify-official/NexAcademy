@@ -164,7 +164,13 @@ export function Sidebar({
                   const content = (
                     <button
                       key={route.href}
-                      onClick={() => router.push(route.href)}
+                      onClick={() => {
+                        if (route.name === "Profile" && session?.user?.username) {
+                          router.push(`/profile/${session.user.username}`)
+                        } else {
+                          router.push(route.href)
+                        }
+                      }}
                       className={cn(
                         "flex h-10 w-full items-center gap-2 rounded-md px-3 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-primary",
                         isActive && "bg-accent text-accent-foreground",
