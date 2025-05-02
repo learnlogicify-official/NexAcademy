@@ -7,9 +7,11 @@ import { motion } from "framer-motion"
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import { signIn } from "next-auth/react"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 interface OnboardingData {
   username: string
+  profilePic: string
   bio: string
   language: string
   code: string
@@ -133,6 +135,17 @@ export default function OnboardingComplete({ data }: OnboardingCompleteProps) {
           <span>Your Profile</span>
         </h3>
         <div className="space-y-2 text-xs">
+          <div className="flex justify-center mb-3">
+            <Avatar className="h-16 w-16 border-2 border-violet-200 dark:border-violet-900/30">
+              {data.profilePic ? (
+                <AvatarImage src={data.profilePic} alt={data.username} />
+              ) : (
+                <AvatarFallback className="text-lg">
+                  {data.username.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              )}
+            </Avatar>
+          </div>
           <div className="flex items-center gap-1 p-2 bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm rounded-md">
             <span className="font-medium text-slate-700 dark:text-slate-300">Username:</span>
             <span className="text-violet-700 dark:text-violet-400">@{data.username}</span>

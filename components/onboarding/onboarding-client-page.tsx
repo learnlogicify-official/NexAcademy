@@ -5,6 +5,7 @@ import OnboardingHeader from "@/components/onboarding/onboarding-header"
 import UsernameStep from "@/components/onboarding/username-step"
 import BioStep from "@/components/onboarding/bio-step"
 import LanguageStep from "@/components/onboarding/language-step"
+import ProfilePictureStep from "@/components/onboarding/profile-picture-step"
 import CodeEditorStep from "@/components/onboarding/code-editor-step"
 import OnboardingComplete from "@/components/onboarding/onboarding-complete"
 import AIAssistant from "@/components/onboarding/ai-assistant"
@@ -19,6 +20,7 @@ import { useRouter } from "next/navigation"
 
 export type OnboardingData = {
   username: string
+  profilePic: string
   bio: string
   language: string
   code: string
@@ -47,6 +49,7 @@ export default function OnboardingClientPage() {
 
     return {
       username: "",
+      profilePic: "",
       bio: "",
       language: defaultLanguage,
       code: defaultCode,
@@ -76,7 +79,7 @@ export default function OnboardingClientPage() {
   }, [])
 
   const nextStep = useCallback(() => {
-    if (step === 4) {
+    if (step === 5) {
       // Show confetti when completing the code step
       setShowConfetti(true)
       setTimeout(() => setShowConfetti(false), 3000)
@@ -89,7 +92,7 @@ export default function OnboardingClientPage() {
   }, [])
 
   // Step labels for the progress indicator
-  const stepLabels = ["Username", "Bio", "Language", "Code"]
+  const stepLabels = ["Username", "Profile", "Bio", "Language", "Code"]
 
   // AI messages based on current step
   const getAIMessage = () => {
@@ -97,12 +100,14 @@ export default function OnboardingClientPage() {
       case 1:
         return "Hey there! I'm Nex, your AI learning buddy. Let's start with your username - something cool that represents you in our coding community!"
       case 2:
-        return `Nice to meet you, @${data.username || "friend"}! Tell me a bit about yourself so I can tailor your learning experience.`
+        return `Nice to meet you, @${data.username || "friend"}! Now, let's add a profile picture so your friends can recognize you.`
       case 3:
-        return "What programming language are you most comfortable with? I'll customize your learning path based on your preference."
+        return `Looking good${data.profilePic ? "!" : ", even without a profile picture!"} Tell me a bit about yourself so I can tailor your learning experience.`
       case 4:
-        return `Awesome! Let's write your first ${data.language} program together. I've set up a simple \"Hello World\" for you to run.`
+        return "What programming language are you most comfortable with? I'll customize your learning path based on your preference."
       case 5:
+        return `Awesome! Let's write your first ${data.language} program together. I've set up a simple \"Hello World\" for you to run.`
+      case 6:
         return `Welcome to NexAcademy, @${data.username}! You did it. 🚀`;
       default:
         return "Let's get you set up with NexAcademy!"
@@ -116,7 +121,7 @@ export default function OnboardingClientPage() {
       <OnboardingHeader />
 
       <div className="container mx-auto px-4 py-8 flex-1 flex flex-col ">
-        <ProgressIndicator currentStep={step} totalSteps={4} labels={stepLabels} />
+        <ProgressIndicator currentStep={step} totalSteps={5} labels={stepLabels} />
 
         <div className="flex flex-col lg:flex-row gap-6 flex-1 ">
           <div className="w-full lg:w-1/3">
@@ -141,9 +146,23 @@ export default function OnboardingClientPage() {
                 />
               )}
               {step === 2 && (
-                <BioStep bio={data.bio} updateBio={(bio) => updateData({ bio })} onNext={nextStep} onBack={prevStep} />
+                <ProfilePictureStep
+                  profilePic={data.profilePic}
+                  updateProfilePic={(profilePic) => updateData({ profilePic })}
+                  onNext={nextStep}
+                  onBack={prevStep}
+                  username={data.username}
+                />
               )}
               {step === 3 && (
+                <BioStep 
+                  bio={data.bio} 
+                  updateBio={(bio) => updateData({ bio })} 
+                  onNext={nextStep} 
+                  onBack={prevStep} 
+                />
+              )}
+              {step === 4 && (
                 <LanguageStep
                   language={data.language}
                   updateLanguage={(language) => updateData({ language })}
@@ -151,23 +170,25 @@ export default function OnboardingClientPage() {
                   onBack={prevStep}
                 />
               )}
-              {step === 4 && (
+              {step === 5 && (
                 <IDEShowcase
                   preferredLanguage={data.language}
                   username={data.username}
                   bio={data.bio}
+                  profilePic={data.profilePic}
+                  onFinishOnboarding={nextStep}
                 />
               )}
-              {step === 5 && <OnboardingComplete data={data} />}
+              {step === 6 && <OnboardingComplete data={data} />}
             </div>
           </div>
         </div>
       </div>
 
       <KeyboardShortcuts
-        onNext={step < 5 ? nextStep : () => {}}
+        onNext={step < 6 ? nextStep : () => {}}
         onBack={step > 1 ? prevStep : undefined}
-        disabled={step === 5}
+        disabled={step === 6}
       />
 
       <ConfettiCelebration trigger={showConfetti} />

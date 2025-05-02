@@ -39,6 +39,7 @@ export const authOptions: AuthOptions = {
             profilePic: true,
             preferredLanguage: true,
             hasOnboarded: true,
+            bannerImage: true,
           },
         });
 
@@ -119,6 +120,7 @@ export const authOptions: AuthOptions = {
             profilePic: true,
             preferredLanguage: true,
             hasOnboarded: true,
+            bannerImage: true,
           },
         });
         if (dbUser) {
@@ -126,7 +128,14 @@ export const authOptions: AuthOptions = {
           token.role = dbUser.role;
           token.username = dbUser.username;
           token.bio = dbUser.bio;
-          token.profilePic = dbUser.profilePic;
+          token.profilePic =
+            dbUser.profilePic && dbUser.profilePic.startsWith("http")
+              ? dbUser.profilePic
+              : null;
+          token.bannerImage =
+            dbUser.bannerImage && dbUser.bannerImage.startsWith("http")
+              ? dbUser.bannerImage
+              : null;
           token.preferredLanguage = dbUser.preferredLanguage;
           token.hasOnboarded = dbUser.hasOnboarded;
         }
@@ -140,6 +149,7 @@ export const authOptions: AuthOptions = {
         session.user.username = token.username as string | undefined;
         session.user.bio = token.bio as string | undefined;
         session.user.profilePic = token.profilePic as string | undefined;
+        session.user.bannerImage = token.bannerImage as string | undefined;
         session.user.preferredLanguage = token.preferredLanguage as string | undefined;
         session.user.hasOnboarded = token.hasOnboarded as boolean | undefined;
       }
@@ -164,6 +174,7 @@ declare module "next-auth" {
       username?: string | null;
       bio?: string | null;
       profilePic?: string | null;
+      bannerImage?: string | null;
       preferredLanguage?: string | null;
       hasOnboarded?: boolean;
     };
@@ -175,6 +186,7 @@ declare module "next-auth" {
     username?: string | null;
     bio?: string | null;
     profilePic?: string | null;
+    bannerImage?: string | null;
     preferredLanguage?: string | null;
     hasOnboarded?: boolean;
   }
@@ -188,6 +200,7 @@ declare module "next-auth/jwt" {
     username?: string | null;
     bio?: string | null;
     profilePic?: string | null;
+    bannerImage?: string | null;
     preferredLanguage?: string | null;
     hasOnboarded?: boolean;
   }

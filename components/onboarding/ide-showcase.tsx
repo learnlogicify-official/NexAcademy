@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import Select from "react-select"
 import { Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
-import OnboardingComplete from "./onboarding-complete"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 const THEMES = [
   { name: "One Dark", value: "one-dark", extension: oneDark },
@@ -99,8 +99,6 @@ const getLanguageExtension = (lang: string) => {
 
 interface IDEShowcaseProps {
   preferredLanguage?: string
-  username: string
-  bio: string
   onFinishOnboarding?: () => void
 }
 
@@ -109,7 +107,7 @@ const THEME_SWATCHES: Record<string, string> = {
   // Add more theme swatches here
 }
 
-export default function IDEShowcase({ preferredLanguage, username, bio, onFinishOnboarding }: IDEShowcaseProps) {
+export default function IDEShowcase({ preferredLanguage, onFinishOnboarding }: IDEShowcaseProps) {
   const router = useRouter()
   const [languages, setLanguages] = useState<{ id: number; name: string }[]>([])
   const [language, setLanguage] = useState<string>("")
@@ -287,17 +285,14 @@ export default function IDEShowcase({ preferredLanguage, username, bio, onFinish
     ),
   }))
 
+  useEffect(() => {
+    if (onboarded && onFinishOnboarding) {
+      onFinishOnboarding();
+    }
+  }, [onboarded, onFinishOnboarding]);
+
   if (onboarded) {
-    return (
-      <OnboardingComplete
-        data={{
-          username,
-          bio,
-          language,
-          code
-        }}
-      />
-    )
+    return null;
   }
 
   return (
@@ -410,6 +405,9 @@ export default function IDEShowcase({ preferredLanguage, username, bio, onFinish
         </div>
       )}
       {error && <div className="text-red-400 text-xs mt-2 font-mono">{error}</div>}
+
+      {/* Show user avatar at the end */}
+      
     </div>
   )
 } 

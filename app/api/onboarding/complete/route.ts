@@ -11,13 +11,14 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { username, bio, language } = body;
+  const { username, profilePic, bio, language } = body;
 
   try {
     await prisma.user.update({
       where: { email: session.user.email },
       data: {
         username,
+        profilePic,
         bio,
         preferredLanguage: language,
         hasOnboarded: true,

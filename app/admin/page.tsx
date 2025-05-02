@@ -4,6 +4,7 @@ import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import { Role } from "@prisma/client";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { DashboardStats } from "@/components/admin/dashboard-stats";
+import { AdminAIAssistant } from "@/components/admin/AdminAIAssistant";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
@@ -32,6 +33,7 @@ export default async function AdminPage() {
       </div>
 
       <DashboardStats />
+      <AdminAIAssistant />
     </div>
   );
 } 

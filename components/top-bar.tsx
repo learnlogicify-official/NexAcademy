@@ -21,6 +21,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { signOut } from "next-auth/react"
 import { useSession } from "next-auth/react"
+import { useProfilePic } from "@/components/ProfilePicContext"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -42,6 +43,7 @@ export function TopBar({
   const router = useRouter()
   const [isSmallMobile, setIsSmallMobile] = useState(false)
   const { data: session } = useSession()
+  const { profilePic } = useProfilePic();
 
   // Check if screen is small mobile (below sm breakpoint)
   useEffect(() => {
@@ -160,8 +162,12 @@ export function TopBar({
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/images/avatar.jpeg" alt="@user" />
-                <AvatarFallback>U</AvatarFallback>
+                {profilePic ? (
+                  <AvatarImage src={profilePic} alt={session?.user?.name ?? "User"} />
+                ) : (
+                  <AvatarImage src="/images/avatar.jpeg" alt={session?.user?.name ?? "User"} />
+                )}
+                <AvatarFallback>{session?.user?.name ? session.user.name[0] : "U"}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

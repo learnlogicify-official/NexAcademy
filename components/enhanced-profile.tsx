@@ -18,6 +18,7 @@ import {
   Linkedin,
   Twitter,
   Globe,
+  Camera,
 } from "lucide-react"
 import { ProfileHeatmap } from "@/components/profile-heatmap"
 import { Input } from "@/components/ui/input"
@@ -29,6 +30,10 @@ import { AchievementsCompactCard } from "@/components/achievements-compact-card"
 import { ProgressCard } from "@/components/progress-card"
 import { ProblemsSolvedCard } from "@/components/problems-solved-card"
 import { useSession } from "next-auth/react"
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
+import ProfilePictureStep from "@/components/onboarding/profile-picture-step"
+import BannerImageStep from "@/components/onboarding/banner-image-step"
+import { useProfilePic } from "@/components/ProfilePicContext"
 
 // Mock user data
 export const userData = {
@@ -50,6 +55,8 @@ export const userData = {
   location: "San Francisco, CA",
   website: "ashwin.dev",
   email: "ashwin@example.com",
+  profilePic: undefined,
+  bannerImage: undefined,
 }
 
 // Mock programming languages data
@@ -133,9 +140,9 @@ const projects = [
 const problemsData = {
   totalSolved: 87,
   categories: [
-    { name: "Easy", count: 42, color: "bg-green-500" },
-    { name: "Medium", count: 35, color: "bg-yellow-500" },
-    { name: "Hard", count: 10, color: "bg-red-500" },
+    { name: "Easy", count: 42, color: "#4ade80", textColor: "text-emerald-500", percentage: 48 },
+    { name: "Medium", count: 35, color: "#fbbf24", textColor: "text-amber-500", percentage: 40 },
+    { name: "Hard", count: 10, color: "#f87171", textColor: "text-red-500", percentage: 12 },
   ],
   recentStreak: 5,
   successRate: 78,
@@ -240,7 +247,7 @@ export const oldUserData = {
 }
 
 // Generate mock heatmap data for the last 365 days
-function generateHeatmapData() {
+function generateHeatmapData(): { date: string; count: number; details: { type: string; title: string; xp: number; timestamp: string; }[] }[] {
   const data = []
   const today = new Date()
 
@@ -315,13 +322,13 @@ function generateHeatmapData() {
 }
 
 // Generate mock activity details
-function generateActivityDetails(count, date) {
+function generateActivityDetails(count: number, date: Date): { type: string; title: string; xp: number; timestamp: string }[] {
   const activityTypes = ["assignment", "course", "coding", "problem"]
   const details = []
 
   for (let i = 0; i < count; i++) {
     const type = activityTypes[Math.floor(Math.random() * activityTypes.length)]
-    let title, xp
+    let title = "", xp = 0
 
     switch (type) {
       case "assignment":
@@ -353,10 +360,22 @@ function generateActivityDetails(count, date) {
   return details
 }
 
-export function EnhancedProfile() {
+interface PublicUser {
+  name?: string | null
+  username?: string | null
+  bio?: string | null
+  profilePic?: string | null
+  bannerImage?: string | null
+}
+
+export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null }) {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isPicDialogOpen, setIsPicDialogOpen] = useState(false)
+  const [profilePic, setProfilePic] = useState(passedUser?.profilePic || session?.user?.profilePic || "")
+  const { bannerImage, setBannerImage } = useProfilePic();
+  const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -364,65 +383,114 @@ export function EnhancedProfile() {
 
   if (!mounted || status === "loading") return null;
 
-  // Use session user if available, otherwise fallback to mock userData
-  const user = session?.user || userData;
+  // Use passed user, then session user, then mock data
+  const user = passedUser || session?.user || userData;
+  const signedInUser = session?.user;
+  const isOwnProfile = signedInUser && user.username === signedInUser.username;
+
+  const bannerToShow = isOwnProfile ? bannerImage : user.bannerImage;
 
   return (
     <div className="space-y-8">
       {/* Profile Hero Section */}
       <div className="relative">
-        {/* Gradient Banner */}
-        <div
-          className="h-48 w-full rounded-xl overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #a5b4fc 0%, #c084fc 50%, #f87171 100%)",
-          }}
-        />
+        {/* Banner with edit button */}
+        <div className="h-48 w-full rounded-xl overflow-hidden relative">
+          {bannerToShow ? (
+            <img src={bannerToShow} alt="Profile Banner" className="object-cover w-full h-full" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900" />
+          )}
+          {isOwnProfile && (
+            <Dialog open={isBannerDialogOpen} onOpenChange={setIsBannerDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="absolute top-2 right-2 bg-primary text-white rounded-full w-9 h-9 flex items-center justify-center shadow-lg border-2 border-white hover:bg-primary/90 transition"
+                  title="Change profile banner"
+                >
+                  <span className="text-xl font-bold leading-none">✎</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogTitle>Change Profile Banner</DialogTitle>
+                <BannerImageStep
+                  bannerImage={bannerImage}
+                  updateBannerImage={setBannerImage}
+                  onClose={() => setIsBannerDialogOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
 
         {/* Search and User Controls */}
-        <div className="absolute top-4 right-4 flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70" />
-            <Input
-              className="w-64 rounded-full bg-white/20 border-none pl-10 text-white placeholder:text-white/70"
-              placeholder="Search friends..."
-            />
-          </div>
-          <Avatar className="h-8 w-8 border border-white/20">
-            <AvatarImage src="/images/avatar.jpeg" alt={user.name} />
-            <AvatarFallback>{user.name[0]}</AvatarFallback>
-          </Avatar>
-        </div>
+       
 
         {/* Profile Info Section */}
         <div className="relative px-6 pb-6">
           {/* Avatar */}
-          <Avatar className="absolute -top-16 left-8 h-32 w-32 border-4 border-white shadow-lg">
-            <AvatarImage src="/images/avatar.jpeg" alt={user.name} />
-            <AvatarFallback className="text-3xl">
-              {user.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </AvatarFallback>
-          </Avatar>
+          <div className="absolute -top-16 left-8 h-32 w-32">
+            <div className="relative h-full w-full">
+              <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
+                {user.profilePic ? (
+                  <AvatarImage src={user.profilePic ?? undefined} alt={user.name ?? "User"} />
+                ) : (
+                  <AvatarImage src="/images/avatar.jpeg" alt={user.name ?? "User"} />
+                )}
+                <AvatarFallback className="text-3xl">
+                  {user.name
+                    ? user.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                    : "U"}
+                </AvatarFallback>
+              </Avatar>
+              {isOwnProfile && (
+                <Dialog open={isPicDialogOpen} onOpenChange={setIsPicDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button
+                      className="absolute bottom-2 right-0.5 bg-primary text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg border-2 border-white hover:bg-primary/90 transition"
+                      title="Change profile picture"
+                    >
+                      <span className="block w-full h-full flex items-center justify-center text-xl font-bold leading-none">+</span>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogTitle>Change Profile Picture</DialogTitle>
+                    <ProfilePictureStep
+                      profilePic={profilePic}
+                      updateProfilePic={(url) => setProfilePic(url)}
+                      onNext={() => setIsPicDialogOpen(false)}
+                      onBack={() => setIsPicDialogOpen(false)}
+                      username={user.username || ""}
+                    />
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          </div>
 
           {/* Profile Actions */}
           <div className="flex justify-end items-center gap-3 mt-4">
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full px-4 gap-1"
-                onClick={() => setIsEditDialogOpen(true)}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit Profile
-              </Button>
-              <Button variant="outline" size="sm" className="rounded-full px-4 gap-1">
-                <Settings className="h-3.5 w-3.5" />
-                Settings
-              </Button>
+              {isOwnProfile && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full px-4 gap-1"
+                    onClick={() => setIsEditDialogOpen(true)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Profile
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-full px-4 gap-1">
+                    <Settings className="h-3.5 w-3.5" />
+                    Settings
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -498,8 +566,6 @@ export function EnhancedProfile() {
               <ProblemsSolvedCard
                 totalSolved={problemsData.totalSolved}
                 categories={problemsData.categories}
-                recentStreak={problemsData.recentStreak}
-                successRate={problemsData.successRate}
               />
             </motion.div>
 

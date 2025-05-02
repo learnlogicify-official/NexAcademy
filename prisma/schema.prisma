@@ -34,6 +34,7 @@ model User {
   profilePic        String?
   preferredLanguage String?
   hasOnboarded      Boolean  @default(false)
+  bannerImage       String?
 
   @@index([role])
 }
