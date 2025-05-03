@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
+    // Debug: log the received tags
+    console.log('Received codingQuestion.tags:', (body.codingQuestion || body).tags);
+    console.log('Full body:', JSON.stringify(body, null, 2));
 
     // Validate required fields
     if (!body.name) {
@@ -35,6 +38,52 @@ export async function POST(request: NextRequest) {
     // Handle both direct and nested codingQuestion structure
     const codingQuestion = body.codingQuestion || body;
     
+    // Improved tag extraction - handle both string IDs and objects with id property
+    const extractTagIds = (tagsArray: any[]): string[] => {
+      return tagsArray.map((tag: any) => {
+        if (typeof tag === 'string') return tag;
+        if (tag && typeof tag === 'object' && tag.id) return tag.id;
+        return null;
+      }).filter(Boolean);
+    };
+    
+    // Accept tags from either codingQuestion.tags or top-level tags
+    const tags = (codingQuestion.tags && Array.isArray(codingQuestion.tags) && codingQuestion.tags.length > 0)
+      ? extractTagIds(codingQuestion.tags)
+      : (body.tags && Array.isArray(body.tags) && body.tags.length > 0)
+        ? extractTagIds(body.tags)
+        : [];
+    
+    console.log('Extracted tag IDs:', tags);
+
+    // Validate that the tags exist before attempting to connect them
+    if (tags.length > 0) {
+      try {
+        const existingTags = await prisma.tag.findMany({
+          where: {
+            id: {
+              in: tags
+            }
+          },
+          select: {
+            id: true,
+            name: true
+          }
+        });
+        
+        console.log(`Found ${existingTags.length} tags out of ${tags.length} requested:`);
+        existingTags.forEach(tag => console.log(`  - ${tag.name} (${tag.id})`));
+        
+        // If some tags weren't found, log a warning
+        if (existingTags.length < tags.length) {
+          const missingTagIds = tags.filter(tagId => !existingTags.some(t => t.id === tagId));
+          console.warn(`Warning: ${missingTagIds.length} tag IDs were not found in the database:`, missingTagIds);
+        }
+      } catch (error) {
+        console.error("Error validating tags:", error);
+      }
+    }
+
     if (!codingQuestion.languageOptions || !Array.isArray(codingQuestion.languageOptions) || codingQuestion.languageOptions.length === 0) {
       return NextResponse.json(
         { error: "At least one programming language is required" },
@@ -144,13 +193,83 @@ export async function POST(request: NextRequest) {
           },
           testCases: {
             create: testCasesData
-          }
+          },
+          // Add direct tag connection in the create call
+          tags: tags.length > 0 ? {
+            connect: tags.map(tagId => ({ id: tagId }))
+          } : undefined
         },
         include: {
           languageOptions: true,
-          testCases: true
+          testCases: true,
+          tags: true
         }
       });
+
+      // Add additional verification of tags
+      if (tags.length > 0) {
+        console.log("Verifying tags connection via direct query...");
+        try {
+          // Get tags directly from the created coding question
+          const updatedCodingQuestion = await tx.codingQuestion.findUnique({
+            where: { id: createdCodingQuestion.id },
+            include: {
+              tags: true
+            }
+          });
+          
+          console.log("Retrieved coding question with tags:", 
+            JSON.stringify(updatedCodingQuestion?.tags, null, 2));
+            
+          // If tags are still missing, try one last approach as a fallback
+          if (!updatedCodingQuestion?.tags || updatedCodingQuestion.tags.length === 0) {
+            console.log("Tags not connected yet, trying direct SQL manipulation...");
+            
+            // Get the actual column names from the database for debugging
+            const schema = await tx.$queryRaw`
+              SELECT column_name, data_type
+              FROM information_schema.columns 
+              WHERE table_name = '_CodingQuestionTags'
+            `;
+            console.log("_CodingQuestionTags schema:", JSON.stringify(schema, null, 2));
+            
+            // Use raw SQL to connect tags directly in the join table
+            for (const tagId of tags) {
+              if (typeof tagId === 'string' && tagId.trim()) {
+                // Log each tag connection attempt
+                console.log(`Connecting tag ${tagId} to coding question ${createdCodingQuestion.id}`);
+                
+                // Try with explicit column names based on schema inspection
+                try {
+                  // The standard Prisma naming convention for implicit many-to-many relations is A and B
+                  await tx.$executeRaw`
+                    INSERT INTO "_CodingQuestionTags" ("A", "B")
+                    VALUES (${createdCodingQuestion.id}, ${tagId})
+                    ON CONFLICT DO NOTHING
+                  `;
+                  console.log(`Tag ${tagId} connection SQL executed successfully`);
+                } catch (innerError) {
+                  console.error(`Error with standard column names for tag ${tagId}:`, innerError);
+                  
+                  // Try alternative column naming that might be used
+                  try {
+                    await tx.$executeRaw`
+                      INSERT INTO "_CodingQuestionTags" ("codingQuestionId", "tagId")
+                      VALUES (${createdCodingQuestion.id}, ${tagId})
+                      ON CONFLICT DO NOTHING
+                    `;
+                    console.log(`Tag ${tagId} connected with alternative column names`);
+                  } catch (altError) {
+                    console.error(`Error with alternative column names for tag ${tagId}:`, altError);
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error verifying tags:", error);
+        }
+      }
 
       // Return minimal data needed for response
       return {
@@ -170,8 +289,20 @@ export async function POST(request: NextRequest) {
       codingQuestion: result.codingQuestion ? {
         ...result.codingQuestion,
         content: result.codingQuestion.questionText,
+        // Ensure tags are explicitly included in the response
+        tags: result.codingQuestion.tags || [],
+        // Ensure language options are explicitly included
+        languageOptions: result.codingQuestion.languageOptions || [],
+        // Ensure test cases are explicitly included
+        testCases: result.codingQuestion.testCases || []
       } : undefined,
+      // Also include tags at the top level for consistency
+      tags: result.codingQuestion?.tags || []
     } : result;
+
+    // Log the formatted response tags for debugging
+    console.log("RESPONSE - Tags in formatted response:", 
+      JSON.stringify(formattedResult.codingQuestion?.tags || [], null, 2));
 
     return NextResponse.json(formattedResult);
   } catch (error) {

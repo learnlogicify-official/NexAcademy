@@ -21,6 +21,7 @@ import {
   Code,
   Shield,
   FileText,
+  Briefcase,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -76,7 +77,36 @@ export function Sidebar({
     }
   }
 
-  const menuItems = [
+  // Check if current path is a NexPractice route
+  const isNexPracticePath = pathname?.startsWith('/nexpractice');
+
+  // NexPractice-specific menu items
+  const nexPracticeMenuItems = [
+    {
+      name: "Dashboard",
+      href: "/",
+      icon: LayoutDashboard,
+      iconRight: ChevronRight,
+    },
+    {
+      name: "Problem Set",
+      href: "/nexpractice/problems",
+      icon: FileText,
+    },
+    {
+      name: "Trending Company",
+      href: "/nexpractice/companies",
+      icon: Briefcase,
+    },
+    {
+      name: "CodeIDE",
+      href: "/nexpractice/ide",
+      icon: Code,
+    },
+  ]
+
+  // Default menu items for other pages
+  const defaultMenuItems = [
     {
       name: "Dashboard",
       href: "/",
@@ -92,7 +122,6 @@ export function Sidebar({
       name: "Calendar",
       href: "/calendar",
       icon: Calendar,
-      iconRight: Plus,
     },
     {
       name: "Leaderboard",
@@ -100,6 +129,9 @@ export function Sidebar({
       icon: Trophy,
     },
   ]
+
+  // Choose menu items based on current path
+  const menuItems = isNexPracticePath ? nexPracticeMenuItems : defaultMenuItems;
 
   const serviceItems = [
     {

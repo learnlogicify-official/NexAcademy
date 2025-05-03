@@ -290,6 +290,9 @@ export async function PUT(
               questionText,
               defaultMark: Number(defaultMark) || 1,
               defaultLanguage: codingQuestion.defaultLanguage || null,
+              tags: {
+                set: codingQuestion.tags.map((tagId: string) => ({ id: tagId }))
+              },
               // Skip the isAllOrNothing field for now
             }
           });
@@ -348,7 +351,8 @@ export async function PUT(
                   output: String(testCase.output || ''),
                   isSample,
                   isHidden,
-                  showOnFailure
+                  showOnFailure,
+                  gradePercentage: testCase.gradePercentage || 0
                   // No 'grade' field - it's not in the schema
                 }
               });
@@ -368,7 +372,8 @@ export async function PUT(
             codingQuestion: {
               include: {
                 languageOptions: true,
-                testCases: true
+                testCases: true,
+                tags: true
               }
             }
           }

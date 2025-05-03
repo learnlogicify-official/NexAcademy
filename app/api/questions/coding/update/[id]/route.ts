@@ -171,19 +171,24 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         grade: gradeValue,
         createdAt: now,
         updatedAt: now,
+        gradePercentage: gradeValue,
       };
     });
     
-    
+    console.log("UPDATE - testCasesToCreate:", testCasesToCreate);
 
     // Then, update the coding question and its related data
     const updatedQuestion = await prisma.codingQuestion.update({
+      
       where: { id: codingQuestionId },
       data: {
         questionText: body.questionText,
         defaultMark: Number(body.defaultMark) || 1,
         isAllOrNothing: {
           set: Boolean(body.codingQuestion?.allOrNothingGrading)
+        },
+        tags: {
+          set: body.tags.map((tagId: string) => ({ id: tagId }))
         },
         updatedAt: now,
         // Update difficulty separately to avoid type issues

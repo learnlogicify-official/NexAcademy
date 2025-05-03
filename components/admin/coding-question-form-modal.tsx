@@ -50,6 +50,7 @@ import { Badge } from "@/components/ui/badge";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEEditor } from 'tinymce';
+import { TagInput, TagObj } from '@/components/ui/tag-input';
 
 interface Folder {
   id: string;
@@ -95,6 +96,7 @@ interface FormData {
   languageOptions: LanguageOption[];
   testCases: TestCase[];
   status: string;
+  tags: TagObj[];
 }
 
 // Judge0 language IDs mapping
@@ -355,7 +357,7 @@ export function CodingQuestionFormModal({
   onAddFolder,
 }: CodingQuestionFormModalProps) {
   const { toast } = useToast();
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<FormData & { tags: TagObj[] }>({
     name: "",
     folderId: "",
     questionText: "",
@@ -364,6 +366,7 @@ export function CodingQuestionFormModal({
     languageOptions: [],
     testCases: [],
     status: "DRAFT",
+    tags: initialData?.tags?.map((t: any) => typeof t === 'string' ? { id: t, name: t } : t) || [],
   });
 
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -464,7 +467,7 @@ export function CodingQuestionFormModal({
   const getEditorLanguage = (langId: string): string => {
     // Make sure we have a string value
     const langIdStr = String(langId).toLowerCase();
-    console.log(`Getting editor language for: ${langIdStr}`);
+    
     
     // First check if this is a numeric Judge0 language ID
     if (!isNaN(Number(langIdStr))) {
@@ -512,13 +515,29 @@ export function CodingQuestionFormModal({
       console.log("CODING FORM MODAL - Setting form values from initialData");
       
       // Set basic form data
-      console.log("CODING FORM MODAL - Setting base properties");
       console.log("CODING FORM MODAL - Name:", initialData.name);
       console.log("CODING FORM MODAL - FolderId:", initialData.folderId);
       console.log("CODING FORM MODAL - Question Text:", initialData.questionText ? (initialData.questionText.length > 100 ? initialData.questionText.substring(0, 100) + '...' : initialData.questionText) : '');
       console.log("CODING FORM MODAL - Difficulty:", initialData.difficulty);
       console.log("CODING FORM MODAL - Default Mark:", initialData.defaultMark);
       console.log("CODING FORM MODAL - Status:", initialData.status);
+      
+      // Extract tags from either initialData or initialData.codingQuestion
+      let tags: TagObj[] = [];
+      
+      if (initialData.tags && Array.isArray(initialData.tags)) {
+        console.log("CODING FORM MODAL - Setting tags from initialData.tags:", initialData.tags);
+        tags = initialData.tags.map((t: any) => {
+          if (typeof t === 'string') return { id: t, name: t };
+          return { id: t.id, name: t.name || t.id };
+        });
+      } else if (initialData.codingQuestion?.tags && Array.isArray(initialData.codingQuestion.tags)) {
+        console.log("CODING FORM MODAL - Setting tags from initialData.codingQuestion.tags:", initialData.codingQuestion.tags);
+        tags = initialData.codingQuestion.tags.map((t: any) => {
+          if (typeof t === 'string') return { id: t, name: t };
+          return { id: t.id, name: t.name || t.id };
+        });
+      }
       
       setFormData(prevData => ({
         ...prevData,
@@ -529,6 +548,7 @@ export function CodingQuestionFormModal({
         difficulty: initialData.difficulty || 'MEDIUM',
         defaultMark: initialData.defaultMark || 1,
         status: initialData.status || 'DRAFT',
+        tags: tags,
       }));
       
       // Set language options
@@ -762,6 +782,7 @@ export function CodingQuestionFormModal({
         return;
       }
       // Await the onSubmit call and only close on success
+      console.log('SUBMITTING:', codingQuestion);
       await onSubmit(codingQuestion);
       toast({
         title: "Success",
@@ -851,6 +872,11 @@ export function CodingQuestionFormModal({
       };
     });
     
+    // Prepare tag IDs - ensure we're only sending the IDs, not the full objects
+    const tagIds = formData.tags.map(tag => tag.id);
+    console.log("FORM SUBMIT - formData.tags:", formData.tags);
+    console.log("FORM SUBMIT - tagIds to submit:", tagIds);
+    
     // Create the properly structured data
     return {
       id: initialData?.id,
@@ -871,8 +897,10 @@ export function CodingQuestionFormModal({
         languageOptions,
         testCases,
         isAllOrNothing: allOrNothingGrading,
-        defaultLanguage
-      }
+        defaultLanguage,
+        tags: tagIds,
+      },
+      tags: tagIds,
     };
   };
 
@@ -1575,6 +1603,11 @@ export function CodingQuestionFormModal({
     };
   }, []);
 
+  // Add tag state handler
+  const handleTagsChange = (tags: TagObj[]) => {
+    setFormData(prev => ({ ...prev, tags }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
@@ -1622,9 +1655,9 @@ export function CodingQuestionFormModal({
         </div>
         {/* End Enhanced Modern Header */}
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(95vh-170px)] overflow-y-auto pr-2 pb-4 relative px-8 pt-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
-              <Label htmlFor="name" className={cn(labelClass, formErrors.name && "text-destructive")}>
+              <Label htmlFor="name" className={cn(labelClass, formErrors.name && "text-destructive")}> 
                 <div className="flex items-center gap-2">
                   <Type className="h-4 w-4 text-primary/80" /> 
                 Question Name {formErrors.name && <span className="text-destructive text-sm">*</span>}
@@ -1643,7 +1676,7 @@ export function CodingQuestionFormModal({
               )}
             </div>
             <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
-              <Label htmlFor="folder" className={cn(labelClass, formErrors.folderId && "text-destructive")}>
+              <Label htmlFor="folder" className={cn(labelClass, formErrors.folderId && "text-destructive")}> 
                 <div className="flex items-center gap-2">
                   <Folder className="h-4 w-4 text-primary/80" />
                 Folder {formErrors.folderId && <span className="text-destructive text-sm">*</span>}
@@ -1715,6 +1748,29 @@ export function CodingQuestionFormModal({
               {formErrors.folderId && (
                 <p className="text-destructive text-sm">{formErrors.folderId}</p>
               )}
+            </div>
+            {/* Tag Input as its own column */}
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 flex flex-col justify-between">
+              <TagInput
+                value={formData.tags}
+                onChange={handleTagsChange}
+                label={
+                  <div className="flex items-center gap-2 font-medium">
+                    <ListFilter className="h-4 w-4 text-primary/80" />
+                    <span>Question Tags</span>
+                    {formData.tags.length > 0 && (
+                      <Badge variant="outline" className="text-xs px-2 py-0">
+                        {formData.tags.length}
+                      </Badge>
+                    )}
+                  </div>
+                }
+                placeholder="Add tag..."
+                allowCreation={true}
+              />
+              <div className="text-xs text-muted-foreground mt-2">
+                Tags help categorize questions and make them searchable. You can create new tags by typing and pressing Enter.
+              </div>
             </div>
           </div>
 

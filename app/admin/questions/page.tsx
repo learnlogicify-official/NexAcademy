@@ -681,7 +681,7 @@ export default function AdminQuestionsPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
-      console.log("FORM SUBMIT - Initial data received:", JSON.stringify(data, null, 2));
+      console.log("FORM SUBMIT - Initial data received:", data);
       
       let url = '/api/questions';
       let method = 'POST';
@@ -734,7 +734,8 @@ export default function AdminQuestionsPage() {
             defaultLanguage: data.defaultLanguage,
             languageOptions: data.languageOptions,
             testCases: data.testCases,
-            isAllOrNothing: data.allOrNothingGrading
+            isAllOrNothing: data.allOrNothingGrading,
+            tags: data.tags
           }
         };
       }
@@ -871,7 +872,8 @@ export default function AdminQuestionsPage() {
       output: tc.output || tc.expectedOutput || "", // Handle both output and expectedOutput fields
       isHidden: tc.isHidden === true,
       type: tc.isHidden === true ? "hidden" : "sample",
-      showOnFailure: tc.showOnFailure === true // Always include showOnFailure, default to false if undefined
+      showOnFailure: tc.showOnFailure === true, // Always include showOnFailure, default to false if undefined
+      gradePercentage: tc.gradePercentage || 0
     }));
     console.log("EDIT QUESTION - Formatted test cases:", JSON.stringify(testCases, null, 2));
     
@@ -902,7 +904,8 @@ export default function AdminQuestionsPage() {
       languageOptions: languageOptions,
       testCases: testCases,
       defaultLanguage: codingQuestion.defaultLanguage || "",
-      allOrNothingGrading: codingQuestion.isAllOrNothing || false
+      allOrNothingGrading: codingQuestion.isAllOrNothing || false,
+      tags: codingQuestion.tags || []
     };
     
     console.log("EDIT QUESTION - Final formData prepared for editing:", JSON.stringify(formData, null, 2));

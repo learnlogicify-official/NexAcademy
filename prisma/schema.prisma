@@ -8,33 +8,31 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  password      String
-  name          String?
+  id                String       @id @default(cuid())
+  email             String       @unique
+  password          String
+  name              String?
   /// @enum {STUDENT|MANAGER|ADMIN|INSTRUCTOR|NON_EDITING_INSTRUCTOR}
   /// - STUDENT: Default role for new users
   /// - MANAGER: Can manage courses and users
   /// - ADMIN: Full system access
   /// - INSTRUCTOR: Can create and edit courses
   /// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
-  role          Role         @default(STUDENT)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  resetToken    String?      @unique
-  resetTokenExp DateTime?
-  assessments   Assessment[]
-  attempts      Attempt[]
-  enrolledBy    Enrollment[] @relation("EnrolledByUser")
-  enrolledIn    Enrollment[] @relation("UserEnrollments")
-
-  // Onboarding fields:
-  username          String?  @unique
-  bio               String?  @db.VarChar(200)
-  profilePic        String?
+  role              Role         @default(STUDENT)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  resetToken        String?      @unique
+  resetTokenExp     DateTime?
+  bio               String?      @db.VarChar(200)
+  hasOnboarded      Boolean      @default(false)
   preferredLanguage String?
-  hasOnboarded      Boolean  @default(false)
+  profilePic        String?
+  username          String?      @unique
   bannerImage       String?
+  assessments       Assessment[]
+  attempts          Attempt[]
+  enrolledBy        Enrollment[] @relation("EnrolledByUser")
+  enrolledIn        Enrollment[] @relation("UserEnrollments")
 
   @@index([role])
 }
@@ -207,10 +205,11 @@ model CodingQuestion {
   updatedAt       DateTime           @updatedAt
   difficulty      QuestionDifficulty @default(MEDIUM)
   isAllOrNothing  Boolean            @default(false)
-  defaultLanguage String?            // Added for default language support
+  defaultLanguage String?
   question        Question           @relation(fields: [questionId], references: [id])
   languageOptions LanguageOption[]
   testCases       TestCase[]
+  tags            Tag[]              @relation("CodingQuestionTags")
 }
 
 model LanguageOption {
@@ -231,10 +230,10 @@ model TestCase {
   isSample         Boolean        @default(false)
   isHidden         Boolean        @default(false)
   showOnFailure    Boolean        @default(false)
-  gradePercentage  Float          @default(0.0)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   codingQuestionId String
+  gradePercentage  Float          @default(0.0)
   codingQuestion   CodingQuestion @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
 
   @@index([codingQuestionId])
@@ -312,12 +311,13 @@ model Section {
 }
 
 model Tag {
-  id          String          @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  assessments AssessmentTag[]
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  assessments     AssessmentTag[]
+  codingQuestions CodingQuestion[] @relation("CodingQuestionTags")
 }
 
 model AssessmentTag {

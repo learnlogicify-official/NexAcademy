@@ -14,7 +14,61 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json();
-   
+    // Debug: log the received tags
+    console.log('Received PUT codingQuestion.tags:', (body.codingQuestion || body).tags);
+    
+    // Handle both direct and nested codingQuestion structure
+    const codingQuestion = body.codingQuestion || body;
+    
+    // Improved tag extraction - handle both string IDs and objects with id property
+    const extractTagIds = (tagsArray: any[]): string[] => {
+      return tagsArray.map((tag: any) => {
+        if (typeof tag === 'string') return tag;
+        if (tag && typeof tag === 'object' && tag.id) return tag.id;
+        return null;
+      }).filter(Boolean);
+    };
+    
+    // Always prefer codingQuestion fields if present
+    const languageOptions = body.codingQuestion?.languageOptions || body.languageOptions || [];
+    const testCases = body.codingQuestion?.testCases || body.testCases || [];
+    const tags = (body.codingQuestion?.tags && Array.isArray(body.codingQuestion.tags) && body.codingQuestion.tags.length > 0)
+      ? extractTagIds(body.codingQuestion.tags)
+      : (body.tags && Array.isArray(body.tags) && body.tags.length > 0)
+        ? extractTagIds(body.tags)
+        : [];
+
+    console.log('UPDATE - languageOptions:', languageOptions);
+    console.log('UPDATE - testCases:', testCases);
+    console.log('UPDATE - tags:', tags);
+
+    // Validate that the tags exist before attempting to connect them
+    if (tags.length > 0) {
+      try {
+        const existingTags = await prisma.tag.findMany({
+          where: {
+            id: {
+              in: tags
+            }
+          },
+          select: {
+            id: true,
+            name: true
+          }
+        });
+        
+        console.log(`Found ${existingTags.length} tags out of ${tags.length} requested:`);
+        existingTags.forEach(tag => console.log(`  - ${tag.name} (${tag.id})`));
+        
+        // If some tags weren't found, log a warning
+        if (existingTags.length < tags.length) {
+          const missingTagIds = tags.filter(tagId => !existingTags.some(t => t.id === tagId));
+          console.warn(`Warning: ${missingTagIds.length} tag IDs were not found in the database:`, missingTagIds);
+        }
+      } catch (error) {
+        console.error("Error validating tags:", error);
+      }
+    }
 
     const { id } = params;
     if (!id) {
@@ -32,12 +86,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           include: {
             languageOptions: true,
             testCases: true,
+            tags: true
           },
         },
       },
-    });
+    }) as any;
 
-    if (!existingQuestion || !existingQuestion.codingQuestion) {
+    if (!(existingQuestion as any) || !(existingQuestion as any).codingQuestion) {
       return NextResponse.json(
         { error: "Coding question not found" },
         { status: 404 }
@@ -60,60 +115,46 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     });
 
     // Then separately update the coding question part
-    const codingQuestionId = existingQuestion.codingQuestion.id;
+    const codingQuestionId = (existingQuestion as any).codingQuestion.id;
     
-    // Update questionText and defaultMark
+    // Prepare language options and test cases for nested create
+    const languageOptionsData = languageOptions.map((lang: any) => ({
+      language: lang.language,
+      solution: lang.solution || "",
+      preloadCode: lang.preloadCode || ""
+    }));
+    const testCasesData = testCases.map((tc: any) => {
+      const isSample = tc.type === 'sample' || tc.isSample;
+      const isHidden = tc.type === 'hidden' || tc.isHidden;
+      return {
+        input: tc.input || "",
+        output: tc.output || tc.expectedOutput || "",
+        isSample,
+        isHidden,
+        showOnFailure: Boolean(tc.showOnFailure),
+        gradePercentage: Number(tc.gradePercentage) || 0
+      };
+    });
+    console.log("UPDATE - testCasesData:", testCasesData);
+    // Update the coding question and its relations in a single call
     await prisma.codingQuestion.update({
       where: { id: codingQuestionId },
       data: {
         questionText: body.questionText,
         defaultMark: Number(body.defaultMark) || 1,
-      },
-    });
-
-    // Delete old language options
-    await prisma.languageOption.deleteMany({
-      where: { codingQuestionId },
-    });
-
-    // Create new language options
-    for (const lang of body.languageOptions || []) {
-      await prisma.languageOption.create({
-        data: {
-          codingQuestionId,
-          language: lang.language,
-          solution: lang.solution || "",
-          preloadCode: lang.preloadCode || "",
+        tags: {
+          set: tags.map(tagId => ({ id: tagId }))
         },
-      });
-    }
-
-    // Delete old test cases
-    await prisma.testCase.deleteMany({
-      where: { codingQuestionId },
-    });
-
-    // Create new test cases
-    for (const tc of body.testCases || []) {
-      // Map type string to boolean fields
-      const isSample = tc.type === 'sample';
-      const isHidden = tc.type === 'hidden';
-      
-      // Calculate the grade value as a number
-      const gradeValue = parseFloat(tc.grade || tc.gradePercentage || "0");
-      
-      await prisma.testCase.create({
-        data: {
-          codingQuestionId,
-          input: tc.input || "",
-          output: tc.output || "",
-          isSample,
-          isHidden,
-          showOnFailure: Boolean(tc.showOnFailure),
-          grade: gradeValue, // Ensure this matches the schema definition
+        languageOptions: {
+          deleteMany: {},
+          create: languageOptionsData
         },
-      });
-    }
+        testCases: {
+          deleteMany: {},
+          create: testCasesData
+        }
+      }
+    });
 
     // Finally, fetch the updated question with all related data to return
     const updatedQuestion = await prisma.question.findUnique({
@@ -123,12 +164,33 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           include: {
             languageOptions: true,
             testCases: true,
+            tags: true
           },
         },
       },
-    });
+    }) as any;
 
-    return NextResponse.json(updatedQuestion);
+    // Format the response to ensure tags are included
+    const formattedResponse = {
+      ...updatedQuestion,
+      codingQuestion: updatedQuestion.codingQuestion ? {
+        ...updatedQuestion.codingQuestion,
+        // Ensure tags are explicitly included and formatted properly
+        tags: updatedQuestion.codingQuestion.tags || [],
+        // Ensure language options are explicitly included
+        languageOptions: updatedQuestion.codingQuestion.languageOptions || [],
+        // Ensure test cases are explicitly included
+        testCases: updatedQuestion.codingQuestion.testCases || []
+      } : undefined,
+      // Also include tags at the top level for consistency
+      tags: updatedQuestion.codingQuestion?.tags || []
+    };
+
+    // Log the formatted response tags for debugging
+    console.log("UPDATE RESPONSE - Tags in formatted response:", 
+      JSON.stringify(formattedResponse.codingQuestion?.tags || [], null, 2));
+
+    return NextResponse.json(formattedResponse);
   } catch (error) {
     console.error("Error updating coding question:", error);
     return NextResponse.json(

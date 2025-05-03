@@ -133,7 +133,8 @@ export async function GET(request: NextRequest) {
         codingQuestion: {
           include: {
             languageOptions: true,
-            testCases: true
+            testCases: true,
+            tags: true
           }
         }
     };
@@ -168,8 +169,28 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
+    // Format each question to ensure gradePercentage and tags are present
+    const formattedQuestions = questions.map(q => {
+      const codingQuestion = (q as any).codingQuestion;
+      let formattedCodingQuestion = undefined;
+      if (codingQuestion && typeof codingQuestion === 'object') {
+        formattedCodingQuestion = {
+          ...codingQuestion,
+          testCases: Array.isArray(codingQuestion.testCases)
+            ? codingQuestion.testCases.map((tc: any) => ({ ...tc, gradePercentage: tc.gradePercentage }))
+            : [],
+          tags: Array.isArray(codingQuestion.tags) ? codingQuestion.tags : []
+        };
+      }
+      return {
+        ...q,
+        codingQuestion: formattedCodingQuestion,
+        tags: Array.isArray(formattedCodingQuestion?.tags) ? formattedCodingQuestion.tags : (Array.isArray((q as any).mCQQuestion?.tags) ? (q as any).mCQQuestion.tags : [])
+      };
+    });
+
     return NextResponse.json({
-      questions,
+      questions: formattedQuestions,
       pagination: {
         total,
         page,
@@ -320,12 +341,21 @@ export async function POST(request: NextRequest) {
                 data: mcqData
               });
             } else if (body.type === "CODING") {
+              // Extract tags from both possible locations
+              const tagsToConnect = (body.tags || body.codingQuestion?.tags || []);
+              console.log("Tags to connect:", tagsToConnect);
+              
               await tx.codingQuestion.create({
                 data: {
                   questionId: question.id,
                   questionText: body.questionText || body.description || "",
                   defaultMark: Number(body.defaultMark) || 1,
                   isAllOrNothing: Boolean(body.codingQuestion.isAllOrNothing || body.isAllOrNothing || body.allOrNothingGrading || false),
+                  ...(tagsToConnect.length > 0 ? {
+                    tags: {
+                      connect: tagsToConnect.map((tagId: string) => ({ id: tagId }))
+                    }
+                  } : {}),
                   defaultLanguage: body.defaultLanguage || body.codingQuestion.defaultLanguage || null,
                   difficulty: (body.difficulty || "MEDIUM") as QuestionDifficulty,
                   languageOptions: {
@@ -363,6 +393,7 @@ export async function POST(request: NextRequest) {
                   include: {
                     languageOptions: true,
                     testCases: true,
+                    tags: true
                   },
                 },
               },
@@ -399,12 +430,14 @@ export async function POST(request: NextRequest) {
       mcqQuestion: result.mCQQuestion ? {
         ...result.mCQQuestion,
         content: result.mCQQuestion.questionText,
-        options: result.mCQQuestion.options.map(opt => opt.text)
+        options: result.mCQQuestion.options?.map(opt => opt.text) || []
       } : undefined,
       codingQuestion: result.codingQuestion ? {
         ...result.codingQuestion,
-        content: result.codingQuestion.questionText
-      } : undefined
+        content: result.codingQuestion.questionText,
+        tags: result.codingQuestion.tags || []
+      } : undefined,
+      tags: result.codingQuestion?.tags || result.mCQQuestion?.tags || []
     } : result;
 
     return NextResponse.json(formattedResult);
@@ -484,6 +517,10 @@ export async function PUT(request: NextRequest) {
         // This part remains unchanged
       } 
       else if (question.type === "CODING" && body.codingQuestion) {
+        // Extract tags from both possible locations
+        const tagsToConnect = (body.tags || body.codingQuestion?.tags || []);
+        console.log("Tags to connect (update):", tagsToConnect);
+        
         // Update or create the coding question
         await tx.codingQuestion.upsert({
           where: { questionId: id },
@@ -493,12 +530,23 @@ export async function PUT(request: NextRequest) {
             defaultMark: Number(body.defaultMark) || 1,
             isAllOrNothing: Boolean(body.codingQuestion.isAllOrNothing || body.isAllOrNothing || body.allOrNothingGrading || false),
             defaultLanguage: body.defaultLanguage || body.codingQuestion.defaultLanguage || null,
+            ...(tagsToConnect.length > 0 ? {
+              tags: {
+                connect: tagsToConnect.map((tagId: string) => ({ id: tagId }))
+              }
+            } : {})
           },
           update: {
             questionText: body.questionText || question.codingQuestion?.questionText || "",
             defaultMark: Number(body.defaultMark) || question.codingQuestion?.defaultMark || 1,
             isAllOrNothing: Boolean(body.codingQuestion.isAllOrNothing || body.isAllOrNothing || body.allOrNothingGrading || false),
             defaultLanguage: body.defaultLanguage || body.codingQuestion.defaultLanguage || question.codingQuestion?.defaultLanguage || null,
+            ...(tagsToConnect.length > 0 ? {
+              tags: {
+                set: [], // First clear all existing tags
+                connect: tagsToConnect.map((tagId: string) => ({ id: tagId }))
+              }
+            } : {})
           }
         });
 
@@ -548,8 +596,8 @@ export async function PUT(request: NextRequest) {
         }
       }
 
-      // Return updated question with all related data
-      return await tx.question.findUnique({
+      // Return the updated question with all its data
+      const updatedQuestion = await tx.question.findUnique({
         where: { id },
         include: {
           folder: true,
@@ -562,13 +610,33 @@ export async function PUT(request: NextRequest) {
             include: {
               languageOptions: true,
               testCases: true,
+              tags: true
             },
           },
         },
       });
+
+      return updatedQuestion;
     });
 
-    return NextResponse.json(result);
+    // Transform the result to match the frontend expectations
+    const formattedResult = result ? {
+      ...result,
+      content: result.mCQQuestion?.questionText || result.codingQuestion?.questionText || result.name,
+      mcqQuestion: result.mCQQuestion ? {
+        ...result.mCQQuestion,
+        content: result.mCQQuestion.questionText,
+        options: result.mCQQuestion.options?.map(opt => opt.text) || []
+      } : undefined,
+      codingQuestion: result.codingQuestion ? {
+        ...result.codingQuestion,
+        content: result.codingQuestion.questionText,
+        tags: result.codingQuestion.tags || []
+      } : undefined,
+      tags: result.codingQuestion?.tags || result.mCQQuestion?.tags || []
+    } : result;
+
+    return NextResponse.json(formattedResult);
   } catch (error) {
     console.error("Error updating question:", error);
     return NextResponse.json(
