@@ -108,6 +108,43 @@
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+  .code-editor-dark {
+    @apply dark:bg-[#1e1e1e] dark:text-[#d4d4d4];
+  }
+  
+  .editor-border {
+    @apply border border-border dark:border-gray-700;
+  }
+  
+  .editor-container {
+    @apply bg-white dark:bg-[#1e1e1e] border-border dark:border-gray-700; 
+  }
+  
+  .editor-header {
+    @apply bg-white dark:bg-[#252526] border-b border-border dark:border-gray-700;
+  }
+  
+  .editor-button {
+    @apply dark:hover:bg-[#2a2d2e] dark:bg-[#252526] dark:text-gray-300 dark:border-gray-700;
+  }
+  
+  .panel-border {
+    @apply border-border dark:border-gray-700;
+  }
+  
+  /* Text colors */
+  .text-primary-dark {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+  
+  .text-secondary-dark {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+  
+  .text-tertiary-dark {
+    @apply text-gray-500 dark:text-gray-400;
+  }
 }
 
 /* Always keep TinyMCE popups above modals */
@@ -191,4 +228,387 @@
 .pixel-border-effect {
   box-shadow: 0 0 0 4px #f472b6, 0 0 0 8px #fff0, 0 0 0 12px #f472b6;
   border-radius: 18px;
+}
+
+/* Resizer elements styling */
+.horizontal-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  z-index: 10;
+}
+
+.horizontal-resizer:hover,
+.horizontal-resizer:active {
+  background-color: rgba(99, 102, 241, 0.3);
+}
+
+.horizontal-resizer::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 30px;
+  background-color: rgba(99, 102, 241, 0.4);
+  border-radius: 2px;
+  transition: height 0.2s, background-color 0.2s;
+}
+
+.horizontal-resizer:hover::after,
+.horizontal-resizer:active::after {
+  height: 50px;
+  background-color: rgba(99, 102, 241, 0.7);
+  width: 3px; /* Slightly thicker line */
+}
+
+.vertical-resizer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.vertical-resizer:hover,
+.vertical-resizer:active {
+  background-color: rgba(99, 102, 241, 0.3);
+}
+
+.vertical-resizer::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 2px;
+  width: 30px;
+  background-color: rgba(99, 102, 241, 0.4);
+  border-radius: 2px;
+  transition: width 0.2s, background-color 0.2s;
+}
+
+.vertical-resizer:hover::after,
+.vertical-resizer:active::after {
+  width: 50px;
+  background-color: rgba(99, 102, 241, 0.7);
+  height: 3px; /* Slightly thicker line */
+}
+
+/* Fix for the vertical resizer to ensure it doesn't extend beyond its container */
+.panels-container .vertical-resizer {
+  left: auto; /* Reset the left property */
+  width: 100%; /* Make it exactly as wide as its container */
+  max-width: 100%; /* Ensure it never exceeds container width */
+  overflow: hidden; /* Hide anything that goes beyond boundaries */
+}
+
+.right-panel .vertical-resizer {
+  left: 0;
+  right: 0;
+  width: auto; /* Use the container width */
+  max-width: 100%; /* Ensure it never exceeds container width */
+  overflow: visible; /* For the controls to be visible */
+  pointer-events: auto; /* Ensure it captures mouse events */
+}
+
+/* Global resize state */
+body.resize-active {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Confetti animation */
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  animation-name: confetti-fall, confetti-shake;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: 1, 1;
+  border-radius: 0 40% 40% 40%;
+  transform: rotate(45deg);
+}
+
+@keyframes confetti-fall {
+  0% {
+    top: -10%;
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-shake {
+  0% {
+    transform: rotate(45deg) translateX(0);
+  }
+  25% {
+    transform: rotate(25deg) translateX(-5px);
+  }
+  50% {
+    transform: rotate(55deg) translateX(5px);
+  }
+  75% {
+    transform: rotate(35deg) translateX(-5px);
+  }
+  100% {
+    transform: rotate(45deg) translateX(0);
+  }
+}
+
+/* Panel scrolling styles for problem page */
+.panel-scrollable {
+  height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.panel-scrollable::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.panel-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 100, 0.4);
+  border-radius: 4px;
+}
+
+.panel-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.7);
+}
+
+/* Independent scrolling for coding problem page */
+.main-container {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.panels-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.left-panel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-color: hsl(var(--border));
+}
+
+.left-panel-content {
+  flex: 1;
+  overflow: auto;
+}
+
+.right-panel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-panel {
+  flex: 1;
+  overflow: hidden;
+}
+
+.test-panel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-color: hsl(var(--border));
+  margin-top: 0;
+  padding-top: 0;
+  position: relative;
+}
+
+.test-panel-content {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Test panel styling to ensure proper alignment */
+.test-panel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-color: hsl(var(--border));
+  margin-top: 0;
+  padding-top: 0;
+  position: relative;
+}
+
+/* Status bar styling to ensure proper alignment */
+.test-panel .flex.items-center.px-4.py-2.border-b {
+  margin: 0;
+  padding: 8px 16px; /* Consistent padding */
+  height: 32px; /* Fixed height */
+  min-height: 32px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Add more dark mode styles for problem page components */
+.problem-page-dark {
+  /* Text and backgrounds */
+  --dark-bg-primary: #1a1a1a;
+  --dark-bg-secondary: #252526;
+  --dark-bg-tertiary: #2d2d2d;
+  --dark-text-primary: #e6e6e6;
+  --dark-text-secondary: #c4c4c4;
+  --dark-text-tertiary: #9e9e9e;
+  --dark-border-color: #404040;
+  --dark-hover-bg: #333333;
+  --dark-active-bg: #3e3e3e;
+  --dark-panel-bg: #1e1e1e;
+  --dark-code-bg: #1e1e1e;
+}
+
+/* Dark mode styles for the problem page containers */
+.main-container {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Specialized dark theme styling for language select and other inputs */
+.language-select {
+  @apply rounded border bg-transparent dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600;
+}
+
+/* Card and panel dark mode styles */
+.card-dark {
+  @apply dark:bg-gray-800 dark:border-gray-700;
+}
+
+/* Premium feature areas */
+.premium-box {
+  @apply dark:bg-gray-800/50 dark:border-gray-700;
+}
+
+/* Code syntax and editor elements */
+.code-element {
+  @apply dark:bg-gray-800 dark:text-gray-300;
+}
+
+/* Styles for tabs */
+.tabs-dark .tab {
+  @apply dark:text-gray-400 dark:hover:text-gray-200;
+}
+
+.tabs-dark .tab-active {
+  @apply dark:text-gray-100 dark:border-b-2 dark:border-primary;
+}
+
+/* Button variants for dark mode */
+.button-outline-dark {
+  @apply dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700;
+}
+
+.button-solid-dark {
+  @apply dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+}
+
+/* Problem statement styling */
+.problem-statement-dark {
+  @apply dark:text-gray-300;
+}
+
+.problem-statement-dark code {
+  @apply dark:bg-gray-700 dark:text-gray-200;
+}
+
+.problem-statement-dark pre {
+  @apply dark:bg-gray-800 dark:border-gray-700;
+}
+
+/* Test cases area */
+.test-case-dark {
+  @apply dark:bg-gray-800 dark:border-gray-700;
+}
+
+/* Discussion area */
+.discussion-item-dark {
+  @apply dark:border-gray-700 dark:hover:bg-gray-800/60;
+}
+
+/* Panel buttons and controls in dark mode */
+.resizer-button {
+  @apply dark:bg-gray-800/90 dark:border-gray-700 dark:text-gray-300;
+}
+
+/* Make sure tooltips are visible in dark mode */
+.tooltip-content {
+  @apply dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700;
+}
+
+/* Ensure horizontal resizer stays in bounds */
+.panels-container .horizontal-resizer {
+  height: 100%;
+  pointer-events: auto;
+  overflow: visible; /* For controls to be visible */
+}
+
+/* Tooltip positioning on resizers */
+.vertical-resizer .tooltip-content,
+.horizontal-resizer .tooltip-content {
+  z-index: 100;
+  pointer-events: none; /* Allow clicking through */
+}
+
+/* Controls inside resizers */
+.vertical-resizer .group-hover\:opacity-100,
+.horizontal-resizer .group-hover\:opacity-100 {
+  z-index: 20;
+  pointer-events: auto; /* Catch mouse events */
+}
+
+/* Test panel status bar styling for perfect alignment with resizer */
+.test-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 0 16px;
+  height: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  background-color: hsl(var(--background));
+}
+
+.dark .test-panel-header {
+  border-color: hsl(var(--border));
+  background-color: hsl(var(--background));
+}
+
+/* Fix for the resizer-to-header alignment */
+.vertical-resizer + .test-panel {
+  margin-top: 0 !important;
+  border-top: none;
 }

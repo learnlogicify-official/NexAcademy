@@ -59,6 +59,9 @@ export async function GET(request: NextRequest) {
     const includeSubcategories = searchParams.get("includeSubcategories") === "true";
     const assessmentId = searchParams.get("assessmentId");
     const includeSectionMarks = searchParams.get("includeSectionMarks") === "true";
+    
+    // Get all tags (can be multiple with the same name)
+    const tagIds = searchParams.getAll("tags");
 
     const where: any = {};
 
@@ -71,6 +74,24 @@ export async function GET(request: NextRequest) {
       if (["DRAFT", "READY"].includes(normalizedStatus)) {
         where.status = normalizedStatus;
       }
+    }
+
+    // Add tag filtering - handle both single tag and multiple tags
+    if (tagIds && tagIds.length > 0) {
+      where.OR = where.OR || [];
+      
+      // Filter questions that have any of the provided tags
+      where.OR.push({
+        codingQuestion: {
+          tags: {
+            some: {
+              id: {
+                in: tagIds
+              }
+            }
+          }
+        }
+      });
     }
 
     // Handle folder filtering with subcategories support

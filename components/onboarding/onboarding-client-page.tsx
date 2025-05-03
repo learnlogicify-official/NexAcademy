@@ -173,9 +173,6 @@ export default function OnboardingClientPage() {
               {step === 5 && (
                 <IDEShowcase
                   preferredLanguage={data.language}
-                  username={data.username}
-                  bio={data.bio}
-                  profilePic={data.profilePic}
                   onFinishOnboarding={nextStep}
                 />
               )}

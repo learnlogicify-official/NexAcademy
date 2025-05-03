@@ -1,29 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Moon, Sun } from "lucide-react"
 import { motion } from "framer-motion"
+import { useTheme } from "next-themes"
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false)
-
+  const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  
+  // Prevent hydration mismatch
   useEffect(() => {
-    // Check system preference on initial load
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-    setIsDark(prefersDark)
-
-    if (prefersDark) {
-      document.documentElement.classList.add("dark")
-    }
+    setMounted(true)
   }, [])
+  
+  // Only render the toggle after mounting to avoid hydration mismatch
+  if (!mounted) return null
+
+  const isDark = resolvedTheme === "dark"
 
   const toggleTheme = () => {
-    setIsDark(!isDark)
-    if (isDark) {
-      document.documentElement.classList.remove("dark")
-    } else {
-      document.documentElement.classList.add("dark")
-    }
+    setTheme(isDark ? "light" : "dark")
   }
 
   return (
