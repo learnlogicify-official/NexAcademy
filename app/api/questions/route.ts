@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const includeSubcategories = searchParams.get("includeSubcategories") === "true";
     const assessmentId = searchParams.get("assessmentId");
     const includeSectionMarks = searchParams.get("includeSectionMarks") === "true";
-    
+
     // Get all tags (can be multiple with the same name)
     const tagIds = searchParams.getAll("tags");
 

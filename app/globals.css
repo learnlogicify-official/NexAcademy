@@ -58,6 +58,162 @@
   }
 }
 
+/* Problem description and test case formatting */
+.problem-description-content {
+  line-height: 1.6;
+}
+
+.problem-description-content p {
+  margin-bottom: 1rem;
+}
+
+.problem-description-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  background-color: rgb(243, 244, 246);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.dark .problem-description-content code {
+  background-color: rgba(75, 85, 99, 0.3);
+  color: rgb(209, 213, 219);
+}
+
+.problem-description-content pre {
+  white-space: pre-wrap;
+  background-color: rgb(243, 244, 246);
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.dark .problem-description-content pre {
+  background-color: rgb(31, 41, 55);
+  color: rgb(209, 213, 219);
+}
+
+/* Ensure test case pre elements display properly */
+.problem-description-content pre.inline-block,
+.test-case-content pre.inline-block {
+  display: inline-block;
+  white-space: pre-wrap;
+  margin: 0;
+  padding: 0 0.25rem;
+  vertical-align: middle;
+}
+
+/* Test case grid layout styles */
+.test-case-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.test-case-grid .test-case-content {
+  min-height: 60px; /* Ensure minimum height for input/output boxes */
+  display: flex;
+  align-items: flex-start;
+}
+
+/* Match heights in each row */
+.test-case-grid-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 100%;
+}
+
+/* Ensure content areas have a minimum height and equal heights */
+.flex-col.test-case-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.flex-col.test-case-section .test-case-content {
+  flex-grow: 1;
+}
+
+/* Test case scrollable content */
+.test-case-content {
+  position: relative;
+  max-height: 200px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.test-case-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.test-case-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.test-case-content::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.dark .test-case-content::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5);
+}
+
+/* Test case headers */
+.test-case-header {
+  background-color: rgba(243, 244, 246, 0.8);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(229, 231, 235, 1);
+}
+
+.dark .test-case-header {
+  background-color: rgba(31, 41, 55, 0.8);
+  border-color: rgba(55, 65, 81, 1);
+}
+
+.problem-description-content ul, 
+.problem-description-content ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.problem-description-content ul {
+  list-style-type: disc;
+}
+
+.problem-description-content ol {
+  list-style-type: decimal;
+}
+
+.problem-description-content h1,
+.problem-description-content h2,
+.problem-description-content h3,
+.problem-description-content h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.problem-description-content h1 {
+  font-size: 1.5rem;
+}
+
+.problem-description-content h2 {
+  font-size: 1.25rem;
+}
+
+.problem-description-content h3 {
+  font-size: 1.125rem;
+}
+
+.problem-description-content h4 {
+  font-size: 1rem;
+}
+
 .xp-badge {
   background-color: hsl(var(--primary));
 }
@@ -317,16 +473,18 @@
 .right-panel .vertical-resizer {
   left: 0;
   right: 0;
-  width: auto; /* Use the container width */
+  width: 100%; /* Use the full container width */
   max-width: 100%; /* Ensure it never exceeds container width */
   overflow: visible; /* For the controls to be visible */
   pointer-events: auto; /* Ensure it captures mouse events */
+  z-index: 30; /* Ensure it's above other elements */
+  position: absolute; /* Ensure it's absolutely positioned */
 }
 
 /* Global resize state */
 body.resize-active {
-  cursor: col-resize;
-  user-select: none;
+  user-select: none !important;
+  /* Cursor is set in the handlers to be context-appropriate */
 }
 
 /* Confetti animation */
@@ -376,8 +534,18 @@ body.resize-active {
   height: 100%;
   overflow: auto;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  padding-right: 4px; /* Add padding to prevent content from going under scrollbar */
 }
 
+/* Move scrollbar to the edge in the left panel */
+.left-panel .panel-scrollable {
+  padding-right: 6px !important; /* Match scrollbar width */
+  margin-right: 0;
+  border-right: none;
+}
+
+/* Standard panel scrollbar styling */
 .panel-scrollable::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -394,6 +562,60 @@ body.resize-active {
 
 .panel-scrollable::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 100, 100, 0.7);
+}
+
+/* Left panel custom scrollbar that touches the horizontal split */
+.left-panel .panel-scrollable::-webkit-scrollbar {
+  width: 6px;
+  height: 8px;
+  position: absolute;
+  right: 0;
+}
+
+.left-panel .panel-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+  margin-right: -6px;
+}
+
+.left-panel .panel-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 100, 0.4);
+  border-radius: 0;
+  border-right: none;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  margin-right: -6px;
+}
+
+.left-panel .panel-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.7);
+}
+
+/* Dark mode scrollbar styling */
+.dark .left-panel .panel-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 140, 0.4);
+}
+
+.dark .left-panel .panel-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 140, 0.7);
+}
+
+/* Ensure the horizontal resizer aligns with scrollbar */
+.horizontal-resizer {
+  width: 6px;
+  z-index: 10;
+}
+
+/* Fix positioning in Firefox */
+@supports (scrollbar-width: thin) {
+  .left-panel .panel-scrollable {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 100, 100, 0.4) transparent;
+    padding-right: 0 !important;
+  }
+  
+  .dark .left-panel .panel-scrollable {
+    scrollbar-color: rgba(140, 140, 140, 0.4) transparent;
+  }
 }
 
 /* Independent scrolling for coding problem page */
@@ -431,8 +653,10 @@ body.resize-active {
 }
 
 .code-panel {
-  flex: 1;
+  flex: 1 0 auto;
   overflow: hidden;
+  position: relative;
+  min-height: 20%;
 }
 
 .test-panel {
@@ -459,6 +683,9 @@ body.resize-active {
   margin-top: 0;
   padding-top: 0;
   position: relative;
+  flex-shrink: 0; /* Prevent panel from shrinking when content overflows */
+  flex-grow: 0; /* Prevent panel from growing beyond its defined height */
+  height: 100%; /* Ensure panel fills its container height */
 }
 
 /* Status bar styling to ensure proper alignment */
@@ -611,4 +838,453 @@ body.resize-active {
 .vertical-resizer + .test-panel {
   margin-top: 0 !important;
   border-top: none;
+}
+
+/* Modern tabs styling for the problem page */
+.modern-tabs .tab-trigger {
+  position: relative;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.modern-tabs .tab-trigger[data-state="active"] {
+  border-bottom: 2px solid hsl(var(--primary));
+  color: hsl(var(--primary));
+}
+
+.modern-tabs .tab-trigger::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: hsl(var(--primary));
+  transition: width 0.2s ease;
+}
+
+.modern-tabs .tab-trigger:hover::after {
+  width: 100%;
+}
+
+/* Submissions table styling */
+.submissions-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.submissions-table th {
+  font-weight: 500;
+  text-align: left;
+  padding: 0.75rem;
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+.submissions-table td {
+  padding: 0.75rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.submissions-table tr:hover {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Language dropdown styling */
+.language-dropdown {
+  width: 480px !important;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  border: none !important;
+  max-height: 75vh; /* Limit maximum height */
+  overflow-y: auto; /* Enable vertical scrolling */
+}
+
+.dark .language-dropdown {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  background-color: rgba(30, 30, 30, 0.98);
+  border: 1px solid rgba(80, 80, 80, 0.2) !important;
+}
+
+/* Add scrollbar styling for the dropdown itself */
+.language-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.language-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.language-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 100, 0.3);
+  border-radius: 3px;
+}
+
+.language-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.5);
+}
+
+.dark .language-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 140, 0.3);
+}
+
+.dark .language-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 140, 0.5);
+}
+
+.language-section {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0.25rem 0;
+}
+
+.dark .language-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.language-section:last-child {
+  border-bottom: none;
+}
+
+.language-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.5);
+  padding: 0.4rem 1rem 0.3rem 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dark .language-section-title {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0 0.5rem;
+}
+
+.language-item {
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  position: relative;
+}
+
+.language-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.dark .language-item:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+.language-item.active {
+  background-color: rgba(0, 122, 255, 0.08);
+  color: rgb(0, 112, 243);
+}
+
+.dark .language-item.active {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: rgb(96, 165, 250);
+}
+
+.language-item .version {
+  font-size: 0.65rem;
+  color: rgba(0, 0, 0, 0.4);
+  font-weight: normal;
+  margin-left: 0.3rem;
+}
+
+.dark .language-item .version {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.language-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.language-dropdown-header {
+  padding: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 10;
+}
+
+.dark .language-dropdown-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.language-dropdown-header h3 {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.language-search {
+  display: flex;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  margin: 0 0.75rem 0.5rem;
+  position: sticky;
+  top: 2.6rem;
+  z-index: 10;
+  background: inherit;
+}
+
+.dark .language-search {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.language-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  width: 100%;
+  padding-left: 0.5rem;
+}
+
+.dark .language-search input {
+  color: white;
+}
+
+.language-search input::placeholder {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.dark .language-search input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.status-accepted {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: rgb(22, 163, 74);
+}
+
+.status-wrong {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: rgb(220, 38, 38);
+}
+
+.dark .status-wrong {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: rgb(248, 113, 113);
+}
+
+.status-timeout {
+  background-color: rgba(234, 179, 8, 0.1);
+  color: rgb(202, 138, 4);
+}
+
+.dark .status-timeout {
+  background-color: rgba(234, 179, 8, 0.2);
+  color: rgb(250, 204, 21);
+}
+
+/* Enhanced header for problem page */
+.problem-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  border-bottom: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  padding: 0 1rem;
+  position: relative;
+  z-index: 20;
+}
+
+.problem-header-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.problem-header-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.problem-header-divider {
+  width: 1px;
+  height: 24px;
+  background-color: hsla(var(--border) / 0.7);
+  margin: 0 0.25rem;
+}
+
+.problem-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.problem-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.problem-nav-btn:hover {
+  background-color: hsla(var(--muted) / 0.7);
+}
+
+.problem-btn {
+  height: 34px;
+  padding: 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.problem-btn-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.problem-btn-primary:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+.problem-btn-success {
+  background-color: #10b981;
+  color: white;
+}
+
+.problem-btn-success:hover {
+  background-color: #0ea371;
+}
+
+.problem-btn-outline {
+  background-color: transparent;
+  border: 1px solid hsl(var(--border));
+}
+
+.problem-btn-outline:hover {
+  background-color: hsla(var(--muted) / 0.5);
+}
+
+.problem-user-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.problem-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.problem-premium-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.375rem;
+  color: #f59e0b;
+  transition: all 0.2s;
+}
+
+.problem-premium-badge:hover {
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+.dark .problem-premium-badge:hover {
+  background-color: rgba(245, 158, 11, 0.15);
+}
+
+.badge-difficulty {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.badge-easy {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.badge-medium {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.badge-hard {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.dark .badge-easy {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.dark .badge-medium {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.dark .badge-hard {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
 }

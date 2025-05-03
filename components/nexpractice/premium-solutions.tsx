@@ -94,7 +94,7 @@ export function PremiumSolutions() {
                     </li>
                     <li>Otherwise, add the current element and its index to the hash map.</li>
                   </ol>
-                  
+                
                   <h5 className="font-semibold mt-4">Implementation:</h5>
                   <div className="bg-muted p-4 rounded-md">
                     <pre className="text-sm">
@@ -131,7 +131,7 @@ export function PremiumSolutions() {
               </div>
             )}
           </div>
-          
+                
           <div className="border rounded-lg overflow-hidden">
             <div 
               className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex justify-between items-center cursor-pointer"

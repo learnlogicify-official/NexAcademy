@@ -3,9 +3,11 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft } from "lucide-react"
+import { PanelLeft, CheckCircle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { useParams, useRouter } from "next/navigation"
 
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,7 +69,7 @@ const SidebarProvider = React.forwardRef<
     },
     ref
   ) => {
-    const isMobile = useIsMobile()
+    const isMobile = useMobile()
     const [openMobile, setOpenMobile] = React.useState(false)
 
     // This is the internal state of the sidebar.
@@ -734,6 +736,339 @@ const SidebarMenuSubButton = React.forwardRef<
   )
 })
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
+
+// Define interface for problem data from API
+interface ProblemData {
+  id: string;
+  name: string;
+  type: string;
+  difficulty: string;
+  status: string;
+  codingQuestion?: {
+    testCases: any[];
+    tags: any[];
+  };
+}
+
+// Simplified problem type for the sidebar
+interface SidebarProblem {
+  id: string;
+  title: string;
+  difficulty: string;
+  solved: boolean;
+}
+
+export function ExpandableProblemSidebar() {
+  const [expanded, setExpanded] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+  const [visibleCount, setVisibleCount] = React.useState(20)
+  const [loading, setLoading] = React.useState(false)
+  const [initialLoading, setInitialLoading] = React.useState(true)
+  const [problems, setProblems] = React.useState<SidebarProblem[]>([])
+  const sidebarRef = React.useRef<HTMLDivElement>(null)
+  const params = useParams()
+  const router = useRouter()
+  
+  // Get current problem ID from URL params
+  const currentProblemId = params?.id as string
+
+  // Fetch all coding problems
+  React.useEffect(() => {
+    if (!expanded) return;
+    
+    const fetchProblems = async () => {
+      setInitialLoading(true);
+      try {
+        // Fetch coding questions from the API
+        const response = await fetch(`/api/questions?type=CODING&limit=100&page=1`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch problems');
+        }
+        
+        const data = await response.json();
+        
+        // Map API response to the format we need for the sidebar
+        const formattedProblems: SidebarProblem[] = data.questions.map((q: ProblemData) => ({
+          id: q.id,
+          title: q.name || 'Untitled Problem',
+          difficulty: q.difficulty || 'MEDIUM',
+          // For now, we'll assume no problems are solved
+          // In a real app, you'd fetch the user's solved problems and mark them
+          solved: false
+        }));
+        
+        setProblems(formattedProblems);
+      } catch (error) {
+        console.error('Error fetching problems:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    
+    fetchProblems();
+  }, [expanded]);
+
+  // Filtered and visible problems
+  const filtered = React.useMemo(() =>
+    problems.filter(p =>
+      p.title.toLowerCase().includes(search.toLowerCase())
+    ), [search, problems])
+  const visibleProblems = filtered.slice(0, visibleCount)
+
+  // Navigate to selected problem
+  const handleProblemClick = (id: string) => {
+    router.push(`/nexpractice/problem/${id}`);
+    
+    // On mobile or smaller screens, automatically close the sidebar after selection
+    if (window.innerWidth < 768) {
+      setExpanded(false);
+    }
+  }
+
+  // Lazy load more on scroll
+  React.useEffect(() => {
+    if (!expanded) return
+    const handleScroll = () => {
+      if (!sidebarRef.current) return
+      const { scrollTop, scrollHeight, clientHeight } = sidebarRef.current
+      if (scrollTop + clientHeight >= scrollHeight - 40 && !loading && visibleCount < filtered.length) {
+        setLoading(true)
+        setTimeout(() => {
+          setVisibleCount(c => Math.min(c + 20, filtered.length))
+          setLoading(false)
+        }, 600)
+      }
+    }
+    const node = sidebarRef.current
+    if (node) node.addEventListener('scroll', handleScroll)
+    return () => { if (node) node.removeEventListener('scroll', handleScroll) }
+  }, [expanded, loading, visibleCount, filtered.length])
+
+  return (
+    <>
+      <AnimatePresence>
+        {!expanded && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.15 }}
+            className="fixed top-4 left-4 z-50"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full bg-white dark:bg-gray-800 shadow-[0_2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm"
+              onClick={() => setExpanded(true)}
+              aria-label="Show problem list"
+            >
+              <svg 
+                width="18" 
+                height="18" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="text-primary"
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M8 6h13"></path>
+                <path d="M8 12h13"></path>
+                <path d="M8 18h13"></path>
+                <path d="M3 6h.01"></path>
+                <path d="M3 12h.01"></path>
+                <path d="M3 18h.01"></path>
+              </svg>
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ x: -400 }}
+            animate={{ x: 0 }}
+            exit={{ x: -400 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed top-0 left-0 h-full w-[400px] flex flex-col z-40 shadow-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50"
+            style={{ maxWidth: '90vw' }}
+          >
+            <div className="p-4 flex items-center justify-between border-b border-gray-200/80 dark:border-gray-800/80">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <svg 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    stroke="currentColor"
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M8 6h13"></path>
+                    <path d="M8 12h13"></path>
+                    <path d="M8 18h13"></path>
+                    <path d="M3 6h.01"></path>
+                    <path d="M3 12h.01"></path>
+                    <path d="M3 18h.01"></path>
+                  </svg>
+                </div>
+                <h2 className="text-base font-semibold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent dark:from-primary dark:to-blue-400">
+                  Coding Problems
+                </h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setExpanded(false)}
+                className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="p-3 border-b border-gray-200/80 dark:border-gray-800/80">
+              <div className="relative">
+                <Input
+                  placeholder="Search problems..."
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setVisibleCount(20); }}
+                  className="w-full pl-9 h-9 bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 rounded-md focus-visible:ring-primary"
+                />
+                <svg 
+                  width="15" 
+                  height="15" 
+                  viewBox="0 0 15 15" 
+                  fill="none" 
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                >
+                  <path
+                    d="M10 6.5C10 8.433 8.433 10 6.5 10C4.567 10 3 8.433 3 6.5C3 4.567 4.567 3 6.5 3C8.433 3 10 4.567 10 6.5ZM9.30884 10.0159C8.53901 10.6318 7.56251 11 6.5 11C4.01472 11 2 8.98528 2 6.5C2 4.01472 4.01472 2 6.5 2C8.98528 2 11 4.01472 11 6.5C11 7.56251 10.6318 8.53901 10.0159 9.30884L12.8536 12.1464C13.0488 12.3417 13.0488 12.6583 12.8536 12.8536C12.6583 13.0488 12.3417 13.0488 12.1464 12.8536L9.30884 10.0159Z"
+                    fill="currentColor"
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+
+            <div className="px-3 py-2.5 flex items-center justify-between border-b border-gray-200/80 dark:border-gray-800/80">
+              <div className="flex gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Filter:</span>
+                <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">All</span>
+                <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Solved</span>
+                <span className="text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Todo</span>
+              </div>
+              <div className="flex gap-1">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{filtered.length} problems</span>
+              </div>
+            </div>
+
+            <div ref={sidebarRef} className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+              {initialLoading ? (
+                <div className="py-8">
+                  {[...Array(8)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 dark:border-gray-800/60 animate-pulse"
+                    >
+                      <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                      <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-5 w-16 ml-auto bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {visibleProblems.map(problem => (
+                    <motion.div
+                      key={problem.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex items-center justify-between px-4 py-3 border-b border-gray-200/60 dark:border-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150 cursor-pointer group ${problem.id === currentProblemId ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
+                      onClick={() => handleProblemClick(problem.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-medium flex items-center justify-center h-6 w-6 rounded-full 
+                          ${problem.solved 
+                            ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                            : problem.id === currentProblemId
+                              ? 'bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary'
+                              : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                          }`}
+                        >
+                          {/* Show check icon if solved, otherwise show problem number */}
+                          {problem.solved ? <CheckCircle className="h-3.5 w-3.5" /> : problems.findIndex(p => p.id === problem.id) + 1}
+                        </span>
+                        <span className={`font-medium truncate max-w-[180px] text-sm 
+                          ${problem.id === currentProblemId 
+                            ? 'text-primary dark:text-primary font-semibold' 
+                            : 'text-gray-800 dark:text-gray-200 group-hover:text-primary dark:group-hover:text-primary'
+                          } transition-colors duration-150`}
+                        >
+                          {problem.title}
+                        </span>
+                        <span 
+                          className={`text-xs font-semibold rounded-full px-2 py-0.5 
+                          ${problem.difficulty.toUpperCase() === 'EASY'
+                            ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                            : problem.difficulty.toUpperCase() === 'MEDIUM' 
+                              ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' 
+                              : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}
+                        >
+                          {problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1).toLowerCase()}
+                        </span>
+                      </div>
+                      {problem.solved ? (
+                        <CheckCircle className="text-green-500 dark:text-green-400 w-4 h-4" />
+                      ) : (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className={`h-7 w-7 rounded-full ${problem.id === currentProblemId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </motion.div>
+                  ))}
+                  {loading && (
+                    <div className="flex justify-center py-8">
+                      <div className="relative h-8 w-8">
+                        <div className="absolute animate-ping h-8 w-8 rounded-full bg-primary/10"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-primary border-r-primary/10 border-b-primary/10 border-l-primary/10"></div>
+                      </div>
+                    </div>
+                  )}
+                  {visibleProblems.length === 0 && !loading && !initialLoading && (
+                    <div className="text-center py-12 px-4">
+                      <div className="h-12 w-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
+                          <path d="M10.5 1.5H8.25C7.00736 1.5 6 2.50736 6 3.75V20.25C6 21.4926 7.00736 22.5 8.25 22.5H15.75C16.9926 22.5 18 21.4926 18 20.25V9M10.5 1.5L18 9M10.5 1.5V7.5C10.5 8.3284 11.1716 9 12 9H18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M9.5 15.5L9.5 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M9.5 18.5L9.5 17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                      <p className="text-base font-medium text-gray-700 dark:text-gray-300 mb-1">No problems found</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Try changing your search query</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
 
 export {
   Sidebar,

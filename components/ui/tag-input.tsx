@@ -243,7 +243,7 @@ export const TagInput: React.FC<TagInputProps> = ({
         {creatingTag ? (
           <div className="animate-pulse h-4 w-4 bg-primary/20 rounded-full ml-1"></div>
         ) : (
-          <Search className="h-4 w-4 text-muted-foreground ml-1" />
+        <Search className="h-4 w-4 text-muted-foreground ml-1" />
         )}
       </div>
       {showDropdown && (

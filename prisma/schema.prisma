@@ -33,6 +33,7 @@ model User {
   attempts          Attempt[]
   enrolledBy        Enrollment[] @relation("EnrolledByUser")
   enrolledIn        Enrollment[] @relation("UserEnrollments")
+  userCodeDrafts    UserCodeDraft[]
 
   @@index([role])
 }
@@ -378,6 +379,20 @@ model Enrollment {
   @@index([courseId])
   @@index([userId])
   @@index([enrolledBy])
+}
+
+model UserCodeDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  problemId String
+  language  String
+  code      String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, problemId, language])
 }
 
 /// Valid roles for users:

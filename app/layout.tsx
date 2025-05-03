@@ -4,7 +4,7 @@ import "./globals.css"
 import { Providers } from "./providers"
 import { Suspense } from "react"
 import { ProfilePicProvider } from "@/components/ProfilePicContext"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 const inter = Inter({ subsets: ["latin"] })
