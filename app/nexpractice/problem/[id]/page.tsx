@@ -40,6 +40,11 @@ import {
   Github,
   FileText,
   ChevronDown,
+  Loader2,
+  Send,
+  CheckCircle2,
+  Database,
+  XCircle,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -70,6 +75,7 @@ import { useSession, signOut } from "next-auth/react"
 import { useProfilePic } from "@/components/ProfilePicContext"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, LogOut } from "lucide-react"
+import { formatDistanceToNow } from 'date-fns';
 
 // Define language option interface
 interface LanguageOption {
@@ -321,6 +327,14 @@ export default function ProblemPage() {
   const { profilePic } = useProfilePic()
   const [errorLine, setErrorLine] = useState<number | null>(null) // Add state for error line
   const [errorMessage, setErrorMessage] = useState<string | null>(null) // Add state for error message
+  const [showAcceptedTab, setShowAcceptedTab] = useState(false)
+  const [acceptedSubmission, setAcceptedSubmission] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState("description")
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [showSubmissionTab, setShowSubmissionTab] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  const [submissionLoading, setSubmissionLoading] = useState(false);
 
   const confettiRef = useRef<HTMLDivElement>(null)
   const rightPanelRef = useRef<HTMLDivElement>(null)
@@ -778,6 +792,11 @@ public:
     // Store the current bottomPanelHeight before switching tabs
     const currentHeight = bottomPanelHeight
     
+    // If user is on the result tab, switch to testcase tab
+    if (testTabValue === "result") {
+      setTestTabValue("testcase");
+    }
+    
     try {
       // Validate code
       const validation = validateCode(code);
@@ -899,21 +918,31 @@ public:
     setIsRunning(false)
   }
   
-  // Submit code - tests all sample and hidden test cases
+  // Update the submitCode function to handle testcases sequentially and stop on first failure
   const submitCode = async () => {
     saveCodeToBackend();
-    // First save the current code
     console.log('[DEBUG] Submitting code - saving first');
-    
-    // Then continue with existing submit code logic
+    setTestTabValue("result");
     setIsSubmitting(true)
     setSubmitResults(null)
-    setErrorLine(null) // Reset error line
-    setErrorMessage(null) // Reset error message
-    
-    // Store the current bottomPanelHeight before switching tabs
+    setErrorLine(null)
+    setErrorMessage(null)
     const currentHeight = bottomPanelHeight
-    
+
+    // Variables to track submission info for saving
+    let submissionData: any = {
+      language,
+      code,
+      testcasesPassed: 0,
+      totalTestcases: 0,
+      allPassed: false,
+      runtime: null,
+      memory: null,
+      runtimePercentile: null,
+      memoryPercentile: null
+    };
+    let shouldSave = false;
+
     try {
       // Validate code
       const validation = validateCode(code);
@@ -926,6 +955,14 @@ public:
           mode: "submit"
         })
         setIsSubmitting(false);
+        // Save what we can
+        submissionData = {
+          ...submissionData,
+          testcasesPassed: 0,
+          totalTestcases: 0,
+          allPassed: false
+        };
+        shouldSave = true;
         return;
       }
       
@@ -955,14 +992,19 @@ public:
         throw new Error("No test cases available for this problem");
       }
       
-      // Create initial loading results - we'll only show summary during loading
+      // Create initial loading results - show "Evaluating..." message
       setResults({
         success: true,
         loading: true,
         judgeResults: [],
         mode: "submit",
         totalTestCases: allTestCases.length,
-        showOnlyFailures: true
+        showOnlyFailures: true,
+        progress: {
+          current: 0,
+          total: allTestCases.length,
+          message: "Evaluating all test cases...",
+        }
       })
       
       // If bottom panel is not visible enough, adjust it
@@ -972,55 +1014,106 @@ public:
         setBottomPanelHeight(currentHeight);
       }
       
-      // Run with Judge0
-      const judgeResults = await runWithJudge0({
-        sourceCode: code,
-        languageId,
-        testCases: allTestCases,
-      })
-      
-      const passedCount = judgeResults.filter(result => result.verdict === "Accepted").length
-      const failedTestCases = judgeResults.filter(result => result.verdict !== "Accepted")
-      const allAccepted = judgeResults.every(result => result.verdict === "Accepted")
-      
-      // Show confetti for all test cases passing
-      if (allAccepted) {
-        setShowConfetti(true)
+      // Process test cases one by one and stop on first failure
+      let failedTestCase = null;
+      let passedCount = 0;
+      let totalRuntimeMs = 0;
+      let totalMemoryKb = 0;
+      let allPassed = true;
+      for (let i = 0; i < allTestCases.length; i++) {
+        const testCase = allTestCases[i];
+        setResults((prev: any) => ({
+          ...prev,
+          progress: {
+            current: i + 1,
+            total: allTestCases.length,
+            message: `Evaluating test case ${i + 1}/${allTestCases.length}...`,
+          }
+        }));
+        const result = await runWithJudge0({
+          sourceCode: code,
+          languageId: availableLanguages.find(l => l.name === language)?.languageId ?? 0,
+          testCases: [testCase],
+        });
+        if (result.length > 0) {
+          const runtimeStr = result[0].time;
+          const memoryStr = result[0].memory;
+          if (runtimeStr) totalRuntimeMs += parseFloat(runtimeStr) * 1000;
+          if (memoryStr) totalMemoryKb += parseInt(memoryStr, 10);
+        }
+        if (result.length > 0 && result[0].verdict !== "Accepted") {
+          failedTestCase = {
+            ...result[0],
+            input: testCase.input,
+          };
+          allPassed = false;
+          break;
+        }
+        passedCount++;
       }
+      // After the loop, set total runtime, memory, and allPassed
+      submissionData.runtime = `${Math.round(totalRuntimeMs)} ms`;
+      submissionData.memory = `${(totalMemoryKb / 1024).toFixed(2)} MB`;
+      submissionData.allPassed = allPassed;
+      submissionData.testcasesPassed = passedCount;
+      submissionData.totalTestcases = allTestCases.length;
       
-      // Check for errors and extract line numbers
-      if (failedTestCases.length > 0) {
-        // Look for compile or runtime errors
-        const firstError = failedTestCases.find(result => 
-          result.verdict === "Compile Error" || 
-          result.verdict === "Runtime Error"
-        );
-        
-        if (firstError) {
-          const errorMessage = firstError.compile_output || firstError.stderr || '';
+      // After processing all test cases or finding a failure
+      if (failedTestCase) {
+        // Check for compile or runtime errors
+        if (failedTestCase.verdict === "Compile Error" || failedTestCase.verdict === "Runtime Error") {
+          const errorMessage = failedTestCase.compile_output || failedTestCase.stderr || '';
           const lineNumber = extractErrorLineNumber(errorMessage);
           if (lineNumber) {
             setErrorLine(lineNumber);
-            setErrorMessage(errorMessage); // Set the error message
+            setErrorMessage(errorMessage);
           }
         }
+        setResults({
+          success: true,
+          loading: false,
+          judgeResults: [failedTestCase],
+          mode: "submit",
+          summary: {
+            passed: passedCount,
+            total: allTestCases.length,
+            allPassed: false,
+            message: `Test case failed. (${passedCount}/${allTestCases.length} passed)`
+          },
+          showOnlyFailures: true
+        });
+      } else {
+        // All test cases passed!
+        const submissionStats = {
+          runtime: `${Math.round(totalRuntimeMs)} ms`, // This would ideally come from Judge0 results
+          runtimePercentile: "100.00%",
+          memory: `${(totalMemoryKb / 1024).toFixed(2)} MB`, // This would ideally come from Judge0 results
+          memoryPercentile: "63.06%", 
+          code: code,
+          language: language,
+          timestamp: new Date().toISOString(),
+          testsPassed: passedCount,
+          totalTests: allTestCases.length
+        };
+        setAcceptedSubmission(submissionStats);
+        setShowAcceptedTab(true);
+        setActiveTab("accepted");
+        setShowConfetti(true);
+        setResults({
+          success: true,
+          loading: false,
+          judgeResults: [],
+          mode: "submit",
+          summary: {
+            passed: allTestCases.length,
+            total: allTestCases.length,
+            allPassed: true,
+            message: `All ${allTestCases.length} test cases passed! 🎉`
+          },
+          showOnlyFailures: true
+        });
       }
-      
-      // For the submit mode, only show failed test cases (and at most the first one)
-      const firstFailure = failedTestCases.length > 0 ? [failedTestCases[0]] : []
-      
-      setResults({
-        success: true,
-        loading: false,
-        judgeResults: firstFailure,
-        mode: "submit",
-        summary: {
-          passed: passedCount,
-          total: allTestCases.length,
-          allPassed: allAccepted
-        },
-        showOnlyFailures: true
-      })
+      shouldSave = true;
     } catch (error: any) {
       console.error('Error submitting code:', error)
       
@@ -1037,9 +1130,48 @@ public:
         error: error.message || "Unknown error submitting code.",
         mode: "submit"
       })
+      // Save what we can
+      submissionData = {
+        ...submissionData,
+        testcasesPassed: 0,
+        totalTestcases: 0,
+        allPassed: false
+      };
+      shouldSave = true;
+    } finally {
+      setIsSubmitting(false);
+      // Always save submission if user is logged in
+      if (session?.user?.id && shouldSave) {
+        console.log("[CLIENT] Always saving submission to database", submissionData);
+        // Save with retry logic
+        const saveWithRetry = async (retryCount = 0, maxRetries = 3) => {
+          try {
+            const response = await fetch(`/api/problem/${problemId}/save-submission`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(submissionData)
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              console.error(`[CLIENT] Error saving submission: ${response.status}`, data);
+              if (retryCount < maxRetries) {
+                console.log(`[CLIENT] Retrying save (${retryCount + 1}/${maxRetries})...`);
+                setTimeout(() => saveWithRetry(retryCount + 1, maxRetries), 1000); // Retry after 1 second
+              }
+              return;
+            }
+            console.log("[CLIENT] Submission saved successfully:", data);
+          } catch (error) {
+            console.error("[CLIENT] Exception saving submission:", error);
+            if (retryCount < maxRetries) {
+              console.log(`[CLIENT] Retrying save (${retryCount + 1}/${maxRetries})...`);
+              setTimeout(() => saveWithRetry(retryCount + 1, maxRetries), 1000); // Retry after 1 second
+            }
+          }
+        };
+        saveWithRetry();
+      }
     }
-    
-    setIsSubmitting(false)
   }
 
   const handlePremiumClick = () => {
@@ -1113,6 +1245,11 @@ public:
       setIsLanguageLoading(true); // Set language loading to true
       setIsCodeLoading(true); // Set code loading to true
       
+      // Reset tabs state when loading a new problem
+      setActiveTab("description");
+      setShowAcceptedTab(false);
+      setAcceptedSubmission(null);
+      
       try {
         const response = await fetch(`/api/problem/${problemId}`);
         if (!response.ok) {
@@ -1121,7 +1258,33 @@ public:
         const data = await response.json();
         setProblem(data);
         
-        // Set available languages from problem data
+        // Check if there's a previous accepted submission
+        if (session?.user?.id) {
+          try {
+            const submissionRes = await fetch(`/api/problem/${problemId}/accepted-submission`);
+            const submissionData = await submissionRes.json();
+            // Use hideAcceptedTab from backend
+            if (submissionData.hasAcceptedSubmission && !submissionData.hideAcceptedTab) {
+              const sub = submissionData.submission;
+              setAcceptedSubmission({
+                code: sub.code,
+                language: sub.language,
+                runtime: sub.runtime || "0 ms",
+                runtimePercentile: sub.runtimePercentile || "100.00%",
+                memory: sub.memory || "18.79 MB",
+                memoryPercentile: sub.memoryPercentile || "63.06%",
+                testsPassed: sub.testcasesPassed,
+                totalTests: sub.totalTestcases,
+                timestamp: sub.submittedAt
+              });
+              // Do not auto-show the Accepted tab after reload
+            }
+          } catch (error) {
+            console.error("Error loading accepted submission:", error);
+          }
+        }
+        
+        // Rest of the existing code for setting languages, etc.
         if (data.languageOptions && Array.isArray(data.languageOptions) && data.languageOptions.length > 0) {
           // Update language IDs to match current Judge0 API
           const updatedLanguageOptions = data.languageOptions.map((lang: LanguageOption) => ({
@@ -1674,6 +1837,21 @@ public:
     return null;
   };
 
+  // Fetch submissions when Submissions tab is activated
+  useEffect(() => {
+    if (activeTab === 'submissions' && session?.user?.id && problemId) {
+      setSubmissionsLoading(true);
+      fetch(`/api/problem/${problemId}/submissions`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data.submissions)) {
+            setSubmissions(data.submissions);
+          }
+        })
+        .finally(() => setSubmissionsLoading(false));
+    }
+  }, [activeTab, session?.user?.id, problemId]);
+
   return (
     <div className="main-container">
       {/* Add Expandable Problem Sidebar */}
@@ -1740,40 +1918,41 @@ public:
 
         {/* Centered Run and Submit buttons - absolutely centered */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-2 z-0">
-          <button 
-            className={`problem-btn ${
-              isRunning ? 'problem-btn-primary' : 'problem-btn-outline'
-            }`}
+          <Button 
             onClick={runCode} 
-            disabled={isRunning}
-          >
-            {isRunning ? 
-              <div className="flex items-center">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5"></div>
-                Running
-              </div> : 
-              <>
-                <Play className="h-4 w-4" />
-                Run
-              </>
-            }
-          </button>
-          <button 
-            className="problem-btn problem-btn-success"
-            onClick={submitCode}
             disabled={isRunning || isSubmitting}
+            className={`problem-btn-primary flex items-center justify-center h-10 px-4 ${isRunning ? 'opacity-70' : ''}`}
           >
-            {isSubmitting ? 
-              <div className="flex items-center">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5"></div>
-                Submitting
-              </div> : 
+            {isRunning ? (
               <>
-                <CheckSquare className="h-4 w-4" />
-                Submit
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <span>Running</span>
               </>
-            }
-          </button>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-1" />
+                <span>Run</span>
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={submitCode}
+            disabled={isSubmitting || isRunning} 
+            className={`problem-btn-success flex items-center justify-center h-10 px-4 ${isSubmitting ? 'opacity-70' : ''}`}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <span>Submitting</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-1" />
+                <span>Submit</span>
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Right Section */}
@@ -1874,20 +2053,20 @@ public:
             display: focusMode ? 'none' : 'flex' // Hide the panel completely in focus mode
           }}
         >
-          <Tabs defaultValue="description" className="w-full h-full flex flex-col modern-tabs">
-            <div className="border-border border-b flex-shrink-0 bg-background">
-              <div className="px-4 pt-3 pb-0">
-                <TabsList className="flex w-full justify-start space-x-1 bg-transparent h-auto p-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col modern-tabs">
+            <div className="border-border border-b flex-shrink-0 bg-background h-10 flex items-center" style={{minHeight: 40, height: 40, maxHeight: 40}}>
+              <div className="px-4 pt-3 pb-0 flex items-center h-full" style={{height: '100%'}}>
+                <TabsList className="flex w-full justify-start space-x-1 bg-transparent h-full p-0 items-center" style={{height: '100%'}}>
                   <TabsTrigger 
                     value="description" 
-                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-auto data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
+                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
                   >
                     <BookOpen className="h-4 w-4" />
                     <span className="text-sm font-medium">Description</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="solution" 
-                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-auto data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
+                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
                   >
                     <Lightbulb className="h-4 w-4" />
                     <span className="text-sm font-medium">Solution</span>
@@ -1895,21 +2074,64 @@ public:
                   </TabsTrigger>
                   <TabsTrigger 
                     value="discussion" 
-                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-auto data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
+                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
                   >
                     <MessageSquare className="h-4 w-4" />
                     <span className="text-sm font-medium">Discussion</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="submissions" 
-                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-auto data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
+                    className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all"
                   >
                     <BarChart2 className="h-4 w-4" />
                     <span className="text-sm font-medium">Submissions</span>
                   </TabsTrigger>
+                  
+                  {/* Dynamic Accepted Tab or Submission Details Tab */}
+                  {showSubmissionTab && selectedSubmission && (
+                    <TabsTrigger 
+                      value="submissionDetails" 
+                      className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all text-blue-600 border-l pl-3 ml-1"
+                    >
+                      <BarChart2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Submission Details</span>
+                      <div 
+                        className="ml-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 h-4 w-4 flex items-center justify-center cursor-pointer"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setShowSubmissionTab(false);
+                          setSelectedSubmission(null);
+                          if (activeTab === "submissionDetails") setActiveTab("description");
+                        }}
+                      >
+                        <span className="text-xs">✕</span>
+                      </div>
+                    </TabsTrigger>
+                  )}
+                  {!showSubmissionTab && showAcceptedTab && (
+                    <TabsTrigger 
+                      value="accepted" 
+                      className="tab-trigger flex items-center gap-1.5 px-3 py-1.5 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none transition-all text-green-600 border-l pl-3 ml-1"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Accepted</span>
+                      <div 
+                        className="ml-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 h-4 w-4 flex items-center justify-center cursor-pointer"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try { await fetch(`/api/problem/${problemId}/accepted-submission`, { method: 'POST' }); } catch {}
+                          setShowAcceptedTab(false);
+                          if (activeTab === "accepted") setActiveTab("description");
+                        }}
+                      >
+                        <span className="text-xs">✕</span>
+                      </div>
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </div>
             </div>
+            {/* Regular Tabs Content */}
             <TabsContent value="description" className="p-4 left-panel-content panel-scrollable pb-8">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
@@ -1926,6 +2148,10 @@ public:
                 </>
               )}
             </TabsContent>
+            
+            {/* New Accepted Solution Tab Content */}
+           
+            
             <TabsContent value="solution" className="p-4 left-panel-content panel-scrollable pb-8">
               {isPremiumUser ? (
                 <PremiumSolutions />
@@ -2027,7 +2253,6 @@ public:
                     </Button>
                   </div>
                 </div>
-                
                 <div className="overflow-hidden rounded-md border border-border submissions-table">
                   <table className="min-w-full divide-y divide-border">
                     <thead>
@@ -2036,10 +2261,10 @@ public:
                           Status
                         </th>
                         <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Runtime
+                          Total Runtime
                         </th>
                         <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Memory
+                          Total Memory
                         </th>
                         <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Language
@@ -2050,69 +2275,58 @@ public:
                       </tr>
                     </thead>
                     <tbody className="bg-background divide-y divide-border">
-                      <tr className="hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className="status-badge status-accepted">
-                              Accepted
-                            </span>
+                      {submissionsLoading ? (
+                        <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                            <span>Loading submissions...</span>
                           </div>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          56 ms <span className="text-xs text-green-600 dark:text-green-400">(faster than 95%)</span>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          42.1 MB <span className="text-xs text-green-600 dark:text-green-400">(less than 87%)</span>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          JavaScript
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-muted-foreground">
-                          2 hours ago
-                        </td>
-                      </tr>
-                      <tr className="hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className="status-badge status-wrong">
-                              Wrong Answer
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          N/A
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          N/A
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          JavaScript
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-muted-foreground">
-                          3 hours ago
-                        </td>
-                      </tr>
-                      <tr className="hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className="status-badge status-timeout">
-                              Time Limit
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          Exceeded
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          43.2 MB
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          JavaScript
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-muted-foreground">
-                          5 hours ago
-                        </td>
-                      </tr>
+                        </td></tr>
+                      ) : submissions.length === 0 ? (
+                        <tr><td colSpan={5} className="text-center py-4 text-muted-foreground">No submissions yet.</td></tr>
+                      ) : (
+                        submissions.map((sub, idx) => (
+                          <tr key={sub.id || idx} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => {
+                            // If the submission doesn't have code, fetch the full details
+                            setSubmissionLoading(true);
+                            setSelectedSubmission(sub); // Set initial data immediately for better UX
+                            setShowSubmissionTab(true);
+                            setActiveTab('submissionDetails');
+                            
+                            // Always fetch the full submission details to ensure we have everything
+                            fetch(`/api/problem/${problemId}/submission/${sub.id}`)
+                              .then(res => res.json())
+                              .then(data => {
+                                if (data.submission) {
+                                  console.log("Fetched complete submission:", data.submission);
+                                  setSelectedSubmission(data.submission);
+                                }
+                              })
+                              .catch(err => console.error("Error fetching submission details:", err))
+                              .finally(() => setSubmissionLoading(false));
+                          }}>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <span className={`status-badge ${sub.allPassed ? 'status-accepted' : 'status-wrong'}`}>
+                                  {sub.allPassed ? 'Accepted' : 'Wrong Answer'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                              <span title="Sum of all testcase runtimes">{sub.runtime || 'N/A'}</span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                              <span title="Sum of all testcase memory usage">{sub.memory || 'N/A'}</span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                              {sub.language}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-muted-foreground">
+                              {sub.submittedAt ? formatDistanceToNow(new Date(sub.submittedAt), { addSuffix: true }) : 'N/A'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -2139,6 +2353,326 @@ public:
                   </div>
                 </div>
               </div>
+            </TabsContent>
+            
+            {/* Always render the TabsContent components, conditionally render their content */}
+            <TabsContent value="submissionDetails" className="p-4 left-panel-content panel-scrollable pb-8">
+              {submissionLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                    <p className="text-sm text-muted-foreground">Loading submission details...</p>
+                  </div>
+                </div>
+              ) : selectedSubmission ? (
+                <div className="space-y-4">
+                  {/* Status banner */}
+                  <div className={`flex items-center gap-2 ${selectedSubmission.allPassed ? 'text-green-600 bg-green-50 border-green-100' : 'text-red-600 bg-red-50 border-red-100'} p-3 rounded-md border w-full`}>
+                    {selectedSubmission.allPassed ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                    <div className="flex-1">
+                      <span className="font-medium">{selectedSubmission.allPassed ? 'Accepted' : 'Wrong Answer'}</span>
+                      <span className="text-xs ml-2">
+                        {typeof selectedSubmission.testcasesPassed === 'number' 
+                          ? selectedSubmission.testcasesPassed 
+                          : (parseInt(selectedSubmission.testcasesPassed) || 0)} / 
+                        {typeof selectedSubmission.totalTestcases === 'number'
+                          ? selectedSubmission.totalTestcases
+                          : (parseInt(selectedSubmission.totalTestcases) || 0)} testcases passed
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">{selectedSubmission.submittedAt ? formatDistanceToNow(new Date(selectedSubmission.submittedAt), { addSuffix: true }) : ''}</span>
+                  </div>
+                  {/* Stats panels */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Runtime panel */}
+                    <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                      <div className="px-3 py-2 flex items-center gap-2 border-b">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium">Total Runtime</span>
+                        <div className="flex-1"></div>
+                        <div className="w-4 h-4 text-gray-500 rounded-full border border-gray-300 flex items-center justify-center text-xs">?</div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-baseline">
+                            <span className="text-2xl font-bold">{selectedSubmission.runtime?.replace(' ms','') || '0'}</span>
+                            <span className="text-sm text-gray-500 ml-1">ms</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Beats</span>
+                            <span className="text-lg font-semibold text-green-600">{selectedSubmission.runtimePercentile || '100.00%'}</span>
+                            <span className="ml-1">🚀</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Memory panel */}
+                    <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                      <div className="px-3 py-2 flex items-center gap-2 border-b">
+                        <Database className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium">Total Memory</span>
+                        <div className="flex-1"></div>
+                        <div className="w-4 h-4 text-gray-500 rounded-full border border-gray-300 flex items-center justify-center text-xs">?</div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-baseline">
+                            <span className="text-2xl font-bold">{selectedSubmission.memory?.replace(' MB','') || '0'}</span>
+                            <span className="text-sm text-gray-500 ml-1">MB</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Beats</span>
+                            <span className="text-lg font-semibold text-green-600">{selectedSubmission.memoryPercentile || '63.06%'}</span>
+                            <span className="ml-1">🚀</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Testcases summary */}
+                  <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                    <div className="px-3 py-2 flex items-center gap-2 border-b">
+                      <CheckSquare className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm font-medium">Testcases</span>
+                    </div>
+                    <div className="p-4">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Passed:</span>
+                          <span className="font-medium text-green-600">
+                            {typeof selectedSubmission.testcasesPassed === 'number' 
+                              ? selectedSubmission.testcasesPassed 
+                              : (parseInt(selectedSubmission.testcasesPassed) || 0)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Failed:</span>
+                          <span className="font-medium text-red-600">
+                            {Math.max(0, 
+                              (typeof selectedSubmission.totalTestcases === 'number' 
+                                ? selectedSubmission.totalTestcases 
+                                : (parseInt(selectedSubmission.totalTestcases) || 0)) - 
+                              (typeof selectedSubmission.testcasesPassed === 'number'
+                                ? selectedSubmission.testcasesPassed
+                                : (parseInt(selectedSubmission.testcasesPassed) || 0))
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Total:</span>
+                          <span className="font-medium">
+                            {typeof selectedSubmission.totalTestcases === 'number'
+                              ? selectedSubmission.totalTestcases
+                              : (parseInt(selectedSubmission.totalTestcases) || 0)}
+                          </span>
+                        </div>
+                        
+                        {/* Progress bar */}
+                        <div className="h-2 w-full bg-gray-100 rounded-full mt-2 overflow-hidden">
+                          {(() => {
+                            const passed = typeof selectedSubmission.testcasesPassed === 'number'
+                              ? selectedSubmission.testcasesPassed
+                              : (parseInt(selectedSubmission.testcasesPassed) || 0);
+                            
+                            const total = typeof selectedSubmission.totalTestcases === 'number'
+                              ? selectedSubmission.totalTestcases
+                              : (parseInt(selectedSubmission.totalTestcases) || 0);
+                            
+                            const percentage = total > 0 ? (passed / total) * 100 : 0;
+                            
+                            return (
+                              <div 
+                                className="h-full bg-green-500 rounded-full" 
+                                style={{ width: `${percentage}%` }}
+                              ></div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Code section */}
+                  <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                    <div className="px-3 py-2 flex items-center gap-2 border-b">
+                      <FileCode className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm font-medium">Submitted Code</span>
+                      <div className="flex-1"></div>
+                      <div className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedSubmission.language || "Code"}</div>
+                    </div>
+                    <div className="p-0" style={{ minHeight: 120, maxHeight: 320, height: 320, overflow: 'auto' }}>
+                      <CodeEditor 
+                        code={selectedSubmission.code || "// Code not available"}
+                        setCode={() => {}} // no-op
+                        language={selectedSubmission.language || "JavaScript"}
+                        readOnly={true}
+                        errorLine={null}
+                        errorMessage={null}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Submission meta */}
+                  <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>Submitted: {selectedSubmission.submittedAt ? 
+                        new Date(selectedSubmission.submittedAt).toLocaleString() : 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      <span>ID: {selectedSubmission.id}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      <span>Your submission</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </TabsContent>
+
+            <TabsContent value="accepted" className="p-4 left-panel-content panel-scrollable pb-8">
+              {activeTab === 'accepted' && !showSubmissionTab && showAcceptedTab ? (
+                <div className="space-y-4">
+                  {/* Success banner */}
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-md border border-green-100 w-full">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <div className="flex-1">
+                      <span className="font-medium">Accepted</span>
+                      <span className="text-xs text-green-700 ml-2">
+                        {acceptedSubmission?.testsPassed} / {acceptedSubmission?.totalTests} testcases passed
+                      </span>
+                    </div>
+                  </div>
+                  {/* Stats panels */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Runtime panel */}
+                    <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                      <div className="px-3 py-2 flex items-center gap-2 border-b">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium">Runtime</span>
+                        <div className="flex-1"></div>
+                        <div className="w-4 h-4 text-gray-500 rounded-full border border-gray-300 flex items-center justify-center text-xs">?</div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-baseline">
+                            <span className="text-2xl font-bold">0</span>
+                            <span className="text-sm text-gray-500 ml-1">ms</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Beats</span>
+                            <span className="text-lg font-semibold text-green-600">100.00%</span>
+                            <span className="ml-1">🚀</span>
+                          </div>
+                        </div>
+                        {/* Performance chart */}
+                        <div className="mt-4">
+                          <div className="w-full h-40 relative">
+                            {/* Y-axis labels */}
+                            <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-xs text-gray-500">
+                              <div>75%</div>
+                              <div>50%</div>
+                              <div>25%</div>
+                              <div>0%</div>
+                            </div>
+                            {/* Graph area */}
+                            <div className="ml-8 border-l border-t border-b border-gray-200 h-full relative">
+                              {/* Performance marker */}
+                              <div className="absolute left-0 h-1 w-1 rounded-full bg-blue-500 top-1/2 transform -translate-x-1/2" style={{ boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.3)' }}></div>
+                              {/* Blue bar */}
+                              <div className="absolute left-0 bottom-0 w-1 bg-blue-500 h-1/2"></div>
+                              {/* X-axis with time markers */}
+                              <div className="absolute -bottom-6 left-0 right-0 flex justify-between text-xs text-gray-500">
+                                <div>21ms</div>
+                                <div>457ms</div>
+                                <div>892ms</div>
+                                <div>1327ms</div>
+                                <div>1762ms</div>
+                                <div>2198ms</div>
+                                <div>2633ms</div>
+                                <div>3068ms</div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Time markers */}
+                          <div className="mt-8 flex justify-between text-xs text-gray-400">
+                            <div>21ms</div>
+                            <div>457ms</div>
+                            <div>892ms</div>
+                            <div>1327ms</div>
+                            <div>1762ms</div>
+                            <div>2198ms</div>
+                            <div>2633ms</div>
+                            <div>3068ms</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Memory panel */}
+                    <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                      <div className="px-3 py-2 flex items-center gap-2 border-b">
+                        <Database className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium">Memory</span>
+                        <div className="flex-1"></div>
+                        <div className="w-4 h-4 text-gray-500 rounded-full border border-gray-300 flex items-center justify-center text-xs">?</div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-baseline">
+                            <span className="text-2xl font-bold">18.79</span>
+                            <span className="text-sm text-gray-500 ml-1">MB</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Beats</span>
+                            <span className="text-lg font-semibold text-green-600">63.06%</span>
+                            <span className="ml-1">🚀</span>
+                          </div>
+                        </div>
+                        {/* Memory usage visualization would go here */}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Solution section */}
+                  <div className="border rounded-md overflow-hidden shadow-sm bg-white">
+                    <div className="px-3 py-2 flex items-center gap-2 border-b">
+                      <span className="text-sm font-medium">Code</span>
+                      <div className="flex-1"></div>
+                      <div className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{acceptedSubmission?.language || "Code"}</div>
+                    </div>
+                    <div className="p-0" style={{ minHeight: 120, maxHeight: 320, height: 320, overflow: 'auto' }}>
+                      <CodeEditor 
+                        code={acceptedSubmission?.code || "// Code not available"}
+                        setCode={() => {}} // no-op
+                        language={acceptedSubmission?.language || "JavaScript"}
+                        readOnly={true}
+                        errorLine={null}
+                        errorMessage={null}
+                      />
+                    </div>
+                  </div>
+                  {/* Related challenges */}
+                  <div className="mt-2">
+                    <h3 className="text-sm font-medium mb-2">More challenges</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="border rounded-md p-2 text-xs hover:bg-gray-50 cursor-pointer">
+                        <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-1"></span>
+                        167. Two Sum II - Input Array Is Sorted
+                      </div>
+                      <div className="border rounded-md p-2 text-xs hover:bg-gray-50 cursor-pointer">
+                        <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-1"></span>
+                        170. Two Sum III - Data structure design
+                      </div>
+                      <div className="border rounded-md p-2 text-xs hover:bg-gray-50 cursor-pointer">
+                        <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-1"></span>
+                        653. Two Sum IV - Input is a BST
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </TabsContent>
           </Tabs>
         </div>
@@ -2231,7 +2765,7 @@ public:
           ref={rightPanelRef}
         >
           {/* Code Editor Header */}
-          <div className="border-border border-b flex items-center justify-between px-4 py-2 flex-shrink-0 h-10">
+          <div className="border-border border-b flex items-center justify-between px-4 py-2 flex-shrink-0 h-10" style={{minHeight: 40, height: 40, maxHeight: 40}}>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-primary flex items-center gap-1.5">
                 <FileCode className="h-4 w-4" />
@@ -2443,7 +2977,7 @@ public:
             <div 
               className="code-panel"
               style={{ 
-                height: `calc(${100 - bottomPanelHeight}% - 3px)`, 
+                height: `calc(${100 - bottomPanelHeight}% )`, 
                 boxSizing: 'border-box',
                 position: 'relative'
               }}
@@ -2478,7 +3012,7 @@ public:
                 position: 'absolute',
                 left: 0,
                 right: 0, 
-                top: `calc(${100 - bottomPanelHeight}% - 3px)`,
+                top: `calc(${100 - bottomPanelHeight}% + 15px)`,
                 height: '6px',
                 zIndex: 50, // Higher z-index to ensure it's clickable
                 width: '100%',
@@ -2588,10 +3122,7 @@ public:
                 overflow: 'hidden' // Prevent content from spilling out
               }}
             >
-              <div className="test-panel-header">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Saved</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Ln 1, Col 1</div>
-              </div>
+              {/* Removed test-panel-header */}
               <div className="flex flex-1 overflow-hidden">
                 <div className="w-10 border-border border-r flex flex-col items-center py-2 flex-shrink-0">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">

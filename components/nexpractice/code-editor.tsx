@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { createPortal } from "react-dom"
 import { keymap } from "@codemirror/view"
 import { indentUnit } from "@codemirror/language"
-import { StateField, StateEffect, Range, RangeSet } from "@codemirror/state"
+import { StateField, StateEffect, Range, RangeSet, RangeSetBuilder } from "@codemirror/state"
 import { Decoration, DecorationSet } from "@codemirror/view"
 
 interface CodeEditorProps {
@@ -29,6 +29,7 @@ interface CodeEditorProps {
   editorSettingsRef?: React.RefObject<{ showSettings: () => void } | null> // Ref to expose settings controls
   errorLine?: number | null // Add errorLine prop to highlight error lines
   errorMessage?: string | null // Add error message for tooltip
+  readOnly?: boolean // Add readOnly prop
 }
 
 // Available themes
@@ -90,7 +91,7 @@ const errorLineField = StateField.define<DecorationSet>({
   }
 })
 
-export function CodeEditor({ code, setCode, language, preloadCode, initialShowSettings = false, editorSettingsRef, errorLine = null, errorMessage = null }: CodeEditorProps) {
+export function CodeEditor({ code, setCode, language, preloadCode, initialShowSettings = false, editorSettingsRef, errorLine = null, errorMessage = null, readOnly = false }: CodeEditorProps) {
   const [element, setElement] = useState<HTMLElement | null>(null)
   const [editor, setEditor] = useState<EditorView | null>(null)
   const { resolvedTheme, setTheme } = useTheme()
@@ -98,6 +99,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
   const [mounted, setMounted] = useState(false)
   const isUserTyping = React.useRef(false)
   const lastDocContent = React.useRef(code)
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   
   // Editor settings
   const [tabSize, setTabSize] = useState(4)
@@ -120,11 +122,11 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
 
   // Update editor when settings change
   useEffect(() => {
-    if (!element || !mounted || !editor) return
-    
-    // We need to recreate the editor when settings change
-    recreateEditor()
-  }, [tabSize, fontSize, editorTheme, resolvedTheme])
+    if (!element || !mounted) return;
+    recreateEditor();
+    // Only recreate when element, language, mounted, tabSize, fontSize, editorTheme, resolvedTheme, or readOnly changes
+    // Do NOT include setCode or code in the dependency array
+  }, [element, language, mounted, tabSize, fontSize, editorTheme, resolvedTheme, readOnly]);
 
   // Create or recreate the editor
   const recreateEditor = () => {
@@ -139,6 +141,37 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
     const isDarkMode = resolvedTheme === 'dark'
     const actualTheme = editorTheme === "system" ? resolvedTheme : editorTheme
     const isDarkTheme = actualTheme === "dark" || actualTheme === "dracula"
+
+    // Create VS Code-like indentation guides
+    const indentationMarkers = EditorView.decorations.compute(["doc"], state => {
+      const builder = new RangeSetBuilder<Decoration>();
+      const decorationType = Decoration.line({ attributes: { class: "cm-indent-line" } });
+
+      for (let i = 1; i <= state.doc.lines; i++) {
+        const line = state.doc.line(i);
+        let spaces = 0;
+        
+        // Count leading spaces to determine indentation level
+        for (let j = 0; j < line.length; j++) {
+          if (line.text[j] === ' ') spaces++;
+          else break;
+        }
+        
+        const indentLevel = Math.floor(spaces / tabSize);
+        if (indentLevel > 0) {
+          // Add an attribute for the indent level
+          const decor = Decoration.line({
+            attributes: { 
+              class: "cm-indent-line",
+              style: `--indent-level: ${indentLevel}; --indent-size: ${tabSize}ch;`
+            }
+          });
+          builder.add(line.from, line.from, decor);
+        }
+      }
+      
+      return builder.finish();
+    });
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
@@ -160,6 +193,14 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           isUserTyping.current = false
         }, 100)
       }
+      
+      // Track cursor position for status bar
+      if (update.selectionSet) {
+        const selection = update.state.selection.main;
+        const line = update.state.doc.lineAt(selection.head);
+        const column = selection.head - line.from + 1;
+        setCursorPosition({ line: line.number, column });
+      }
     })
 
     // Select language extension based on the language prop
@@ -178,82 +219,60 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
       }
     }
 
-    // Get dracula theme styles
-    const getDraculaTheme = () => {
+    // Get VS Code-like theme styles as a separate object
+    const getVSCodeTheme = (isDark: boolean) => {
       return {
-        "&": {
-          backgroundColor: "#282a36",
-          color: "#f8f8f2",
-        },
+        // Gutter styles
         ".cm-gutters": {
-          backgroundColor: "#282a36",
-          color: "#6272a4",
+          backgroundColor: isDark ? "#252526" : "#f5f5f5",
+          color: isDark ? "#858585" : "#6c7086",
           border: "none",
+          borderRight: isDark ? "1px solid #333" : "1px solid #e5e7eb",
+          paddingRight: "3px",
         },
         ".cm-activeLineGutter": {
-          backgroundColor: "#44475a",
+          backgroundColor: isDark ? "#2c2c2c" : "#e6f2ff",
+          color: isDark ? "#c6c6c6" : "#333333",
+          fontWeight: "normal",
         },
         ".cm-activeLine": {
-          backgroundColor: "#44475a30",
+          backgroundColor: isDark ? "rgba(33, 33, 33, 0.5)" : "rgba(230, 242, 255, 0.5)",
         },
         ".cm-selectionMatch": {
-          backgroundColor: "#6272a450",
+          backgroundColor: isDark ? "rgba(77, 77, 77, 0.5)" : "rgba(200, 200, 200, 0.5)",
         },
         ".cm-cursor": {
-          borderLeftColor: "#f8f8f2",
+          borderLeftColor: isDark ? "#d4d4d4" : "#333333",
+          borderLeftWidth: "2px",
         },
-        ".cm-line": {
-          color: "#f8f8f2",
+        ".cm-selectionBackground, ::selection": {
+          backgroundColor: isDark ? "#264f78" : "#add6ff",
         },
-        ".cm-matchingBracket, .cm-nonmatchingBracket": {
-          backgroundColor: "#44475a",
-          color: "#f8f8f2",
+        ".cm-focused .cm-selectionBackground": {
+          backgroundColor: isDark ? "#264f78" : "#add6ff",
         },
-        // Syntax highlighting
-        ".tok-keyword": { color: "#ff79c6" },
-        ".tok-string, .tok-string2": { color: "#f1fa8c" },
-        ".tok-comment": { color: "#6272a4", fontStyle: "italic" },
-        ".tok-number": { color: "#bd93f9" },
-        ".tok-property": { color: "#8be9fd" },
-        ".tok-operator": { color: "#ff79c6" },
-        ".tok-punctuation": { color: "#f8f8f2" },
-        ".tok-variableName, .tok-propertyName": { color: "#50fa7b" },
-        ".tok-typeName, .tok-namespace": { color: "#8be9fd" },
-        ".tok-className": { color: "#8be9fd" },
-        ".tok-functionName, .tok-macroName": { color: "#50fa7b" },
-        // Add custom styling for error line
-        ".cm-error-line": {
-          backgroundColor: "rgba(255, 50, 50, 0.2) !important",
-          position: "relative",
-          left: "0 !important",
-          textIndent: "0 !important",
-        },
-        // Add exclamation mark in gutter for error lines
-        ".cm-error-line-gutter": {
-          position: "relative",
-          backgroundColor: "rgba(255, 50, 50, 0.1) !important",
-        },
-        ".cm-error-line-gutter::before": {
-          content: '"!"',
+        // Indentation guides
+        ".cm-indent-markers:before": {
+          content: '""',
           position: "absolute",
-          right: "3px",
-          top: "50%",
-          transform: "translateY(-50%)",
-          width: "16px",
-          height: "16px", 
-          backgroundColor: "#ff3333",
-          color: "white",
-          borderRadius: "50%",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          fontSize: "12px",
-          fontWeight: "bold",
-          zIndex: 10,
-          boxShadow: "0 0 2px rgba(0,0,0,0.3)",
+          left: "calc(var(--indent-size) * var(--indent-level))",
+          top: 0,
+          bottom: 0,
+          width: "1px",
+          background: isDark ? "rgba(100, 100, 100, 0.15)" : "rgba(100, 100, 100, 0.1)",
         },
-      }
-    }
+        // Improved line numbers
+        ".cm-lineNumbers .cm-gutterElement": {
+          padding: "0 15px 0 10px",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: "90%",
+        },
+        // Error highlighting styles
+        ".cm-line.error-highlighted": {
+          backgroundColor: "rgba(255, 0, 0, 0.15) !important",
+        },
+      };
+    };
 
     const state = EditorState.create({
       doc: lastDocContent.current,
@@ -265,6 +284,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
         EditorState.tabSize.of(tabSize),
         indentUnit.of(" ".repeat(tabSize)),
         errorLineField, // Add error line field
+        indentationMarkers, // Add VS Code style indentation guides
         keymap.of([
           {
             key: "Tab",
@@ -286,10 +306,10 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
             fontSize: `${fontSize}px`,
             margin: 0,
             padding: 0,
-            backgroundColor: actualTheme === "dracula" ? "#282a36" : 
-                             isDarkTheme ? "#1e1e1e" : "white",
-            color: actualTheme === "dracula" ? "#f8f8f2" : 
-                   isDarkTheme ? "#d4d4d4" : "#333",
+            fontFamily: "'JetBrains Mono', monospace",
+            ...(actualTheme === "dracula" 
+              ? { backgroundColor: "#282a36", color: "#f8f8f2" } 
+              : { backgroundColor: isDarkTheme ? "#1e1e1e" : "white", color: isDarkTheme ? "#d4d4d4" : "#333" })
           },
           ".cm-scroller": {
             height: "100%",
@@ -298,51 +318,39 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
             padding: "0",
             /* VS Code scrollbar styling */
             "&::-webkit-scrollbar": {
-              width: "8px",
-              height: "8px",
+              width: "10px",
+              height: "10px",
             },
             "&::-webkit-scrollbar-track": {
-              background: "transparent",
+              background: isDarkTheme ? "#1e1e1e" : "#f3f3f3",
             },
             "&::-webkit-scrollbar-thumb": {
-              background: isDarkTheme ? "rgba(150, 150, 150, 0.4)" : "rgba(100, 100, 100, 0.4)",
-              borderRadius: "4px",
+              background: isDarkTheme ? "rgba(100, 100, 100, 0.4)" : "rgba(100, 100, 100, 0.4)",
+              borderRadius: "3px",
               "&:hover": {
-                background: isDarkTheme ? "rgba(150, 150, 150, 0.7)" : "rgba(100, 100, 100, 0.7)",
+                background: isDarkTheme ? "rgba(100, 100, 100, 0.7)" : "rgba(100, 100, 100, 0.7)",
               }
             },
             /* For Firefox */
             scrollbarWidth: "thin",
             scrollbarColor: isDarkTheme 
-              ? "rgba(150, 150, 150, 0.4) transparent" 
-              : "rgba(100, 100, 100, 0.4) transparent",
-          },
-          ".cm-gutters": {
-            backgroundColor: actualTheme === "dracula" ? "#282a36" : 
-                             isDarkTheme ? "#252526" : "#f8f9fa",
-            color: actualTheme === "dracula" ? "#6272a4" :
-                   isDarkTheme ? "#858585" : "#6c7086",
-            border: "none",
-            borderRight: actualTheme === "dracula" ? "1px solid #44475a" :
-                          isDarkTheme ? "1px solid #333" : "1px solid #e5e7eb",
-          },
-          ".cm-activeLineGutter": {
-            backgroundColor: actualTheme === "dracula" ? "#44475a" :
-                              isDarkTheme ? "#2c2c2c" : "#f1f5f9",
+              ? "rgba(100, 100, 100, 0.4) #1e1e1e" 
+              : "rgba(100, 100, 100, 0.4) #f3f3f3",
           },
           ".cm-content": {
             padding: "0",
+            caretColor: isDarkTheme ? "#fff" : "#000",
           },
           ".cm-line": {
             padding: "0 10px",
             lineHeight: "1.6",
+            fontFamily: "'JetBrains Mono', monospace",
           },
-          ".cm-gutterElement": {
-            padding: "0 10px 0 5px",
-          },
-          // Add Dracula theme specific styles if selected
-          ...(actualTheme === "dracula" ? getDraculaTheme() : {})
+          ...(actualTheme === "dracula" 
+            ? getVSCodeTheme(true) // Use dark theme settings for Dracula
+            : getVSCodeTheme(isDarkTheme))
         }),
+        EditorView.editable.of(!readOnly),
       ],
     })
 
@@ -501,6 +509,10 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           markerContainer.style.top = `${relativeTop}px`;
           markerContainer.style.height = `${lineHeight}px`;
           markerContainer.style.left = `${foldGutterLeft}px`;
+          markerContainer.style.marginLeft = '-4px';
+          markerContainer.style.display = 'flex';
+          markerContainer.style.justifyContent = 'center';
+          markerContainer.style.alignItems = 'center';
           markerContainer.style.width = `${foldGutterRect.width}px`;
           markerContainer.style.zIndex = '100';
           markerContainer.style.pointerEvents = 'none';
@@ -508,7 +520,12 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           // Create the actual error marker
           const marker = document.createElement('div');
           marker.className = 'error-marker';
-          marker.textContent = '!';
+          marker.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          `;
           marker.title = 'Click to see error details';
 
           // Format the error message for better readability
@@ -685,7 +702,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           markerContainer.style.pointerEvents = 'auto';
           
           // Add the container to the editor
-          editorContainer.appendChild(markerContainer);
+          foldGutter.appendChild(markerContainer);
           
           console.log(`Added fixed error marker at line ${targetLineIndex + 1}`);
         } else {
@@ -991,16 +1008,70 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
         ref={setElement} 
         className="w-full editor-container"
         style={{ 
-          height: "100%", 
+          height: "calc(100% - 22px)", // Leave room for status bar
           overflow: "hidden",
           display: "flex", 
           flexDirection: "column",
-          borderRadius: "6px",
+          borderRadius: "6px 6px 0 0",
           padding: 0,
           margin: 0,
         }}
       />
+      
+      {/* VS Code style status bar */}
+      <div className="vscode-status-bar">
+        <div className="status-section status-position">
+          <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
+        </div>
+        <div className="status-section status-language">
+          <span>{language}</span>
+        </div>
+        <div className="status-section status-encoding">
+          <span>UTF-8</span>
+        </div>
+        <div className="status-section status-eol">
+          <span>LF</span>
+        </div>
+        <div className="status-section status-indent">
+          <span>Spaces: {tabSize}</span>
+        </div>
+      </div>
+      
       <style jsx global>{`
+        /* VS Code style status bar */
+        .vscode-status-bar {
+          height: 22px;
+          background-color: ${isDark ? "#007acc" : "#007acc"};
+          color: #ffffff;
+          font-size: 12px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          padding: 0 10px;
+          border-radius: 0 0 6px 6px;
+        }
+        
+        .status-section {
+          display: flex;
+          align-items: center;
+          padding: 0 8px;
+          height: 100%;
+          border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-section:last-child {
+          border-right: none;
+        }
+        
+        .status-position {
+          min-width: 100px;
+        }
+        
+        .status-language {
+          min-width: 80px;
+        }
+        
         /* Error line styling */
         .cm-line.error-highlighted {
           background-color: rgba(255, 0, 0, 0.15) !important;
@@ -1011,8 +1082,9 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           position: absolute;
           display: flex;
           align-items: center;
-          justify-content: flex-start;
-          padding-left: 10px;
+          justify-content: center;
+          padding-left: 0;
+          margin-left: -8px;
           pointer-events: none !important;
         }
         
@@ -1021,17 +1093,33 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           display: flex;
           justify-content: center;
           align-items: center;
-          width: 14px;
-          height: 14px;
-          background-color: #ff0000;
-          color: white;
+          width: 32px;
+          height: 18px;
+          background-color: #e5484d;
+          color: #fff;
           border-radius: 50%;
-          font-size: 10px;
+          font-size: 15px;
           font-weight: bold;
-          box-shadow: 0px 0px 3px rgba(0,0,0,0.3);
+          border: 2px solid #fff;
+          box-shadow: 0 2px 8px rgba(229, 72, 77, 0.15), 0 1.5px 4px rgba(0,0,0,0.10);
           pointer-events: auto;
           cursor: pointer;
           z-index: 100;
+          transition: box-shadow 0.15s, background 0.15s, transform 0.1s;
+          line-height: 1;
+          letter-spacing: 0.5px;
+        }
+        .error-marker svg {
+          width: 16px;
+          height: 16px;
+          stroke: #fff;
+          stroke-width: 3;
+          vertical-align: middle;
+        }
+        .error-marker:hover {
+          background-color: #ff4d4f;
+          box-shadow: 0 4px 16px rgba(229, 72, 77, 0.25), 0 2px 8px rgba(0,0,0,0.15);
+          transform: scale(1.08);
         }
         
         /* Error tooltip styling */
@@ -1236,6 +1324,47 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
         .error-tooltip-close:hover {
           color: #fff;
           background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* VS Code style indentation guides */
+        .cm-indent-line {
+          position: relative;
+        }
+
+        .cm-indent-line::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+        }
+
+        /* Generate indentation guidelines at each indent level */
+        .cm-indent-line::before {
+          border-left: 1px solid ${isDark ? "rgba(100, 100, 100, 0.25)" : "rgba(100, 100, 100, 0.15)"};
+          left: calc(var(--indent-size) * var(--indent-level) - ${tabSize}ch);
+        }
+
+        /* Make scrollbars match VS Code's style */
+        .cm-scroller::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+
+        .cm-scroller::-webkit-scrollbar-track {
+          background: ${isDark ? "#1e1e1e" : "#f3f3f3"};
+        }
+
+        .cm-scroller::-webkit-scrollbar-thumb {
+          background: ${isDark ? "rgba(100, 100, 100, 0.5)" : "rgba(100, 100, 100, 0.4)"};
+          border-radius: 3px;
+        }
+
+        .cm-scroller::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? "rgba(100, 100, 100, 0.8)" : "rgba(100, 100, 100, 0.7)"};
+        }
+
+        .cm-scroller::-webkit-scrollbar-corner {
+          background: ${isDark ? "#1e1e1e" : "#f3f3f3"};
         }
       `}</style>
     </div>

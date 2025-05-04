@@ -43,12 +43,20 @@ interface Results {
     passed: number
     total: number
     allPassed: boolean
+    message?: string
   }
   totalTestCases?: number
+  progress?: {
+    current: number
+    total: number
+    message: string
+  }
 }
 
 export function ResultPanel({ results }: { results: Results | null }) {
-  if (!results) {
+  // For "run" mode, always show the placeholder - this prevents results from
+  // showing in the results tab when Run button is clicked
+  if (!results || (results.mode === "run")) {
     return (
       <div className="p-4 text-sm text-gray-500 flex items-center justify-center h-full">
         <div className="text-center space-y-2">
@@ -164,7 +172,9 @@ export function ResultPanel({ results }: { results: Results | null }) {
               <div className="flex-1">
                 <span className="font-medium">Submitting solution...</span>
                 <div className="text-xs text-blue-700 mt-1">
-                  Evaluating your code against {results.totalTestCases || 'all'} test cases.
+                  {results.progress 
+                    ? results.progress.message
+                    : `Evaluating your code against ${results.totalTestCases || 'all'} test cases.`}
                 </div>
               </div>
             </div>
@@ -172,7 +182,22 @@ export function ResultPanel({ results }: { results: Results | null }) {
             <div className="h-40 border rounded-md bg-blue-50/20 border-blue-100 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                <p className="text-sm text-blue-700">Running all test cases...</p>
+                {results.progress ? (
+                  <div className="text-center">
+                    <p className="text-sm text-blue-700">{results.progress.message}</p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      {results.progress.current} of {results.progress.total} test cases processed
+                    </p>
+                    <div className="w-48 h-2 bg-blue-100 rounded-full mt-2 overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 rounded-full" 
+                        style={{ width: `${(results.progress.current / results.progress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-blue-700">Running all test cases...</p>
+                )}
               </div>
             </div>
           </div>
@@ -225,36 +250,40 @@ export function ResultPanel({ results }: { results: Results | null }) {
       )
     }
     
-    // If it's submit mode and we have a summary, display that with custom UI
-    if (results.mode === "submit" && results.summary) {
+    // If it's submit mode and we have a summary with all tests passed, display detailed stats
+    if (results.mode === "submit" && results.summary && results.summary.allPassed) {
       return (
         <div className="p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            {results.summary.allPassed ? (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-md border border-green-100 w-full">
-                <CheckCircle2 className="w-5 h-5" />
-                <div className="flex-1">
-                  <span className="font-medium">All tests passed!</span>
-                  <div className="text-xs text-green-700 mt-1">
-                    {results.summary.passed} of {results.summary.total} test cases passed. Great job!
-                  </div>
-                </div>
+          {/* Success banner with congratulation message */}
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            </div>
+            <h2 className="text-xl font-bold text-green-600 mb-1">Congratulations!</h2>
+            <p className="text-gray-700 dark:text-gray-300">
+              All {results.summary.passed} of {results.summary.total} test cases passed.
+            </p>
+          </div>
+        </div>
+      )
+    }
+    
+    // If it's submit mode but tests failed, show the failure UI
+    if (results.mode === "submit" && results.summary && !results.summary.allPassed) {
+      return (
+        <div className="p-4 space-y-4">
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-md border border-red-100 w-full">
+            <XCircle className="w-5 h-5" />
+            <div className="flex-1">
+              <span className="font-medium">Some tests failed</span>
+              <div className="text-xs text-red-700 mt-1">
+                {results.summary.message || `${results.summary.passed} of ${results.summary.total} test cases passed. Here's the first failure:`}
               </div>
-            ) : (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-md border border-red-100 w-full">
-                <XCircle className="w-5 h-5" />
-                <div className="flex-1">
-                  <span className="font-medium">Some tests failed</span>
-                  <div className="text-xs text-red-700 mt-1">
-                    {results.summary.passed} of {results.summary.total} test cases passed. Here's the first failure:
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
 
-          {/* Only show the first failed test case */}
-          {results.judgeResults && results.judgeResults.length > 0 && !results.summary.allPassed && (
+          {/* Show the first failed test case */}
+          {results.judgeResults && results.judgeResults.length > 0 && (
             <div className="space-y-4">
               {results.judgeResults.map((result, index) => {
                 // Define color scheme based on verdict
@@ -310,7 +339,7 @@ export function ResultPanel({ results }: { results: Results | null }) {
             </div>
           )}
         </div>
-      )
+      );
     }
     
     // Regular run mode with all test cases

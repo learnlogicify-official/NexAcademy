@@ -74,6 +74,8 @@ export interface Judge0Result {
   compile_output: string | null
   status: { id: number; description: string }
   verdict: string
+  time?: string
+  memory?: string
 }
 
 // Fallback execution method when Judge0 API is unavailable
@@ -365,6 +367,8 @@ Original error: ${errorText}`,
         compile_output: result.compile_output,
         status: result.status,
         verdict,
+        time: result.time,
+        memory: result.memory,
       })
     }
     return results

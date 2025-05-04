@@ -35,6 +35,7 @@ model User {
   enrolledIn        Enrollment[] @relation("UserEnrollments")
   userCodeDrafts    UserCodeDraft[]
   problemSettings   UserProblemSettings[]
+  submissions       ProblemSubmission[]
 
   @@index([role])
 }
@@ -398,12 +399,14 @@ model UserCodeDraft {
 }
 
 model UserProblemSettings {
-  id           String   @id @default(cuid())
-  userId       String
-  problemId    String
-  lastLanguage String
-  user         User     @relation(fields: [userId], references: [id])
-  problem      Question @relation(fields: [problemId], references: [id])
+  id                     String             @id @default(cuid())
+  userId                 String
+  problemId              String
+  lastLanguage           String
+  lastAcceptedSubmissionId String?
+  user                   User               @relation(fields: [userId], references: [id])
+  problem                Question           @relation(fields: [problemId], references: [id])
+  lastAcceptedSubmission ProblemSubmission? @relation(fields: [lastAcceptedSubmissionId], references: [id])
   @@unique([userId, problemId])
 }
 
@@ -478,4 +481,27 @@ enum VideoStatus {
 enum ArticleStatus {
   DRAFT
   PUBLISHED
+}
+
+model ProblemSubmission {
+  id                String   @id @default(cuid())
+  userId            String
+  problemId         String
+  language          String
+  code              String   @db.Text
+  submittedAt       DateTime @default(now())
+  testcasesPassed   Int
+  totalTestcases    Int
+  allPassed         Boolean  @default(false)
+  runtime           String?  // e.g. "56 ms"
+  memory            String?  // e.g. "42.1 MB"
+  runtimePercentile String?  // e.g. "95%"
+  memoryPercentile  String?  // e.g. "87%"
+  
+  user              User     @relation(fields: [userId], references: [id])
+  userSettings      UserProblemSettings[]
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([allPassed])
 }
