@@ -22,7 +22,6 @@ import {
   FileText,
   Briefcase,
   Sparkles,
-  X as XIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -336,17 +335,6 @@ export function Sidebar({
         )}
         {...props}
       >
-        {/* Mobile close button */}
-        {isMobile && open && (
-          <button
-            className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/80 shadow-lg border border-gray-200 hover:bg-white"
-            onClick={onClose}
-            aria-label="Close sidebar"
-            type="button"
-          >
-            <XIcon className="h-6 w-6 text-gray-700" />
-          </button>
-        )}
         {/* Glass morphism container with theme-based gradient */}
         <div
           className={`absolute inset-0 rounded-xl backdrop-blur-2xl bg-gradient-to-br ${currentTheme.sidebar} border shadow-[0_0_25px_rgba(0,0,0,0.4)]`}

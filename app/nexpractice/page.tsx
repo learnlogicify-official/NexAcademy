@@ -216,8 +216,6 @@ export default function NexPractice() {
   const QUESTIONS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProblems, setTotalProblems] = useState(0);
-  // Sidebar open/close state
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile)
 
   // Prevent hydration errors
   useEffect(() => {
@@ -260,10 +258,6 @@ export default function NexPractice() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, difficulty, selectedTags]);
-
-  useEffect(() => {
-    setSidebarOpen(!isMobile)
-  }, [isMobile])
 
   if (!mounted) return null
 
@@ -341,14 +335,10 @@ export default function NexPractice() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <Sidebar
-        theme={resolvedTheme as "light" | "dark"}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+      <Sidebar theme={resolvedTheme as "light" | "dark"} />
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden transition-all duration-300">
-        <TopBar onMenuClick={() => setSidebarOpen((open) => !open)} />
+        <TopBar onMenuClick={() => {}} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="space-y-8">
             {/* Hero section */}

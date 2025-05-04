@@ -122,11 +122,11 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
 
   // Update editor when settings change
   useEffect(() => {
-    if (!element || !mounted) return;
-    recreateEditor();
-    // Only recreate when element, language, mounted, tabSize, fontSize, editorTheme, resolvedTheme, or readOnly changes
-    // Do NOT include setCode or code in the dependency array
-  }, [element, language, mounted, tabSize, fontSize, editorTheme, resolvedTheme, readOnly]);
+    if (!element || !mounted || !editor) return
+    
+    // We need to recreate the editor when settings change
+    recreateEditor()
+  }, [tabSize, fontSize, editorTheme, resolvedTheme])
 
   // Create or recreate the editor
   const recreateEditor = () => {

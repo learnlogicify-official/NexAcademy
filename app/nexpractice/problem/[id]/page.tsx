@@ -942,7 +942,7 @@ public:
       memoryPercentile: null
     };
     let shouldSave = false;
-
+    
     try {
       // Validate code
       const validation = validateCode(code);
@@ -1031,7 +1031,7 @@ public:
           }
         }));
         const result = await runWithJudge0({
-          sourceCode: code,
+        sourceCode: code,
           languageId: availableLanguages.find(l => l.name === language)?.languageId ?? 0,
           testCases: [testCase],
         });
@@ -1069,18 +1069,18 @@ public:
             setErrorMessage(errorMessage);
           }
         }
-        setResults({
-          success: true,
-          loading: false,
+      setResults({
+        success: true,
+        loading: false,
           judgeResults: [failedTestCase],
-          mode: "submit",
-          summary: {
-            passed: passedCount,
-            total: allTestCases.length,
+        mode: "submit",
+        summary: {
+          passed: passedCount,
+          total: allTestCases.length,
             allPassed: false,
             message: `Test case failed. (${passedCount}/${allTestCases.length} passed)`
-          },
-          showOnlyFailures: true
+        },
+        showOnlyFailures: true
         });
       } else {
         // All test cases passed!
@@ -2305,26 +2305,26 @@ public:
                               .catch(err => console.error("Error fetching submission details:", err))
                               .finally(() => setSubmissionLoading(false));
                           }}>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              <div className="flex items-center">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="flex items-center">
                                 <span className={`status-badge ${sub.allPassed ? 'status-accepted' : 'status-wrong'}`}>
                                   {sub.allPassed ? 'Accepted' : 'Wrong Answer'}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm">
                               <span title="Sum of all testcase runtimes">{sub.runtime || 'N/A'}</span>
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm">
                               <span title="Sum of all testcase memory usage">{sub.memory || 'N/A'}</span>
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm">
                               {sub.language}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-sm text-muted-foreground">
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-muted-foreground">
                               {sub.submittedAt ? formatDistanceToNow(new Date(sub.submittedAt), { addSuffix: true }) : 'N/A'}
-                            </td>
-                          </tr>
+                        </td>
+                      </tr>
                         ))
                       )}
                     </tbody>
@@ -2501,14 +2501,12 @@ public:
                       <div className="flex-1"></div>
                       <div className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedSubmission.language || "Code"}</div>
                     </div>
-                    <div className="p-0" style={{ minHeight: 120, maxHeight: 320, height: 320, overflow: 'auto' }}>
+                    <div className="p-0" style={{ minHeight: 120 }}>
                       <CodeEditor 
                         code={selectedSubmission.code || "// Code not available"}
                         setCode={() => {}} // no-op
                         language={selectedSubmission.language || "JavaScript"}
                         readOnly={true}
-                        errorLine={null}
-                        errorMessage={null}
                       />
                     </div>
                   </div>
@@ -2642,14 +2640,12 @@ public:
                       <div className="flex-1"></div>
                       <div className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{acceptedSubmission?.language || "Code"}</div>
                     </div>
-                    <div className="p-0" style={{ minHeight: 120, maxHeight: 320, height: 320, overflow: 'auto' }}>
+                    <div className="p-0" style={{ minHeight: 120 }}>
                       <CodeEditor 
                         code={acceptedSubmission?.code || "// Code not available"}
                         setCode={() => {}} // no-op
                         language={acceptedSubmission?.language || "JavaScript"}
                         readOnly={true}
-                        errorLine={null}
-                        errorMessage={null}
                       />
                     </div>
                   </div>
