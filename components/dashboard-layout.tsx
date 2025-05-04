@@ -6,11 +6,13 @@ import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { useMobile } from "@/hooks/use-mobile"
+import { useTheme } from "next-themes"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const isMobile = useMobile()
+  const { resolvedTheme } = useTheme()
 
   // On mobile, sidebar is hidden by default
   const effectiveSidebarOpen = isMobile ? sidebarOpen : true
@@ -24,6 +26,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        theme={resolvedTheme as "light" | "dark"}
       />
 
       {/* Main content area */}
