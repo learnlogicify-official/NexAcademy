@@ -26,12 +26,19 @@ export async function GET(req: NextRequest) {
   // Get total count for pagination
   const total = await prisma.tag.count({ where });
 
+  const all = searchParams.get("all") === "true";
+
   // Fetch paginated tags
   const tags = await prisma.tag.findMany({
     where,
     orderBy: { [sortField]: sortDirection },
-    skip,
-    take: pageSize,
+    skip: all ? undefined : skip,
+    take: all ? undefined : pageSize,
+    include: {
+      _count: {
+        select: { codingQuestions: true }
+      }
+    }
   });
 
   // Calculate withDescription and recentlyAdded counts (for all tags, not just current page)

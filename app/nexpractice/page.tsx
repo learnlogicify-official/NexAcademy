@@ -1,2019 +1,969 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 import {
   Code,
-  Blocks,
-  Trophy,
-  Star,
-  BrainCircuit,
-  Clock,
-  Zap,
-  ChevronDown,
-  ChevronUp,
-  TagIcon,
   Filter,
   Search,
-  CheckCircle2,
-  Crown,
-  Sparkles,
+  Tag,
+  Zap,
+  Trophy,
   BarChart3,
-  Flame,
-  Users,
-  ArrowUpRight,
-  Cpu,
-  Layers,
-  Gauge,
-  Database,
+  Clock,
+  Shuffle,
+  BookOpen,
+  CheckCircle2,
+  Calendar,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  StarHalf,
+  Info,
+  Eye,
+  CheckCircle,
+  XCircle,
 } from "lucide-react"
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useToast } from "@/components/ui/use-toast"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Sidebar } from "@/components/sidebar"
+import { TopBar } from "@/components/top-bar"
+import { useTheme } from "next-themes"
+import Link from "next/link"
 
-// Modern color scheme - Gen Z inspired
-const neonPurple = "rgb(149, 76, 233)"
-const neonPink = "rgb(255, 0, 153)"
-const neonBlue = "rgb(0, 122, 255)"
-const neonGreen = "rgb(57, 255, 20)"
-const darkMode = "rgb(18, 18, 27)"
-const glassBg = "rgba(255, 255, 255, 0.05)"
-const lightBlue = "rgb(59, 130, 246)"
-const darkBlue = "rgb(30, 64, 175)"
-const skyBlue = "rgb(14, 165, 233)"
-const glassBlue = "rgba(30, 64, 175, 0.05)"
-
-// Add type for tag with count
-interface TagWithCount {
-  id: string
-  name: string
-  _count: { codingQuestions: number }
-}
-
-interface Tag {
-  id: string
-  name: string
-  _count: {
-    codingQuestions: number
-  }
-}
-
-interface Question {
-  id: string
-  title: string
-  complexity: "EASY" | "MEDIUM" | "HARD"
-  status: "TODO" | "IN_PROGRESS" | "COMPLETED"
-  tags: Tag[]
-}
-
-const tagsData = [
-  { id: "1", name: "Arrays", _count: { codingQuestions: 15 } },
-  { id: "2", name: "Strings", _count: { codingQuestions: 8 } },
-  { id: "3", name: "Linked Lists", _count: { codingQuestions: 12 } },
-  { id: "4", name: "Trees", _count: { codingQuestions: 20 } },
-  { id: "5", name: "Graphs", _count: { codingQuestions: 5 } },
-  { id: "6", name: "Dynamic Programming", _count: { codingQuestions: 18 } },
-  { id: "7", name: "Recursion", _count: { codingQuestions: 10 } },
-  { id: "8", name: "Sorting", _count: { codingQuestions: 7 } },
-  { id: "9", name: "Searching", _count: { codingQuestions: 9 } },
-  { id: "10", name: "Binary Search", _count: { codingQuestions: 14 } },
-  { id: "11", name: "Greedy Algorithms", _count: { codingQuestions: 6 } },
-  { id: "12", name: "Backtracking", _count: { codingQuestions: 11 } },
-  { id: "13", name: "Divide and Conquer", _count: { codingQuestions: 4 } },
-  { id: "14", name: "Bit Manipulation", _count: { codingQuestions: 13 } },
-  { id: "15", name: "Mathematics", _count: { codingQuestions: 3 } },
-  { id: "16", name: "Geometry", _count: { codingQuestions: 2 } },
-  { id: "17", name: "Simulation", _count: { codingQuestions: 1 } },
-  { id: "18", name: "Data Structures", _count: { codingQuestions: 16 } },
-  { id: "19", name: "Algorithms", _count: { codingQuestions: 19 } },
-  { id: "20", name: "Design Patterns", _count: { codingQuestions: 5 } },
-  { id: "21", name: "System Design", _count: { codingQuestions: 8 } },
-  { id: "22", name: "Databases", _count: { codingQuestions: 11 } },
-  { id: "23", name: "Operating Systems", _count: { codingQuestions: 6 } },
-  { id: "24", name: "Computer Networks", _count: { codingQuestions: 9 } },
-  { id: "25", name: "Machine Learning", _count: { codingQuestions: 14 } },
-  { id: "26", name: "Deep Learning", _count: { codingQuestions: 3 } },
-  { id: "27", name: "Natural Language Processing", _count: { codingQuestions: 2 } },
-  { id: "28", name: "Computer Vision", _count: { codingQuestions: 1 } },
-  { id: "29", name: "Reinforcement Learning", _count: { codingQuestions: 17 } },
-  { id: "30", name: "Robotics", _count: { codingQuestions: 10 } },
-]
-
-const questionsData = [
-  {
-    id: "1",
-    title: "Two Sum",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "1", name: "Arrays", _count: { codingQuestions: 15 } }],
-  },
-  {
-    id: "2",
-    title: "Reverse Linked List",
-    complexity: "MEDIUM",
-    status: "COMPLETED",
-    tags: [{ id: "3", name: "Linked Lists", _count: { codingQuestions: 12 } }],
-  },
-  {
-    id: "3",
-    title: "Binary Tree Inorder Traversal",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "4", name: "Trees", _count: { codingQuestions: 20 } }],
-  },
-  {
-    id: "4",
-    title: "Implement Queue using Stacks",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "18", name: "Data Structures", _count: { codingQuestions: 16 } }],
-  },
-  {
-    id: "5",
-    title: "Flood Fill",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "5", name: "Graphs", _count: { codingQuestions: 5 } }],
-  },
-  {
-    id: "6",
-    title: "Climbing Stairs",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "6", name: "Dynamic Programming", _count: { codingQuestions: 18 } }],
-  },
-  {
-    id: "7",
-    title: "Maximum Depth of Binary Tree",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "4", name: "Trees", _count: { codingQuestions: 20 } }],
-  },
-  {
-    id: "8",
-    title: "Valid Palindrome",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "2", name: "Strings", _count: { codingQuestions: 8 } }],
-  },
-  {
-    id: "9",
-    title: "Remove Duplicates from Sorted Array",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "1", name: "Arrays", _count: { codingQuestions: 15 } }],
-  },
-  {
-    id: "10",
-    title: "Best Time to Buy and Sell Stock",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "19", name: "Algorithms", _count: { codingQuestions: 19 } }],
-  },
-  {
-    id: "11",
-    title: "Binary Search",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "10", name: "Binary Search", _count: { codingQuestions: 14 } }],
-  },
-  {
-    id: "12",
-    title: "Roman to Integer",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "15", name: "Mathematics", _count: { codingQuestions: 3 } }],
-  },
-  {
-    id: "13",
-    title: "Longest Common Prefix",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "2", name: "Strings", _count: { codingQuestions: 8 } }],
-  },
-  {
-    id: "14",
-    title: "Valid Parentheses",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "18", name: "Data Structures", _count: { codingQuestions: 16 } }],
-  },
-  {
-    id: "15",
-    title: "Merge Two Sorted Lists",
-    complexity: "EASY",
-    status: "COMPLETED",
-    tags: [{ id: "3", name: "Linked Lists", _count: { codingQuestions: 12 } }],
-  },
-]
-
-export default function NexPracticePage() {
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [tags, setTags] = useState<TagWithCount[]>([])
-  const [tagsLoading, setTagsLoading] = useState(true)
-  const [tagsExpanded, setTagsExpanded] = useState(false)
-  // Coding questions table state
-  const [questions, setQuestions] = useState<any[]>([])
-  const [questionsLoading, setQuestionsLoading] = useState(true)
-  const [questionsPage, setQuestionsPage] = useState(1)
-  const [questionsTotal, setQuestionsTotal] = useState(0)
-  const [questionsPerPage, setQuestionsPerPage] = useState(20)
-  const [hasMore, setHasMore] = useState(true)
-  const [search, setSearch] = useState("")
-  const [difficulty, setDifficulty] = useState("all")
-  const [status, setStatus] = useState("all")
-  const [tagFilter, setTagFilter] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [showPremiumBanner, setShowPremiumBanner] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
-  const [showFilters, setShowFilters] = useState(false)
-  const [sortBy, setSortBy] = useState("recommended")
-  const [streakDays, setStreakDays] = useState(7)
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [dailyChallengeCompleted, setDailyChallengeCompleted] = useState(false)
-  const [dailyChallengeProgress, setDailyChallengeProgress] = useState(0)
-  const [isScrolled, setIsScrolled] = useState(false)
-  const headerRef = useRef<HTMLDivElement>(null)
-  const [clientSideRendered, setClientSideRendered] = useState(false)
-  // Add sorting state
-  const [tableSortBy, setTableSortBy] = useState<"none" | "difficulty" | "accuracy" | "solved">("none")
-  const [tableSortDirection, setTableSortDirection] = useState<"asc" | "desc">("desc")
-  // Add selected row state
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
+// Create our own useMobile hook since the imported one has an issue
+function useMobile() {
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    // Ensure client-side rendering for effects that depend on the browser
-    setClientSideRendered(true)
-  }, [])
-
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 500)
-    
-    return () => clearTimeout(timer)
-  }, [])
-
-  useEffect(() => {
-    fetch("/api/tags/with-coding-question-count")
-      .then((res) => res.json())
-      .then((data) => setTags(data))
-      .finally(() => setTagsLoading(false))
-  }, [])
-
-  // Lazy loading: fetch and append questions
-  useEffect(() => {
-    setQuestionsLoading(true)
-    const params = new URLSearchParams({
-      type: "CODING",
-      page: questionsPage.toString(),
-      limit: questionsPerPage.toString(),
-      ...(search ? { search } : {}),
-      ...(difficulty !== "all" ? { difficulty } : {}),
-      ...(status !== "all" ? { status } : {}),
-      ...(sortBy ? { sortBy } : {}),
-      ...(activeTab !== "all" ? { category: activeTab } : {}),
-    })
-    
-    // Add multiple tags to the params if selected
-    if (tagFilter.length > 0) {
-      tagFilter.forEach((tagId) => {
-        params.append("tags", tagId)
-      })
-    }
-    
-    fetch(`/api/questions?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setQuestions(data.questions || [])
-        setQuestionsTotal(data.pagination?.total || 0)
-      })
-      .finally(() => setQuestionsLoading(false))
-  }, [questionsPage, questionsPerPage, search, difficulty, status, tagFilter, sortBy, activeTab])
-
-  // Handle scroll for sticky header
-  useEffect(() => {
-    const handleScroll = () => {
-      if (headerRef.current) {
-        const headerHeight = headerRef.current.offsetHeight
-        setIsScrolled(window.scrollY > headerHeight)
-      }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
     }
 
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+    // Check on mount
+    checkMobile()
+
+    // Add event listener for resize
+    window.addEventListener("resize", checkMobile)
+
+    // Clean up
+    return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  // Example practice problems
-  const practiceProblems = [
+  return isMobile
+}
+
+// Mock data for coding problems
+const codingProblems = [
     {
       id: 1,
       title: "Two Sum",
       difficulty: "Easy",
-      category: "Arrays",
-      completedBy: 7894,
-      accuracy: 76,
+    tags: ["Arrays", "Hash Table"],
+    completion: 78,
+    description:
+      "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+    status: "Completed",
+    lastAttempt: "2 days ago",
+    attempts: 2,
+    timeSpent: "15 min",
     },
     {
       id: 2,
-      title: "Binary Tree Traversal",
-      difficulty: "Medium",
-      category: "Trees",
-      completedBy: 4532,
-      accuracy: 68,
+    title: "Valid Parentheses",
+    difficulty: "Easy",
+    tags: ["Stack", "String"],
+    completion: 65,
+    description:
+      "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.",
+    status: "Completed",
+    lastAttempt: "1 week ago",
+    attempts: 1,
+    timeSpent: "12 min",
     },
     {
       id: 3,
-      title: "Merge Sort Implementation",
-      difficulty: "Medium",
-      category: "Sorting",
-      completedBy: 3921,
-      accuracy: 62,
+    title: "Merge Two Sorted Lists",
+    difficulty: "Easy",
+    tags: ["Linked List", "Recursion"],
+    completion: 59,
+    description: "Merge two sorted linked lists and return it as a sorted list.",
+    status: "In Progress",
+    lastAttempt: "Yesterday",
+    attempts: 3,
+    timeSpent: "25 min",
     },
     {
       id: 4,
-      title: "Dynamic Programming Challenge",
-      difficulty: "Hard",
-      category: "DP",
-      completedBy: 2145,
-      accuracy: 48,
-    },
-  ]
+    title: "Maximum Subarray",
+    difficulty: "Medium",
+    tags: ["Array", "Divide and Conquer", "Dynamic Programming"],
+    completion: 45,
+    description: "Find the contiguous subarray which has the largest sum.",
+    status: "Not Started",
+    lastAttempt: "-",
+    attempts: 0,
+    timeSpent: "-",
+  },
+  {
+    id: 5,
+    title: "LRU Cache",
+    difficulty: "Medium",
+    tags: ["Hash Table", "Linked List", "Design"],
+    completion: 38,
+    description: "Design a data structure that follows the constraints of a Least Recently Used (LRU) cache.",
+    status: "Failed",
+    lastAttempt: "3 days ago",
+    attempts: 2,
+    timeSpent: "45 min",
+  },
+  {
+    id: 6,
+    title: "Trapping Rain Water",
+    difficulty: "Hard",
+    tags: ["Array", "Two Pointers", "Dynamic Programming", "Stack"],
+    completion: 22,
+    description:
+      "Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.",
+    status: "Not Started",
+    lastAttempt: "-",
+    attempts: 0,
+    timeSpent: "-",
+  },
+]
 
-  // Example coding challenges
-  const codingChallenges = [
-    {
-      id: 101,
-      title: "Weekly Challenge: String Manipulation",
-      deadline: "3 days left",
-      participants: 324,
-      prize: 200,
-      xp: 500,
-    },
-    {
-      id: 102,
-      title: "Algorithm Speedrun",
-      deadline: "5 days left",
-      participants: 186,
-      prize: 150,
-      xp: 350,
-    },
-  ]
+// Mock data for student performance
+const performanceStats = {
+  totalSolved: 127,
+  easyCompleted: 68,
+  mediumCompleted: 42,
+  hardCompleted: 17,
+  averageTime: "28 min",
+  streak: 12,
+  ranking: 342,
+  totalStudents: 5280,
+  recentSubmissions: [
+    { problem: "Valid Parentheses", result: "Accepted", time: "2 hours ago", runtime: "98ms", memory: "40.2MB" },
+    { problem: "Two Sum", result: "Accepted", time: "Yesterday", runtime: "76ms", memory: "38.9MB" },
+    { problem: "LRU Cache", result: "Wrong Answer", time: "2 days ago", runtime: "N/A", memory: "N/A" },
+    { problem: "LRU Cache", result: "Accepted", time: "2 days ago", runtime: "132ms", memory: "72.4MB" },
+  ],
+}
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case "easy":
-        return "bg-green-500"
-      case "medium":
-        return "bg-yellow-500"
-      case "hard":
-        return "bg-red-500"
-      default:
-        return "bg-blue-500"
-    }
-  }
+// Daily challenge data
+const dailyChallenge = {
+  id: 7,
+  title: "Longest Palindromic Substring",
+  difficulty: "Medium",
+  tags: ["String", "Dynamic Programming"],
+  description: "Given a string s, return the longest palindromic substring in s.",
+  expiresIn: "14:32:18",
+}
 
-  const handleDailyChallengeClick = () => {
-    if (dailyChallengeCompleted) {
-      toast({
-        title: "Daily Challenge Completed",
-        description: "You've already completed today's challenge. Come back tomorrow for a new one!",
-        variant: "default",
-      })
-      return
-    }
+// Modern spinner loader component
+function TagLoader() {
+  return (
+    <div className="flex items-center gap-2 py-2 px-4 bg-muted/40 rounded-lg animate-pulse">
+      <svg className="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+      </svg>
+      <span className="text-indigo-700 dark:text-indigo-200 font-medium text-sm">Loading tags...</span>
+        </div>
+  )
+}
 
-    if (dailyChallengeProgress === 0) {
-      setDailyChallengeProgress(50)
-      toast({
-        title: "Daily Challenge Started",
-        description: "You've started today's challenge. Complete it to earn bonus XP!",
-      })
-    } else if (dailyChallengeProgress === 50) {
-      setDailyChallengeProgress(100)
-      setDailyChallengeCompleted(true)
-      setShowConfetti(true)
-      toast({
-        title: "Congratulations!",
-        description: "You've completed today's challenge and earned 200 XP!",
-        variant: "default",
-      })
+// Modern spinner loader for problems
+function ProblemLoader() {
+  return (
+    <div className="flex items-center gap-2 py-2 px-4 bg-muted/40 rounded-lg animate-pulse">
+      <svg className="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+      </svg>
+      <span className="text-indigo-700 dark:text-indigo-200 font-medium text-sm">Loading problems...</span>
+                </div>
+  )
+}
 
-      setTimeout(() => {
-        setShowConfetti(false)
-      }, 3000)
-    }
-  }
+// Main NexPractice component
+export default function NexPractice() {
+  const [mounted, setMounted] = useState(false)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [difficulty, setDifficulty] = useState("All")
+  const [activeTab, setActiveTab] = useState("all")
+  const isMobile = useMobile()
+  const { resolvedTheme } = useTheme()
+  const [allTags, setAllTags] = useState<{ id: string; name: string; _count?: { codingQuestions: number } }[]>([])
+  const [tagsLoading, setTagsLoading] = useState(true)
+  const [tagsError, setTagsError] = useState<string | null>(null)
+  const [showAllTags, setShowAllTags] = useState(false)
+  const [codingProblems, setCodingProblems] = useState<any[]>([])
+  const [loadingProblems, setLoadingProblems] = useState(true)
+  const [problemsError, setProblemsError] = useState<string | null>(null)
+  const QUESTIONS_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProblems, setTotalProblems] = useState(0);
 
-  // Move this useEffect just before the return statement inside NexPracticePage
+  // Prevent hydration errors
   useEffect(() => {
-    if (clientSideRendered) {
-      // Find all rows with data-animate="true"
-      const rows = document.querySelectorAll('tr[data-animate="true"]')
-      // Add animations with staggered delays
-      rows.forEach((row, index) => {
-        setTimeout(() => {
-          row.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2')
-        }, index * 50)
+    setMounted(true)
+    // Fetch tags from API
+    fetch("/api/tags?all=true")
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch tags")
+        return res.json()
       })
+      .then(data => {
+        setAllTags(data.tags || [])
+        setTagsLoading(false)
+      })
+      .catch(err => {
+        setTagsError("Could not load tags")
+        setTagsLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    setLoadingProblems(true);
+    fetch(`/api/questions/coding?page=${currentPage}&pageSize=${QUESTIONS_PER_PAGE}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch coding problems');
+        return res.json();
+      })
+      .then(data => {
+        setCodingProblems(data.codingQuestions || []);
+        setTotalProblems(data.total || 0);
+        setLoadingProblems(false);
+      })
+      .catch(err => {
+        setProblemsError('Could not load coding problems');
+        setLoadingProblems(false);
+      });
+  }, [currentPage]);
+
+  // Reset to first page when filters/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, difficulty, selectedTags]);
+
+  if (!mounted) return null
+
+  // Filter problems based on selected criteria
+  const filteredProblems = codingProblems.filter((problem) => {
+    // Use question?.name or fallback to name
+    const title = problem.question?.name || problem.name || "";
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Filter by difficulty
+    const matchesDifficulty = difficulty === "All" || problem.difficulty === difficulty;
+
+    // Filter by tags
+    const matchesTags =
+      selectedTags.length === 0 ||
+      selectedTags.every((tag) => (problem.tags || []).some((t: any) => t.name === tag));
+
+    // You can add tab filtering logic here if you have status, etc.
+
+    return matchesSearch && matchesDifficulty && matchesTags;
+  });
+
+  const totalPages = Math.ceil(totalProblems / QUESTIONS_PER_PAGE);
+  const paginatedProblems = filteredProblems;
+
+  // Toggle tag selection
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag))
+    } else {
+      setSelectedTags([...selectedTags, tag])
     }
-  }, [clientSideRendered, questions, questionsLoading])
+  }
+
+  // Get a random problem
+  const getRandomProblem = () => {
+    const randomIndex = Math.floor(Math.random() * codingProblems.length)
+    alert(`Random Problem Selected: ${codingProblems[randomIndex].title}`)
+  }
+
+  // Get status badge styling
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "Completed":
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" />
+            {status}
+          </Badge>
+        )
+      case "In Progress":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 flex items-center gap-1">
+            <StarHalf className="w-3 h-3" />
+            {status}
+          </Badge>
+        )
+      case "Failed":
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 flex items-center gap-1">
+            <XCircle className="w-3 h-3" />
+            {status}
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="outline" className="text-muted-foreground flex items-center gap-1">
+            <Info className="w-3 h-3" />
+            {status}
+          </Badge>
+        )
+    }
+  }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-8 pb-10">
-        {/* Premium Header Section */}
-        <div ref={headerRef} className="relative mb-10">
-          {/* Background patterns and effects */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-blue-400/20 to-transparent rounded-2xl overflow-hidden">
-            <div className="absolute right-0 bottom-0 w-1/3 h-1/2 bg-gradient-to-tl from-blue-500/20 to-transparent rounded-full blur-3xl transform translate-x-1/4 translate-y-1/4"></div>
-            <div className="absolute left-0 top-0 w-1/4 h-1/4 bg-gradient-to-br from-sky-500/20 to-transparent rounded-full blur-3xl"></div>
-            <div className="absolute right-10 top-10 opacity-20">
-              <div className="h-20 w-20 rounded-full border border-blue-500/50"></div>
-            </div>
-            <div className="absolute left-1/2 top-1/2 opacity-10">
-              <div className="h-40 w-40 rounded-full border-2 border-blue-500/30"></div>
-        </div>
-
-            {/* Add a modern mesh gradient background */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute w-1/3 h-1/3 bg-blue-600/40 rounded-full filter blur-3xl top-0 left-0"></div>
-              <div className="absolute w-1/3 h-1/3 bg-sky-600/40 rounded-full filter blur-3xl bottom-0 right-0"></div>
-              <div className="absolute w-1/4 h-1/4 bg-blue-600/40 rounded-full filter blur-3xl top-1/2 right-1/4"></div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="relative z-10 p-8 md:p-10 flex flex-col md:flex-row gap-6 items-center backdrop-blur-sm">
-            {/* Left side with logo and title */}
-            <div className="flex items-center gap-4 md:w-3/5">
-              <div className="bg-gradient-to-br from-primary to-primary/80 p-4 rounded-2xl shadow-xl">
-                <Code className="h-10 w-10 text-white drop-shadow-md" aria-hidden="true" />
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-500 via-blue-400 to-blue-500 bg-clip-text text-transparent">
-                    NexPractice
-                  </h1>
-                  <Badge className="mt-1 px-3 py-0.5 shadow-md bg-gradient-to-r from-blue-600 to-blue-500 text-white border-none animate-pulse-slow">
-                    <Crown className="h-3 w-3 mr-1" aria-hidden="true" />
-                    <span>PREMIUM</span>
-                  </Badge>
-                </div>
-                {/* Problems solved out of total */}
-                <p className="text-xs text-blue-700/80 dark:text-blue-300/80 mt-1">
-                  Solved: {questions.filter((q) => q.status === "COMPLETED").length} / {questionsTotal} problems
-                </p>
-                <p className="text-muted-foreground mt-1 max-w-md">
-                  Sharpen your coding skills with practice problems and challenges designed by industry experts
-                </p>
-                <div className="flex gap-2 items-center mt-4">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="h-6 w-6 rounded-full bg-gradient-to-br from-muted/80 to-muted/50 flex items-center justify-center text-[10px] text-muted-foreground border border-background shadow-sm"
-                      >
-                        {i}
-                </div>
-                    ))}
-                    <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] border border-primary/20 shadow-sm">
-                      +20
-              </div>
-                </div>
-                  <span className="text-xs text-muted-foreground">Students practicing now</span>
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500 ml-2 animate-pulse"></div>
-                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">Live</span>
-              </div>
-              </div>
-            </div>
-
-            {/* Right side with quick actions and stats */}
-            <div className="md:w-2/5 flex flex-col gap-3">
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-9 rounded-full bg-background/80 backdrop-blur-sm gap-1 shadow-sm text-xs border-muted hover:border-primary/30 ${dailyChallengeCompleted ? "border-green-500/30 text-green-600" : ""}`}
-                  onClick={handleDailyChallengeClick}
-                >
-                  {dailyChallengeCompleted ? (
-                    <>
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" aria-hidden="true" />
-                      Completed
-                    </>
-                  ) : (
-                    <>
-                      <BrainCircuit className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                      Daily Challenge
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-full bg-background/80 backdrop-blur-sm gap-1 shadow-sm text-xs border-muted hover:border-primary/30"
-                >
-                  <Trophy className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-                  Leaderboard
-                </Button>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        className="h-9 w-9 p-0 rounded-full bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/80 shadow-md"
-                      >
-                        <Zap className="h-4 w-4 text-white" aria-hidden="true" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs p-2.5">
-                      Start a new practice session
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Sidebar */}
+      <Sidebar theme={resolvedTheme as "light" | "dark"} />
+      {/* Main content area */}
+      <div className="flex flex-1 flex-col overflow-hidden transition-all duration-300">
+        <TopBar onMenuClick={() => {}} />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="space-y-8">
+            {/* Hero section */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 rounded-lg border border-indigo-100 dark:border-indigo-800/30 shadow-sm">
+              <div className="relative overflow-hidden">
+                {/* Background pattern */}
+                <div className="absolute inset-0 opacity-5">
+                  <svg className="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                    </pattern>
+                    <rect width="100%" height="100%" fill="url(#grid)" />
+                  </svg>
                 </div>
 
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                <div className="bg-background/70 backdrop-blur-sm p-2 rounded-lg border border-muted/40 shadow-sm flex flex-col items-center">
-                  <div className="text-lg font-bold text-primary">24%</div>
-                  <div className="text-[10px] text-muted-foreground">Completion</div>
+                <div className="relative p-6">
+                  <div className="flex flex-col md:flex-row justify-between items-center">
+                    <div className="space-y-3 mb-4 md:mb-0">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-indigo-600 dark:bg-indigo-500 p-2 rounded-lg shadow-md">
+                          <Code className="w-6 h-6 text-white" />
                 </div>
-                <div className="bg-background/70 backdrop-blur-sm p-2 rounded-lg border border-muted/40 shadow-sm flex flex-col items-center">
-                  <div className="text-lg font-bold text-amber-500">{streakDays}</div>
-                  <div className="text-[10px] text-muted-foreground">Streak</div>
-              </div>
-                <div className="bg-background/70 backdrop-blur-sm p-2 rounded-lg border border-muted/40 shadow-sm flex flex-col items-center">
-                  <div className="text-lg font-bold text-green-600 dark:text-green-400">+350</div>
-                  <div className="text-[10px] text-muted-foreground">XP</div>
-              </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Search bar and quick filters */}
-          <div
-            className={`relative z-20 flex flex-wrap items-center gap-2 px-6 py-3 bg-white/10 dark:bg-slate-900/20 border border-white/20 dark:border-slate-700/30 backdrop-blur-xl rounded-xl shadow-lg -mt-5 mx-4 transition-all duration-300 ${isScrolled ? "fixed top-4 left-4 right-4 shadow-2xl border-blue-500/30 z-50" : ""
-              }`}
-          >
-            <div className="relative flex-1 min-w-[200px]">
-              <Input
-                placeholder="Search problems, topics, or tags..."
-                className="pl-9 h-9 bg-white/5 dark:bg-slate-800/20 border-white/10 dark:border-slate-700/30 focus:border-violet-500/50 rounded-full"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                <Search className="h-4 w-4" />
-              </div>
-            </div>
-
-            <Select value={difficulty} onValueChange={setDifficulty}>
-              <SelectTrigger className="w-auto min-w-[120px] h-9 border-muted bg-background/50 text-xs rounded-full">
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="EASY">Easy</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HARD">Hard</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1 rounded-full border-muted bg-background/50 hover:bg-primary/5 hover:border-primary/30"
-              onClick={() => setTagsExpanded(!tagsExpanded)}
-            >
-              <TagIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="text-xs">Tags</span>
-              {tagFilter.length > 0 && (
-                <span className="ml-1 h-4 min-w-4 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center">
-                  {tagFilter.length}
-                </span>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1 rounded-full border-muted bg-background/50 hover:bg-primary/5 hover:border-primary/30"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="text-xs">Filters</span>
-            </Button>
-
-            {(search || difficulty !== "all" || tagFilter.length > 0) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 text-xs px-2.5 rounded-full hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => {
-                  setSearch("")
-                  setDifficulty("all")
-                  setTagFilter([])
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-
-            <div className="hidden sm:block h-4 w-px bg-muted/50 mx-1"></div>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-9 ml-auto gap-1.5 rounded-full text-xs shadow-lg bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 border border-white/10"
-                  >
-                    <Sparkles className="h-3 w-3 text-white" aria-hidden="true" />
-                    <span>Recommended for You</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs p-2.5">
-                  <p>AI-powered problem recommendations based on your skill level</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-
-        {/* Advanced Filters Panel - Conditionally Rendered */}
-        {showFilters && (
-          <div className="bg-muted/10 rounded-xl border border-muted/30 p-4 mb-6 shadow-sm backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Filter className="h-4 w-4 text-primary" />
-                Advanced Filters
-              </h3>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShowFilters(false)}>
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sort By</label>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sort problems" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recommended">Recommended</SelectItem>
-                    <SelectItem value="newest">Newest</SelectItem>
-                    <SelectItem value="popularity">Most Popular</SelectItem>
-                    <SelectItem value="acceptance">Highest Acceptance</SelectItem>
-                    <SelectItem value="difficulty">Difficulty (Easy to Hard)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Problems</SelectItem>
-                    <SelectItem value="SOLVED">Solved</SelectItem>
-                    <SelectItem value="ATTEMPTED">Attempted</SelectItem>
-                    <SelectItem value="TODO">To Do</SelectItem>
-                    <SelectItem value="BOOKMARKED">Bookmarked</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">View Mode</label>
-                <div className="flex rounded-md overflow-hidden border border-muted">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="sm"
-                    className="flex-1 rounded-none"
-                    onClick={() => setViewMode("grid")}
-                  >
-                    <Blocks className="h-4 w-4 mr-2" />
-                    Grid
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="sm"
-                    className="flex-1 rounded-none"
-                    onClick={() => setViewMode("list")}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    List
-                  </Button>
+                        <h1 className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">NexPractice</h1>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Daily Challenge Card - Premium Design */}
-        <div className="relative overflow-hidden rounded-xl border border-blue-500/20 bg-gradient-to-r from-blue-50/50 via-sky-50/30 to-blue-50/50 dark:from-blue-950/20 dark:via-sky-950/20 dark:to-blue-950/20 shadow-2xl mb-8">
-          <div className="absolute inset-0 bg-grid-blue/5 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6),transparent)]"></div>
-
-          {/* Add animated particles */}
-          {clientSideRendered && (
-            <div className="absolute inset-0 overflow-hidden">
-              {Array.from({ length: 15 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full bg-blue-500/20"
-                  style={{
-                    width: `${Math.random() * 8 + 3}px`,
-                    height: `${Math.random() * 8 + 3}px`,
-                    top: `${Math.random() * 100}%`,
-                    left: `${Math.random() * 100}%`,
-                    animation: `float ${Math.random() * 10 + 10}s linear infinite`,
-                    animationDelay: `${Math.random() * 5}s`,
-                  }}
-                ></div>
-              ))}
-            </div>
-          )}
-
-          <div className="relative z-10 flex flex-col md:flex-row">
-            <div className="p-6 md:p-8 md:w-2/3">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="bg-gradient-to-br from-blue-400 to-blue-600 p-2 rounded-lg shadow-lg">
-                  <BrainCircuit className="h-5 w-5 text-white" />
-                </div>
-              <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-blue-800 dark:text-blue-400">Daily Challenge</h3>
-                    <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30">
-                      <Clock className="h-3 w-3 mr-1" />
-                      <span>Resets in 14:32:45</span>
-                    </Badge>
-                </div>
-                  <p className="text-xs text-blue-700/70 dark:text-blue-400/70">
-                    Complete daily challenges to maintain your streak and earn bonus XP
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm rounded-lg border border-blue-200/50 dark:border-blue-800/30 p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-400">Balanced Binary Tree</h4>
-                  <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                    Medium
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Given a binary tree, determine if it is height-balanced. A height-balanced binary tree is a tree where
-                  the depth of the two subtrees of every node never differs by more than one.
-                </p>
-
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10">
-                    Trees
-                  </Badge>
-                  <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10">
-                    DFS
-                  </Badge>
-                  <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10">
-                    Binary Tree
-                  </Badge>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-blue-200/30 dark:border-blue-800/20">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      <span>127 solved today</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Flame className="h-3 w-3 text-blue-500" />
-                      <span className="text-blue-600 dark:text-blue-400 font-medium">+200 XP</span>
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <span className="text-blue-700 dark:text-blue-400 font-medium">{dailyChallengeProgress}%</span>
-                    <span>completed</span>
-                  </div>
-                </div>
-
-                <div className="mt-3 w-full bg-blue-100 dark:bg-blue-900/20 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-blue-400 to-blue-600 h-1.5 rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${dailyChallengeProgress}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                <Button
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg"
-                  onClick={handleDailyChallengeClick}
-                >
-                  {dailyChallengeCompleted
-                    ? "View Solution"
-                    : dailyChallengeProgress > 0
-                      ? "Continue Challenge"
-                      : "Start Challenge"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-blue-500/30 text-blue-700 dark:text-blue-400 hover:bg-blue-500/10"
-                >
-                  View Details
-                </Button>
-              </div>
-            </div>
-
-            <div className="hidden md:flex md:w-1/3 items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-sky-500/20 to-blue-500/20 opacity-60"></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-12 p-5 bg-white/90 dark:bg-slate-900/90 rounded-xl shadow-xl border border-blue-500/20 w-64 h-64 flex items-center justify-center">
-                <div className="text-center space-y-3">
-                  <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-14 h-14 rounded-xl mx-auto shadow-lg flex items-center justify-center">
-                    <Trophy className="h-8 w-8 text-white" />
-                  </div>
-                  <h4 className="font-bold text-lg text-blue-700 dark:text-blue-400">Daily Streak: {streakDays}</h4>
-                  <div className="flex justify-center gap-1 pt-2">
-                  {Array.from({ length: 7 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-2 w-2 rounded-full ${i < streakDays ? "bg-blue-500" : "bg-muted"}`}
-                      ></div>
-                  ))}
-                </div>
-              </div>
-                </div>
-                </div>
-              </div>
-              </div>
-
-
-
-        {/* Category Tabs - Premium Design */}
-        <div className="mt-8">
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Problem Categories
-              </h2>
-              <TabsList className="bg-muted/30 p-1 rounded-full">
-                <TabsTrigger value="all" className="rounded-full text-xs data-[state=active]:bg-background">
-                  All
-                </TabsTrigger>
-                <TabsTrigger value="algorithms" className="rounded-full text-xs data-[state=active]:bg-background">
-                  Algorithms
-                </TabsTrigger>
-                <TabsTrigger value="dataStructures" className="rounded-full text-xs data-[state=active]:bg-background">
-                  Data Structures
-                </TabsTrigger>
-                <TabsTrigger value="systemDesign" className="rounded-full text-xs data-[state=active]:bg-background">
-                  System Design
-                </TabsTrigger>
-                <TabsTrigger value="database" className="rounded-full text-xs data-[state=active]:bg-background">
-                  Database
-                </TabsTrigger>
-              </TabsList>
-        </div>
-
-            <TabsContent value="all" className="mt-0">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-                  {/* Enhanced Tag Wall Section - Premium Design */}
-                  <Card className="shadow-2xl border-blue-500/10 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500/5 via-background to-background backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center justify-between py-2 px-3 bg-gradient-to-r from-blue-500/10 to-transparent border-b border-blue-500/10 min-h-0">
-                      <div className="flex items-center gap-1.5">
-                        <div className="bg-gradient-to-br from-blue-500/20 to-blue-600 p-1.5 rounded-lg shadow-sm">
-                          <TagIcon className="h-3 w-3 text-white" aria-hidden="true" />
-                  </div>
-                        <span className="text-sm font-semibold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
-                          Browse by Tag
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="ml-1 bg-blue-500/10 text-blue-500 font-medium text-[11px] border-blue-500/20 px-1.5 py-0.5"
-                        >
-                          {tags.length}
-                        </Badge>
-                </div>
-                      <div className="flex items-center gap-1">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                          onClick={() => setTagsExpanded((v) => !v)}
-                          className="group hover:bg-blue-500/10 hover:text-blue-500 transition-all duration-300 rounded-full h-6 px-2 border-blue-500/20 text-xs min-h-0"
-                          aria-expanded={tagsExpanded}
-                          aria-label={tagsExpanded ? "Show fewer tags" : "Show all tags"}
-                        >
-                          {tagsExpanded ? "Show Less" : "Show All"}
-                    {tagsExpanded ? (
-                            <ChevronUp className="ml-1 h-2.5 w-2.5 transition-transform duration-300 group-hover:-translate-y-1" aria-hidden="true" />
-                    ) : (
-                            <ChevronDown className="ml-1 h-2.5 w-2.5 transition-transform duration-300 group-hover:translate-y-1" aria-hidden="true" />
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                {tagsLoading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="flex flex-col items-center gap-2">
-                            <div className="relative w-12 h-12">
-                              <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-                              <div className="absolute inset-0 scale-75 rounded-full border-4 border-transparent border-r-primary animate-spin animation-delay-200"></div>
-                              <div className="absolute inset-3 rounded-full bg-primary/10 flex items-center justify-center">
-                                <TagIcon className="h-3 w-3 text-primary/70" />
-                              </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground" aria-live="polite">
-                              Loading tags...
-                            </p>
-                    </div>
-                  </div>
-                ) : tags.length === 0 ? (
-                  <div className="text-muted-foreground py-8 text-center flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                            <TagIcon className="h-5 w-5 text-muted-foreground/60" aria-hidden="true" />
-                    </div>
-                    <p className="text-sm">No tags found. Tags will appear here when added to questions.</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Categories - Group tags by category or popularity */}
-                    <div className="mb-3 flex gap-1.5 flex-wrap">
-                      <Button 
-                        variant={tagFilter.length === 0 ? "default" : "outline"} 
-                        size="sm"
-                        className="rounded-full h-7 px-3 text-xs"
-                        onClick={() => setTagFilter([])}
-                      >
-                        All Tags
-                      </Button>
-                      <Button
-                        variant={tagFilter.length === 0 ? "outline" : "default"}
-                        size="sm"
-                        className="rounded-full h-7 px-3 flex items-center gap-1 text-xs"
-                              onClick={() => { }}
-                        disabled={tagFilter.length === 0}
-                      >
-                        <span>Selected</span>
-                              <Badge
-                                variant="secondary"
-                                className="ml-1 bg-white/20 text-white h-4 min-w-4 flex items-center justify-center text-[10px]"
-                              >
-                          {tagFilter.length}
-                        </Badge>
-                      </Button>
-                      
-                      {tagFilter.length > 0 && (
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          className="rounded-full h-7 px-3 ml-auto text-xs"
-                          onClick={() => setTagFilter([])}
-                        >
-                          Clear
+                      <p className="text-indigo-700 dark:text-indigo-300">
+                        Master coding through practice. Solve problems, track progress, improve skills.
+                      </p>
+                      <div className="flex gap-3 mt-4">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm">
+                          <Zap className="w-4 h-4" /> Daily Challenge
                         </Button>
-                      )}
+                        <Button
+                          variant="outline"
+                          className="border-indigo-300 dark:border-indigo-700 gap-2 shadow-sm"
+                          onClick={getRandomProblem}
+                        >
+                          <Shuffle className="w-4 h-4" /> Random Problem
+                        </Button>
+              </div>
+              </div>
+
+                    <div className="flex items-center gap-6 bg-white/80 dark:bg-indigo-950/30 p-4 rounded-lg shadow-sm border border-indigo-100 dark:border-indigo-800/30">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">
+                          {performanceStats.totalSolved}
+                </div>
+                        <div className="text-xs text-indigo-600 dark:text-indigo-400">Problems Solved</div>
+                </div>
+                      <Separator orientation="vertical" className="h-12 bg-indigo-200 dark:bg-indigo-700/50" />
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">
+                          {performanceStats.streak}
+              </div>
+                        <div className="text-xs text-indigo-600 dark:text-indigo-400">Day Streak</div>
+                </div>
+                      <Separator orientation="vertical" className="h-12 bg-indigo-200 dark:bg-indigo-700/50" />
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">
+                          {performanceStats.ranking}
+              </div>
+                        <div className="text-xs text-indigo-600 dark:text-indigo-400">Ranking</div>
+                </div>
+                </div>
+              </div>
+              </div>
+              </div>
+        </div>
+
+            {/* Main content layout */}
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Left column - problem list and filters */}
+              <div className="flex-1 space-y-6 md:max-w-[calc(100%-350px-1.5rem)]">
+                {/* Search and filter section */}
+                <Card className="border-none shadow-md">
+                  <CardHeader className="pb-3 bg-muted/30 rounded-t-lg">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Filter className="w-5 h-5" /> Problem Filters
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="search"
+                          placeholder="Search problems..."
+                          className="pl-8 border-muted-foreground/20"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                  </div>
+                      <div className="flex gap-2">
+                  <Button 
+                          variant={difficulty === "All" ? "default" : "outline"}
+                          onClick={() => setDifficulty("All")}
+                          className="flex-1 sm:flex-none"
+                        >
+                          All
+                  </Button>
+                      <Button 
+                          variant={difficulty === "Easy" ? "default" : "outline"}
+                          onClick={() => setDifficulty("Easy")}
+                          className={`flex-1 sm:flex-none ${
+                            difficulty === "Easy" ? "bg-green-600 hover:bg-green-700" : "text-green-600"
+                          }`}
+                        >
+                          Easy
+                      </Button>
+                      <Button
+                          variant={difficulty === "Medium" ? "default" : "outline"}
+                          onClick={() => setDifficulty("Medium")}
+                          className={`flex-1 sm:flex-none ${
+                            difficulty === "Medium" ? "bg-yellow-600 hover:bg-yellow-700" : "text-yellow-600"
+                          }`}
+                        >
+                          Medium
+                      </Button>
+                        <Button 
+                          variant={difficulty === "Hard" ? "default" : "outline"}
+                          onClick={() => setDifficulty("Hard")}
+                          className={`flex-1 sm:flex-none ${
+                            difficulty === "Hard" ? "bg-red-600 hover:bg-red-700" : "text-red-600"
+                          }`}
+                        >
+                          Hard
+                        </Button>
+                      </div>
                     </div>
                     
-                          {/* Tag Cloud - Premium Design */}
-                          <div
-                            className={`rounded-lg border border-muted/30 bg-muted/20 transition-all duration-300 p-3 ${tagsExpanded ? 'h-auto' : ''}`}
-                            style={{
-                              overflow: 'hidden',
-                              height: tagsExpanded ? 'auto' : undefined,
-                              transition: 'height 0.3s',
-                            }}
-                          >
-                      <div 
-                        className="flex flex-wrap gap-1.5 transition-all duration-500 ease-in-out"
-                              role="group"
-                              aria-label="Available tags"
-                      >
-                              {(tagsExpanded ? tags : tags.slice(0, 24)).map((tag) => {
-                          // Calculate tag size/importance based on question count
-                                const isSelected = tagFilter.includes(tag.id)
-                                const count = tag._count.codingQuestions
-                                const isMajor = count > 10
-                                const isMedium = count >= 3 && count <= 10
-                          
-                          // Determine the style based on popularity
-                                const tagCategory = isMajor ? "popular" : isMedium ? "medium" : "rare"
-                          const tagColors = {
-                            popular: {
-                              bg: "bg-primary/10",
-                              activeBg: "bg-primary",
-                              text: "text-primary",
-                                    activeText: "text-white",
-                            },
-                            medium: {
-                              bg: "bg-blue-500/10",
-                              activeBg: "bg-blue-600",
-                              text: "text-blue-700 dark:text-blue-400",
-                                    activeText: "text-white",
-                            },
-                            rare: {
-                              bg: "bg-slate-400/10",
-                              activeBg: "bg-slate-700",
-                              text: "text-slate-700 dark:text-slate-400",
-                                    activeText: "text-white",
-                                  },
-                            }
-                          
-                          return (
+                    <div>
+                      <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                        <Tag className="w-4 h-4" /> Tags
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {tagsLoading ? (
+                          <TagLoader />
+                        ) : tagsError ? (
+                          <div className="text-red-500">{tagsError}</div>
+                        ) : (
+                          <>
+                            {(showAllTags ? allTags : allTags.slice(0, 30)).map((tag) => (
                             <Badge
                               key={tag.id}
-                              variant="outline"
-                              onClick={() => {
-                                // Toggle tag selection
-                                      setTagFilter((prev) =>
-                                        prev.includes(tag.id) ? prev.filter((t) => t !== tag.id) : [...prev, tag.id],
-                                      )
-                                      setQuestionsPage(1) // Reset to first page when changing filters
-                              }}
-                              className={`
-                                      flex items-center gap-1 py-1 px-2 h-6 rounded-full
-                                transition-all duration-200 cursor-pointer
-                                hover:shadow-sm active:scale-95
-                                ${isSelected
-                                  ? `${tagColors[tagCategory].activeBg} ${tagColors[tagCategory].activeText} shadow-sm` 
-                                  : `${tagColors[tagCategory].bg} ${tagColors[tagCategory].text} border-primary/10 hover:border-primary/30`
-                                }
-                              `}
-                                    role="checkbox"
-                                    aria-checked={isSelected}
-                                    aria-label={`${tag.name} tag with ${count} questions`}
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter" || e.key === " ") {
-                                        e.preventDefault()
-                                        setTagFilter((prev) =>
-                                          prev.includes(tag.id) ? prev.filter((t) => t !== tag.id) : [...prev, tag.id],
-                                        )
-                                        setQuestionsPage(1)
-                                      }
-                                    }}
-                            >
-                              {/* Tag name */}
-                              <span className="text-xs font-medium truncate max-w-[120px]">{tag.name}</span>
-                              
-                              {/* Count badge */}
-                                    <span
-                                      className={`
-                                      inline-flex items-center justify-center rounded-full px-1.5 min-w-4 h-3.5 text-[10px] font-mono
-                                      ${isSelected ? "bg-white/20 text-white" : "bg-muted/50 text-muted-foreground"}
-                                    `}
-                                    >
-                                {count}
+                                variant={selectedTags.includes(tag.name) ? "default" : "outline"}
+                                className={`cursor-pointer hover:bg-muted transition-colors flex items-center gap-1 ${
+                                  selectedTags.includes(tag.name) ? "bg-primary hover:bg-primary/90" : ""
+                                }`}
+                                onClick={() => toggleTag(tag.name)}
+                              >
+                                {tag.name}
+                                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-indigo-200 dark:bg-indigo-800 text-xs font-semibold text-indigo-700 dark:text-indigo-200">
+                                  {tag._count?.codingQuestions ?? 0}
                               </span>
-                              
-                              {/* Popular indicator */}
-                              {isMajor && !isSelected && (
-                                      <span className="text-[10px]" aria-hidden="true">
-                                        🔥
-                                      </span>
-                              )}
-                              
-                              {/* Selected indicator */}
-                              {isSelected && (
-                                      <span className="text-[10px]" aria-hidden="true">
-                                        ✓
-                                      </span>
-                              )}
                             </Badge>
-                                )
-                        })}
-                      </div>
-                    </div>
-                    
-                    {/* Selected tags summary - Premium feature */}
-                    {tagFilter.length > 0 && (
-                      <div className="mt-3 p-2 bg-primary/5 rounded-lg border border-primary/10 flex items-center gap-2">
-                        <div className="bg-primary/10 p-1 rounded-full">
-                                <TagIcon className="h-3 w-3 text-primary" aria-hidden="true" />
-                        </div>
-                        <span className="text-xs text-primary font-medium">{tagFilter.length} tags selected</span>
-                              <span className="text-xs text-muted-foreground mx-1" aria-hidden="true">
-                                •
-                              </span>
-                              <div className="flex items-center ml-auto">
-                        <span className="text-xs text-muted-foreground">{questions.length} problems found</span>
-                                <Badge className="ml-2 text-[10px] h-4 px-1.5 flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none">
-                                  <Crown className="h-2.5 w-2.5" aria-hidden="true" />
-                                  <span>PREMIUM</span>
-                                </Badge>
-                              </div>
-                      </div>
+                            ))}
+                            {allTags.length > 30 && (
+                              <button
+                                className="ml-2 px-3 py-1.5 flex items-center gap-1 text-xs rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 border border-indigo-200 dark:border-indigo-700 shadow hover:scale-105 transition-all font-medium text-indigo-700 dark:text-indigo-200"
+                                onClick={() => setShowAllTags((prev) => !prev)}
+                              >
+                                {showAllTags ? (
+                                  <>
+                                    Show less <ChevronUp className="w-4 h-4" />
+                                  </>
+                                ) : (
+                                  <>
+                                    Show more <span className="font-semibold">({allTags.length - 30})</span> <ChevronDown className="w-4 h-4" />
+                                  </>
+                                )}
+                              </button>
                     )}
                   </>
                 )}
+                      </div>
+                    </div>
               </CardContent>
             </Card>
 
-                  {/* Problems Section - Premium Card Layout */}
-                  <div className="mt-6 relative">
-                    {/* Header with gradient background */}
-                    <div className="relative mb-4 overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 via-background to-transparent p-3 border border-blue-500/10 shadow-lg">
-                      <div className="absolute inset-0 bg-grid-blue/5 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6),transparent)]"></div>
-                      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                        <div className="flex flex-col space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
-                              Problem Set
-                            </h3>
-                            <Badge className="h-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white border-none text-xs px-2 py-0.5 animate-pulse-slow">
-                              CURATED ✨
-                            </Badge>
-                            <Badge className="h-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white border-none text-xs px-2 py-0.5 animate-in fade-in duration-500">
-                              VIBES
-                            </Badge>
-                          </div>
-                  <p className="text-sm text-muted-foreground">
-                            {questionsLoading
-                              ? "Finding the perfect challenges for you..."
-                              : `Showing ${questions.length} of ${questionsTotal} problems`}
-                            {tagFilter.length > 0 &&
-                              ` • Filtered by ${tagFilter.length} ${tagFilter.length === 1 ? "tag" : "tags"}`}
-                          </p>
-                        </div>
-                      </div>
+                {/* Problem list */}
+                <Card className="border-none shadow-md">
+                  <CardHeader className="pb-0 pt-6 px-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                        <BookOpen className="w-5 h-5" /> Coding Problems
+                      </CardTitle>
+                      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+                        <TabsList className="grid grid-cols-4 w-full sm:w-auto">
+                          <TabsTrigger value="all" className="text-xs sm:text-sm">
+                            All
+                          </TabsTrigger>
+                          <TabsTrigger value="completed" className="text-xs sm:text-sm">
+                            Completed
+                          </TabsTrigger>
+                          <TabsTrigger value="inProgress" className="text-xs sm:text-sm">
+                            In Progress
+                          </TabsTrigger>
+                          <TabsTrigger value="notStarted" className="text-xs sm:text-sm">
+                            Not Started
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
                 </div>
-                
-                {/* Status Filter Pills */}
-                    <div className="flex items-center gap-2 flex-wrap mt-2 md:mt-0 p-2 bg-background/50 backdrop-blur-sm rounded-lg border border-muted/30">
+                  </CardHeader>
+                  
+                  <CardContent className="p-6">
+                    {/* Pagination controls above the table */}
+                    {totalPages > 1 && (
+                      <div className="flex justify-center items-center gap-2 flex-wrap mb-4">
                   <Button
-                    variant={status === "all" ? "default" : "outline"}
+                          variant="outline"
                     size="sm"
-                        className="rounded-full h-8 text-xs shadow-sm"
-                    onClick={() => setStatus("all")}
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   >
-                    All
+                          Previous
                   </Button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
-                    variant={status === "READY" ? "default" : "outline"}
+                            key={page}
+                            variant={page === currentPage ? "default" : "outline"}
                     size="sm"
-                        className="rounded-full h-8 text-xs shadow-sm"
-                    onClick={() => setStatus("READY")}
-                  >
-                    Ready to Solve
+                            className={
+                              page === currentPage
+                                ? "font-bold border-indigo-500 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200"
+                                : ""
+                            }
+                            aria-current={page === currentPage ? "page" : undefined}
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
                   </Button>
+                        ))}
                   <Button
-                    variant={status === "DRAFT" ? "default" : "outline"}
+                          variant="outline"
                     size="sm"
-                        className="rounded-full h-8 text-xs shadow-sm"
-                    onClick={() => setStatus("DRAFT")}
-                  >
-                    Coming Soon
-                  </Button>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-full h-8 text-xs bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 shadow-sm"
-                            >
-                              <Crown className="h-3.5 w-3.5 mr-1 text-amber-500" aria-hidden="true" />
-                              Premium
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="p-2 text-xs">
-                            <p>Access premium problems with a PREMIUM subscription</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      
-                      {/* Add Back button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.location.href = "/dashboard"}
-                        className="rounded-full h-8 text-xs flex items-center gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:text-blue-700 ml-auto shadow-sm transition-all duration-200"
-                      >
-                        <ArrowUpRight className="h-3.5 w-3.5 rotate-180" />
-                        <span>Back</span>
-                      </Button>
-              </div>
-
-              {/* Selected Tags Display */}
-              {tagFilter.length > 0 && (
-                      <div className="flex flex-wrap gap-2 items-center mb-6 p-3 bg-gradient-to-r from-primary/5 to-transparent rounded-lg border border-primary/10 backdrop-blur-sm">
-                        <div className="bg-primary/10 p-1.5 rounded-full">
-                          <TagIcon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                        </div>
-                        <span className="text-xs text-primary font-medium">Selected Tags:</span>
-                        <div className="flex flex-wrap gap-2 ml-2">
-                          {tagFilter.map((tagId) => {
-                            const tag = tags.find((t) => t.id === tagId)
-                    return tag ? (
-                      <Badge 
-                        key={tag.id}
-                        variant="secondary"
-                                className="flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer shadow-sm"
-                      >
-                        {tag.name}
-                        <Button
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-4 w-4 p-0 ml-1 rounded-full hover:bg-primary/20 hover:text-white"
-                          onClick={(e) => {
-                                    e.stopPropagation()
-                            // Toggle tag selection
-                                    setTagFilter((prev) => prev.filter((t) => t !== tag.id))
-                                    setQuestionsPage(1) // Reset to first page when changing filters
-                          }}
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                         >
-                          ×
-                        </Button>
-                      </Badge>
-                            ) : null
-                  })}
-                        </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                          className="h-7 text-xs text-muted-foreground hover:text-primary ml-auto"
-                    onClick={(e) => {
-                            e.stopPropagation()
-                            setTagFilter([])
-                            setQuestionsPage(1) // Reset to first page when changing filters
-                    }}
-                  >
-                    Clear All
+                          Next
                   </Button>
                 </div>
               )}
-
-              {questionsLoading ? (
-                      <div className="flex justify-center items-center py-20 bg-muted/10 rounded-xl border border-muted/30 backdrop-blur-sm">
-                  <div className="flex flex-col items-center gap-3">
-                          <div className="relative w-16 h-16">
-                            <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-transparent border-b-transparent animate-spin"></div>
-                            <div className="absolute inset-0 scale-50 rounded-full border-4 border-r-primary border-t-transparent border-b-transparent animate-spin animation-delay-200"></div>
-                            <div className="absolute inset-3 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Code className="h-5 w-5 text-primary/70" />
-                            </div>
-                          </div>
-                          <p className="text-muted-foreground">Fetching your coding challenges...</p>
+                    <div className="rounded-md border border-muted-foreground/10 overflow-hidden bg-card">
+                      <Table>
+                        <TableHeader className="bg-muted/50">
+                          <TableRow className="hover:bg-muted/50 border-b border-muted-foreground/20">
+                            <TableHead className="w-[40%]">
+                              <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                                Problem <ArrowUpDown className="w-3 h-3" />
                   </div>
+                            </TableHead>
+                            <TableHead>
+                              <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                                Difficulty <ArrowUpDown className="w-3 h-3" />
                 </div>
-              ) : questions.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-muted/20 to-transparent rounded-xl border border-muted/30 shadow-sm">
-                        <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-4 shadow-inner">
-                    <Code className="h-10 w-10 text-muted-foreground/60" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">No coding problems found</h3>
-                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                    {search || difficulty !== "all" || status !== "all" || tagFilter.length > 0
-                      ? "Yikes! Try adjusting your filters to see more problems 👀"
-                      : "Problems will appear here once they're added to the system"}
-                  </p>
-                  {(search || difficulty !== "all" || status !== "all" || tagFilter.length > 0) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                            className="rounded-full px-4 border-primary/20 hover:bg-primary/5 hover:border-primary/40"
-                      onClick={(e) => {
-                              e.stopPropagation()
-                              setSearch("")
-                              setDifficulty("all")
-                              setStatus("all")
-                              setTagFilter([])
-                              setQuestionsPage(1)
-                      }}
-                    >
-                      Reset Filters
-                    </Button>
-                  )}
-            </div>
-              ) : (
-                <>
-                        {/* Premium Table Layout */}
-                        <div className="overflow-hidden rounded-xl border border-blue-500/20 bg-card/50 shadow-sm backdrop-blur-sm mb-6 hover:shadow-md transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                          <div className="relative overflow-x-auto backdrop-blur-[2px] bg-white/40 dark:bg-slate-900/40">
-                            {/* Enhanced Table Filter Bar */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gradient-to-r from-blue-500/10 via-blue-400/5 to-transparent border-b border-blue-500/10">
-                              <div className="flex gap-2 items-center mb-2 sm:mb-0 flex-wrap">
-                                <div className="relative w-full sm:w-auto min-w-[200px]">
-                                  <Input
-                                    placeholder="🔍 Find problems..."
-                                    className="pl-9 h-8 bg-white/80 dark:bg-slate-800/50 text-xs border-blue-500/20 focus:border-blue-500/50 rounded-full"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                  />
-                                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500/70">
-                                    <Search className="h-3.5 w-3.5" />
-                                  </div>
-                                </div>
-
-                                <span className="text-xs text-muted-foreground hidden sm:inline-block">Vibe check:</span>
-                                <Button 
-                                  size="sm" 
-                                  variant={tableSortBy === "difficulty" ? "default" : "outline"} 
-                                  className="h-7 text-xs rounded-full transition-all duration-200 shadow-sm hover:shadow-md"
-                                  onClick={() => {
-                                    if (tableSortBy === "difficulty") {
-                                      setTableSortDirection(tableSortDirection === "asc" ? "desc" : "asc")
-                                    } else {
-                                      setTableSortBy("difficulty")
-                                      setTableSortDirection("asc")
-                                    }
-                                  }}
-                                >
-                                  <Gauge className="h-3 w-3 mr-1" />
-                                  Difficulty {tableSortBy === "difficulty" && (tableSortDirection === "asc" ? "↑" : "↓")}
-                                </Button>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-xs rounded-full px-2.5 transition-colors"
-                                  onClick={() => {
-                                    setTableSortBy("none")
-                                    setSearch("")
-                                  }}
-                                >
-                                  <span className="mr-1">↺</span> Reset
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Quick difficulty filter pills */}
-                            <div className="flex items-center px-4 py-2 border-b border-blue-500/10 bg-blue-50/30 dark:bg-blue-900/10">
-                              <span className="text-xs text-muted-foreground mr-2">Level:</span>
-                              <div className="flex gap-1.5">
-                                <Button 
-                                  size="sm" 
-                                  variant={difficulty === "all" ? "default" : "outline"}
-                                  className="h-6 px-3 text-xs rounded-full transition-all duration-200 shadow-sm hover:shadow"
-                                  onClick={() => setDifficulty("all")}
-                                >
-                                  All
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant={difficulty === "EASY" ? "default" : "outline"}
-                                  className="h-6 bg-gradient-to-r from-green-500/10 to-green-400/5 text-green-700 dark:text-green-400 border-green-500/30 hover:border-green-500/50 text-xs rounded-full transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-                                  onClick={() => setDifficulty("EASY")}
-                                >
-                                  <span>Easy</span>
-                                  <span className="text-[9px]">😌</span>
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant={difficulty === "MEDIUM" ? "default" : "outline"}
-                                  className="h-6 bg-gradient-to-r from-yellow-500/10 to-yellow-400/5 text-yellow-700 dark:text-yellow-400 border-yellow-500/30 hover:border-yellow-500/50 text-xs rounded-full transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-                                  onClick={() => setDifficulty("MEDIUM")}
-                                >
-                                  <span>Medium</span>
-                                  <span className="text-[9px]">😤</span>
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant={difficulty === "HARD" ? "default" : "outline"}
-                                  className="h-6 bg-gradient-to-r from-red-500/10 to-red-400/5 text-red-700 dark:text-red-400 border-red-500/30 hover:border-red-500/50 text-xs rounded-full transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-                                  onClick={() => setDifficulty("HARD")}
-                                >
-                                  <span>Hard</span>
-                                  <span className="text-[9px]">💀</span>
-                                </Button>
-                              </div>
-                            </div>
-
-                            <table className="w-full text-sm">
-                              <thead className="sticky top-0 z-10 bg-gradient-to-r from-blue-500/10 to-transparent backdrop-blur-md border-b border-blue-500/20">
-                                <tr>
-                                  <th className="px-2 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider w-5"></th>
-                                  <th className="px-4 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider group hover:bg-blue-500/5 transition-colors">
-                                    <div className="flex items-center">
-                                      <span>Problem</span>
-                                    </div>
-                                  </th>
-                                  <th className="px-2 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider group hover:bg-blue-500/5 transition-colors">
-                                    <div className="flex items-center">
-                                      <span>Difficulty</span>
-                                    </div>
-                                  </th>
-                                  <th className="px-2 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell group hover:bg-blue-500/5 transition-colors">
-                                    <div className="flex items-center">
-                                      <span>Tags</span>
-                                    </div>
-                                  </th>
-                                  <th className="px-2 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell group hover:bg-blue-500/5 transition-colors">
-                                    <div className="flex items-center">
-                                      <span>Stats</span>
-                                    </div>
-                                  </th>
-                                  <th className="px-2 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider group hover:bg-blue-500/5 transition-colors">
-                                    <div className="flex items-center">
-                                      <span>Status</span>
-                                    </div>
-                                  </th>
-                                  <th className="px-2 py-2 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider group hover:bg-blue-500/5 transition-colors">
-                                    <div className="flex items-center">
-                                      <span>Accuracy</span>
-                                    </div>
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {/* Sort the questions based on the sort selection */}
-                                {questions
-                                  .slice()
-                                  .sort((a, b) => {
-                                    // Keep existing sort logic
-                                    if (tableSortBy === "none") return 0
-
-                                    if (tableSortBy === "difficulty") {
-                                      const diffValues = { "EASY": 1, "MEDIUM": 2, "HARD": 3 }
-                                      const aValue = diffValues[(a.codingQuestion?.difficulty || "MEDIUM") as keyof typeof diffValues]
-                                      const bValue = diffValues[(b.codingQuestion?.difficulty || "MEDIUM") as keyof typeof diffValues]
-                                      return tableSortDirection === "asc" ? aValue - bValue : bValue - aValue
-                                    }
-
-                                    if (tableSortBy === "accuracy") {
-                                      const aValue = a.codingQuestion?.accuracy || 0
-                                      const bValue = b.codingQuestion?.accuracy || 0
-                                      return tableSortDirection === "asc" ? aValue - bValue : bValue - aValue
-                                    }
-
-                                    if (tableSortBy === "solved") {
-                                      const aValue = a.codingQuestion?.solvedByCount || 0
-                                      const bValue = b.codingQuestion?.solvedByCount || 0
-                                      return tableSortDirection === "asc" ? aValue - bValue : bValue - aValue
-                                    }
-
-                                    return 0
-                                  })
-                                  .map((q, idx) => {
-                                    const tags = q.codingQuestion?.tags || []
-                                    const difficulty = q.codingQuestion?.difficulty || "MEDIUM"
-                                    const isSolved = q.codingQuestion?.userHasSolved || false
-                                    const accuracy = q.codingQuestion?.accuracy
-                                    const isPopular = (q.codingQuestion?.solvedByCount || 0) > 100
-                                    const solvedCount = q.codingQuestion?.solvedByCount || 0
-                                    const isPremium = q.codingQuestion?.isPremium || false
-                                    const isSelected = selectedRowId === q.id
-
-                                    const config = {
-                              EASY: {
-                                        label: "Easy",
-                                        color: "bg-green-500",
-                                        strip: "bg-green-500/80",
-                                        gradient: "from-green-400 to-green-600",
-                              },
-                              MEDIUM: {
-                                        label: "Medium",
-                                        color: "bg-yellow-500",
-                                        strip: "bg-yellow-500/80",
-                                        gradient: "from-yellow-400 to-yellow-600",
-                              },
-                              HARD: {
-                                        label: "Hard",
-                                        color: "bg-red-500",
-                                        strip: "bg-red-500/80",
-                                        gradient: "from-red-400 to-red-600",
-                                      },
-                                    }[difficulty as "EASY" | "MEDIUM" | "HARD"]
-                            
+                            </TableHead>
+                            <TableHead className="hidden md:table-cell">Tags</TableHead>
+                            <TableHead className="hidden sm:table-cell text-center">Solved By</TableHead>
+                            <TableHead className="w-[100px] text-center">Accuracy %</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loadingProblems ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                <ProblemLoader />
+                              </TableCell>
+                            </TableRow>
+                          ) : problemsError ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center text-red-500">{problemsError}</TableCell>
+                            </TableRow>
+                          ) : filteredProblems.length > 0 ? (
+                            <>
+                              {paginatedProblems.map((problem, index) => {
+                                console.log('Linking to questionId:', problem.questionId);
                             return (
-                                      <tr
-                                key={q.id}
-                                        className={`group border-b border-muted/20 
-                                    ${idx % 2 === 0 ? 'bg-muted/5 bg-[url("data:image/svg+xml,%3Csvg width=\'6\' height=\'6\' viewBox=\'0 0 6 6\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3 6C3.27614 6 3.5 5.77614 3.5 5.5C3.5 5.22386 3.27614 5 3 5C2.72386 5 2.5 5.22386 2.5 5.5C2.5 5.77614 2.72386 6 3 6Z\' fill=\'%23a0a0a015\'/%3E%3C/svg%3E")]' : 'bg-opacity-100'} 
-                                    ${isSelected ? 'bg-blue-100/50 dark:bg-blue-900/30 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]' : ''} 
-                                    hover:bg-blue-50/60 dark:hover:bg-blue-900/15
-                                    hover:shadow-[0_2px_10px_rgba(0,0,0,0.05)] hover:scale-[1.01] 
-                                    active:scale-[0.99] active:shadow-inner
-                                    transition-all duration-200 cursor-pointer 
-                                    backdrop-blur-[1px] backdrop-saturate-[1.1]
-                                    focus-within:ring-2 focus-within:ring-blue-400
-                                    transform-gpu`}
-                                        tabIndex={0}
-                                        aria-label={`View problem ${q.name}`}
-                                        onClick={() => {
-                                          setSelectedRowId(q.id)
-                                          setTimeout(() => {
-                                            window.location.href = `/nexpractice/problem/${q.id}`
-                                          }, 200)
-                                        }}
-                                        onKeyDown={e => { 
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                            setSelectedRowId(q.id)
-                                            setTimeout(() => {
-                                              window.location.href = `/nexpractice/problem/${q.id}`
-                                            }, 200)
-                                          }
-                                        }}
-                                        style={{
-                                          animationDelay: `${idx * 50}ms`,
-                                        }}
-                                        data-animate="true"
-                                      >
-                                        {/* Difficulty color strip */}
-                                        <td className="pl-0 pr-2 py-2 align-middle">
-                                          <div className="relative h-full">
-                                            <span className={`block w-1.5 h-8 rounded-full shadow-sm ${config.strip} group-hover:scale-y-110 group-hover:opacity-85 transition-all duration-200`}></span>
-                                            <div className={`absolute inset-0 ${config.strip} opacity-40 filter blur-xl scale-75 -z-10 group-hover:blur-2xl group-hover:scale-100 transition-all duration-300`}></div>
-                                            </div>
-                                        </td>
-                                        
-                                        {/* Problem name and badges */}
-                                        <td className="px-4 py-2 font-medium flex items-center gap-2 min-w-[120px] max-w-[220px] truncate rounded-lg group-hover:bg-white/20 dark:group-hover:bg-slate-900/10 transition-colors">
-                                          {isPremium && (
-                                            <Badge className="text-[10px] h-5 px-2 flex items-center gap-1 shadow-md bg-gradient-to-r from-blue-600 to-blue-500 text-white border-none group-hover:shadow-lg group-hover:translate-x-0.5 transition-all duration-300">
-                                              <Crown className="h-2.5 w-2.5 animate-pulse-slow" aria-hidden="true" />
-                                              <span>PREMIUM</span>
-                                            </Badge>
+                              <TableRow 
+                                    key={problem.id}
+                                    className={`hover:bg-muted/30 transition-colors ${
+                                      index % 2 === 0 ? "bg-muted/10" : ""
+                                    } border-b border-muted-foreground/10`}
+                                  >
+                                    <TableCell className="font-medium">
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-primary font-semibold">{index + 1}.</span>
+                                          {problem.questionId ? (
+                                            <Link
+                                              href={`/nexpractice/problem/${problem.questionId}`}
+                                              className="font-medium text-indigo-700 dark:text-indigo-300 hover:underline"
+                                            >
+                                              {problem.question?.name || problem.name}
+                                            </Link>
+                                          ) : (
+                                            <span className="text-red-500 flex items-center gap-1" title="Missing questionId">
+                                              ⚠️ {problem.question?.name || problem.name}
+                                            </span>
                                     )}
-                                    {isPopular && (
-                                            <Badge variant="outline" className="text-[10px] h-5 px-2 flex items-center gap-1 bg-primary/10 text-primary border-primary/20 shadow-sm group-hover:translate-x-0.5 transition-all duration-300">
-                                              <Flame className="h-2.5 w-2.5 text-amber-500 animate-pulse-slow" aria-hidden="true" />
-                                              <span>Popular</span>
-                                            </Badge>
-                                          )}
-                                      <TooltipProvider>
-                                            <Tooltip>
-                                          <TooltipTrigger asChild>
-                                                <span className="truncate cursor-pointer group-hover:text-primary relative transition-colors px-1 py-0.5 group-hover:bg-primary/5 group-hover:rounded">
-                                                  {q.name}
-                                                  <span className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-transparent via-primary/5 to-transparent blur-md transition-opacity duration-300"></span>
-                                                </span>
-                                          </TooltipTrigger>
-                                              <TooltipContent side="top" className="text-xs p-1.5 bg-gradient-to-br from-blue-900 to-blue-800 text-white border-blue-700">
-                                                <p>This problem is straight 🔥 — solved by {solvedCount} students</p>
-                                              </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                        </td>
-                                        
-                                        {/* Difficulty */}
-                                        <td className="px-2 py-2 rounded-lg group-hover:bg-white/20 dark:group-hover:bg-slate-900/10 transition-colors">
-                                          <span className={`relative inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold text-white bg-gradient-to-r ${config.gradient} shadow-sm group-hover:shadow-md transition-all duration-200 group-hover:scale-105 group-active:scale-100`}>
-                                            <span className="relative z-10">{config.label}</span>
-                                            <span className={`absolute inset-0 rounded-full bg-gradient-to-r ${config.gradient} blur-[2px] opacity-50 group-hover:opacity-80 group-hover:blur-[5px] -z-10 transition-all`}></span>
-                                          </span>
-                                        </td>
-                                        
-                                        {/* Tags (hidden on mobile) */}
-                                        <td className="px-2 py-2 hidden md:table-cell max-w-[120px] rounded-lg group-hover:bg-white/20 dark:group-hover:bg-slate-900/10 transition-colors">
-                                          <div className="flex flex-wrap gap-1.5">
-                                    {tags.slice(0, 2).map((tag: any) => (
-                                              <TooltipProvider key={tag.id}>
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <Badge variant="outline" className="bg-primary/5 text-primary/90 text-[10px] px-1.5 py-0 border-primary/10 truncate max-w-[60px] cursor-pointer hover:bg-primary/20 hover:shadow-sm hover:translate-y-[-1px] active:translate-y-0 transition-all">
+                                  </div>
+                                        <div className="text-xs text-muted-foreground md:hidden mt-1">
+                                          {(problem.questionText || problem.description || '').substring(0, 60)}...
+                                  </div>
+                                  </div>
+                                </TableCell>
+                                    <TableCell>
+                                      <Badge
+                                        className={
+                                          problem.difficulty === "Easy"
+                                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                            : problem.difficulty === "Medium"
+                                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                                              : problem.difficulty === "Hard"
+                                                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                                                : ""
+                                        }
+                                      >
+                                        {problem.difficulty}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell">
+                                  <div className="flex flex-wrap gap-1">
+                                        {problem.tags?.slice(0, 2).map((tag: any, idx: number) => (
+                                      <Badge 
+                                            key={tag.id || idx}
+                                        variant="outline"
+                                            className="flex items-center gap-1 bg-muted/30 hover:bg-muted transition-colors"
+                                          >
+                                            <Tag className="w-3 h-3" />
                                         {tag.name}
                                       </Badge>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>{tag.name}</TooltipContent>
-                                                </Tooltip>
-                                              </TooltipProvider>
                                     ))}
-                                    {tags.length > 2 && (
-                                              <Badge variant="outline" className="bg-muted/40 text-muted-foreground text-[10px] px-1.5 py-0 border-muted/30 hover:bg-muted/50 hover:shadow-sm transition-all">
-                                              +{tags.length - 2}
+                                        {problem.tags && problem.tags.length > 2 && (
+                                            <Badge 
+                                              variant="outline"
+                                            className="flex items-center gap-1 bg-muted/30 hover:bg-muted transition-colors"
+                                            >
+                                            +{problem.tags.length - 2}
                                             </Badge>
-                                            )}
-                                                </div>
-                                        </td>
-                                        
-                                        {/* Stats (hidden on mobile) */}
-                                        <td className="px-2 py-2 hidden md:table-cell rounded-lg group-hover:bg-white/20 dark:group-hover:bg-slate-900/10 transition-colors">
-                                          <span className="text-xs text-muted-foreground flex items-center gap-1 group-hover:text-foreground/80 transition-colors">
-                                            <Users className="h-3 w-3 text-blue-500/70 group-hover:text-blue-500 transition-colors" />
-                                            <span className="group-hover:font-medium transition-all">{solvedCount}</span>
-                                          </span>
-                                        </td>
-                                        
-                                        {/* Status */}
-                                        <td className="px-2 py-2 rounded-lg group-hover:bg-white/20 dark:group-hover:bg-slate-900/10 transition-colors">
-                                          {isSolved ? (
-                                            <span className="bg-gradient-to-r from-green-500/20 to-green-400/10 text-green-600 dark:text-green-400 h-6 px-2 rounded-full flex items-center text-[10px] font-medium shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all">
-                                              <div className="relative">
-                                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                                <span className="absolute inset-0 bg-green-500/30 blur-md rounded-full opacity-0 group-hover:opacity-70 transition-opacity"></span>
-                                            </div>
-                                              Solved
-                                            </span>
-                                          ) : (
-                                            <span className="text-xs text-muted-foreground group-hover:text-foreground/80 group-hover:font-medium transition-all px-2 py-1">To Do</span>
-                                          )}
-                                        </td>
-                                        
-                                        {/* Accuracy */}
-                                        <td className="px-2 py-2 rounded-lg group-hover:bg-white/20 dark:group-hover:bg-slate-900/10 transition-colors">
-                                  {accuracy != null ? (
-                                            <span className="flex items-center gap-1.5 text-xs relative">
-                                              <span className={`inline-block h-2 w-2 rounded-full ${accuracy > 70 ? 'bg-green-500' : accuracy > 40 ? 'bg-yellow-500' : 'bg-red-500'} relative`}>
-                                                <span className={`absolute inset-0 rounded-full ${accuracy > 70 ? 'bg-green-500' : accuracy > 40 ? 'bg-yellow-500' : 'bg-red-500'} animate-ping opacity-70 duration-1000`}></span>
-                                              </span>
-                                              <span className="group-hover:font-medium transition-all">{accuracy}%</span>
-                                            </span>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">-</span>
-                                  )}
-                                        </td>
-                                      </tr>
-                                    )
-                                  })}
-                              </tbody>
-                            </table>
-
-                            {/* Table summary and pagination */}
-                            <div className="px-4 py-3 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 flex flex-col sm:flex-row items-center justify-between border-t border-blue-500/10 gap-4">
-                              <div className="text-xs text-muted-foreground">
-                                Showing <span className="font-medium text-primary">{questions.length}</span> of <span className="font-medium text-primary">{questionsTotal}</span> problems
-                              </div>
-
-                              <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/50 rounded-full p-1 shadow-inner">
+                                    )}
+                                  </div>
+                                </TableCell>
+                                    <TableCell className="hidden sm:table-cell text-center">
+                                      {problem.solvedByCount ?? 0}
+                                </TableCell>
+                                    <TableCell className="text-center">
+                                      {problem.accuracy != null ? `${problem.accuracy}%` : "—"}
+                                </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                              {totalPages > 1 && (
+                                <TableRow>
+                                  <TableCell colSpan={5} className="py-3">
+                                    <div className="flex justify-center items-center gap-2 flex-wrap">
                                   <Button 
-                                  variant="ghost"
+                                        variant="outline"
                                     size="sm" 
-                                  className="h-7 w-7 p-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary flex items-center justify-center disabled:opacity-30"
-                                  disabled={questionsPage === 1}
-                                  onClick={() => setQuestionsPage(1)}
-                                  title="First Page"
-                                >
-                                  ⟪
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                      >
+                                        Previous
+                                      </Button>
+                                      {/* Numbered page buttons */}
+                                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                        <Button
+                                          key={page}
+                                          variant={page === currentPage ? "default" : "outline"}
+                                          size="sm"
+                                          className={
+                                            page === currentPage
+                                              ? "font-bold border-indigo-500 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200"
+                                              : ""
+                                          }
+                                          aria-current={page === currentPage ? "page" : undefined}
+                                          onClick={() => setCurrentPage(page)}
+                                        >
+                                          {page}
+                                        </Button>
+                                      ))}
+                                      <Button
+                                    variant="outline"
+                                        size="sm"
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                      >
+                                        Next
                                   </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary flex items-center justify-center disabled:opacity-30"
-                                  disabled={questionsPage === 1}
-                                  onClick={() => setQuestionsPage((p) => Math.max(1, p - 1))}
-                                  title="Previous Page"
-                                >
-                                  ⟨
-                                </Button>
-
-                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/50 shadow-inner">
-                                  {questionsPage}
-                                </span>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary flex items-center justify-center disabled:opacity-30"
-                                  disabled={questionsPage * questionsPerPage >= questionsTotal}
-                                  onClick={() => setQuestionsPage((p) => p + 1)}
-                                  title="Next Page"
-                                >
-                                  ⟩
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 rounded-full text-primary hover:bg-primary/10 hover:text-primary flex items-center justify-center disabled:opacity-30"
-                                  disabled={questionsPage * questionsPerPage >= questionsTotal}
-                                  onClick={() => setQuestionsPage(Math.ceil(questionsTotal / questionsPerPage))}
-                                  title="Last Page"
-                                >
-                                  ⟫
-                                </Button>
-                              </div>
-                            </div>
+                                    </div>
+                                </TableCell>
+                              </TableRow>
+                              )}
+                            </>
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                  <Search className="w-8 h-8 mb-2 opacity-30" />
+                                  <p>No problems match your filters.</p>
+                                  <p className="text-sm">Try adjusting your search criteria.</p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     </div>
+                  </CardContent>
+                </Card>
                   </div>
                   
-                        {/* Empty space fillers for grid layout */}
-                        {questions.length % 3 === 1 && (
-                          <>
-                            <div className="hidden lg:block h-0 sm:col-span-1"></div>
-                            <div className="hidden sm:block lg:block h-0 sm:col-span-1"></div>
-                          </>
-                        )}
-                        {questions.length % 3 === 2 && <div className="hidden lg:block h-0 sm:col-span-1"></div>}
+              {/* Right column - stats and daily challenge */}
+              <div className="w-full md:w-[350px] flex-shrink-0 space-y-6">
+                {/* Daily Challenge Card */}
+                <Card className="border-2 border-yellow-500/50 dark:border-yellow-500/20 shadow-md">
+                  <CardHeader className="bg-yellow-50 dark:bg-yellow-950/20 rounded-t-lg pb-3">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-yellow-500" /> Daily Challenge
+                    </CardTitle>
+                    <CardDescription>
+                      Expires in{" "}
+                      <span className="font-medium text-yellow-600 dark:text-yellow-400">{dailyChallenge.expiresIn}</span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <h3 className="font-semibold text-lg mb-2">{dailyChallenge.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-3">{dailyChallenge.description}</p>
 
-                        {/* Legend - Modern Pill Design */}
-                        <div
-                          className="mt-2 mb-6 p-3 bg-gradient-to-r from-muted/30 to-transparent rounded-full flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground backdrop-blur-sm"
-                          role="region"
-                          aria-label="Problem legend"
-                        >
-                    <div className="flex items-center">
-                            <span
-                              className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 mr-1.5 shadow-sm"
-                              aria-hidden="true"
-                            ></span>
-                      <span>Easy</span>
+                    <div className="flex gap-2 mb-4">
+                      {(() => {
+                        const badgeClass =
+                          dailyChallenge.difficulty === "Easy"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                            : dailyChallenge.difficulty === "Medium"
+                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                              : dailyChallenge.difficulty === "Hard"
+                                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                                : "";
+                        return (
+                          <Badge className={badgeClass}>
+                            {dailyChallenge.difficulty}
+                          </Badge>
+                        );
+                      })()}
+                      {dailyChallenge.tags.map((tag, index) => (
+                        <Badge key={index} variant="outline">
+                          {tag}
+                        </Badge>
+                      ))}
                     </div>
-                    <div className="flex items-center">
-                            <span
-                              className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-500 mr-1.5 shadow-sm"
-                              aria-hidden="true"
-                            ></span>
-                      <span>Medium</span>
+                  
+                    <Button className="w-full">Solve Today's Challenge</Button>
+                  </CardContent>
+                </Card>
+
+                {/* Performance Stats Card */}
+                <Card className="border-none shadow-md">
+                  <CardHeader className="pb-3 bg-muted/30 rounded-t-lg">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5" /> Your Performance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg text-center border border-green-200 dark:border-green-900">
+                        <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                          {performanceStats.easyCompleted}
                     </div>
-                    <div className="flex items-center">
-                            <span
-                              className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 mr-1.5 shadow-sm"
-                              aria-hidden="true"
-                            ></span>
-                      <span>Hard</span>
+                        <div className="text-xs text-green-600 dark:text-green-500">Easy</div>
                     </div>
-                    <div className="flex items-center">
-                            <div className="bg-green-500/10 text-green-600 dark:text-green-400 h-5 w-5 rounded-full flex items-center justify-center text-[10px] mr-1.5 shadow-sm">
-                        ✓
-                            </div>
-                      <span>Solved</span>
+                      <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg text-center border border-yellow-200 dark:border-yellow-900">
+                        <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">
+                          {performanceStats.mediumCompleted}
                     </div>
-                    <div className="flex items-center">
-                            <Badge
-                              variant="outline"
-                              className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5 mr-1.5 flex items-center shadow-sm"
-                            >
-                              <Flame className="h-2.5 w-2.5 mr-0.5" aria-hidden="true" />
-                            </Badge>
-                      <span>Popular</span>
-                    </div>
-                          <div className="flex items-center">
-                            <Badge className="text-[10px] h-5 flex items-center gap-0.5 mr-1.5 shadow-sm bg-gradient-to-r from-blue-600 to-blue-500 text-white border-none">
-                              <Crown className="h-2 w-2" aria-hidden="true" />
-                              <span>PREMIUM</span>
-                            </Badge>
-                            <span>Premium</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-                </div>
-                </div>
-            </TabsContent>
-
-            <TabsContent value="algorithms" className="mt-0">
-              <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-muted/20 to-transparent rounded-xl border border-muted/30 shadow-sm">
-                <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center mb-4 shadow-inner">
-                  <Cpu className="h-10 w-10 text-blue-500/60" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">Algorithm Problems</h3>
-                <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                  Master algorithmic thinking with our curated collection of algorithm problems
-                </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                  className="rounded-full px-4 border-blue-500/20 text-blue-600 hover:bg-blue-500/5 hover:border-blue-500/40"
-                  >
-                  Explore Algorithms
-                  </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="dataStructures" className="mt-0">
-              <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-muted/20 to-transparent rounded-xl border border-muted/30 shadow-sm">
-                <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-4 shadow-inner">
-                  <Layers className="h-10 w-10 text-green-500/60" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">Data Structure Problems</h3>
-                <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                  Build a strong foundation with our comprehensive data structure problems
-                </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                  className="rounded-full px-4 border-green-500/20 text-green-600 hover:bg-green-500/5 hover:border-green-500/40"
-                  >
-                  Explore Data Structures
-                  </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="systemDesign" className="mt-0">
-              <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-muted/20 to-transparent rounded-xl border border-muted/30 shadow-sm">
-                <div className="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center mb-4 shadow-inner">
-                  <Gauge className="h-10 w-10 text-purple-500/60" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">System Design Problems</h3>
-                <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                  Prepare for system design interviews with our expert-crafted problems
-                </p>
-                        <Button
-                  variant="outline"
-                          size="sm"
-                  className="rounded-full px-4 border-purple-500/20 text-purple-600 hover:bg-purple-500/5 hover:border-purple-500/40"
-                >
-                  Explore System Design
-                        </Button>
-                  </div>
-            </TabsContent>
-
-            <TabsContent value="database" className="mt-0">
-              <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-muted/20 to-transparent rounded-xl border border-muted/30 shadow-sm">
-                <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mb-4 shadow-inner">
-                  <Database className="h-10 w-10 text-amber-500/60" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">Database Problems</h3>
-                <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                  Sharpen your SQL skills with our database and query optimization problems
-                </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                  className="rounded-full px-4 border-amber-500/20 text-amber-600 hover:bg-amber-500/5 hover:border-amber-500/40"
-                  >
-                  Explore Database Problems
-                  </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Premium feature banner - Enhanced Luxury Design */}
-        <div className="mt-8 overflow-hidden rounded-xl border border-blue-500/20 bg-gradient-to-r from-blue-50/80 via-sky-50/80 to-blue-50/80 dark:from-blue-950/20 dark:via-sky-950/20 dark:to-blue-950/20 shadow-2xl relative">
-                  <Button 
-            variant="ghost"
-                    size="sm" 
-            className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full text-blue-700/50 hover:text-blue-700 hover:bg-blue-500/10 z-20"
-            onClick={() => setShowPremiumBanner(false)}
-          >
-            ×
-                  </Button>
-
-          <div className="relative">
-            {/* Background pattern */}
-            <div className="absolute inset-0 opacity-5">
-              <div className="h-full w-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMjIiIGZpbGwtb3BhY2l0eT0iLjA1Ij48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZ2LTRoMnY0aC0yeiIvPjwvZz48L2c+PC9zdmc+')] bg-repeat"></div>
-                </div>
-
-            {/* Add animated particles */}
-            {clientSideRendered && (
-              <div className="absolute inset-0 overflow-hidden">
-                {Array.from({ length: 15 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute rounded-full bg-blue-500/20"
-                    style={{
-                      width: `${Math.random() * 8 + 3}px`,
-                      height: `${Math.random() * 8 + 3}px`,
-                      top: `${Math.random() * 100}%`,
-                      left: `${Math.random() * 100}%`,
-                      animation: `float ${Math.random() * 10 + 10}s linear infinite`,
-                      animationDelay: `${Math.random() * 5}s`,
-                    }}
-                  ></div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-col md:flex-row items-center relative z-10">
-              <div className="p-6 md:p-8 space-y-4 md:w-2/3">
-                <div className="flex items-center gap-2">
-                  <Badge className="gap-1 px-3 py-1 shadow-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white border-none animate-pulse-slow">
-                    <Crown className="h-3 w-3" aria-hidden="true" />
-                    <span>PREMIUM</span>
-                  </Badge>
-                  <h3 className="text-xl font-bold text-blue-700 dark:text-blue-400">Unlock Premium Features</h3>
+                        <div className="text-xs text-yellow-600 dark:text-yellow-500">Medium</div>
                       </div>
-                <p className="text-sm text-blue-800/80 dark:text-blue-400/80">
-                  Get unlimited access to premium problems, personalized learning paths, advanced tag filtering, and
-                  more with NexPractice PREMIUM.
-                </p>
-                <div className="grid grid-cols-2 gap-3 mt-2">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="text-white text-[10px]">✓</span>
+                      <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-lg text-center border border-red-200 dark:border-red-900">
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-400">
+                          {performanceStats.hardCompleted}
                     </div>
-                    <span className="text-xs text-blue-800 dark:text-blue-300">200+ Premium Problems</span>
+                        <div className="text-xs text-red-600 dark:text-red-500">Hard</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="text-white text-[10px]">✓</span>
-                    </div>
-                    <span className="text-xs text-blue-800 dark:text-blue-300">Advanced Analytics</span>
+                      <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg text-center border border-blue-200 dark:border-blue-900">
+                        <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                          {performanceStats.averageTime}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="text-white text-[10px]">✓</span>
-                    </div>
-                    <span className="text-xs text-blue-800 dark:text-blue-300">AI Learning Paths</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                      <span className="text-white text-[10px]">✓</span>
-                    </div>
-                    <span className="text-xs text-blue-800 dark:text-blue-300">Interview Preparation</span>
-                  </div>
-                </div>
-                <div className="pt-4 flex flex-wrap gap-4">
-                  <Button className="bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl">
-                    Upgrade to PREMIUM
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-blue-500/30 text-blue-700 dark:text-blue-400 hover:bg-blue-500/10"
-                  >
-                    Learn More
-                  </Button>
-                </div>
-              </div>
-              <div className="hidden md:block md:w-1/3 h-full relative overflow-hidden px-6 py-8">
-                <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-sky-500/20 to-blue-500/20 opacity-60"></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-12 p-5 bg-white/90 dark:bg-slate-900/90 rounded-xl shadow-xl border border-blue-500/20 w-64 h-64 flex items-center justify-center">
-                  <div className="text-center space-y-3">
-                    <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-14 h-14 rounded-xl mx-auto shadow-lg flex items-center justify-center">
-                      <Crown className="h-8 w-8 text-white" />
-                    </div>
-                    <h4 className="font-bold text-lg text-blue-700 dark:text-blue-400">Premium Content</h4>
-                    <p className="text-xs text-muted-foreground">Access 200+ exclusive problems</p>
-                    <div className="flex flex-wrap gap-2 justify-center pt-2">
-                      <Badge
-                        variant="outline"
-                        className="bg-gradient-to-r from-blue-500/10 to-sky-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400"
-                      >
-                        Advanced Tags
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="bg-gradient-to-r from-blue-500/10 to-sky-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400"
-                      >
-                        Premium Support
-                      </Badge>
-                    </div>
-                </div>
-                </div>
-              </div>
+                        <div className="text-xs text-blue-600 dark:text-blue-500">Avg. Time</div>
+                      </div>
             </div>
+
+                    <div className="pt-2">
+                      <h3 className="text-sm font-medium mb-3 flex items-center gap-1">
+                        <Trophy className="w-4 h-4 text-amber-500" /> Ranking
+                      </h3>
+                      <div className="bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/20 p-3 rounded-lg flex justify-between items-center border border-amber-200 dark:border-amber-900/30">
+                        <div>
+                          <div className="text-sm font-medium">#{performanceStats.ranking}</div>
+                          <div className="text-xs text-muted-foreground">of {performanceStats.totalStudents} students</div>
+                </div>
+                        <div className="h-10 w-10 rounded-full bg-amber-200 dark:bg-amber-900/50 flex items-center justify-center">
+                          <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <h3 className="text-sm font-medium mb-3 flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-blue-500" /> Recent Submissions
+                      </h3>
+                      <div className="space-y-2">
+                        {performanceStats.recentSubmissions.map((submission, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between text-sm p-2 rounded-lg ${
+                              submission.result === "Accepted"
+                                ? "bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900"
+                                : "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-medium">{submission.problem}</div>
+                              <div className="text-xs text-muted-foreground">{submission.time}</div>
+                  </div>
+                            <Badge
+                              className={
+                                submission.result === "Accepted"
+                                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                              }
+                            >
+                              {submission.result}
+                            </Badge>
+                </div>
+                        ))}
+              </div>
+          </div>
+                  </CardContent>
+                </Card>
+
+                {/* Weekly Goals Card */}
+                <Card className="border-none shadow-md">
+                  <CardHeader className="pb-3 bg-muted/30 rounded-t-lg">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5" /> Weekly Goals
+                </CardTitle>
+              </CardHeader>
+                  <CardContent className="p-6">
+                <div className="space-y-3">
+                      <div className="flex justify-between items-center p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          <span>Solve 5 easy problems</span>
+                      </div>
+                        <Badge variant="outline" className="bg-green-100 dark:bg-green-900/50">
+                          5/5
+                      </Badge>
+                    </div>
+                      <div className="flex justify-between items-center p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          <span>Solve 3 medium problems</span>
+                </div>
+                        <Badge variant="outline" className="bg-green-100 dark:bg-green-900/50">
+                          3/3
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center p-2 rounded-lg bg-muted/20 border border-muted">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full border-2 border-muted-foreground" />
+                          <span>Solve 1 hard problem</span>
+                        </div>
+                        <Badge variant="outline">0/1</Badge>
+                      </div>
+                      <div className="flex justify-between items-center p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full border-2 border-blue-500" />
+                          <span>Complete 7 day streak</span>
+                        </div>
+                        <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/50">
+                          5/7
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Upcoming Contests */}
+                <Card className="border-none shadow-md">
+                  <CardHeader className="pb-3 bg-muted/30 rounded-t-lg">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <Calendar className="w-5 h-5" /> Upcoming Contests
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900">
+                        <div className="font-medium text-purple-800 dark:text-purple-300">Weekly Contest #342</div>
+                        <div className="text-sm text-purple-600 dark:text-purple-400 mb-2">Saturday, 8:00 PM</div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-purple-300 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                        >
+                          Register
+                </Button>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900">
+                        <div className="font-medium text-indigo-800 dark:text-indigo-300">Biweekly Contest #123</div>
+                        <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-2">Sunday, 10:30 AM</div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-indigo-300 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                        >
+                          Register
+                        </Button>
+                      </div>
+                    </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
-
-      {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-10">
-        <div className="flex flex-col items-end gap-3">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-full shadow-md bg-background/80 backdrop-blur-sm border-muted hover:border-primary/30"
-                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                >
-                  <ArrowUpRight className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Scroll to top</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  className="h-14 w-14 rounded-full shadow-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 transition-all duration-300 hover:scale-110"
-                >
-                  <Sparkles className="h-6 w-6 text-white" />
-                  <span className="sr-only">Create New Problem</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="p-2">
-                <p>Create New Problem</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          </div>
-        </div>
-
-      {/* Confetti Animation */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50">
-          {Array.from({ length: 100 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-confetti"
-              style={{
-                top: "-10%",
-                left: `${Math.random() * 100}%`,
-                width: `${Math.random() * 10 + 5}px`,
-                height: `${Math.random() * 10 + 5}px`,
-                background: `hsl(${Math.random() * 360}, 100%, 50%)`,
-                borderRadius: "50%",
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${Math.random() * 3 + 2}s`,
-              }}
-            />
-          ))}
+        </main>
       </div>
-      )}
-
-    </DashboardLayout>
-  );
+    </div>
+  )
 }

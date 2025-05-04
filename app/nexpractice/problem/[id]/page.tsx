@@ -286,9 +286,8 @@ function updateLanguageId(languageId: number): number {
 }
 
 export default function ProblemPage() {
-  const [code, setCode] = useState(`function twoSum(nums, target) {
-  // Your solution here
-}`)
+  // Set initial code to empty string
+  const [code, setCode] = useState("");
   const [results, setResults] = useState<any>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -320,6 +319,8 @@ export default function ProblemPage() {
   const editorSettingsRef = useRef<{ showSettings: () => void } | null>(null)
   const [testTabValue, setTestTabValue] = useState("testcase") // Track active test tab
   const { profilePic } = useProfilePic()
+  const [errorLine, setErrorLine] = useState<number | null>(null) // Add state for error line
+  const [errorMessage, setErrorMessage] = useState<string | null>(null) // Add state for error message
 
   const confettiRef = useRef<HTMLDivElement>(null)
   const rightPanelRef = useRef<HTMLDivElement>(null)
@@ -764,13 +765,15 @@ public:
   
   // Run code - tests only sample test cases
   const runCode = async () => {
+    saveCodeToBackend();
     // First save the current code
     console.log('[DEBUG] Running code - saving first');
-    saveCode();
     
     // Then continue with the existing run code logic
     setIsRunning(true)
     setResults(null)
+    setErrorLine(null) // Reset error line when running code
+    setErrorMessage(null) // Reset error message when running code
     
     // Store the current bottomPanelHeight before switching tabs
     const currentHeight = bottomPanelHeight
@@ -850,6 +853,24 @@ public:
       //   setShowConfetti(true)
       // }
       
+      // Check for errors and extract line numbers
+      if (judgeResults.length > 0) {
+        // Look for compile or runtime errors
+        const firstError = judgeResults.find(result => 
+          result.verdict === "Compile Error" || 
+          result.verdict === "Runtime Error"
+        );
+        
+        if (firstError) {
+          const errorMessage = firstError.compile_output || firstError.stderr || '';
+          const lineNumber = extractErrorLineNumber(errorMessage);
+          if (lineNumber) {
+            setErrorLine(lineNumber);
+            setErrorMessage(errorMessage); // Set the error message
+          }
+        }
+      }
+      
       setResults({
         success: true,
         loading: false,
@@ -859,6 +880,14 @@ public:
       })
     } catch (error: any) {
       console.error('Error running code:', error)
+      
+      // Try to extract line number from error message
+      const lineNumber = extractErrorLineNumber(error.message);
+      if (lineNumber) {
+        setErrorLine(lineNumber);
+        setErrorMessage(error.message); // Set the error message
+      }
+      
       setResults({
         success: false,
         loading: false,
@@ -872,13 +901,15 @@ public:
   
   // Submit code - tests all sample and hidden test cases
   const submitCode = async () => {
+    saveCodeToBackend();
     // First save the current code
     console.log('[DEBUG] Submitting code - saving first');
-    saveCode();
     
     // Then continue with existing submit code logic
     setIsSubmitting(true)
     setSubmitResults(null)
+    setErrorLine(null) // Reset error line
+    setErrorMessage(null) // Reset error message
     
     // Store the current bottomPanelHeight before switching tabs
     const currentHeight = bottomPanelHeight
@@ -957,6 +988,24 @@ public:
         setShowConfetti(true)
       }
       
+      // Check for errors and extract line numbers
+      if (failedTestCases.length > 0) {
+        // Look for compile or runtime errors
+        const firstError = failedTestCases.find(result => 
+          result.verdict === "Compile Error" || 
+          result.verdict === "Runtime Error"
+        );
+        
+        if (firstError) {
+          const errorMessage = firstError.compile_output || firstError.stderr || '';
+          const lineNumber = extractErrorLineNumber(errorMessage);
+          if (lineNumber) {
+            setErrorLine(lineNumber);
+            setErrorMessage(errorMessage); // Set the error message
+          }
+        }
+      }
+      
       // For the submit mode, only show failed test cases (and at most the first one)
       const firstFailure = failedTestCases.length > 0 ? [failedTestCases[0]] : []
       
@@ -974,6 +1023,14 @@ public:
       })
     } catch (error: any) {
       console.error('Error submitting code:', error)
+      
+      // Try to extract line number from error message
+      const lineNumber = extractErrorLineNumber(error.message);
+      if (lineNumber) {
+        setErrorLine(lineNumber);
+        setErrorMessage(error.message); // Set the error message
+      }
+      
       setResults({
         success: false,
         loading: false,
@@ -1073,8 +1130,41 @@ public:
           }));
           
           setAvailableLanguages(updatedLanguageOptions);
-          setLanguage(updatedLanguageOptions[0].name);
-          setCode(updatedLanguageOptions[0].preloadCode);
+
+          // --- Cross-device persisted language logic ---
+          async function getInitialLanguage() {
+            // If logged in, try backend first
+            if (session?.user?.id) {
+              try {
+                const res = await fetch(`/api/problem/${problemId}/last-language`);
+                if (res.ok) {
+                  const backend = await res.json();
+                  const lastLanguage = backend.lastLanguage;
+                  const validLanguage = updatedLanguageOptions.find((l: LanguageOption) => l.name === lastLanguage);
+                  if (lastLanguage && validLanguage) {
+                    setLanguage(lastLanguage);
+                    setCode(validLanguage.preloadCode);
+                    return;
+                  }
+                }
+              } catch (e) { /* ignore and fallback */ }
+            }
+            // Fallback to localStorage
+            const lastLangKey = `nexacademy_last_language_${problemId}`;
+            let lastLanguage = "";
+            try {
+              lastLanguage = localStorage.getItem(lastLangKey) || "";
+            } catch {}
+            const validLanguage = updatedLanguageOptions.find((l: LanguageOption) => l.name === lastLanguage);
+            if (lastLanguage && validLanguage) {
+              setLanguage(lastLanguage);
+              setCode(validLanguage.preloadCode);
+            } else {
+              setLanguage(updatedLanguageOptions[0].name);
+              setCode(updatedLanguageOptions[0].preloadCode);
+            }
+          }
+          getInitialLanguage();
           setIsLanguageLoading(false);
           setIsCodeLoading(false);
         }
@@ -1118,6 +1208,12 @@ public:
   const lastSaveTimeRef = useRef<number>(0);
   const prevProblemIdRef = useRef<string | null>(null);
   const prevLanguageRef = useRef<string | null>(null);
+
+  // Add this near the top of your component
+  const codeRef = useRef(code);
+  useEffect(() => {
+    codeRef.current = code;
+  }, [code]);
 
   // Explicitly save code to both localStorage and backend
   const saveCode = useCallback(() => {
@@ -1399,6 +1495,184 @@ public:
       loadedRef.current = false;
     }
   }, [problemId, saveCode, code]);
+
+  // --- Persist selected language on change (backend + localStorage) ---
+  useEffect(() => {
+    if (language && problemId) {
+      // Backend for logged-in users
+      if (session?.user?.id) {
+        fetch(`/api/problem/${problemId}/last-language`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language }),
+        });
+      }
+      // Always update localStorage for guests
+      try {
+        localStorage.setItem(`nexacademy_last_language_${problemId}`, language);
+      } catch {}
+    }
+  }, [language, problemId, session]);
+
+  // Add this inside your component, after code, selectedLanguage, problemId, and user/session are defined
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        saveCodeDraft();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [code, language, problemId, session]);
+
+  // ... existing code ...
+  // Ensure saveCodeDraft saves to localStorage and backend if logged in
+  async function saveCodeDraft() {
+    if (!problemId || !language) return;
+    const latestCode = codeRef.current;
+    // Save to localStorage
+    localStorage.setItem(
+      `nexacademy_code_draft_${problemId}_${language}`,
+      latestCode
+    );
+    // Save to backend if logged in
+    if (session?.user?.id) {
+      try {
+        await fetch(`/api/problem/${problemId}/save-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: latestCode,
+            language,
+          }),
+        });
+      } catch (e) {
+        // Optionally handle error
+      }
+    }
+  }
+  // ... existing code ...
+
+  // 1. Save to localStorage on every keystroke
+  useEffect(() => {
+    if (problemId && language) {
+      localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+    }
+  }, [code, problemId, language]);
+
+  // 2. Save to backend on tab switch away, language change, run/submit, tab close
+  const saveCodeToBackend = useCallback(() => {
+    if (!problemId || !language || !session?.user?.id) return;
+    const latestCode = localStorage.getItem(`nexacademy_code_${problemId}_${language}`) || "";
+    fetch(`/api/problem/${problemId}/save-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: latestCode, language }),
+    });
+  }, [problemId, language, session?.user?.id]);
+
+  // 3. On tab switch (visibilitychange)
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        saveCodeToBackend();
+      } else if (document.visibilityState === 'visible') {
+        // On tab switch back, load code from localStorage if different
+        const localCode = localStorage.getItem(`nexacademy_code_${problemId}_${language}`) || "";
+        if (localCode && localCode !== code) {
+          setCode(localCode);
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [problemId, language, code, saveCodeToBackend]);
+
+  // 4. On tab close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveCodeToBackend();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveCodeToBackend]);
+
+  // 5. On language change, save code to backend
+  useEffect(() => {
+    if (language && problemId) {
+      saveCodeToBackend();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
+
+  // Helper function to extract line number from error messages
+  const extractErrorLineNumber = (errorMessage: string): number | null => {
+    if (!errorMessage) return null;
+    
+    // Different patterns based on language
+    const patterns = {
+      python: [
+        /File ".*", line (\d+)/i,
+        /line (\d+)/i,
+        /at line (\d+)/i
+      ],
+      javascript: [
+        /at line (\d+)/i, 
+        /line (\d+)/i,
+        /(\d+):\d+/
+      ],
+      java: [
+        /\.java:(\d+):/i,
+        /at line (\d+)/i,
+        /line (\d+)/i
+      ],
+      cpp: [
+        /error: .*:(\d+):/i,
+        /line (\d+)/i,
+        /at line (\d+)/i
+      ]
+    };
+    
+    // Generic patterns as fallback
+    const genericPatterns = [
+      /line (\d+)/i,
+      /at line (\d+)/i,
+      /:(\d+):/,
+      /\((\d+),\d+\)/
+    ];
+    
+    let languagePatterns: RegExp[] = genericPatterns;
+    
+    // Select patterns based on current language
+    if (language.toLowerCase().includes('python')) {
+      languagePatterns = [...patterns.python, ...genericPatterns];
+    } else if (language.toLowerCase().includes('javascript') || language.toLowerCase().includes('js')) {
+      languagePatterns = [...patterns.javascript, ...genericPatterns];
+    } else if (language.toLowerCase().includes('java')) {
+      languagePatterns = [...patterns.java, ...genericPatterns];
+    } else if (language.toLowerCase().includes('c++') || language.toLowerCase().includes('cpp')) {
+      languagePatterns = [...patterns.cpp, ...genericPatterns];
+    }
+    
+    // Try each pattern until we find a match
+    for (const pattern of languagePatterns) {
+      const match = errorMessage.match(pattern);
+      if (match && match[1]) {
+        const lineNumber = parseInt(match[1], 10);
+        if (!isNaN(lineNumber) && lineNumber > 0) {
+          return lineNumber;
+        }
+      }
+    }
+    
+    // If we get here, we couldn't find a line number
+    console.log("Could not extract line number from error:", errorMessage);
+    return null;
+  };
 
   return (
     <div className="main-container">
@@ -2174,27 +2448,27 @@ public:
                 position: 'relative'
               }}
             >
-              <div className="code-editor-container h-full">
-                {isCodeLoading ? (
-                  <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-                      <p className="text-muted-foreground text-sm">Loading code editor...</p>
-                    </div>
+              {isCodeLoading ? (
+                <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                    <p className="text-muted-foreground text-sm">Loading code editor...</p>
                   </div>
-                ) : (
-                  <CodeEditor 
-                    code={code} 
-                    setCode={setCode} 
-                    language={language} 
-                    preloadCode={
-                      getLanguageTemplate(language)
-                    }
-                    initialShowSettings={editorSettingsOpen}
-                    editorSettingsRef={editorSettingsRef}
-                  />
-                )}
-              </div>
+                </div>
+              ) : (
+                <CodeEditor 
+                  code={code} 
+                  setCode={setCode} 
+                  language={language} 
+                  preloadCode={
+                    getLanguageTemplate(language)
+                  }
+                  initialShowSettings={editorSettingsOpen}
+                  editorSettingsRef={editorSettingsRef}
+                  errorLine={errorLine}
+                  errorMessage={errorMessage}
+                />
+              )}
             </div>
 
             {/* Vertical Resizer */}

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Use Judge0 Extra CE for the most languages
-const JUDGE0_LANGUAGES_URL = 'https://extra-ce.judge0.com/languages/';
+// Use the self-hosted Judge0 instance
+const JUDGE0_API_URL = "http://128.199.24.150:2358";
+const JUDGE0_LANGUAGES_URL = 'http://128.199.24.150:2358/languages';
 
 // In-memory cache for languages
 let cachedLanguages: any[] | null = null;
@@ -14,7 +15,11 @@ export async function fetchJudge0Languages() {
   if (cachedLanguages && now - cacheTimestamp < CACHE_DURATION) {
     return cachedLanguages;
   }
-  const response = await fetch(JUDGE0_LANGUAGES_URL);
+  const response = await fetch(JUDGE0_LANGUAGES_URL, {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
   if (!response.ok) throw new Error('Failed to fetch Judge0 languages');
   const data = await response.json();
   cachedLanguages = data;
@@ -35,7 +40,6 @@ export async function GET() {
   }
 }
 
-const JUDGE0_API_URL = process.env.NEXT_PUBLIC_JUDGE0_API_URL || "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_API_KEY = process.env.NEXT_PUBLIC_RAPIDAPI_KEY;
 const JUDGE0_API_HOST = process.env.NEXT_PUBLIC_JUDGE0_API_HOST || "judge0-ce.p.rapidapi.com";
 
@@ -51,12 +55,18 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if API key is available
-    if (!JUDGE0_API_KEY) {
-      console.error("Judge0 API key is missing");
-      return NextResponse.json({ 
-        error: "Judge0 API key is not configured"
-      }, { status: 500 });
+    // Check if API key is available (optional for self-hosted instance)
+    if (JUDGE0_API_KEY && JUDGE0_API_URL.includes('rapidapi.com')) {
+      console.log("Using RapidAPI Judge0 with API key");
+      // When using RapidAPI, the key is required
+      if (!JUDGE0_API_KEY) {
+        console.error("Judge0 API key is missing for RapidAPI");
+        return NextResponse.json({ 
+          error: "Judge0 API key is not configured"
+        }, { status: 500 });
+      }
+    } else {
+      console.log("Using self-hosted Judge0 instance, no API key required");
     }
     
     // Forward the request to Judge0
@@ -78,8 +88,6 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-RapidAPI-Key": JUDGE0_API_KEY,
-          "X-RapidAPI-Host": JUDGE0_API_HOST
         },
         body: JSON.stringify(requestBody)
       });
@@ -165,8 +173,7 @@ export async function POST(request: NextRequest) {
           const pollResponse = await fetch(`${JUDGE0_API_URL}/submissions/${data.token}`, {
             method: "GET",
             headers: {
-              "X-RapidAPI-Key": JUDGE0_API_KEY || "",
-              "X-RapidAPI-Host": JUDGE0_API_HOST
+              "Content-Type": "application/json"
             }
           });
           

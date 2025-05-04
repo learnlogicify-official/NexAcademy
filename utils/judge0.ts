@@ -1,6 +1,7 @@
-const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com"
+const JUDGE0_API_URL = "http://128.199.24.150:2358"
 const JUDGE0_API_KEY = process.env.NEXT_PUBLIC_JUDGE0_API_KEY
 
+console.log('Using self-hosted Judge0 at:', JUDGE0_API_URL)
 console.log('Judge0 API Key available:', Boolean(JUDGE0_API_KEY))
 
 // Current Judge0 language IDs (updated 2023)
@@ -247,8 +248,6 @@ export async function runWithJudge0({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-RapidAPI-Key": JUDGE0_API_KEY!,
-          "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
         },
         body: JSON.stringify({
           source_code: sourceCode,
@@ -303,8 +302,7 @@ Original error: ${errorText}`,
         try {
           const res = await fetch(`${JUDGE0_API_URL}/submissions/${token}?base64_encoded=false`, {
             headers: {
-              "X-RapidAPI-Key": JUDGE0_API_KEY!,
-              "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+              "Content-Type": "application/json"
             },
           })
           if (!res.ok) {
@@ -350,6 +348,13 @@ Original error: ${errorText}`,
       } else if (result.status.id === 13) {
         verdict = "Runtime Error"
       }
+      // --- Ensure compile errors are always mapped correctly ---
+      if (result.compile_output) {
+        verdict = "Compile Error";
+      } else if (result.stderr && verdict !== "Compile Error") {
+        verdict = "Runtime Error";
+      }
+      // --- End robust mapping ---
       console.log('Final verdict:', verdict)
 
       results.push({

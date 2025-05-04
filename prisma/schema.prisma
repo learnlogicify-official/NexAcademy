@@ -34,6 +34,7 @@ model User {
   enrolledBy        Enrollment[] @relation("EnrolledByUser")
   enrolledIn        Enrollment[] @relation("UserEnrollments")
   userCodeDrafts    UserCodeDraft[]
+  problemSettings   UserProblemSettings[]
 
   @@index([role])
 }
@@ -147,6 +148,7 @@ model Question {
   folder             Folder            @relation(fields: [folderId], references: [id])
   versions           QuestionVersion[]
   sections           SectionQuestion[]
+  userProblemSettings UserProblemSettings[]
 
   @@index([folderId])
   @@index([creatorId])
@@ -393,6 +395,16 @@ model UserCodeDraft {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, problemId, language])
+}
+
+model UserProblemSettings {
+  id           String   @id @default(cuid())
+  userId       String
+  problemId    String
+  lastLanguage String
+  user         User     @relation(fields: [userId], references: [id])
+  problem      Question @relation(fields: [problemId], references: [id])
+  @@unique([userId, problemId])
 }
 
 /// Valid roles for users:

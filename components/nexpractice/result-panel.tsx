@@ -126,6 +126,31 @@ export function ResultPanel({ results }: { results: Results | null }) {
     )
   }
 
+  // Add summary alert for compile/runtime errors
+  if (results && results.judgeResults && results.judgeResults.length > 0) {
+    const hasCompileError = results.judgeResults.some(r => r.compile_output);
+    const hasRuntimeError = results.judgeResults.some(r => r.stderr);
+    if (hasCompileError || hasRuntimeError) {
+      return (
+        <div className="p-4 space-y-4">
+          <Alert className={hasCompileError ? "border-amber-200 bg-amber-50" : "border-orange-200 bg-orange-50"}>
+            <AlertTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="h-4 w-4" />
+              {hasCompileError ? "Compile Error" : "Runtime Error"}
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-amber-700">
+              {hasCompileError
+                ? "Your code did not compile. Please check the error details below."
+                : "Your code encountered a runtime error. Please check the error details below."}
+            </AlertDescription>
+          </Alert>
+          {/* Render the rest of the panel as usual */}
+          {/* ... existing code for displaying test case results ... */}
+        </div>
+      );
+    }
+  }
+
   // Handle Judge0 results if available
   if ((results.judgeResults && results.judgeResults.length > 0) || results.mode === "submit") {
     // For loading state, show running indicator

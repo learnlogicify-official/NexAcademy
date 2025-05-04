@@ -312,4 +312,35 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "20", 10);
+    const skip = (page - 1) * pageSize;
+
+    const [codingQuestions, total] = await Promise.all([
+      prisma.codingQuestion.findMany({
+        include: {
+          question: true,
+          tags: true,
+          languageOptions: true,
+          testCases: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      prisma.codingQuestion.count(),
+    ]);
+
+    return NextResponse.json({ codingQuestions, total });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to fetch coding questions" },
+      { status: 500 }
+    );
+  }
 } 
