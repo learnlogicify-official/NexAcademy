@@ -29,9 +29,9 @@ export function SkillsCard({ skills, className }: SkillsCardProps) {
   )
 
   return (
-    <Card className={`bg-[#121212] border-0 shadow-md h-[360px] overflow-hidden ${className}`}>
+    <Card className={`bg-white dark:bg-[#18181b] border-0 shadow-md h-full ${className ?? ''}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
+        <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <Cpu className="h-5 w-5 text-emerald-500" />
           Technical Skills
         </CardTitle>
@@ -46,18 +46,18 @@ export function SkillsCard({ skills, className }: SkillsCardProps) {
               transition={{ duration: 0.3, delay: categoryIndex * 0.1 }}
               className="space-y-3"
             >
-              <h3 className="text-sm font-medium text-gray-400">{category}</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-400">{category}</h3>
               <div className="grid grid-cols-2 gap-3">
                 {categorySkills.map((skill, skillIndex) => (
-                  <div key={skill.name} className="bg-[#1a1a1a] rounded-lg p-3">
+                  <div key={skill.name} className="bg-gray-100 dark:bg-[#1a1a1a] rounded-lg p-3">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-200">{skill.name}</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-200">{skill.name}</span>
                     </div>
                     <div className="flex gap-1">
                       {[...Array(5)].map((_, i) => (
                         <div
                           key={i}
-                          className={`h-1.5 w-full rounded-full ${i < skill.level ? "bg-emerald-500" : "bg-gray-700"}`}
+                          className={`h-1.5 w-full rounded-full ${i < skill.level ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-700"}`}
                         />
                       ))}
                     </div>

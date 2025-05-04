@@ -22,9 +22,9 @@ interface ContactLinksCardProps {
 
 export function ContactLinksCard({ links, email, className }: ContactLinksCardProps) {
   return (
-    <Card className={`bg-[#121212] border-0 shadow-md h-[360px] overflow-hidden ${className}`}>
+    <Card className={`bg-white dark:bg-[#18181b] border-0 shadow-md h-full ${className ?? ''}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
+        <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <AtSign className="h-5 w-5 text-purple-500" />
           Contact & Social
         </CardTitle>
@@ -35,7 +35,7 @@ export function ContactLinksCard({ links, email, className }: ContactLinksCardPr
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <Button
               variant="outline"
-              className="w-full bg-[#1a1a1a] border-gray-800 hover:bg-gray-800 text-gray-200"
+              className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-200"
               onClick={() => (window.location.href = `mailto:${email}`)}
             >
               <Mail className="mr-2 h-4 w-4 text-purple-500" />
@@ -49,7 +49,7 @@ export function ContactLinksCard({ links, email, className }: ContactLinksCardPr
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <Button variant="outline" className="w-full bg-[#1a1a1a] border-gray-800 hover:bg-gray-800 text-gray-200">
+            <Button variant="outline" className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-200">
               <MessageSquare className="mr-2 h-4 w-4 text-purple-500" />
               <span className="text-sm">Send Message</span>
             </Button>
@@ -57,7 +57,7 @@ export function ContactLinksCard({ links, email, className }: ContactLinksCardPr
 
           {/* Social Links */}
           <div className="pt-2">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Social Profiles</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-400 mb-3">Social Profiles</h3>
             <div className="grid grid-cols-2 gap-3">
               {links.map((link, index) => (
                 <motion.a
@@ -68,10 +68,10 @@ export function ContactLinksCard({ links, email, className }: ContactLinksCardPr
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.2 + index * 0.1 }}
-                  className="flex items-center gap-2 bg-[#1a1a1a] p-3 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1a1a] p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
                 >
                   {link.icon}
-                  <span className="text-sm text-gray-300">{link.username}</span>
+                  <span className="text-sm text-gray-900 dark:text-gray-300">{link.username}</span>
                 </motion.a>
               ))}
             </div>

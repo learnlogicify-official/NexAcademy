@@ -21,9 +21,9 @@ interface ProjectsCardProps {
 
 export function ProjectsCard({ projects, className }: ProjectsCardProps) {
   return (
-    <Card className={`bg-[#121212] border-0 shadow-md h-[360px] overflow-hidden ${className}`}>
+    <Card className={`bg-white dark:bg-[#18181b] border-0 shadow-md h-full ${className ?? ''}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
+        <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <FolderGit2 className="h-5 w-5 text-amber-500" />
           Projects
         </CardTitle>
@@ -36,17 +36,17 @@ export function ProjectsCard({ projects, className }: ProjectsCardProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="bg-[#1a1a1a] rounded-lg p-4 space-y-3"
+              className="bg-gray-100 dark:bg-[#1a1a1a] rounded-lg p-4 space-y-3"
             >
               <div className="flex justify-between items-start">
-                <h3 className="font-medium text-gray-200">{project.name}</h3>
+                <h3 className="font-medium text-gray-900 dark:text-gray-200">{project.name}</h3>
                 <div className="flex gap-2">
                   {project.repoUrl && (
                     <a
                       href={project.repoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-400 hover:text-gray-200 transition-colors"
+                      className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
                     >
                       <Github className="h-4 w-4" />
                     </a>
@@ -56,17 +56,17 @@ export function ProjectsCard({ projects, className }: ProjectsCardProps) {
                       href={project.liveUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-400 hover:text-gray-200 transition-colors"
+                      className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   )}
                 </div>
               </div>
-              <p className="text-sm text-gray-400">{project.description}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-400">{project.description}</p>
               <div className="flex flex-wrap gap-2">
                 {project.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="bg-[#252525] text-xs border-gray-700 text-gray-300">
+                  <Badge key={tag} variant="outline" className="bg-gray-200 dark:bg-[#252525] text-xs border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-300">
                     {tag}
                   </Badge>
                 ))}

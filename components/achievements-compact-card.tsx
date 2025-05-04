@@ -28,9 +28,9 @@ export function AchievementsCompactCard({ achievements, className }: Achievement
   })
 
   return (
-    <Card className={`bg-[#121212] border-0 shadow-md h-[360px] overflow-hidden ${className}`}>
+    <Card className={`bg-white dark:bg-[#18181b] border-0 shadow-md h-full ${className ?? ''}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
+        <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <Trophy className="h-5 w-5 text-yellow-500" />
           Achievements
         </CardTitle>
@@ -39,7 +39,7 @@ export function AchievementsCompactCard({ achievements, className }: Achievement
         <div className="space-y-4">
           {/* Featured Achievements */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Featured</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-400 mb-3">Featured</h3>
             <div className="grid grid-cols-2 gap-3">
               {sortedAchievements
                 .filter((a) => a.isPrimary)
@@ -49,11 +49,11 @@ export function AchievementsCompactCard({ achievements, className }: Achievement
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="bg-[#1a1a1a] rounded-lg p-3 flex flex-col items-center text-center"
+                    className="bg-gray-100 dark:bg-[#1a1a1a] rounded-lg p-3 flex flex-col items-center text-center"
                   >
                     <div className="text-3xl mb-2">{achievement.icon}</div>
-                    <h4 className="text-sm font-medium text-gray-200">{achievement.name}</h4>
-                    <p className="text-xs text-gray-400 mt-1">{achievement.description}</p>
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-200">{achievement.name}</h4>
+                    <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">{achievement.description}</p>
                   </motion.div>
                 ))}
             </div>
@@ -61,7 +61,7 @@ export function AchievementsCompactCard({ achievements, className }: Achievement
 
           {/* Recent Achievements */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Recent</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-400 mb-3">Recent</h3>
             <div className="flex flex-wrap gap-2">
               <TooltipProvider>
                 {sortedAchievements
@@ -74,15 +74,15 @@ export function AchievementsCompactCard({ achievements, className }: Achievement
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2, delay: 0.3 + index * 0.05 }}
-                          className="w-10 h-10 bg-[#1a1a1a] rounded-lg flex items-center justify-center text-xl cursor-help"
+                          className="w-10 h-10 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg flex items-center justify-center text-xl cursor-help"
                         >
                           {achievement.icon}
                         </motion.div>
                       </TooltipTrigger>
                       <TooltipContent side="top">
                         <div className="space-y-1">
-                          <p className="font-medium">{achievement.name}</p>
-                          <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{achievement.name}</p>
+                          <p className="text-xs text-gray-700 dark:text-muted-foreground">{achievement.description}</p>
                         </div>
                       </TooltipContent>
                     </Tooltip>

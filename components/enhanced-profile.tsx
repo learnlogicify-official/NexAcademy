@@ -566,6 +566,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               <ProblemsSolvedCard
                 totalSolved={problemsData.totalSolved}
                 categories={problemsData.categories}
+                className="bg-white dark:bg-[#18181b]"
               />
             </motion.div>
 
@@ -575,7 +576,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
-              <ProgrammingLanguagesCard languages={programmingLanguages} />
+              <ProgrammingLanguagesCard languages={programmingLanguages} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
 
             {/* Skills Card */}
@@ -584,7 +585,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <SkillsCard skills={skills} />
+              <SkillsCard skills={skills} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
 
             {/* Contact Links Card */}
@@ -593,7 +594,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
-              <ContactLinksCard links={contactLinks} email={userData.email} />
+              <ContactLinksCard links={contactLinks} email={userData.email} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
 
             {/* Projects Card */}
@@ -602,7 +603,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.6 }}
             >
-              <ProjectsCard projects={projects} />
+              <ProjectsCard projects={projects} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
 
             {/* Achievements Card */}
@@ -611,7 +612,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.7 }}
             >
-              <AchievementsCompactCard achievements={oldUserData.badges} />
+              <AchievementsCompactCard achievements={oldUserData.badges} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
 
             {/* Progress Card */}
@@ -620,7 +621,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.8 }}
             >
-              <ProgressCard items={progressItems} />
+              <ProgressCard items={progressItems} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
           </div>
         </div>

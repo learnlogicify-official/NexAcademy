@@ -19,9 +19,9 @@ interface ProgressCardProps {
 
 export function ProgressCard({ items, className }: ProgressCardProps) {
   return (
-    <Card className={`bg-[#121212] border-0 shadow-md h-[360px] overflow-hidden ${className}`}>
+    <Card className={`bg-white dark:bg-[#18181b] border-0 shadow-md h-full ${className ?? ''}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
+        <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-rose-500" />
           Progress Tracker
         </CardTitle>
@@ -40,13 +40,13 @@ export function ProgressCard({ items, className }: ProgressCardProps) {
                 className="space-y-2"
               >
                 <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-200">{item.name}</span>
-                  <span className="text-sm text-gray-400">
+                  <span className="font-medium text-gray-900 dark:text-gray-200">{item.name}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-400">
                     {item.current} / {item.max} ({percentage}%)
                   </span>
                 </div>
                 <Progress value={percentage} className="h-2" indicatorClassName={`${item.color}`} />
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span>0</span>
                   <span>{item.max}</span>
                 </div>

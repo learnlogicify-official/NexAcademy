@@ -66,7 +66,10 @@ import { ModeToggle } from "@/components/nexpractice/mode-toggle"
 import { motion, AnimatePresence } from "framer-motion"
 import { ExpandableProblemSidebar } from "@/components/nexpractice/ui/sidebar"
 import { runWithJudge0 } from "@/utils/judge0"
-import { useSession } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
+import { useProfilePic } from "@/components/ProfilePicContext"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { User, LogOut } from "lucide-react"
 
 // Define language option interface
 interface LanguageOption {
@@ -316,6 +319,7 @@ export default function ProblemPage() {
   const [editorSettingsOpen, setEditorSettingsOpen] = useState(false)
   const editorSettingsRef = useRef<{ showSettings: () => void } | null>(null)
   const [testTabValue, setTestTabValue] = useState("testcase") // Track active test tab
+  const { profilePic } = useProfilePic()
 
   const confettiRef = useRef<HTMLDivElement>(null)
   const rightPanelRef = useRef<HTMLDivElement>(null)
@@ -1527,21 +1531,61 @@ public:
           <div className="problem-user-section">
             <ModeToggle />
             
-            <button className="problem-nav-btn">
-              <Settings className="h-4 w-4" />
-            </button>
-            
-            <div className="problem-user-avatar bg-orange-100 text-orange-600">
-              U
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                  <Avatar className="h-8 w-8">
+                    {profilePic ? (
+                      <AvatarImage src={profilePic} alt={session?.user?.name ?? "User"} />
+                    ) : (
+                      <AvatarImage src="/images/avatar.jpeg" alt={session?.user?.name ?? "User"} />
+                    )}
+                    <AvatarFallback>{session?.user?.name ? session.user.name[0] : "U"}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => {
+                  if (session?.user?.username) {
+                    window.location.href = `/profile/${session.user.username}`
+                  } else {
+                    window.location.href = "/profile"
+                  }
+                }}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.location.href = "/settings"}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <button
-              className="problem-premium-badge"
+              className="problem-premium-badge ml-2"
               onClick={togglePremiumStatus}
             >
               <Crown className="h-4 w-4" />
               <span className="font-medium">Premium</span>
             </button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1 ml-2 text-primary hover:text-primary/80"
+              onClick={() => window.location.href = "/nexpractice"}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="font-medium">Back to NexPractice</span>
+            </Button>
           </div>
         </div>
       </header>

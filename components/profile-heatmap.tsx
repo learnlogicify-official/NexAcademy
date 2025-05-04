@@ -36,8 +36,8 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
   const allDays = eachDayOfInterval({ start: firstSunday, end: today })
 
   // Group days by week
-  const weeks = []
-  let currentWeek = []
+  const weeks: Date[][] = []
+  let currentWeek: Date[] = []
 
   for (let i = 0; i < allDays.length; i++) {
     const dayOfWeek = allDays[i].getDay()
@@ -78,11 +78,11 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
 
   // Get color based on activity level
   const getActivityColor = (level: number) => {
-    if (level === 0) return "bg-[#2C2C2C] hover:bg-gray-600"
-    if (level === 1) return "bg-green-900 hover:bg-green-800"
-    if (level === 2) return "bg-green-700 hover:bg-green-600"
-    if (level === 3) return "bg-green-600 hover:bg-green-500"
-    return "bg-green-500 hover:bg-green-400"
+    if (level === 0) return "bg-gray-200 dark:bg-[#2C2C2C] hover:bg-gray-300 dark:hover:bg-gray-600"
+    if (level === 1) return "bg-green-200 dark:bg-green-900 hover:bg-green-300 dark:hover:bg-green-800"
+    if (level === 2) return "bg-green-400 dark:bg-green-700 hover:bg-green-500 dark:hover:bg-green-600"
+    if (level === 3) return "bg-green-500 dark:bg-green-600 hover:bg-green-400 dark:hover:bg-green-500"
+    return "bg-green-600 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-400"
   }
 
   // Get activity details for a specific date
@@ -147,11 +147,11 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
   const activityPercentage = Math.round((activeDays / totalDays) * 100)
 
   return (
-    <div className="w-full bg-[#121212] p-4 rounded-lg h-[360px] flex flex-col justify-between">
+    <div className="w-full bg-white dark:bg-[#121212] p-4 rounded-lg h-[360px] flex flex-col justify-between">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-green-500" />
-          <h3 className="text-lg font-medium text-gray-100">Activity Contributions</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Activity Contributions</h3>
         </div>
         <Select value={activityType} onValueChange={setActivityType}>
           <SelectTrigger className="w-[160px]">
@@ -169,10 +169,6 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
 
       <div
         className="min-w-[600px] max-w-[890px] overflow-x-auto custom-scrollbar"
-        style={{
-          scrollbarWidth: "thin",
-          scrollbarColor: "#3a3a3a #121212",
-        }}
       >
         <div className="flex flex-col">
           <div className="flex gap-[2px]">
@@ -257,7 +253,7 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
               return (
                 <div
                   key={i}
-                  className="text-xs text-gray-400"
+                  className="text-xs text-gray-500 dark:text-gray-400"
                   style={{
                     width: `${monthWidth}px`,
                     marginLeft: i === 0 ? 0 : `${monthGap}px`,
@@ -273,48 +269,48 @@ export function ProfileHeatmap({ data }: ProfileHeatmapProps) {
       </div>
 
       {/* Activity Summary */}
-      <div className="mt-4 pt-4 border-t border-gray-800">
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-[#2C2C2C]"></div>
-            <span className="text-gray-400">No activity</span>
+            <div className="w-3 h-3 rounded-sm bg-gray-200 dark:bg-[#2C2C2C]"></div>
+            <span className="text-gray-500 dark:text-gray-400">No activity</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-green-900"></div>
-            <span className="text-gray-400">1 activity</span>
+            <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900"></div>
+            <span className="text-gray-500 dark:text-gray-400">1 activity</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-green-700"></div>
-            <span className="text-gray-400">2 activities</span>
+            <div className="w-3 h-3 rounded-sm bg-green-400 dark:bg-green-700"></div>
+            <span className="text-gray-500 dark:text-gray-400">2 activities</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-green-600"></div>
-            <span className="text-gray-400">3 activities</span>
+            <div className="w-3 h-3 rounded-sm bg-green-500 dark:bg-green-600"></div>
+            <span className="text-gray-500 dark:text-gray-400">3 activities</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-green-500"></div>
-            <span className="text-gray-400">4+ activities</span>
+            <div className="w-3 h-3 rounded-sm bg-green-600 dark:bg-green-500"></div>
+            <span className="text-gray-500 dark:text-gray-400">4+ activities</span>
           </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
           <div className="text-sm">
-            <span className="text-gray-400">Active days: </span>
-            <span className="text-gray-200 font-medium">
+            <span className="text-gray-500 dark:text-gray-400">Active days: </span>
+            <span className="text-gray-900 dark:text-gray-200 font-medium">
               {activeDays} ({activityPercentage}%)
             </span>
           </div>
           <div className="text-sm">
-            <span className="text-gray-400">Total activities: </span>
-            <span className="text-gray-200 font-medium">{totalActivities}</span>
+            <span className="text-gray-500 dark:text-gray-400">Total activities: </span>
+            <span className="text-gray-900 dark:text-gray-200 font-medium">{totalActivities}</span>
           </div>
           <div className="text-sm flex items-center gap-1">
-            <span className="text-gray-400">Average: </span>
-            <span className="text-gray-200 font-medium">{(totalActivities / totalDays).toFixed(1)} per day</span>
+            <span className="text-gray-500 dark:text-gray-400">Average: </span>
+            <span className="text-gray-900 dark:text-gray-200 font-medium">{(totalActivities / totalDays).toFixed(1)} per day</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
-                  <Info className="h-3.5 w-3.5 text-gray-500" />
+                  <Info className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="text-xs">Average activities per day over the last year</p>
