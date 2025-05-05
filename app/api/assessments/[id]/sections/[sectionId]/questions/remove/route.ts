@@ -38,7 +38,6 @@ export async function POST(
 
     // Parse and validate the request body
     const body = await req.json();
-    console.log("Received body for removing questions from section:", body);
     
     const validation = removeQuestionsSchema.safeParse(body);
     if (!validation.success) {
@@ -83,7 +82,6 @@ export async function POST(
       return NextResponse.json({ error: "Section not found in this assessment" }, { status: 404 });
     }
 
-    console.log(`Removing ${questionIds.length} questions from section ${sectionId}`);
 
     // Delete the relationships directly
     try {
@@ -96,7 +94,6 @@ export async function POST(
         }
       });
 
-      console.log(`Deleted ${result.count} section-question relationships`);
 
       // Update the assessment's total marks after removing questions
       const updatedAssessment = await updateAssessmentTotalMarks(assessmentId);

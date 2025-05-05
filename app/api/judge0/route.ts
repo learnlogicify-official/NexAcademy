@@ -32,7 +32,6 @@ export async function GET() {
     const languages = await fetchJudge0Languages();
     return NextResponse.json({ success: true, data: languages });
   } catch (error) {
-    console.error('Error fetching Judge0 languages:', error);
     return NextResponse.json({
       error: 'Error accessing Judge0 Extra CE languages',
       details: error instanceof Error ? error.message : String(error)
@@ -57,16 +56,11 @@ export async function POST(request: NextRequest) {
 
     // Check if API key is available (optional for self-hosted instance)
     if (JUDGE0_API_KEY && JUDGE0_API_URL.includes('rapidapi.com')) {
-      console.log("Using RapidAPI Judge0 with API key");
-      // When using RapidAPI, the key is required
       if (!JUDGE0_API_KEY) {
-        console.error("Judge0 API key is missing for RapidAPI");
         return NextResponse.json({ 
           error: "Judge0 API key is not configured"
         }, { status: 500 });
       }
-    } else {
-      console.log("Using self-hosted Judge0 instance, no API key required");
     }
     
     // Forward the request to Judge0
@@ -92,7 +86,6 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(requestBody)
       });
     } catch (networkError) {
-      console.error("Network error connecting to Judge0 API:", networkError);
       return NextResponse.json({ 
         error: "Failed to connect to Judge0 API",
         details: networkError instanceof Error ? networkError.message : String(networkError)
@@ -102,13 +95,10 @@ export async function POST(request: NextRequest) {
     
     
     if (!response.ok) {
-      console.error("Server-side Judge0 API error:", response.status, response.statusText);
       let errorText = "";
       try {
         errorText = await response.text();
-        console.error("Error details:", errorText);
       } catch (e) {
-        console.error("Could not read error response text:", e);
       }
       
       // Handle rate limiting specifically
@@ -196,13 +186,10 @@ export async function POST(request: NextRequest) {
           resultData = pollData;
           break;
         } catch (error) {
-          console.error("Error during polling:", error);
-          // Continue trying despite errors
         }
       }
       
       if (!resultData) {
-        console.error("Failed to get execution results after polling");
         return NextResponse.json({ 
           error: "Timeout waiting for execution results" 
         }, { status: 408 });
@@ -245,7 +232,6 @@ export async function POST(request: NextRequest) {
       } 
     });
   } catch (error) {
-    console.error("Server-side Judge0 API error:", error);
     return NextResponse.json({ 
       error: "Error executing code",
       details: error instanceof Error ? error.message : String(error) 

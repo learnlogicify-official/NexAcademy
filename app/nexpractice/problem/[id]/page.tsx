@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -163,6 +163,61 @@ export default function ProblemPage() {
 
   const { data: session } = useSession();
   const { languages: judge0Languages } = useJudge0Languages();
+  
+  // Memoize the displayed language name
+  const displayedLanguageName = useMemo(() => {
+    // If no language is set yet, show loading
+    if (!language) return "Loading...";
+    
+    // If judge0Languages are available, try to find a match by ID
+    if (judge0Languages && judge0Languages.length > 0) {
+      // First try to find a match by ID
+      if (!isNaN(Number(language))) {
+        const judge0Lang = judge0Languages.find(l => String(l.id) === language);
+        if (judge0Lang?.name) return judge0Lang.name;
+      }
+    }
+    
+    // If availableLanguages are available, try to find a match by ID or name
+    if (availableLanguages && availableLanguages.length > 0) {
+      // Try by ID first
+      if (!isNaN(Number(language))) {
+        const availableLang = availableLanguages.find(l => String(l.languageId) === language);
+        if (availableLang?.name) return availableLang.name;
+      }
+      
+      // Try by name
+      const availableLang = availableLanguages.find(l => l.name === language);
+      if (availableLang) return availableLang.name;
+    }
+    
+    // If language is a number, format it as "Language X"
+    if (!isNaN(Number(language))) {
+      return `Language ${language}`;
+    }
+    
+    // Default case: just return the language itself
+    return language;
+  }, [language, judge0Languages, availableLanguages]);
+
+  // Add this effect BEFORE the useEffect that fetches the problem
+  // This effect focuses on fixing the language display when judge0Languages are loaded
+  useEffect(() => {
+    // Skip if judge0Languages aren't loaded yet
+    if (!judge0Languages || judge0Languages.length === 0) return;
+    
+    // Skip if language isn't set yet
+    if (!language) return;
+    
+    
+    // Check if the current language looks like a language ID (number)
+    if (!isNaN(Number(language))) {
+      
+      // Try to find this language in the judge0Languages
+      const judge0Lang = judge0Languages.find(l => String(l.id) === language);
+      
+    }
+  }, [judge0Languages, language]);
 
   // Reset layout function
   const resetLayout = () => {
@@ -469,107 +524,100 @@ public:
     }
   };
 
-  // Function to directly handle language changes
-  const handleLanguageChange = (langName: string) => {
-    console.log(`[LANG-SWITCH] Language selection changed from ${language} to ${langName}`);
+  // Helper to get the full language name with version for a given languageId or name
+  function getFullLanguageName(languageIdOrName: string): string {
+    // Direct mapping for common Judge0 language IDs to ensure consistent naming
+    const directMappings: Record<string, string> = {
+      '53': 'C++ GCC 8.3.0',
+      '54': 'C++ Clang',
+      '4': 'JavaScript (Node.js)',
+      '11': 'Python 3',
+    };
     
-    // Close the dropdown immediately
-    setLanguageDropdownOpen(false);
-    
-    // Save current code before switching
-    if (initialLoadCompleteRef.current && code && language) {
-      console.log(`[LANG-SWITCH] Saving code for current language (${language}) before switching`);
-      try {
-        localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
-        console.log(`[LANG-SWITCH] Saved to localStorage successfully`);
-        
-        // Also save to backend if logged in
-        if (session?.user?.id) {
-          console.log(`[LANG-SWITCH] Also saving to backend`);
-          fetch(`/api/problem/${problemId}/save-code`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code, language }),
-          }).catch(err => console.error("[LANG-SWITCH] Backend save error:", err));
-        }
-      } catch (err) {
-        console.error(`[LANG-SWITCH] Error saving to localStorage:`, err);
-      }
+    // Check for direct mapping first
+    if (directMappings[languageIdOrName]) {
+      return directMappings[languageIdOrName]; 
     }
     
-    // Then load code for the new language
-    console.log(`[LANG-SWITCH] Looking for saved code for new language: ${langName}`);
-    
-    // First check localStorage
-    try {
-      const savedCode = localStorage.getItem(`nexacademy_code_${problemId}_${langName}`);
-      if (savedCode) {
-        console.log(`[LANG-SWITCH] Found code in localStorage for ${langName}, setting it`);
-        // Update state with the new language
-        setLanguage(langName);
-        // Update code after a short delay to ensure language is set first
-        setTimeout(() => setCode(savedCode), 10);
-        return;
-      } else {
-        console.log(`[LANG-SWITCH] No code found in localStorage for ${langName}`);
-      }
-    } catch (err) {
-      console.error(`[LANG-SWITCH] Error checking localStorage:`, err);
-    }
-    
-    // Check backend if logged in
-    if (session?.user?.id) {
-      console.log(`[LANG-SWITCH] Checking backend for ${langName}`);
-      
-      // Update language immediately to prevent UI issues
-      setLanguage(langName);
-      
-      fetch(`/api/problem/${problemId}/load-code?language=${encodeURIComponent(langName)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.code) {
-            console.log(`[LANG-SWITCH] Found code in backend for ${langName}, setting it`);
-            setCode(data.code);
-            // Cache in localStorage for future
-            localStorage.setItem(`nexacademy_code_${problemId}_${langName}`, data.code);
-          } else {
-            console.log(`[LANG-SWITCH] No code found in backend, using preload code`);
-            // Find preload code for this language
-            const selected = availableLanguages.find(l => l.name === langName);
-            if (selected && selected.preloadCode) {
-              console.log(`[LANG-SWITCH] Using preload code for ${langName}`);
-              setCode(selected.preloadCode);
-            }
-          }
-        })
-        .catch(error => {
-          console.error(`[LANG-SWITCH] Error checking backend:`, error);
-          // Still set preload code on error
-          const selected = availableLanguages.find(l => l.name === langName);
-          if (selected && selected.preloadCode) {
-            console.log(`[LANG-SWITCH] Using preload code after backend error`);
-            setCode(selected.preloadCode);
-          }
-        });
+    // Then try to find in available languages
+    const languageOption = availableLanguages.find(
+      l => String(l.languageId) === String(languageIdOrName) || l.name === languageIdOrName
+    );
+    return languageOption?.name || languageIdOrName;
+  }
+
+  // Centralized function to update last language - this should be the ONLY function calling the API
+  const updateLastLanguageOnServer = useCallback((langId: string) => {
+    // Skip if no session, no problemId, or already in progress
+    if (!session?.user?.id || !problemId || inFlightRequestsRef.current.lastLanguage) {
       return;
     }
     
-    // If not logged in or no saved code, use preload code
-    console.log(`[LANG-SWITCH] Not logged in or no saved code found, using preload code`);
-    const selected = availableLanguages.find(l => l.name === langName);
-    if (selected && selected.preloadCode) {
-      // Set language first
-      setLanguage(langName);
-      // Then set code
-      setTimeout(() => {
-        console.log(`[LANG-SWITCH] Setting preload code for ${langName}`);
-        setCode(selected.preloadCode);
-      }, 10);
-    } else {
-      // Just set language if no preload code
-      setLanguage(langName);
+    inFlightRequestsRef.current.lastLanguage = true;
+    console.log(`[DEBUG] Calling last-language API for language ID=${langId}`);
+    
+    fetch(`/api/problem/${problemId}/last-language`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: langId }), // Send the language ID
+    })
+    .then(response => {
+      console.log(`[DEBUG] Last-language API response status:`, response.status);
+      inFlightRequestsRef.current.lastLanguage = false;
+      return response.json();
+    })
+    .then(data => {
+      console.log(`[DEBUG] Last-language API response:`, data);
+    })
+    .catch(e => {
+      console.error("[DEBUG] Error updating last language:", e);
+      inFlightRequestsRef.current.lastLanguage = false;
+    });
+  }, [session?.user?.id, problemId]);
+
+  // Update handleLanguageChange to use this centralized function
+  const handleLanguageChange = (langId: string) => {
+    if (langId === language) return;
+    
+    const selectedLang = availableLanguages.find((l: LanguageOption) => String(l.languageId) === String(langId));
+    if (!selectedLang) {
+      return;
+    }
+    
+    setLanguageDropdownOpen(false);
+    
+    // Save current code before switching
+    if (code && language) {
+      saveCode();
+    }
+    
+    // Save to localStorage (always do this)
+    try {
+      localStorage.setItem(`nexacademy_last_language_${problemId}`, langId);
+    } catch (err) {}
+    
+    // Set language state
+    setLanguage(langId);
+    
+    // Call the centralized function to update on server (if logged in)
+    if (session?.user?.id) {
+      updateLastLanguageOnServer(langId);
     }
   };
+
+  // Remove the separate effect that calls last-language API
+  // But keep this debug effect to show when language changes
+  useEffect(() => {
+    if (language) {
+      console.log(`[DEBUG] Language changed to ${language}`);
+      // Add check for load-code problems
+      if (session?.user?.id) {
+        setTimeout(() => {
+          console.log(`[DEBUG] Load-Code check: inFlight=${inFlightRequestsRef.current.loadCode}, code length=${code?.length || 0}`);
+        }, 500);
+      }
+    }
+  }, [language, session?.user?.id, code]);
 
   // Helper function to validate code before execution
   const validateCode = (code: string) => {
@@ -597,9 +645,9 @@ public:
   
   // Run code - tests only sample test cases
   const runCode = async () => {
-    saveCodeToBackend();
+    saveCode();
     // First save the current code
-    console.log('[DEBUG] Running code - saving first');
+   
     
     // Then continue with the existing run code logic
     setIsRunning(true)
@@ -614,6 +662,22 @@ public:
     if (testTabValue === "result") {
       setTestTabValue("testcase");
     }
+    
+    // Declare submission data structure
+    let submissionData: any = {
+      language,
+      code,
+      testcasesPassed: 0,
+      totalTestcases: 0,
+      allPassed: false,
+      runtime: null,
+      memory: null,
+      runtimePercentile: null,
+      memoryPercentile: null
+    };
+    
+    // Track if we should save to backend
+    let shouldSave = false;
     
     try {
       // Validate code
@@ -631,20 +695,36 @@ public:
       }
       
       // Find the selected languageId
-      const selectedLang = availableLanguages.find(l => l.name === language)
-      const languageId = selectedLang?.languageId
-      console.log('Selected Language:', language)
-      console.log('Language Object:', selectedLang)
-      console.log('Language ID for Judge0:', languageId)
-
-      if (!languageId) throw new Error("Language ID not found")
+      let selectedLang;
+      let languageId;
+      
+      // First try finding by language ID
+      if (!isNaN(Number(language))) {
+        // If language is already a numeric ID, try to find it directly
+        selectedLang = availableLanguages.find(l => String(l.languageId) === language);
+        if (selectedLang) {
+          languageId = selectedLang.languageId;
+        } else {
+          // If not found in availableLanguages but language is a number, use it directly
+          languageId = Number(language);
+        }
+      } else {
+        // If language is a name, find by name
+        selectedLang = availableLanguages.find(l => l.name === language);
+        if (selectedLang) {
+          languageId = selectedLang.languageId;
+        }
+      }
+      
+     
+      if (!languageId) throw new Error("Language ID not found");
       
       // Prepare sample test cases
       const testCases = (problem?.sampleTestCases || []).map(tc => ({
         input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
         expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
-      }))
-      console.log('Test Cases for Judge0:', testCases)
+      }));
+      
       
       // Validate test cases
       if (!testCases.length) {
@@ -666,7 +746,7 @@ public:
         })),
         mode: "run",
         showOnlyFailures: false
-      })
+      });
       
       // If bottom panel is not visible enough, adjust it
       if (currentHeight < 20) {
@@ -676,19 +756,13 @@ public:
         setBottomPanelHeight(currentHeight);
       }
       
-      // Run with Judge0
+      // Run with Judge0 using the extracted languageId
       const judgeResults = await runWithJudge0({
         sourceCode: code,
         languageId,
         testCases,
-      })
-      console.log('Judge0 Results:', judgeResults)
-      
-      // Check if all test cases passed to show confetti
-      // const allAccepted = judgeResults.every(result => result.verdict === "Accepted")
-      // if (allAccepted) {
-      //   setShowConfetti(true)
-      // }
+      });
+     
       
       // Check for errors and extract line numbers
       if (judgeResults.length > 0) {
@@ -714,9 +788,9 @@ public:
         judgeResults,
         mode: "run",
         showOnlyFailures: false
-      })
+      });
     } catch (error: any) {
-      console.error('Error running code:', error)
+      console.error('Error running code:', error);
       
       // Try to extract line number from error message
       const lineNumber = extractErrorLineNumber(error.message);
@@ -730,266 +804,10 @@ public:
         loading: false,
         error: error.message || "Unknown error running code.",
         mode: "run"
-      })
+      });
     }
     
-    setIsRunning(false)
-  }
-  
-  // Update the submitCode function to handle testcases sequentially and stop on first failure
-  const submitCode = async () => {
-    saveCodeToBackend();
-    console.log('[DEBUG] Submitting code - saving first');
-    setTestTabValue("result");
-    setIsSubmitting(true)
-    setSubmitResults(null)
-    setErrorLine(null)
-    setErrorMessage(null)
-    const currentHeight = bottomPanelHeight
-
-    // Variables to track submission info for saving
-    let submissionData: any = {
-      language,
-      code,
-      testcasesPassed: 0,
-      totalTestcases: 0,
-      allPassed: false,
-      runtime: null,
-      memory: null,
-      runtimePercentile: null,
-      memoryPercentile: null
-    };
-    let shouldSave = false;
-    
-    try {
-      // Validate code
-      const validation = validateCode(code);
-      if (!validation.valid) {
-        setResults({
-          success: false,
-          loading: false,
-          error: validation.error,
-          judgeResults: [],
-          mode: "submit"
-        })
-        setIsSubmitting(false);
-        // Save what we can
-        submissionData = {
-          ...submissionData,
-          testcasesPassed: 0,
-          totalTestcases: 0,
-          allPassed: false
-        };
-        shouldSave = true;
-        return;
-      }
-      
-      // Find the selected languageId
-      const selectedLang = availableLanguages.find(l => l.name === language)
-      const languageId = selectedLang?.languageId
-      
-      if (!languageId) throw new Error("Language ID not found")
-      
-      // Prepare all test cases (sample and hidden)
-      const sampleTestCases = (problem?.sampleTestCases || []).map(tc => ({
-        input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
-        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
-        type: "sample"
-      }))
-      
-      const hiddenTestCases = (problem?.hiddenTestCases || []).map(tc => ({
-        input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
-        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
-        type: "hidden"
-      }))
-      
-      const allTestCases = [...sampleTestCases, ...hiddenTestCases]
-      
-      // Validate test cases
-      if (!allTestCases.length) {
-        throw new Error("No test cases available for this problem");
-      }
-      
-      // Create initial loading results - show "Evaluating..." message
-      setResults({
-        success: true,
-        loading: true,
-        judgeResults: [],
-        mode: "submit",
-        totalTestCases: allTestCases.length,
-        showOnlyFailures: true,
-        progress: {
-          current: 0,
-          total: allTestCases.length,
-          message: "Evaluating all test cases...",
-        }
-      })
-      
-      // If bottom panel is not visible enough, adjust it
-      if (currentHeight < 20) {
-        setBottomPanelHeight(30);
-      } else {
-        setBottomPanelHeight(currentHeight);
-      }
-      
-      // Process test cases one by one and stop on first failure
-      let failedTestCase = null;
-      let passedCount = 0;
-      let totalRuntimeMs = 0;
-      let totalMemoryKb = 0;
-      let allPassed = true;
-      for (let i = 0; i < allTestCases.length; i++) {
-        const testCase = allTestCases[i];
-        setResults((prev: any) => ({
-          ...prev,
-          progress: {
-            current: i + 1,
-            total: allTestCases.length,
-            message: `Evaluating test case ${i + 1}/${allTestCases.length}...`,
-          }
-        }));
-        const result = await runWithJudge0({
-        sourceCode: code,
-          languageId: availableLanguages.find(l => l.name === language)?.languageId ?? 0,
-          testCases: [testCase],
-        });
-        if (result.length > 0) {
-          const runtimeStr = result[0].time;
-          const memoryStr = result[0].memory;
-          if (runtimeStr) totalRuntimeMs += parseFloat(runtimeStr) * 1000;
-          if (memoryStr) totalMemoryKb += parseInt(memoryStr, 10);
-        }
-        if (result.length > 0 && result[0].verdict !== "Accepted") {
-          failedTestCase = {
-            ...result[0],
-            input: testCase.input,
-          };
-          allPassed = false;
-          break;
-        }
-        passedCount++;
-      }
-      // After the loop, set total runtime, memory, and allPassed
-      submissionData.runtime = `${Math.round(totalRuntimeMs)} ms`;
-      submissionData.memory = `${(totalMemoryKb / 1024).toFixed(2)} MB`;
-      submissionData.allPassed = allPassed;
-      submissionData.testcasesPassed = passedCount;
-      submissionData.totalTestcases = allTestCases.length;
-      
-      // After processing all test cases or finding a failure
-      if (failedTestCase) {
-        // Check for compile or runtime errors
-        if (failedTestCase.verdict === "Compile Error" || failedTestCase.verdict === "Runtime Error") {
-          const errorMessage = failedTestCase.compile_output || failedTestCase.stderr || '';
-          const lineNumber = extractErrorLineNumber(errorMessage);
-          if (lineNumber) {
-            setErrorLine(lineNumber);
-            setErrorMessage(errorMessage);
-          }
-        }
-      setResults({
-        success: true,
-        loading: false,
-          judgeResults: [failedTestCase],
-        mode: "submit",
-        summary: {
-          passed: passedCount,
-          total: allTestCases.length,
-            allPassed: false,
-            message: `Test case failed. (${passedCount}/${allTestCases.length} passed)`
-        },
-        showOnlyFailures: true
-        });
-      } else {
-        // All test cases passed!
-        const submissionStats = {
-          runtime: `${Math.round(totalRuntimeMs)} ms`, // This would ideally come from Judge0 results
-          runtimePercentile: "100.00%",
-          memory: `${(totalMemoryKb / 1024).toFixed(2)} MB`, // This would ideally come from Judge0 results
-          memoryPercentile: "63.06%", 
-          code: code,
-          language: language,
-          timestamp: new Date().toISOString(),
-          testsPassed: passedCount,
-          totalTests: allTestCases.length
-        };
-        setAcceptedSubmission(submissionStats);
-        setShowAcceptedTab(true);
-        setActiveTab("accepted");
-        setShowConfetti(true);
-        setResults({
-          success: true,
-          loading: false,
-          judgeResults: [],
-          mode: "submit",
-          summary: {
-            passed: allTestCases.length,
-            total: allTestCases.length,
-            allPassed: true,
-            message: `All ${allTestCases.length} test cases passed! 🎉`
-          },
-          showOnlyFailures: true
-        });
-      }
-      shouldSave = true;
-    } catch (error: any) {
-      console.error('Error submitting code:', error)
-      
-      // Try to extract line number from error message
-      const lineNumber = extractErrorLineNumber(error.message);
-      if (lineNumber) {
-        setErrorLine(lineNumber);
-        setErrorMessage(error.message); // Set the error message
-      }
-      
-      setResults({
-        success: false,
-        loading: false,
-        error: error.message || "Unknown error submitting code.",
-        mode: "submit"
-      })
-      // Save what we can
-      submissionData = {
-        ...submissionData,
-        testcasesPassed: 0,
-        totalTestcases: 0,
-        allPassed: false
-      };
-      shouldSave = true;
-    } finally {
-      setIsSubmitting(false);
-      // Always save submission if user is logged in
-      if (session?.user?.id && shouldSave) {
-        console.log("[CLIENT] Always saving submission to database", submissionData);
-        // Save with retry logic
-        const saveWithRetry = async (retryCount = 0, maxRetries = 3) => {
-          try {
-            const response = await fetch(`/api/problem/${problemId}/save-submission`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(submissionData)
-            });
-            const data = await response.json();
-            if (!response.ok) {
-              console.error(`[CLIENT] Error saving submission: ${response.status}`, data);
-              if (retryCount < maxRetries) {
-                console.log(`[CLIENT] Retrying save (${retryCount + 1}/${maxRetries})...`);
-                setTimeout(() => saveWithRetry(retryCount + 1, maxRetries), 1000); // Retry after 1 second
-              }
-              return;
-            }
-            console.log("[CLIENT] Submission saved successfully:", data);
-          } catch (error) {
-            console.error("[CLIENT] Exception saving submission:", error);
-            if (retryCount < maxRetries) {
-              console.log(`[CLIENT] Retrying save (${retryCount + 1}/${maxRetries})...`);
-              setTimeout(() => saveWithRetry(retryCount + 1, maxRetries), 1000); // Retry after 1 second
-            }
-          }
-        };
-        saveWithRetry();
-      }
-    }
+    setIsRunning(false);
   }
 
   const handlePremiumClick = () => {
@@ -1111,44 +929,115 @@ public:
           }));
           
           setAvailableLanguages(updatedLanguageOptions);
-
-          // --- Cross-device persisted language logic ---
+          
+          // Improved cross-device persisted language logic with better logging
           async function getInitialLanguage() {
-            // If logged in, try backend first
+            let languageToUse = null;
+            console.log(`[LANG-INIT] Starting language initialization for problem=${problemId}`);
+            
+            // If logged in, try backend first (handles cross-device consistency)
             if (session?.user?.id) {
               try {
+                console.log(`[LANG-INIT] Fetching last language from backend API`);
                 const res = await fetch(`/api/problem/${problemId}/last-language`);
                 if (res.ok) {
                   const backend = await res.json();
                   const lastLanguage = backend.lastLanguage;
-                  const validLanguage = updatedLanguageOptions.find((l: LanguageOption) => l.name === lastLanguage);
-                  if (lastLanguage && validLanguage) {
-                    setLanguage(lastLanguage);
-                    setCode(validLanguage.preloadCode);
-                    return;
+                  console.log(`[LANG-INIT] Backend returned lastLanguage=`, lastLanguage);
+                  
+                  if (lastLanguage) {
+                    // Find matching language in available options - ensure we use languageId for consistency
+                    const matchedLang = updatedLanguageOptions.find(
+                      (l: LanguageOption) => String(l.languageId) === String(lastLanguage) || l.name === lastLanguage
+                    );
+                    
+                    if (matchedLang) {
+                      console.log(`[LANG-INIT] Found matching language from backend:`, matchedLang.languageId);
+                      languageToUse = String(matchedLang.languageId); // Always use ID for consistency
+                    } else {
+                      console.log(`[LANG-INIT] Backend language not found in available options, using default`);
+                      // If no matching language found, use the first available one
+                      const defaultLang = updatedLanguageOptions[0];
+                      languageToUse = String(defaultLang.languageId);
+                    }
+                  } else {
+                    console.log(`[LANG-INIT] Backend returned no last language preference`);
                   }
+                } else {
+                  console.log(`[LANG-INIT] Backend API call failed with status ${res.status}`);
                 }
-              } catch (e) { /* ignore and fallback */ }
-            }
-            // Fallback to localStorage
-            const lastLangKey = `nexacademy_last_language_${problemId}`;
-            let lastLanguage = "";
-            try {
-              lastLanguage = localStorage.getItem(lastLangKey) || "";
-            } catch {}
-            const validLanguage = updatedLanguageOptions.find((l: LanguageOption) => l.name === lastLanguage);
-            if (lastLanguage && validLanguage) {
-              setLanguage(lastLanguage);
-              setCode(validLanguage.preloadCode);
+              } catch (e) { 
+                console.error("[LANG-INIT] Error getting language from backend:", e);
+              }
             } else {
-              setLanguage(updatedLanguageOptions[0].name);
-              setCode(updatedLanguageOptions[0].preloadCode);
+              console.log(`[LANG-INIT] User not logged in, skipping backend language check`);
+            }
+            
+            // If no language from backend, try localStorage
+            if (!languageToUse) {
+              try {
+                const lastLangKey = `nexacademy_last_language_${problemId}`;
+                const lastLanguage = localStorage.getItem(lastLangKey);
+                console.log(`[LANG-INIT] Checking localStorage, found:`, lastLanguage);
+                
+                if (lastLanguage) {
+                  // Find matching language
+                  const matchedLang = updatedLanguageOptions.find(
+                    (l: LanguageOption) => String(l.languageId) === String(lastLanguage) || l.name === lastLanguage
+                  );
+                  
+                  if (matchedLang) {
+                    console.log(`[LANG-INIT] Found matching language from localStorage:`, matchedLang.languageId);
+                    languageToUse = String(matchedLang.languageId); // Always use ID for consistency
+                  } else {
+                    console.log(`[LANG-INIT] localStorage language not found in available options, using default`);
+                    // If no matching language found, use the first available one
+                    const defaultLang = updatedLanguageOptions[0];
+                    languageToUse = String(defaultLang.languageId);
+                  }
+                } else {
+                  console.log(`[LANG-INIT] No language found in localStorage`);
+                }
+              } catch (e) {
+                console.error("[LANG-INIT] Error reading from localStorage:", e);
+              }
+            }
+            
+            // If we still don't have a language, use the first available one as default
+            if (!languageToUse && updatedLanguageOptions.length > 0) {
+              const defaultLang = updatedLanguageOptions[0];
+              languageToUse = String(defaultLang.languageId);
+              console.log(`[LANG-INIT] No language preference found, using default language:`, defaultLang.languageId);
+            }
+            
+            // Set language state if we found one
+            if (languageToUse) {
+              console.log(`[LANG-INIT] Setting initial language to:`, languageToUse);
+              setLanguage(languageToUse);
+              // Save this back to localStorage for future use
+              try {
+                localStorage.setItem(`nexacademy_last_language_${problemId}`, languageToUse);
+              } catch (e) {}
+            } else {
+              console.error("[LANG-INIT] Failed to find any suitable language!");
+              setIsCodeLoading(false);
             }
           }
-          getInitialLanguage();
-          setIsLanguageLoading(false);
-          setIsCodeLoading(false);
-        }
+          
+          // Call getInitialLanguage and then indicate language setup is complete
+          getInitialLanguage().then(() => {
+            // Language selection is complete
+            setIsLanguageLoading(false);
+            
+            // The rest will be handled by the useEffect that watches [language]
+            // which will automatically load the code for the selected language
+          }).catch(error => {
+            console.error('[LANG-INIT] Error initializing language:', error);
+            setIsLanguageLoading(false);
+            setIsCodeLoading(false);
+          });
+          
+        } // End of language options setup
       } catch (error) {
         console.error('Error fetching problem:', error);
         // Fallback to sample problem if API fails
@@ -1171,9 +1060,9 @@ public:
         setIsLoading(false); // Set loading to false when fetch completes
       }
     };
-
+    
     fetchProblem();
-
+    
     // Start timer
     const timer = setInterval(() => {
       setTimeElapsed((prev) => prev + 1);
@@ -1196,173 +1085,179 @@ public:
     codeRef.current = code;
   }, [code]);
 
-  // Explicitly save code to both localStorage and backend
-  const saveCode = useCallback(() => {
-    if (!problemId || !language || !code || !initialLoadCompleteRef.current) return;
-    
-    const now = Date.now();
-    const timeSinceLastSave = now - lastSaveTimeRef.current;
-    
-    // Skip if code hasn't changed since last save
-    if (lastSavedCodeRef.current === code) {
-      console.log(`[DEBUG] Skipping save - code hasn't changed`);
-      return;
-    }
-    
-    // Enforce minimum time between saves (1 second)
-    if (timeSinceLastSave < 1000) {
-      console.log(`[DEBUG] Skipping save - too soon since last save (${timeSinceLastSave}ms)`);
-      return;
-    }
+  // Add refs to track in-flight requests
+  const inFlightRequestsRef = useRef<{
+    loadCode: boolean;
+    saveCode: boolean;
+    lastLanguage: boolean;
+  }>({
+    loadCode: false,
+    saveCode: false,
+    lastLanguage: false
+  });
 
-    console.log(`[DEBUG] Saving code on important event for ${problemId}/${language}`);
+  // Update saveCode to use in-flight tracking
+  const saveCode = useCallback(() => {
+    if (!problemId || !language || !code || inFlightRequestsRef.current.saveCode) return;
     
-    // Update last saved code reference and time
-    lastSavedCodeRef.current = code;
-    lastSaveTimeRef.current = now;
-    
-    // Save to localStorage immediately
     try {
+      // ALWAYS use language ID (not name) for localStorage to ensure consistency
       localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
-      console.log(`[DEBUG] Successfully saved to localStorage`);
+      
+      // Only save to backend if user is logged in and no request is in flight
+      if (session?.user?.id) {
+        inFlightRequestsRef.current.saveCode = true;
+        
+        // Get clean language name or ID for backend
+        const fullLanguageName = getFullLanguageName(language);
+        
+        console.log(`[DEBUG] Saving code for language=${language}, fullName=${fullLanguageName}`);
+        
+        fetch(`/api/problem/${problemId}/save-code`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            code, 
+            language: language // Send language ID instead of name to ensure consistency
+          }),
+        })
+        .then(response => {
+          console.log(`[DEBUG] Save-code API response status:`, response.status);
+          inFlightRequestsRef.current.saveCode = false;
+          return response.json();
+        })
+        .then(data => {
+          console.log(`[DEBUG] Save-code API response:`, data);
+        })
+        .catch(err => {
+          console.error(`[DEBUG] Error saving code:`, err);
+          inFlightRequestsRef.current.saveCode = false;
+        });
+      }
     } catch (err) {
-      console.error(`[DEBUG] Error saving to localStorage:`, err);
-    }
-    
-    // Save to backend if logged in
-    if (session?.user?.id) {
-      console.log(`[DEBUG] Saving to backend`);
-      fetch(`/api/problem/${problemId}/save-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, language }),
-      })
-      .then(response => {
-        console.log(`[DEBUG] Backend save response status: ${response.status}`);
-        return response.json();
-      })
-      .then(data => {
-        console.log(`[DEBUG] Backend save successful:`, data);
-      })
-      .catch(error => {
-        console.error(`[DEBUG] Backend save error:`, error);
-      });
+      console.error(`[DEBUG] Error in saveCode:`, err);
+      inFlightRequestsRef.current.saveCode = false;
     }
   }, [code, problemId, language, session?.user?.id]);
 
-  // Save code before page unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (initialLoadCompleteRef.current) {
-        console.log('[DEBUG] Page unloading - saving code');
-        // Use synchronous localStorage save for beforeunload
-        if (problemId && language && code) {
-          try {
-            localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
-          } catch (e) {
-            console.error('[DEBUG] Error saving to localStorage on unload', e);
-          }
-          
-          // For backend, we'll use a synchronous request, though it may not complete
-          if (session?.user?.id) {
-            try {
-              // Using sendBeacon for more reliable background saves
-              const blob = new Blob(
-                [JSON.stringify({ code, language })], 
-                { type: 'application/json' }
-              );
-              navigator.sendBeacon(`/api/problem/${problemId}/save-code`, blob);
-            } catch (e) {
-              console.error('[DEBUG] Error using sendBeacon', e);
-            }
-          }
-        }
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [code, problemId, language, session]);
-
-  // Improved: Explicitly triggered load logic
-  const loadSavedCode = useCallback(() => {
+  // Update loadSavedCode to also be consistent with language IDs
+  const loadSavedCode = useCallback(async () => {
     if (!problemId || !language) {
-      console.log(`[DEBUG] Cannot load code: missing problemId or language`);
+      console.log(`[DEBUG] loadSavedCode skipped: problemId=${!!problemId}, language=${!!language}`);
       return false;
     }
     
-    console.log(`[DEBUG] Attempting to load saved code for ${problemId}/${language}`);
+    // Reset in-flight flag to ensure we make a fresh call
+    inFlightRequestsRef.current.loadCode = false;
     
-    // Try localStorage first
+    console.log(`[DEBUG] loadSavedCode starting for language=${language}`);
+    inFlightRequestsRef.current.loadCode = true;
+    setIsCodeLoading(true);
+    
     try {
+      // First try localStorage with language ID (consistent with saveCode)
       const savedCode = localStorage.getItem(`nexacademy_code_${problemId}_${language}`);
-      console.log(`[DEBUG] localStorage for this problem/language:`, savedCode ? `Found (${savedCode.length} chars)` : "Not found");
+      const useLocalStorage = true; // Set to true to use localStorage when available
       
-      if (savedCode) {
-        console.log(`[DEBUG] Setting code from localStorage`);
+      if (savedCode && useLocalStorage) {
+        console.log(`[DEBUG] Code loaded from localStorage for language=${language}`);
         setCode(savedCode);
-        initialLoadCompleteRef.current = true;
+        setIsCodeLoading(false);
+        inFlightRequestsRef.current.loadCode = false;
         return true;
       }
-    } catch (err) {
-      console.error(`[DEBUG] Error loading from localStorage:`, err);
-    }
-    
-    // Try backend if logged in and localStorage didn't have it
-    if (session?.user?.id) {
-      console.log(`[DEBUG] User logged in, checking backend for saved code`);
-      fetch(`/api/problem/${problemId}/load-code?language=${encodeURIComponent(language)}`)
-        .then(res => {
-          console.log(`[DEBUG] Backend load response status: ${res.status}`);
-          return res.json();
-        })
-        .then(data => {
-          console.log(`[DEBUG] Backend load response:`, data);
-          if (data.code && typeof data.code === "string") {
-            console.log(`[DEBUG] Setting code from backend (${data.code.length} chars)`);
+      
+      // ALWAYS try backend if user is logged in
+      if (session?.user?.id) {
+        try {
+          console.log(`[DEBUG] Calling load-code API for language ID=${language}`);
+          // Use plain language ID for API call
+          const timestamp = Date.now();
+          const res = await fetch(`/api/problem/${problemId}/load-code?language=${encodeURIComponent(language)}&_=${timestamp}`, {
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          console.log(`[DEBUG] Load-code API response status:`, res.status);
+          const data = await res.json();
+          
+          console.log(`[DEBUG] Load-code API response data:`, data);
+          if (data && data.code) {
             setCode(data.code);
-            // Also cache in localStorage
             localStorage.setItem(`nexacademy_code_${problemId}_${language}`, data.code);
-            initialLoadCompleteRef.current = true;
+            setIsCodeLoading(false);
+            inFlightRequestsRef.current.loadCode = false;
             return true;
           } else {
-            // If no saved code found, mark initial load as complete with default code
-            initialLoadCompleteRef.current = true;
+            console.log(`[DEBUG] No code found from API call`);
           }
-        })
-        .catch(error => {
-          console.error(`[DEBUG] Backend load error:`, error);
-          // Still mark as complete on error
-          initialLoadCompleteRef.current = true;
-        });
-      return "loading"; // Special return to indicate loading in progress
+        } catch (error) {
+          console.error(`[DEBUG] Error fetching from backend:`, error);
+        }
+      } else {
+        console.log(`[DEBUG] Skipping backend call because user is not logged in`);
+      }
+      
+      // If we get here, no saved code found - use preload code
+      const langObj = availableLanguages.find(l => String(l.languageId) === String(language));
+      if (langObj?.preloadCode) {
+        console.log(`[DEBUG] Using preload code for language ${language}`);
+        setCode(langObj.preloadCode);
+      } else {
+        console.log(`[DEBUG] No preload code found for language ${language}, setting empty code`);
+        setCode('');
+      }
+      
+      setIsCodeLoading(false);
+      inFlightRequestsRef.current.loadCode = false;
+      return false;
+    } catch (error) {
+      console.error(`[DEBUG] Unexpected error in loadSavedCode:`, error);
+      setIsCodeLoading(false);
+      inFlightRequestsRef.current.loadCode = false;
+      return false;
     }
-    
-    // No saved code found, mark initial load as complete
-    initialLoadCompleteRef.current = true;
-    return false;
-  }, [problemId, language, session, setCode]);
+  }, [problemId, language, session?.user?.id, availableLanguages, setCode, setIsCodeLoading]);
+
+  // Force a call to loadSavedCode when language changes
+  useEffect(() => {
+    if (language && problemId) {
+      console.log(`[DEBUG] Language changed to ${language} - forcing code load`);
+      // Small delay to ensure language state is fully updated
+      setTimeout(() => {
+        loadSavedCode().catch(e => {
+          console.error(`[DEBUG] Error loading code after language change:`, e);
+        });
+      }, 100);
+    }
+  }, [language, problemId, loadSavedCode]);
 
   // Load code when problem/language changes, and on mount
   useEffect(() => {
-    if (!loadedRef.current && problemId && language && availableLanguages.length > 0) {
-      console.log(`[DEBUG] Initial code load for ${problemId}/${language}`);
-      
-      const loadResult = loadSavedCode();
-      
-      // If not found in storage/backend and availableLanguages is loaded, use starter code
-      if (loadResult === false) {
-        console.log(`[DEBUG] No saved code found, using starter code`);
-        const langObj = availableLanguages.find(l => l.name === language);
-        if (langObj && langObj.preloadCode) {
-          console.log(`[DEBUG] Setting starter code from language option`);
-          setCode(langObj.preloadCode);
-          // Mark initial load complete here too
-          initialLoadCompleteRef.current = true;
-        }
+    if (problemId && language && availableLanguages.length > 0) {
+      // Don't reload if we've just changed view and the language/problem haven't changed
+      if (loadedRef.current && 
+          prevProblemIdRef.current === problemId && 
+          prevLanguageRef.current === language) {
+        return;
       }
       
-      loadedRef.current = true;
+      // Load code only once
+      if (!inFlightRequestsRef.current.loadCode) {
+        loadSavedCode()
+          .then(() => {
+            // Update tracking refs
+            loadedRef.current = true;
+            prevProblemIdRef.current = problemId;
+            prevLanguageRef.current = language;
+            initialLoadCompleteRef.current = true;
+          })
+          .catch(error => {
+            console.error(`Error in loadCode effect:`, error);
+          });
+      }
     }
   }, [problemId, language, availableLanguages, loadSavedCode]);
 
@@ -1377,82 +1272,19 @@ public:
     
     // Only proceed if language actually changed
     if (oldLanguage !== null && oldLanguage !== language) {
-      console.log(`[DEBUG-LANG] Language changed from ${oldLanguage} to ${language}`);
       
-      // First try localStorage
-      try {
-        const savedCode = localStorage.getItem(`nexacademy_code_${problemId}_${language}`);
-        console.log(`[DEBUG-LANG] localStorage check for ${language}:`, savedCode ? "FOUND" : "NOT FOUND");
-        
-        if (savedCode) {
-          console.log(`[DEBUG-LANG] Loading saved code from localStorage for ${language}`);
-          setCode(savedCode);
-          return; // Exit early if we found code
-        }
-      } catch (err) {
-        console.error(`[DEBUG-LANG] Error checking localStorage:`, err);
-      }
-      
-      // If not in localStorage and user is logged in, try backend
-      if (session?.user?.id) {
-        console.log(`[DEBUG-LANG] Checking backend for saved code for ${language}`);
-        
-        // Use an immediate fetch for backend checking
-        fetch(`/api/problem/${problemId}/load-code?language=${encodeURIComponent(language)}`)
-          .then(res => {
-            console.log(`[DEBUG-LANG] Backend response status:`, res.status);
-            return res.json();
-          })
-          .then(data => {
-            console.log(`[DEBUG-LANG] Backend data:`, data);
-            if (data.code) {
-              console.log(`[DEBUG-LANG] Setting code from backend (${data.code.length} chars)`);
-              setCode(data.code);
-              // Also cache in localStorage
-              localStorage.setItem(`nexacademy_code_${problemId}_${language}`, data.code);
-            } else {
-              // Load preload code as fallback
-              loadPreloadCode();
-            }
-          })
-          .catch(error => {
-            console.error(`[DEBUG-LANG] Backend error:`, error);
-            // Use preload code on error
-            loadPreloadCode();
-          });
-      } else {
-        // Not logged in, use preload code directly
-        loadPreloadCode();
-      }
+      // Load code for the new language
+      loadSavedCode().catch(error => {
+        console.error('[DEBUG-LANG] Error loading code for new language:', error);
+      });
     }
-    
-    // Update the previous language reference
-    prevLanguageRef.current = language;
-    
-    // Helper function to load preload code for current language
-    function loadPreloadCode() {
-      if (!availableLanguages || availableLanguages.length === 0) {
-        console.log(`[DEBUG-LANG] No available languages found`);
-        return;
-      }
-      
-      const langObj = availableLanguages.find(l => l.name === language);
-      console.log(`[DEBUG-LANG] Language object found:`, langObj ? "YES" : "NO");
-      
-      if (langObj && langObj.preloadCode) {
-        console.log(`[DEBUG-LANG] Setting preload code for ${language} (${langObj.preloadCode.length} chars)`);
-        setCode(langObj.preloadCode);
-      } else {
-        console.log(`[DEBUG-LANG] No preload code found for ${language}`);
-      }
-    }
-  }, [language, problemId, availableLanguages, session, setCode]);
+  }, [language, problemId, loadSavedCode]);
   
   // Reset loadedRef when problem changes, and save current code
   useEffect(() => {
     // Skip initial render
     if (!initialLoadCompleteRef.current) {
-      console.log('[DEBUG] Skipping save on initial render');
+     
       prevProblemIdRef.current = problemId;
       return;
     }
@@ -1460,11 +1292,27 @@ public:
     // Check if problem changed
     const problemChanged = prevProblemIdRef.current !== null && prevProblemIdRef.current !== problemId;
     
+    
     // Save the current code before loading new code for changed problem
     if (problemChanged && code) {
-      console.log(`[DEBUG] Problem changed - saving current code`);
       // Save to current problem/language
-      saveCode();
+      if (language) {
+        // Save to localStorage
+        localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+        
+        // Save to backend if logged in
+        if (session?.user?.id) {
+          // Get the full language name from the availableLanguages array
+          const selectedLang = availableLanguages.find((l: LanguageOption) => String(l.languageId) === String(language));
+          const fullLanguageName = selectedLang?.name || language;
+          
+          fetch(`/api/problem/${problemId}/save-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language: fullLanguageName }),
+          }).catch(err => console.error('[DEBUG] Error saving to backend:', err));
+        }
+      }
     }
     
     // Update problem reference
@@ -1472,26 +1320,30 @@ public:
     
     // Reset load flag to ensure we reload code for the new problem
     if (problemChanged) {
-      console.log(`[DEBUG] Problem changed - resetting loaded flag`);
       loadedRef.current = false;
     }
-  }, [problemId, saveCode, code]);
+  }, [problemId, code, language, session?.user?.id, availableLanguages]);
 
   // --- Persist selected language on change (backend + localStorage) ---
   useEffect(() => {
     if (language && problemId) {
+      // Ensure we're always saving the language ID for consistency
+      const langToSave = String(language);
+      
       // Backend for logged-in users
       if (session?.user?.id) {
         fetch(`/api/problem/${problemId}/last-language`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ language }),
-        });
+          body: JSON.stringify({ language: langToSave }),
+        }).catch(e => console.error("[LANG-PERSIST] Error saving to backend:", e));
       }
       // Always update localStorage for guests
       try {
-        localStorage.setItem(`nexacademy_last_language_${problemId}`, language);
-      } catch {}
+        localStorage.setItem(`nexacademy_last_language_${problemId}`, langToSave);
+      } catch (e) {
+        console.error("[LANG-PERSIST] Error saving to localStorage:", e);
+      }
     }
   }, [language, problemId, session]);
 
@@ -1513,12 +1365,12 @@ public:
   async function saveCodeDraft() {
     if (!problemId || !language) return;
     const latestCode = codeRef.current;
-    // Save to localStorage
+    const fullLang = getFullLanguageName(language);
+    console.log(latestCode, fullLang);
     localStorage.setItem(
-      `nexacademy_code_draft_${problemId}_${language}`,
+      `nexacademy_code_draft_${problemId}_${fullLang}`,
       latestCode
     );
-    // Save to backend if logged in
     if (session?.user?.id) {
       try {
         await fetch(`/api/problem/${problemId}/save-code`, {
@@ -1526,12 +1378,10 @@ public:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             code: latestCode,
-            language,
+            language: fullLang,
           }),
         });
-      } catch (e) {
-        // Optionally handle error
-      }
+      } catch (e) {}
     }
   }
   // ... existing code ...
@@ -1545,14 +1395,9 @@ public:
 
   // 2. Save to backend on tab switch away, language change, run/submit, tab close
   const saveCodeToBackend = useCallback(() => {
-    if (!problemId || !language || !session?.user?.id) return;
-    const latestCode = localStorage.getItem(`nexacademy_code_${problemId}_${language}`) || "";
-    fetch(`/api/problem/${problemId}/save-code`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: latestCode, language }),
-    });
-  }, [problemId, language, session?.user?.id]);
+    // Just call our main saveCode function
+    saveCode();
+  }, [saveCode]);
 
   // 3. On tab switch (visibilitychange)
   useEffect(() => {
@@ -1651,7 +1496,6 @@ public:
     }
     
     // If we get here, we couldn't find a line number
-    console.log("Could not extract line number from error:", errorMessage);
     return null;
   };
 
@@ -1715,6 +1559,527 @@ public:
       />
     );
   }
+
+  // Update language display when judge0Languages load
+  useEffect(() => {
+    if (judge0Languages && judge0Languages.length > 0 && language) {
+      // Force a re-render without changing the language value
+      // This helps update any components that depend on judge0Languages to resolve names
+      setLanguage(prevLang => prevLang);
+    }
+  }, [judge0Languages, language]);
+
+  // Update the submitCode function to handle testcases sequentially and stop on first failure
+  const submitCode = async () => {
+    saveCode();
+    setTestTabValue("result");
+    setIsSubmitting(true)
+    setSubmitResults(null)
+    setErrorLine(null)
+    setErrorMessage(null)
+    const currentHeight = bottomPanelHeight
+
+    // Variables to track submission info for saving
+    let submissionData: any = {
+      language,
+      code,
+      testcasesPassed: 0,
+      totalTestcases: 0,
+      allPassed: false,
+      runtime: null,
+      memory: null,
+      runtimePercentile: null,
+      memoryPercentile: null
+    };
+    let shouldSave = false;
+    
+    try {
+      // Validate code
+      const validation = validateCode(code);
+      if (!validation.valid) {
+        setResults({
+          success: false,
+          loading: false,
+          error: validation.error,
+          judgeResults: [],
+          mode: "submit"
+        })
+        setIsSubmitting(false);
+        // Save what we can
+        submissionData = {
+          ...submissionData,
+          testcasesPassed: 0,
+          totalTestcases: 0,
+          allPassed: false
+        };
+        shouldSave = true;
+        return;
+      }
+      
+      // Find the selected languageId - using the same logic as runCode
+      let selectedLang;
+      let languageId;
+      
+      // First try finding by language ID
+      if (!isNaN(Number(language))) {
+        // If language is already a numeric ID, try to find it directly
+        selectedLang = availableLanguages.find(l => String(l.languageId) === language);
+        if (selectedLang) {
+          languageId = selectedLang.languageId;
+        } else {
+          // If not found in availableLanguages but language is a number, use it directly
+          languageId = Number(language);
+        }
+      } else {
+        // If language is a name, find by name
+        selectedLang = availableLanguages.find(l => l.name === language);
+        if (selectedLang) {
+          languageId = selectedLang.languageId;
+        }
+      }
+      
+  
+
+      if (!languageId) throw new Error("Language ID not found");
+      
+      // Prepare all test cases (sample and hidden)
+      const sampleTestCases = (problem?.sampleTestCases || []).map(tc => ({
+        input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
+        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
+        type: "sample"
+      }))
+      
+      const hiddenTestCases = (problem?.hiddenTestCases || []).map(tc => ({
+        input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
+        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
+        type: "hidden"
+      }))
+      
+      const allTestCases = [...sampleTestCases, ...hiddenTestCases]
+      
+      // Validate test cases
+      if (!allTestCases.length) {
+        throw new Error("No test cases available for this problem");
+      }
+      
+      // Create initial loading results - show "Evaluating..." message
+      setResults({
+        success: true,
+        loading: true,
+        judgeResults: [],
+        mode: "submit",
+        totalTestCases: allTestCases.length,
+        showOnlyFailures: true,
+        progress: {
+          current: 0,
+          total: allTestCases.length,
+          message: "Evaluating all test cases...",
+        }
+      })
+      
+      // If bottom panel is not visible enough, adjust it
+      if (currentHeight < 20) {
+        setBottomPanelHeight(30);
+      } else {
+        setBottomPanelHeight(currentHeight);
+      }
+      
+      // Process test cases one by one and stop on first failure
+      let failedTestCase = null;
+      let passedCount = 0;
+      let totalRuntimeMs = 0;
+      let totalMemoryKb = 0;
+      let allPassed = true;
+      for (let i = 0; i < allTestCases.length; i++) {
+        const testCase = allTestCases[i];
+        setResults((prev: any) => ({
+          ...prev,
+          progress: {
+            current: i + 1,
+            total: allTestCases.length,
+            message: `Evaluating test case ${i + 1}/${allTestCases.length}...`,
+          }
+        }));
+        const result = await runWithJudge0({
+          sourceCode: code,
+          languageId,
+          testCases: [testCase],
+        });
+        if (result.length > 0) {
+          const runtimeStr = result[0].time;
+          const memoryStr = result[0].memory;
+          if (runtimeStr) totalRuntimeMs += parseFloat(runtimeStr) * 1000;
+          if (memoryStr) totalMemoryKb += parseInt(memoryStr, 10);
+        }
+        if (result.length > 0 && result[0].verdict !== "Accepted") {
+          failedTestCase = {
+            ...result[0],
+            input: testCase.input,
+          };
+          allPassed = false;
+          break;
+        }
+        passedCount++;
+      }
+      // After the loop, set total runtime, memory, and allPassed
+      submissionData.runtime = `${Math.round(totalRuntimeMs)} ms`;
+      submissionData.memory = `${(totalMemoryKb / 1024).toFixed(2)} MB`;
+      submissionData.allPassed = allPassed;
+      submissionData.testcasesPassed = passedCount;
+      submissionData.totalTestcases = allTestCases.length;
+      
+      // After processing all test cases or finding a failure
+      if (failedTestCase) {
+        // Check for compile or runtime errors
+        if (failedTestCase.verdict === "Compile Error" || failedTestCase.verdict === "Runtime Error") {
+          const errorMessage = failedTestCase.compile_output || failedTestCase.stderr || '';
+          const lineNumber = extractErrorLineNumber(errorMessage);
+          if (lineNumber) {
+            setErrorLine(lineNumber);
+            setErrorMessage(errorMessage);
+          }
+        }
+        setResults({
+          success: true,
+          loading: false,
+          judgeResults: [failedTestCase],
+          mode: "submit",
+          summary: {
+            passed: passedCount,
+            total: allTestCases.length,
+            allPassed: false,
+            message: `Test case failed. (${passedCount}/${allTestCases.length} passed)`
+          },
+          showOnlyFailures: true
+        });
+      } else {
+        // All test cases passed!
+        const submissionStats = {
+          runtime: `${Math.round(totalRuntimeMs)} ms`, // This would ideally come from Judge0 results
+          runtimePercentile: "100.00%",
+          memory: `${(totalMemoryKb / 1024).toFixed(2)} MB`, // This would ideally come from Judge0 results
+          memoryPercentile: "63.06%", 
+          code: code,
+          language: language,
+          timestamp: new Date().toISOString(),
+          testsPassed: passedCount,
+          totalTests: allTestCases.length
+        };
+        setAcceptedSubmission(submissionStats);
+        setShowAcceptedTab(true);
+        setActiveTab("accepted");
+        setShowConfetti(true);
+        setResults({
+          success: true,
+          loading: false,
+          judgeResults: [],
+          mode: "submit",
+          summary: {
+            passed: allTestCases.length,
+            total: allTestCases.length,
+            allPassed: true,
+            message: `All ${allTestCases.length} test cases passed! 🎉`
+          },
+          showOnlyFailures: true
+        });
+      }
+      shouldSave = true;
+    } catch (error: any) {
+      console.error('Error submitting code:', error)
+      
+      // Try to extract line number from error message
+      const lineNumber = extractErrorLineNumber(error.message);
+      if (lineNumber) {
+        setErrorLine(lineNumber);
+        setErrorMessage(error.message); // Set the error message
+      }
+      
+      setResults({
+        success: false,
+        loading: false,
+        error: error.message || "Unknown error submitting code.",
+        mode: "submit"
+      })
+      // Save what we can
+      submissionData = {
+        ...submissionData,
+        testcasesPassed: 0,
+        totalTestcases: 0,
+        allPassed: false
+      };
+      shouldSave = true;
+    } finally {
+      setIsSubmitting(false);
+      // Always save submission if user is logged in
+      if (session?.user?.id && shouldSave) {
+        // Save with retry logic
+        const saveWithRetry = async (retryCount = 0, maxRetries = 3) => {
+          try {
+            const response = await fetch(`/api/problem/${problemId}/save-submission`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(submissionData)
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              if (retryCount < maxRetries) {
+                console.log(`[CLIENT] Retrying save (${retryCount + 1}/${maxRetries})...`);
+                setTimeout(() => saveWithRetry(retryCount + 1, maxRetries), 1000); // Retry after 1 second
+              }
+              return;
+            }
+          } catch (error) {
+            if (retryCount < maxRetries) {
+              setTimeout(() => saveWithRetry(retryCount + 1, maxRetries), 1000); // Retry after 1 second
+            }
+          }
+        };
+        saveWithRetry();
+      }
+    }
+  }
+
+  // Helper function to get the proper language name for the code editor
+  const getEditorLanguageName = (languageIdOrName: string): string => {
+    // Default return value if we can't determine the language
+    let editorLanguage = 'plaintext';
+    
+    try {
+      const normalizedId = String(languageIdOrName || '').trim();
+      
+      // Comprehensive map from language names to CodeMirror modes
+      const languageModeMap: Record<string, string> = {
+        'javascript': 'javascript',
+        'typescript': 'typescript', 
+        'python': 'python',
+        'java': 'java',
+        'c++': 'cpp',
+        'cpp': 'cpp',
+        'c': 'c',
+        'c#': 'csharp',
+        'csharp': 'csharp',
+        'go': 'go',
+        'rust': 'rust',
+        'ruby': 'ruby',
+        'php': 'php',
+        'swift': 'swift',
+        'kotlin': 'kotlin',
+        'scala': 'scala',
+        'haskell': 'haskell',
+        'perl': 'perl',
+        'r': 'r',
+        'bash': 'shell',
+        'shell': 'shell',
+        'objective-c': 'objectivec',
+        'objectivec': 'objectivec',
+        'dart': 'dart'
+      };
+      
+      // First try exact match for language ID in judge0Languages
+      if (!isNaN(Number(normalizedId))) {
+        if (judge0Languages?.length) {
+          const judge0Lang = judge0Languages.find(l => String(l.id) === normalizedId);
+          if (judge0Lang?.name) {
+            const baseName = judge0Lang.name.split(/[\s(]/)[0].toLowerCase();
+            return getEditorMode(baseName);
+          }
+        }
+      }
+      
+      // If not found by ID, try find matching language by name or ID
+      const matchingLang = availableLanguages.find(
+        (l: LanguageOption) => 
+          l.name.toLowerCase() === normalizedId.toLowerCase() || 
+          String(l.languageId) === normalizedId
+      );
+      
+      if (matchingLang?.name) {
+        const baseName = matchingLang.name.split(/[\s(]/)[0].toLowerCase();
+        return getEditorMode(baseName);
+      }
+      
+      // If not found through lookups, try direct mapping if it's a language name
+      if (isNaN(Number(normalizedId))) {
+        const baseName = normalizedId.split(/[\s(]/)[0].toLowerCase();
+        const modeFromMap = languageModeMap[baseName];
+        if (modeFromMap) {
+          return modeFromMap;
+        }
+        
+        return baseName;
+      }
+      
+      return editorLanguage;
+    } catch (error) {
+      return editorLanguage;
+    }
+  };
+
+  // Get just the base language name (e.g., "JavaScript" from "JavaScript (Node.js 12.14.0)")
+  // Returns plain text for CodeEditor instead of React JSX
+  function getBaseLanguageName(langName: string): string {
+    return langName.split(' ')[0];
+  }
+
+  // Add this effect after availableLanguages and problemId are loaded
+  useEffect(() => {
+    if (!problemId || !availableLanguages.length) return;
+
+    availableLanguages.forEach(lang => {
+      const fullLang = lang.name;
+      const idKey = `nexacademy_code_${problemId}_${lang.languageId}`;
+      const nameKey = `nexacademy_code_${problemId}_${lang.name}`;
+      const newKey = `nexacademy_code_${problemId}_${fullLang}`;
+
+      // If code exists under the old ID key and not under the new key, migrate it
+      if (localStorage.getItem(idKey) && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(idKey) as string);
+        localStorage.removeItem(idKey);
+      }
+      // If code exists under the old name key and not under the new key, migrate it
+      if (localStorage.getItem(nameKey) && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(nameKey) as string);
+        localStorage.removeItem(nameKey);
+      }
+    });
+  }, [problemId, availableLanguages]);
+
+  // Replace the old getEditorLanguageName function with a robust getEditorMode function
+  function getEditorMode(languageName: string): string {
+    if (!languageName) return 'javascript';
+    
+    // First check if this is a numeric Judge0 language ID
+    if (!isNaN(Number(languageName))) {
+      // Handle common Judge0 language IDs
+      const langIdMap: Record<string, string> = {
+        '4': 'javascript', // Node.js
+        '11': 'python',    // Python 3 
+        '10': 'python',    // Python 2
+        '26': 'python',    // Python 3.6
+        '71': 'python',    // Python 3.8
+        '29': 'java',      // Java 
+        '54': 'cpp',       // C++
+        '53': 'cpp',       // C++ GCC 8.3.0
+        '55': 'java',      // Java
+        '56': 'php',       // PHP
+        '51': 'csharp',    // C#
+        '60': 'go',        // Go
+        '73': 'rust',      // Rust
+        '72': 'ruby',      // Ruby
+      };
+      
+      if (langIdMap[languageName]) {
+        return langIdMap[languageName];
+      }
+    }
+    
+    // Lowercase and normalize the language name
+    const langStr = String(languageName).toLowerCase();
+    
+    // Direct mappings for full language names
+    if (langStr.startsWith('c++ gcc') || langStr.startsWith('c++ clang')) {
+      return 'cpp';
+    }
+    
+    // Check if language name contains c++ or cpp
+    if (langStr.includes('c++') || langStr.includes('cpp') || langStr.includes('gcc')) {
+      return 'cpp';
+    }
+    
+    // Regular processing - extract base name
+    const baseName = langStr
+      .split(' (')[0]         // Remove version info, e.g., "Python (3.11.2)" -> "python"
+      .split(' ')[0]          // Take just the first word
+      .replace('#', 'sharp')  // "c#" -> "csharp"
+      .replace('++', 'pp')    // "c++" -> "cpp"
+      .replace(/[\s\-]/g, ''); // Remove spaces and dashes
+      
+    // Map to supported editor modes
+    const modeMap: Record<string, string> = {
+      'javascript': 'javascript',
+      'js': 'javascript',
+      'typescript': 'typescript',
+      'ts': 'typescript',
+      'python': 'python',
+      'py': 'python',
+      'java': 'java',
+      'cpp': 'cpp',
+      'c': 'c',
+      'csharp': 'csharp',
+      'cs': 'csharp',
+      'go': 'go',
+      'rust': 'rust',
+      'php': 'php',
+      'ruby': 'ruby',
+      'swift': 'swift',
+      'kotlin': 'kotlin',
+      'dart': 'dart'
+    };
+
+    const result = modeMap[baseName] || 'javascript';
+    return result;
+  }
+
+ 
+
+
+  // Helper: get Judge0 language object by ID
+  function getJudge0LangById(langId: string | number) {
+    return judge0Languages.find(l => String(l.id) === String(langId));
+  }
+
+  // Helper: get CodeMirror mode from Judge0 language name
+  function getCodeMirrorModeFromJudge0Name(judge0Name: string): string {
+    if (!judge0Name) return 'javascript';
+    const base = judge0Name.split(/\s|\(/)[0].toLowerCase();
+    const map: Record<string, string> = {
+      'javascript': 'javascript',
+      'typescript': 'typescript',
+      'python': 'python',
+      'java': 'java',
+      'c++': 'cpp',
+      'cpp': 'cpp',
+      'c': 'c',
+      'c#': 'csharp',
+      'csharp': 'csharp',
+      'go': 'go',
+      'rust': 'rust',
+      'ruby': 'ruby',
+      'php': 'php',
+      'swift': 'swift',
+      'kotlin': 'kotlin',
+      'dart': 'dart',
+      // add more as needed
+    };
+    return map[base] || 'javascript';
+  }
+
+  // Save code before page unload - optimized to avoid duplicates
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (initialLoadCompleteRef.current && problemId && language && code) {
+        // Use synchronous localStorage save for beforeunload
+        try {
+          localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+        } catch (e) {}
+        
+        // For backend, we'll use sendBeacon for more reliable background saves
+        if (session?.user?.id && !inFlightRequestsRef.current.saveCode) {
+          try {
+            const fullLanguageName = getFullLanguageName(language);
+            const blob = new Blob(
+              [JSON.stringify({ code, language: fullLanguageName })], 
+              { type: 'application/json' }
+            );
+            navigator.sendBeacon(`/api/problem/${problemId}/save-code`, blob);
+          } catch (e) {}
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [code, problemId, language, session?.user?.id]);
 
   return (
     <div className="main-container">
@@ -2162,7 +2527,6 @@ public:
                               .then(res => res.json())
                               .then(data => {
                                 if (data.submission) {
-                                  console.log("Fetched complete submission:", data.submission);
                                   setSelectedSubmission(data.submission);
                                 }
                               })
@@ -2657,7 +3021,7 @@ public:
                 <DropdownMenu open={languageDropdownOpen} onOpenChange={setLanguageDropdownOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="flex items-center gap-2 text-sm h-8 px-3">
-                      {judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(language))?.name || language}
+                      {displayedLanguageName}
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground">
                         <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
@@ -2689,114 +3053,203 @@ public:
                     )}
                     
                     {/* Popular Languages Section */}
-                    {(!languageFilter || availableLanguages.some(lang => 
-                      ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(name => 
-                        lang.name.startsWith(name)
-                      ) && 
-                      lang.name.toLowerCase().includes(languageFilter.toLowerCase())
-                    )) && (
+                    {(!languageFilter || availableLanguages.some(lang => {
+                      const matchesFilter = !languageFilter || 
+                        lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
+                        judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
+                      
+                      const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
+                      
+                      return ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                        langName.startsWith(popularLang)
+                      ) && matchesFilter;
+                    })) && (
                       <div className="language-section">
                         <div className="language-section-title">Popular</div>
                         <div className="language-grid">
                           {availableLanguages
-                            .filter(lang => 
-                              ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(name => 
-                                lang.name.startsWith(name)
-                              ) && 
-                              (languageFilter === "" || 
-                               lang.name.toLowerCase().includes(languageFilter.toLowerCase()))
-                            )
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map(lang => (
-                              <div
-                                key={lang.id}
-                                className={`language-item ${language === lang.name ? 'active' : ''}`}
-                                onClick={() => handleLanguageChange(lang.name)}
-                              >
-                                <span className="language-icon">
-                                  {getLanguageIcon(lang.name)}
-                                </span>
-                                <span title={judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(lang.languageId))?.name || lang.languageId}>
-                                  {getLanguageBaseAndVersion(lang.name)}
-                                </span>
-                              </div>
-                            ))
+                            .filter(lang => {
+                              const matchesFilter = !languageFilter || 
+                                lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
+                                judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
+                              
+                              const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
+                              
+                              return ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                                langName.startsWith(popularLang)
+                              ) && matchesFilter;
+                            })
+                            .sort((a, b) => {
+                              const aName = judge0Languages.find(j => String(j.id) === String(a.languageId))?.name || a.name;
+                              const bName = judge0Languages.find(j => String(j.id) === String(b.languageId))?.name || b.name;
+                              return aName.localeCompare(bName);
+                            })
+                            .map(lang => {
+                              const langId = String(lang.languageId);
+                              const resolvedName = judge0Languages.find((l) => String(l.id) === langId)?.name || lang.name || langId;
+                              
+                              // Check if this language is active
+                              const isActive = language === langId;
+                              
+                              return (
+                                <div
+                                  key={lang.id}
+                                  className={`language-item ${isActive ? 'active' : ''}`}
+                                  onClick={() => handleLanguageChange(langId)}
+                                >
+                                  <span className="language-icon">
+                                    {getLanguageIcon(resolvedName)}
+                                  </span>
+                                  <span title={resolvedName}>
+                                    {getLanguageBaseAndVersion(resolvedName)}
+                                  </span>
+                                </div>
+                              );
+                            })
                           }
                         </div>
                       </div>
                     )}
                     
                     {/* Systems Section */}
-                    {(!languageFilter || availableLanguages.some(lang => 
-                      ['C', 'Rust', 'Go'].some(name => 
-                        lang.name.startsWith(name) && !lang.name.includes('C++') && !lang.name.includes('C#')
+                    {(!languageFilter || availableLanguages.some(lang => {
+                      const matchesFilter = !languageFilter || 
+                        lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
+                        judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
+                      
+                      const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
+                      
+                      return ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                        langName.startsWith(sysLang) || 
+                        (sysLang === 'C ' && langName === 'C')
                       ) && 
-                      lang.name.toLowerCase().includes(languageFilter.toLowerCase())
-                    )) && (
+                      !langName.includes('C++') && 
+                      !langName.includes('C#') &&
+                      matchesFilter;
+                    })) && (
                       <div className="language-section">
                         <div className="language-section-title">Systems & Low-level</div>
                         <div className="language-grid">
                           {availableLanguages
-                            .filter(lang => 
-                              ['C', 'Rust', 'Go'].some(name => 
-                                lang.name.startsWith(name) && !lang.name.includes('C++') && !lang.name.includes('C#')
+                            .filter(lang => {
+                              const matchesFilter = !languageFilter || 
+                                lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
+                                judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
+                              
+                              const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
+                              
+                              return ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                                langName.startsWith(sysLang) || 
+                                (sysLang === 'C ' && langName === 'C')
                               ) && 
-                              (languageFilter === "" || 
-                               lang.name.toLowerCase().includes(languageFilter.toLowerCase()))
-                            )
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map(lang => (
-                              <div
-                                key={lang.id}
-                                className={`language-item ${language === lang.name ? 'active' : ''}`}
-                                onClick={() => handleLanguageChange(lang.name)}
-                              >
-                                <span className="language-icon">
-                                  {getLanguageIcon(lang.name)}
-                                </span>
-                                <span title={judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(lang.languageId))?.name || lang.languageId}>
-                                  {getLanguageBaseAndVersion(lang.name)}
-                                </span>
-                              </div>
-                            ))
+                              !langName.includes('C++') && 
+                              !langName.includes('C#') &&
+                              matchesFilter;
+                            })
+                            .sort((a, b) => {
+                              const aName = judge0Languages.find(j => String(j.id) === String(a.languageId))?.name || a.name;
+                              const bName = judge0Languages.find(j => String(j.id) === String(b.languageId))?.name || b.name;
+                              return aName.localeCompare(bName);
+                            })
+                            .map(lang => {
+                              const langId = String(lang.languageId);
+                              const resolvedName = judge0Languages.find((l) => String(l.id) === langId)?.name || lang.name || langId;
+                              
+                              // Check if this language is active
+                              const isActive = language === langId;
+                              
+                              return (
+                                <div
+                                  key={lang.id}
+                                  className={`language-item ${isActive ? 'active' : ''}`}
+                                  onClick={() => handleLanguageChange(langId)}
+                                >
+                                  <span className="language-icon">
+                                    {getLanguageIcon(resolvedName)}
+                                  </span>
+                                  <span title={resolvedName}>
+                                    {getLanguageBaseAndVersion(resolvedName)}
+                                  </span>
+                                </div>
+                              );
+                            })
                           }
                         </div>
                       </div>
                     )}
                     
                     {/* Other Languages Section */}
-                    {(!languageFilter || availableLanguages.some(lang => 
-                      !['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript', 'C', 'Rust', 'Go'].some(name => 
-                        lang.name.startsWith(name) || (name === 'C' && lang.name === 'C')
+                    {(!languageFilter || availableLanguages.some(lang => {
+                      const matchesFilter = !languageFilter || 
+                        lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
+                        judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
+                      
+                      const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
+                      
+                      const isPopular = ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                        langName.startsWith(popularLang)
+                      );
+                      
+                      const isSystem = ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                        langName.startsWith(sysLang) || 
+                        (sysLang === 'C ' && langName === 'C')
                       ) && 
-                      lang.name.toLowerCase().includes(languageFilter.toLowerCase())
-                    )) && (
+                      !langName.includes('C++') && 
+                      !langName.includes('C#');
+                      
+                      return !isPopular && !isSystem && matchesFilter;
+                    })) && (
                       <div className="language-section">
                         <div className="language-section-title">Other Languages</div>
                         <div className="language-grid">
                           {availableLanguages
-                            .filter(lang => 
-                              !['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript', 'C', 'Rust', 'Go'].some(name => 
-                                lang.name.startsWith(name) || (name === 'C' && lang.name === 'C')
+                            .filter(lang => {
+                              const matchesFilter = !languageFilter || 
+                                lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
+                                judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
+                              
+                              const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
+                              
+                              const isPopular = ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                                langName.startsWith(popularLang)
+                              );
+                              
+                              const isSystem = ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                                langName.startsWith(sysLang) || 
+                                (sysLang === 'C ' && langName === 'C')
                               ) && 
-                              (languageFilter === "" || 
-                               lang.name.toLowerCase().includes(languageFilter.toLowerCase()))
-                            )
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map(lang => (
-                              <div
-                                key={lang.id}
-                                className={`language-item ${language === lang.name ? 'active' : ''}`}
-                                onClick={() => handleLanguageChange(lang.name)}
-                              >
-                                <span className="language-icon">
-                                  {getLanguageIcon(lang.name)}
-                                </span>
-                                <span title={judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(lang.languageId))?.name || lang.languageId}>
-                                  {getLanguageBaseAndVersion(lang.name)}
-                                </span>
-                              </div>
-                            ))
+                              !langName.includes('C++') && 
+                              !langName.includes('C#');
+                              
+                              return !isPopular && !isSystem && matchesFilter;
+                            })
+                            .sort((a, b) => {
+                              const aName = judge0Languages.find(j => String(j.id) === String(a.languageId))?.name || a.name;
+                              const bName = judge0Languages.find(j => String(j.id) === String(b.languageId))?.name || b.name;
+                              return aName.localeCompare(bName);
+                            })
+                            .map(lang => {
+                              const langId = String(lang.languageId);
+                              const resolvedName = judge0Languages.find((l) => String(l.id) === langId)?.name || lang.name || langId;
+                              
+                              // Check if this language is active
+                              const isActive = language === langId;
+                              
+                              return (
+                                <div
+                                  key={lang.id}
+                                  className={`language-item ${isActive ? 'active' : ''}`}
+                                  onClick={() => handleLanguageChange(langId)}
+                                >
+                                  <span className="language-icon">
+                                    {getLanguageIcon(resolvedName)}
+                                  </span>
+                                  <span title={resolvedName}>
+                                    {getLanguageBaseAndVersion(resolvedName)}
+                                  </span>
+                                </div>
+                              );
+                            })
                           }
                         </div>
                       </div>
@@ -2853,10 +3306,8 @@ public:
                 <CodeEditor 
                   code={code} 
                   setCode={setCode} 
-                  language={language} 
-                  preloadCode={
-                    getLanguageTemplate(language)
-                  }
+                  language={getCodeMirrorModeFromJudge0Name(getJudge0LangById(language)?.name || '')}
+                  preloadCode={getLanguageTemplate(language)}
                   initialShowSettings={editorSettingsOpen}
                   editorSettingsRef={editorSettingsRef}
                   errorLine={errorLine}

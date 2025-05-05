@@ -52,9 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const userId = String(body.userId || '');
     const assessmentId = String(params.id || '');
     
-    console.log("API DEBUG - Received request with:");
-    console.log("userId:", userId);
-    console.log("assessmentId:", assessmentId);
+  
     
     if (!userId || !assessmentId) {
       return NextResponse.json({ error: 'Missing userId or assessmentId' }, { status: 400 });

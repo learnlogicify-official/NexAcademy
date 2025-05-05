@@ -193,7 +193,7 @@ export default function IDEShowcase({ preferredLanguage, onFinishOnboarding }: I
     setError("")
     setShowFinish(false)
     const langObj = languages.find(l => l.name === language)
-    console.log("[handleRun] Selected language:", langObj)
+   
     if (!langObj) {
       setError("Language not found in Judge0 list.")
       setIsRunning(false)
@@ -205,7 +205,7 @@ export default function IDEShowcase({ preferredLanguage, onFinishOnboarding }: I
         source_code: code,
         stdin: ""
       }
-      console.log("[handleRun] POST body:", postBody)
+     
       // Submit code to Judge0
       const submitRes = await fetch("https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=false", {
         method: "POST",
@@ -217,7 +217,7 @@ export default function IDEShowcase({ preferredLanguage, onFinishOnboarding }: I
         body: JSON.stringify(postBody)
       })
       const submitData = await submitRes.json()
-      console.log("[handleRun] Judge0 submit response:", submitData)
+     
       if (!submitData.token) {
         setError("Failed to submit code to Judge0 API.")
         setIsRunning(false)
@@ -234,7 +234,7 @@ export default function IDEShowcase({ preferredLanguage, onFinishOnboarding }: I
           }
         })
         const data = await res.json()
-        console.log(`[handleRun] Poll attempt ${i+1}:`, data)
+       
         if (data.status && data.status.id >= 3) {
           result = data
           break

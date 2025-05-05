@@ -32,16 +32,7 @@ export async function GET(request: Request, context: { params: { id: string, sub
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     }
     
-    // Log submission data for debugging
-    console.log("[API] Submission data:", {
-      id: submission.id,
-      testcasesPassed: submission.testcasesPassed,
-      totalTestcases: submission.totalTestcases,
-      type: {
-        testcasesPassed: typeof submission.testcasesPassed,
-        totalTestcases: typeof submission.totalTestcases
-      }
-    });
+   
     
     // Ensure numeric values are returned as numbers, not strings
     const processedSubmission = {

@@ -85,22 +85,18 @@ const AikenImportModal: React.FC<AikenImportModalProps> = ({
       const content = event.target?.result as string;
       setFileContent(content);
 
-      // Add basic diagnostic info to help troubleshoot
-      console.log("==================== FILE DIAGNOSTICS ====================");
-      console.log(`File name: ${file.name}`);
-      console.log(`File size: ${content.length} characters`);
+      
 
       // Check for various line ending types
       const crlfCount = (content.match(/\r\n/g) || []).length;
       const crCount = (content.match(/\r(?!\n)/g) || []).length;
       const lfCount = (content.match(/(?<!\r)\n/g) || []).length;
-      console.log(`Line endings: CRLF=${crlfCount}, CR=${crCount}, LF=${lfCount}`);
+     
 
       // Count answer lines and options
       const answerLines = (content.match(/ANSWER:\s*[A-Z]/gi) || []).length;
       const optionALines = (content.match(/^A[\)\.\:]\s+/gmi) || []).length;
-      console.log(`Found ${answerLines} ANSWER: lines`);
-      console.log(`Found ${optionALines} option A lines`);
+  
 
       // Parse the file
       handleParse(content);
@@ -150,9 +146,9 @@ ANSWER: B`;
 
   const examineContent = () => {
     try {
-      console.log("============= DETAILED FILE EXAMINATION =============");
+      
       if (!fileContent) {
-        console.log("No file content to examine");
+       
         toast({
           title: "No File Content",
           description: "Please upload a file first",
@@ -161,45 +157,37 @@ ANSWER: B`;
         return;
       }
 
-      console.log("Raw file content length:", fileContent.length);
-      console.log("First 500 characters:", fileContent.substring(0, 500));
+     
 
       // Check for various line ending types
       const crlfCount = (fileContent.match(/\r\n/g) || []).length;
       const crCount = (fileContent.match(/\r(?!\n)/g) || []).length;
       const lfCount = (fileContent.match(/(?<!\r)\n/g) || []).length;
 
-      console.log("Line ending counts:");
-      console.log("- CRLF (\\r\\n):", crlfCount);
-      console.log("- CR only (\\r):", crCount);
-      console.log("- LF only (\\n):", lfCount);
+     
 
       // Look for separator patterns
       const emptyLineCount = (fileContent.match(/\n\s*\n/g) || []).length;
       const possibleQuestionCount = emptyLineCount + 1;
 
-      console.log("Empty line separators:", emptyLineCount);
-      console.log("Possible questions based on separators:", possibleQuestionCount);
+      
 
       // Count answer lines
       const answerLineCount = (fileContent.match(/ANSWER:\s*[A-Z]/gi) || []).length;
-      console.log("ANSWER: lines found:", answerLineCount);
+      
 
       // Count option patterns
       const optionACount = (fileContent.match(/\nA[\)\.\:]\s+/gi) || []).length;
       const optionBCount = (fileContent.match(/\nB[\)\.\:]\s+/gi) || []).length;
 
-      console.log("Option pattern counts:");
-      console.log("- A option lines:", optionACount);
-      console.log("- B option lines:", optionBCount);
+     
 
       // Show a small random sample of the content for inspection
       const lines = fileContent.split('\n');
       const sampleSize = Math.min(20, lines.length);
       const sampleStart = Math.floor(Math.random() * (lines.length - sampleSize));
 
-      console.log(`Random sample (lines ${sampleStart}-${sampleStart + sampleSize}):`);
-      console.log(lines.slice(sampleStart, sampleStart + sampleSize).join('\n'));
+     
 
       // Display a simple alert dialog as fallback
       alert(`File Examination Complete:
@@ -270,7 +258,7 @@ Check browser console for complete details (press F12)`);
 
             // Validate the answer exists in options
             if (!optionsKeys.has(answer)) {
-              console.log(`Error: Answer ${answer} doesn't match any option`);
+             
               errorBlocks.push(q_text);
               failedCount++;
             } else {
@@ -286,7 +274,7 @@ Check browser console for complete details (press F12)`);
             throw new Error(`Invalid ANSWER format at line ${i}`);
           }
         } else {
-          console.log(`Malformed question at line ${i}: Missing ANSWER`);
+          
           errorBlocks.push(q_text);
           failedCount++;
 
@@ -310,13 +298,9 @@ Check browser console for complete details (press F12)`);
       errorBlocks
     });
 
-    console.log(`Successfully parsed ${questions.length} questions`);
-    console.log(`Failed to parse ${failedCount} questions`);
 
-    if (errorBlocks.length > 0) {
-      console.log("Sample of first failed block:");
-      console.log(errorBlocks[0]);
-    }
+
+    
 
     return { questions, failedCount, errorBlocks };
   };
@@ -377,17 +361,11 @@ Check browser console for complete details (press F12)`);
 
         try {
           // Log the question data before sending
-          console.log('Attempting to import question:', {
-            index: i + 1,
-            total: parseResults.questions.length,
-            questionName: questionData.name,
-            optionsCount: questionData.mCQQuestion.options.length,
-            folderId: questionData.folderId
-          });
+         
 
           // Convert to API format
           const requestBody = JSON.stringify(questionData);
-          console.log('Request body:', requestBody);
+          
 
           const response = await fetch('/api/questions', {
             method: 'POST',
@@ -398,12 +376,7 @@ Check browser console for complete details (press F12)`);
           });
 
           // Log the raw response for debugging
-          console.log('Server response:', {
-            status: response.status,
-            statusText: response.statusText,
-            ok: response.ok,
-            headers: Object.fromEntries(response.headers.entries())
-          });
+         
 
           if (!response.ok) {
             let errorMessage = 'Unknown error';
@@ -411,7 +384,7 @@ Check browser console for complete details (press F12)`);
 
             try {
               const text = await response.text();
-              console.log('Raw error response:', text);
+             
 
               try {
                 errorData = JSON.parse(text);
@@ -446,10 +419,7 @@ Check browser console for complete details (press F12)`);
             console.error('Error in response:', responseData.error);
             failCount++;
           } else {
-            console.log('Successfully imported question:', {
-              question: questionData.name,
-              responseId: responseData.id
-            });
+            
             successCount++;
           }
         } catch (error: any) {

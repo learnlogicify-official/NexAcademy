@@ -15,7 +15,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const body = await request.json();
     // Debug: log the received tags
-    console.log('Received PUT codingQuestion.tags:', (body.codingQuestion || body).tags);
     
     // Handle both direct and nested codingQuestion structure
     const codingQuestion = body.codingQuestion || body;
@@ -38,9 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         ? extractTagIds(body.tags)
         : [];
 
-    console.log('UPDATE - languageOptions:', languageOptions);
-    console.log('UPDATE - testCases:', testCases);
-    console.log('UPDATE - tags:', tags);
+   
 
     // Validate that the tags exist before attempting to connect them
     if (tags.length > 0) {
@@ -57,8 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           }
         });
         
-        console.log(`Found ${existingTags.length} tags out of ${tags.length} requested:`);
-        existingTags.forEach(tag => console.log(`  - ${tag.name} (${tag.id})`));
+    
         
         // If some tags weren't found, log a warning
         if (existingTags.length < tags.length) {
@@ -135,7 +131,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         gradePercentage: Number(tc.gradePercentage) || 0
       };
     });
-    console.log("UPDATE - testCasesData:", testCasesData);
+   
     // Update the coding question and its relations in a single call
     await prisma.codingQuestion.update({
       where: { id: codingQuestionId },
@@ -186,9 +182,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       tags: updatedQuestion.codingQuestion?.tags || []
     };
 
-    // Log the formatted response tags for debugging
-    console.log("UPDATE RESPONSE - Tags in formatted response:", 
-      JSON.stringify(formattedResponse.codingQuestion?.tags || [], null, 2));
+
 
     return NextResponse.json(formattedResponse);
   } catch (error) {

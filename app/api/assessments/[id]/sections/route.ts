@@ -8,15 +8,10 @@ export async function PUT(
   try {
     const { sections } = await req.json();
     
-    console.log('Received sections update request:', { assessmentId: params.id, sections });
     
     await prisma.$transaction(async (tx) => {
       for (const section of sections) {
-        console.log(`Updating section ${section.id}:`, {
-          shuffleQuestions: section.shuffleQuestions,
-          timeLimitEnabled: section.timeLimitEnabled,
-          timeLimit: section.timeLimit
-        });
+       
         
         await tx.section.update({
           where: { id: section.id },

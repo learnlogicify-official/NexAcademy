@@ -75,7 +75,6 @@ const errorLineField = StateField.define<DecorationSet>({
             // Return a new decoration set
             return RangeSet.of(decorations);
           } catch (e) {
-            console.error("Error applying error line decoration:", e);
             return value;
           }
         }
@@ -90,6 +89,103 @@ const errorLineField = StateField.define<DecorationSet>({
     return EditorView.decorations.from(field)
   }
 })
+
+// Map normalized base language names to CodeMirror extensions
+const languageExtensions: Record<string, any> = {
+  javascript: javascript(),
+  typescript: javascript({ typescript: true }),
+  jsx: javascript({ jsx: true }),
+  tsx: javascript({ jsx: true, typescript: true }),
+  python: python(),
+  java: java(),
+  cpp: cpp(),
+  c: cpp(),
+  csharp: () => cpp(), // Fallback to C++ syntax for C#
+  go: () => python(), // Fallback to Python syntax for Go
+  rust: () => cpp(), // Fallback to C++ syntax for Rust
+  php: () => javascript(), // Fallback to JavaScript syntax for PHP
+  ruby: () => python(), // Fallback to Python syntax for Ruby
+  swift: () => cpp(), // Fallback to C++ syntax for Swift
+  kotlin: () => java(), // Fallback to Java syntax for Kotlin
+  dart: () => javascript(), // Fallback to JavaScript syntax for Dart
+  // Add more as needed with appropriate fallbacks
+};
+
+// Robust normalization: map all Judge0 language names/versions to base editor mode
+function normalizeLanguageName(languageName: string): string {
+  if (!languageName) return 'javascript'; // Default to JavaScript if no language specified
+  
+  const langStr = String(languageName).toLowerCase();
+  
+  // First check if this might be a Judge0 language ID
+  if (!isNaN(Number(langStr))) {
+    // Some common Judge0 language IDs
+    const langIdMap: Record<string, string> = {
+      '4': 'javascript', // Node.js
+      '11': 'python',    // Python 3
+      '10': 'python',    // Python 2
+      '26': 'python',    // Python 3.6
+      '71': 'python',    // Python 3.8
+      '29': 'java',      // Java
+      '54': 'cpp',       // C++
+      '53': 'cpp',       // C++ GCC 8.3.0
+      '55': 'java',      // Java
+      '56': 'php',       // PHP
+      '51': 'csharp',    // C#
+      '60': 'go',        // Go
+      '73': 'rust',      // Rust
+      '72': 'ruby',      // Ruby
+    };
+    
+    if (langIdMap[langStr]) {
+      return langIdMap[langStr];
+    }
+  }
+  
+  // Special case for "Language X" format (common in some integrations)
+  if (langStr.startsWith('language ')) {
+    const langId = langStr.split(' ')[1];
+    if (!isNaN(Number(langId))) {
+      // Try to map the ID part
+      const specials: Record<string, string> = {
+        '53': 'cpp', // C++ GCC
+        '54': 'cpp', // C++ Clang
+        '4': 'javascript',
+        '11': 'python'
+      };
+      
+      if (specials[langId]) {
+        return specials[langId];
+      }
+    }
+  }
+  
+  // Process language name
+  let base = langStr.split(/[\s(]/)[0].trim();
+  
+  // Map common variations
+  if (/^(js|javascript|node)$/.test(base)) return 'javascript';
+  if (/^(ts|typescript)$/.test(base)) return 'typescript';
+  if (/^(py|python|python3|python2)$/.test(base)) return 'python';
+  if (/^(java)$/.test(base)) return 'java';
+  if (/^(c\+\+|cpp|cxx|gcc)$/.test(base)) return 'cpp';
+  if (/^(c)$/.test(base)) return 'c';
+  if (/^(c#|csharp|cs)$/.test(base)) return 'csharp';
+  if (/^(go|golang)$/.test(base)) return 'go';
+  if (/^(rust|rs)$/.test(base)) return 'rust';
+  if (/^(php)$/.test(base)) return 'php';
+  if (/^(rb|ruby)$/.test(base)) return 'ruby';
+  if (/^(swift)$/.test(base)) return 'swift';
+  if (/^(kt|kotlin)$/.test(base)) return 'kotlin';
+  if (/^(dart)$/.test(base)) return 'dart';
+  
+  // Look for C++ in the name (e.g., "C++ GCC 8.3.0")
+  if (langStr.includes('c++') || langStr.includes('cpp') || langStr.includes('gcc')) {
+    return 'cpp';
+  }
+  
+  return 'javascript'; // Default fallback
+}
 
 export function CodeEditor({ code, setCode, language, preloadCode, initialShowSettings = false, editorSettingsRef, errorLine = null, errorMessage = null, readOnly = false }: CodeEditorProps) {
   const [element, setElement] = useState<HTMLElement | null>(null)
@@ -203,21 +299,18 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
       }
     })
 
-    // Select language extension based on the language prop
+    // Select language extension based on the normalized language prop
     const getLangExtension = () => {
-      switch (language) {
-        case "JavaScript":
-          return javascript()
-        case "Python":
-          return python()
-        case "Java":
-          return java()
-        case "C++":
-          return cpp()
-        default:
-          return javascript()
+      const base = normalizeLanguageName(language);
+      const extension = languageExtensions[base];
+      
+      // Handle both direct extensions and function-based fallbacks
+      if (typeof extension === 'function') {
+        return extension();
       }
-    }
+      
+      return extension || null;
+    };
 
     // Get VS Code-like theme styles as a separate object
     const getVSCodeTheme = (isDark: boolean) => {
@@ -274,11 +367,17 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
       };
     };
 
+    const ext = getLangExtension();
+    if (!ext) {
+      // Show a warning if unsupported
+      console.warn(`No CodeMirror extension found for language: ${language} (normalized: ${normalizeLanguageName(language)}). Falling back to plaintext.`);
+    }
+
     const state = EditorState.create({
       doc: lastDocContent.current,
       extensions: [
         basicSetup,
-        getLangExtension(),
+        ext ? ext : [],
         updateListener,
         EditorView.lineWrapping,
         EditorState.tabSize.of(tabSize),
@@ -372,6 +471,14 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
     }
   }, [element, language, mounted, setCode])
 
+  // Add logging for language detection
+  useEffect(() => {
+    if (language) {
+      const normalized = normalizeLanguageName(language);
+      const extension = languageExtensions[normalized];
+    }
+  }, [language]);
+
   // Update editor content when code prop changes (if different from current)
   useEffect(() => {
     // Only update the editor if the code prop changes from outside
@@ -399,7 +506,6 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
       try {
         const editorDOM = editor.dom;
         if (!editorDOM) {
-          console.log("Editor DOM not available");
           return;
         }
         
@@ -407,8 +513,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
         const lines = editorDOM.querySelectorAll('.cm-line');
         const gutters = editorDOM.querySelectorAll('.cm-gutter');
         
-        console.log(`Editor DOM structure: ${lines.length} lines, ${gutters.length} gutters`);
-        console.log(`Target error line: ${errorLine}`);
+        
       } catch (e) {
         console.error("Error logging editor structure:", e);
       }
@@ -440,7 +545,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
       return;
     }
     
-    console.log("Highlighting error line:", errorLine);
+
     
     // Create a function to apply the highlighting
     const applyHighlighting = () => {
@@ -464,7 +569,6 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
         
         // Apply error highlighting to the line
         if (targetLine) {
-          console.log(`Highlighting line ${targetLineIndex + 1} (adjusted from ${errorLine})`);
           targetLine.classList.add('error-highlighted');
           
           // Find the editor container
@@ -704,7 +808,6 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           // Add the container to the editor
           foldGutter.appendChild(markerContainer);
           
-          console.log(`Added fixed error marker at line ${targetLineIndex + 1}`);
         } else {
           console.warn(`Couldn't find element for line ${targetLineIndex + 1}`);
         }
@@ -720,7 +823,6 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
     // Determine which line to scroll to
     let targetLineNumber = errorLine;
     if (targetLineNumber > totalDocLines || targetLineNumber < 1) {
-      console.log(`Error line ${errorLine} is outside document range (1-${totalDocLines}), using last line`);
       targetLineNumber = Math.max(1, totalDocLines);
     }
 
@@ -739,7 +841,6 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
       
       // Then wait a bit more for the DOM to fully update
       setTimeout(() => {
-        console.log("Applying error highlighting...");
         applyHighlighting();
       }, 50);
     }, 150);
@@ -1024,7 +1125,14 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
         </div>
         <div className="status-section status-language">
-          <span>{language}</span>
+          <span>{
+            // Show a user-friendly language name 
+            language ? (
+              language.includes('(') 
+                ? language.split('(')[0].trim() 
+                : (language === normalizeLanguageName(language) ? language.charAt(0).toUpperCase() + language.slice(1) : language)
+            ) : 'JavaScript'
+          }</span>
         </div>
         <div className="status-section status-encoding">
           <span>UTF-8</span>

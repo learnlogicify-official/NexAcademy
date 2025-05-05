@@ -9,7 +9,6 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/onboarding")) {
     // Get the user's session token
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    console.log("[Middleware] JWT token:", token);
     if (token?.hasOnboarded) {
       // Redirect to dashboard if already onboarded
       return NextResponse.redirect(new URL("/dashboard", request.url));

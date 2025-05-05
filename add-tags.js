@@ -96,7 +96,6 @@ async function addTag(tag) {
     }
     
     const data = await response.json();
-    console.log(`✅ Successfully added tag: ${tag.name}`);
     return data;
   } catch (error) {
     console.error(`❌ ${error.message}`);
@@ -106,8 +105,6 @@ async function addTag(tag) {
 
 // Function to add all tags
 async function addAllTags() {
-  console.log('🚀 Starting to add tags...');
-  console.log(`📊 Total tags to add: ${tags.length}`);
   
   let successCount = 0;
   let errorCount = 0;
@@ -121,10 +118,6 @@ async function addAllTags() {
     }
   }
   
-  console.log('\n📝 Summary:');
-  console.log(`✅ Successfully added: ${successCount} tags`);
-  console.log(`❌ Failed to add: ${errorCount} tags`);
-  console.log('🎉 Tag addition process completed!');
 }
 
 // Run the function

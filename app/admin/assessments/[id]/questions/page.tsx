@@ -322,7 +322,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
   
   // Calculate the actual questions to display, filtering missing questions
   const sectionQuestions = React.useMemo(() => {
-    console.log(`Computing questions for section ${section.name} (${section.id})`);
+   
     
     // First, get the ordered question data from section.questions
     // This preserves the order from the SectionQuestion table
@@ -338,7 +338,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
       // Sort by order first to establish initial ordering
       .sort((a, b) => (a.order as number) - (b.order as number));
     
-    console.log("Ordered question data:", orderedQuestionData.map(q => ({ id: q.id, order: q.order })));
     
     // Now map these to the actual question objects
     return orderedQuestionData
@@ -491,7 +490,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
       // Don't show global saving state for question reordering to avoid confusion
       // Start with immediate UI update for better UX
       
-      console.log(`Moving question from position ${oldIndex} to ${newIndex}`);
       
       // Create a new ordered array of questions
       const reorderedQuestions = arrayMove([...sectionQuestions], oldIndex, newIndex);
@@ -503,9 +501,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
         order: index // Explicitly set the order based on new position
       }));
       
-      console.log("Updated questions with order:", 
-        updatedQuestions.map((q, i) => `${i+1}: ${q.id} (order: ${q.order})`)
-      );
+     
       
       // Update the local state with the new order
       const updatedSections = allSections.map(s => {
@@ -546,7 +542,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
         }))
       };
       
-      console.log("Sending order update:", orderUpdatePayload);
       
       // Call the API endpoint for updating question order
       const response = await fetch(`/api/assessments/${assessmentId}/sections/${section.id}/order`, {
@@ -562,7 +557,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
       }
       
       const result = await response.json();
-      console.log("Order update response:", result);
       
       toast.success("Question order updated", { duration: 2000 });
     } catch (error) {
@@ -758,12 +752,10 @@ const SectionCard: React.FC<SectionCardProps> = ({
                   onCheckedChange={async (checked) => {
                     try {
                       setSaving(true);
-                      console.log(`Toggling shuffleQuestions to ${checked} for section ${section.id}`);
                       
                       // Create a deep copy of sections to avoid direct state mutation
                       const updatedSections = [...allSections].map(s => {
                         if (s.id === section.id) {
-                          console.log(`Updating section ${s.id} shuffleQuestions from ${s.shuffleQuestions} to ${checked}`);
                           return { ...s, shuffleQuestions: checked };
                         }
                         return s;
@@ -771,7 +763,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
                       
                       // First update local state for immediate UI feedback
                       setSections(updatedSections);
-                      console.log("Local state updated, saving to server...");
                       
                       // Prepare data for the direct section settings update
                       const sectionSettingsData = {
@@ -818,12 +809,10 @@ const SectionCard: React.FC<SectionCardProps> = ({
                   onCheckedChange={async (checked) => {
                     try {
                       setSaving(true);
-                      console.log(`Toggling timeLimitEnabled to ${checked} for section ${section.id}`);
                       
                       // Create a deep copy of sections to avoid direct state mutation
                       const updatedSections = [...allSections].map(s => {
                         if (s.id === section.id) {
-                          console.log(`Updating section ${s.id} timeLimitEnabled from ${s.timeLimitEnabled} to ${checked}`);
                           return { 
                             ...s, 
                             timeLimitEnabled: checked,
@@ -835,7 +824,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
                       
                       // First update local state for immediate UI feedback
                       setSections(updatedSections);
-                      console.log("Local state updated, saving to server...");
                       
                       // Prepare data for the direct section settings update
                       const sectionSettingsData = {
@@ -887,7 +875,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
                       
                       try {
                         setSaving(true);
-                        console.log(`Updating timeLimit to ${value} for section ${section.id}`);
                         
                         // Create a deep copy of sections
                         const updatedSections = [...allSections].map(s => {
@@ -902,7 +889,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
                         
                         // Update local state first
                         setSections(updatedSections);
-                        console.log("Local state updated with new timeLimit, saving to server...");
                         
                         // Prepare data for the direct section settings update
                         const sectionSettingsData = {
@@ -1207,7 +1193,6 @@ export default function QuestionsPage() {
   
   // Use useMemo to calculate total marks when sections or available questions change
   const totalMarks = useMemo(() => {
-    console.log("Recalculating total marks...");
     let total = 0;
     
     sections.forEach(section => {
@@ -1240,20 +1225,11 @@ export default function QuestionsPage() {
         if (!assessmentRes.ok) throw new Error("Failed to fetch assessment");
         const assessmentData = await assessmentRes.json();
         
-        console.log("Assessment API response:", assessmentData);
         
         // Add detailed logging of the sections and questions
         if (assessmentData.sections) {
           assessmentData.sections.forEach((section: any) => {
-            console.log(`Section ${section.title || section.name} (${section.id}) questions:`, 
-              section.questions && section.questions.length > 0 
-                ? section.questions.map((q: any) => ({ 
-                    id: q.id || q.questionId, 
-                    order: q.order, 
-                    sectionMark: q.sectionMark 
-                  }))
-                : 'No questions'
-            );
+            
           });
         }
         
@@ -1273,9 +1249,7 @@ export default function QuestionsPage() {
             // If questions is an array of objects with questionId and sectionMark properties
               if (section.questions.length > 0 && typeof section.questions[0] === 'object') {
                 // Log order of questions for debugging
-                console.log(`Section ${section.title} questions before sorting:`, 
-                  section.questions.map((q: any) => ({ id: q.questionId || q.id, order: q.order }))
-                );
+                
                 
                 sectionQuestions = section.questions
                   .sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) // Sort by order
@@ -1286,9 +1260,7 @@ export default function QuestionsPage() {
                   }));
                   
                 // Log order after sorting
-                console.log(`Section ${section.title} questions after sorting:`, 
-                  sectionQuestions.map((q: any) => ({ id: q.id, order: q.order }))
-                );
+               
               } 
             // If questions is an array of SectionQuestion objects
             else if (section.SectionQuestions && section.SectionQuestions.length > 0) {
@@ -1311,7 +1283,6 @@ export default function QuestionsPage() {
               }
             }
             
-            console.log(`Section ${section.title} has ${sectionQuestions.length} questions:`, sectionQuestions);
             
             return {
               id: section.id,
@@ -1324,10 +1295,8 @@ export default function QuestionsPage() {
               timeLimit: section.timeLimit || 30
             };
           });
-        console.log("Transformed sections from API:", sectionsData);
         setSections(sectionsData);
         } else {
-          console.log("No sections found, creating default section");
           // Create a default section if none exists
           sectionsData = [{
             id: "default-" + Date.now(),
@@ -1346,7 +1315,6 @@ export default function QuestionsPage() {
         const foldersRes = await fetch("/api/folders");
         if (!foldersRes.ok) throw new Error("Failed to fetch folders");
         const foldersData = await foldersRes.json();
-        console.log("Folders API response:", foldersData);
         
         // Build the folder hierarchy
         const parentFolders: any[] = foldersData.filter((folder: any) => !folder.parentId);
@@ -1361,7 +1329,6 @@ export default function QuestionsPage() {
           };
         });
         
-        console.log("Folders with subfolders:", foldersWithSubfolders);
         setFolders(foldersWithSubfolders);
         
       // Fetch all available questions with their section marks
@@ -1369,14 +1336,12 @@ export default function QuestionsPage() {
         if (!questionsRes.ok) throw new Error("Failed to fetch questions");
         const questionsData = await questionsRes.json();
         
-        console.log("Questions API response:", questionsData);
         
         // Check if the response has a 'questions' property (nested structure)
         const questions = questionsData.questions 
           ? questionsData.questions 
           : (Array.isArray(questionsData) ? questionsData : []);
         
-        console.log("Raw questions array:", questions);
         
         if (questions.length === 0) {
           console.warn("No questions found in API response");
@@ -1422,7 +1387,6 @@ export default function QuestionsPage() {
           };
         });
         
-        console.log("Transformed questions:", transformedQuestions);
         setAvailableQuestions(transformedQuestions);
       
       // Now update the sections with the correct section marks from transformedQuestions
@@ -1447,7 +1411,6 @@ export default function QuestionsPage() {
           };
         });
         
-        console.log("Updated sections with correct marks:", updatedSections);
         setSections(updatedSections);
       }
       } catch (error) {
@@ -1467,15 +1430,7 @@ export default function QuestionsPage() {
     setSaving(true);
     try {
       // Debug: log the sections state before transformation
-      console.log("Current sections state before save:", JSON.stringify(sectionsToSave.map(s => ({
-        id: s.id,
-        name: s.name,
-        questionsCount: s.questions?.length || 0,
-        hasQuestionsArray: Array.isArray(s.questions),
-        shuffleQuestions: s.shuffleQuestions,
-        timeLimitEnabled: s.timeLimitEnabled,
-        timeLimit: s.timeLimit
-      }))));
+      
       
       // Deep copy sections to avoid reference issues
       const sectionsWithQuestions = sectionsToSave.map(section => {
@@ -1501,9 +1456,7 @@ export default function QuestionsPage() {
       });
       
       // Log the questions array for each section after copy
-      sectionsWithQuestions.forEach(section => {
-        console.log(`Section ${section.name} has ${section.questions.length} questions, shuffleQuestions=${section.shuffleQuestions}, timeLimitEnabled=${section.timeLimitEnabled}, timeLimit=${section.timeLimit}`);
-      });
+      
       
       // Prepare the data to be sent
       const dataToSend = {
@@ -1527,10 +1480,6 @@ export default function QuestionsPage() {
         })
       };
       
-      console.log("Formatted data to send:", JSON.stringify(dataToSend));
-      console.log("Data to send - question counts per section:", 
-        dataToSend.sections.map(section => `${section.name}: ${section.questions.length} questions`)
-      );
       
       // Set a timeout for the fetch to prevent indefinite waiting
       const controller = new AbortController();
@@ -1555,7 +1504,6 @@ export default function QuestionsPage() {
       }
       
         const responseData = await response.json().catch(() => ({ sections: [] }));
-      console.log("Success response from POST /questions:", responseData);
         
         // After successful save, update the local state with the response data if needed
         if (responseData.sections) {
@@ -1567,12 +1515,7 @@ export default function QuestionsPage() {
             (s: Section) => !responseSectionIds.has(s.id)
           );
           
-          // If we have sections that aren't in the response, this often happens
-          // with newly created sections before they're fully persisted
-          if (missingSections.length > 0) {
-            console.log(`Found ${missingSections.length} sections in local state not in response, preserving them:`, 
-              missingSections.map(s => s.id));
-          }
+          
           
           // Transform sections from the response to our format
           const responseUpdatedSections = responseData.sections.map((section: any) => {
@@ -1601,20 +1544,11 @@ export default function QuestionsPage() {
           
           // Update the sections with the data from the server
           setSections(updatedSections);
-          console.log("Updated sections from response + preserved local state:", 
-            updatedSections.map((section: any) => ({
-              id: section.id, 
-              name: section.name, 
-              shuffleQuestions: section.shuffleQuestions,
-              timeLimitEnabled: section.timeLimitEnabled,
-              timeLimit: section.timeLimit
-            }))
-          );
+          
         }
         
         // Update assessment with total marks if available in the response
         if (responseData.totalMarks !== undefined && assessment) {
-          console.log(`Updating assessment total marks to: ${responseData.totalMarks}`);
           setAssessment({
             ...assessment,
             totalMarks: responseData.totalMarks
@@ -1660,7 +1594,6 @@ export default function QuestionsPage() {
       timeLimit: 30 // Default time limit even when disabled, for API validation
     };
 
-    console.log("Adding new section:", newSection);
     
     // Add the section locally first
     const updatedSections = [...sections, newSection];
@@ -1706,7 +1639,6 @@ export default function QuestionsPage() {
   const toggleQuestion = async (sectionId: string, questionId: string): Promise<void> => {
     try {
       setSaving(true);
-      console.log(`Toggling question ${questionId} in section ${sectionId}`);
       
       // Create a deep copy of sections
       const updatedSections = sections.map(section => {
@@ -1783,7 +1715,6 @@ export default function QuestionsPage() {
         ...filterParams
       });
       
-      console.log(`Fetching questions page ${page} with params:`, queryParams.toString());
       
       // Use the same API endpoint as the question bank page
       const response = await fetch(`/api/questions?${queryParams.toString()}`);
@@ -1798,7 +1729,6 @@ export default function QuestionsPage() {
       const pagination = data.pagination || { total: questions.length, totalPages: Math.ceil(questions.length / questionsPerPage) };
       const total = pagination.total || questions.length;
       
-      console.log(`Fetched ${questions.length} questions for page ${page} (total: ${total})`);
       
       // Transform the questions to match our interface consistently with question bank
       const transformedQuestions = questions.map((question: any) => {
@@ -1972,7 +1902,6 @@ export default function QuestionsPage() {
   const updateSectionMark = async (questionId: string, sectionId: string, newMark: number): Promise<void> => {
     try {
       setSaving(true);
-      console.log(`Updating mark for question ${questionId} in section ${sectionId} to ${newMark}`);
       
       // Call the API to update the section mark
       const response = await fetch(`/api/assessments/${params.id}/questions/${questionId}/mark`, {
@@ -2101,7 +2030,6 @@ export default function QuestionsPage() {
         return { message: "No questions selected for removal" };
       }
       
-      console.log(`Removing ${questionIds.length} question(s) from section ${sectionId}`);
       
       // Calculate marks to be removed for updating total marks
       let marksToRemove = 0;
@@ -2153,7 +2081,6 @@ export default function QuestionsPage() {
       // Update assessment totalMarks if available
       if (assessment && marksToRemove > 0) {
         const newTotalMarks = Math.max(0, totalMarks - marksToRemove);
-        console.log(`Updating total marks from ${totalMarks} to ${newTotalMarks} (removing ${marksToRemove})`);
         
         setAssessment({
           ...assessment,
@@ -2183,17 +2110,14 @@ export default function QuestionsPage() {
         
         if (!removeResponse || !removeResponse.ok) {
           // If direct API fails, try the fallback route
-          console.log("Direct removal API not available, falling back to general remove endpoint");
           throw new Error("Direct removal endpoint not available");
         }
         
         // Get response data from the direct API
         const directResponseData = await removeResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
-        console.log("Direct removal API response:", directResponseData);
         
         // Update assessment with total marks from response if available
         if (directResponseData.totalMarks !== undefined && assessment) {
-          console.log(`Updating assessment total marks to: ${directResponseData.totalMarks}`);
           setAssessment({
             ...assessment,
             totalMarks: directResponseData.totalMarks
@@ -2202,7 +2126,6 @@ export default function QuestionsPage() {
         
         return directResponseData;
       } catch (directApiError) {
-        console.log("Falling back to general remove endpoint", directApiError);
         
         // Fallback to the general remove endpoint
         const fallbackController = new AbortController();
@@ -2225,28 +2148,18 @@ export default function QuestionsPage() {
           
           if (!fallbackResponse.ok) {
             // If both APIs fail, fall back to saving the entire state
-            console.log("Fallback API also failed, falling back to full state save");
             throw new Error("Fallback removal endpoint failed");
           }
           
           // Get response data from the fallback API
           const fallbackResponseData = await fallbackResponse.json().catch(() => ({ message: `Removed ${questionIds.length} questions` }));
-          console.log("Fallback removal API response:", fallbackResponseData);
           
-          // Update assessment with total marks from response if available
-          if (fallbackResponseData.totalMarks !== undefined && assessment) {
-            console.log(`Updating assessment total marks to: ${fallbackResponseData.totalMarks}`);
-            setAssessment({
-              ...assessment,
-              totalMarks: fallbackResponseData.totalMarks
-            });
-          }
+         
           
           return fallbackResponseData;
         } catch (fallbackError) {
           clearTimeout(fallbackTimeoutId);
           
-          console.log("All removal APIs failed, falling back to full state save", fallbackError);
           
           // Last resort: save the entire state with the local updates we already made
           await saveChanges(updatedSections);
@@ -2345,7 +2258,6 @@ export default function QuestionsPage() {
         return;
       }
       
-      console.log(`Adding ${newQuestions.length} questions to section ${currentSection.id}`);
       
       // Create a direct API call for adding questions to avoid re-saving the entire assessment
       try {
@@ -2387,12 +2299,10 @@ export default function QuestionsPage() {
         
         if (!addResponse || !addResponse.ok) {
           // If the focused API fails or doesn't exist, fall back to the full save
-          console.log("Focused API not available, falling back to full save");
           throw new Error("Direct add endpoint not available");
         }
         
         const addResponseData = await addResponse.json().catch(() => ({}));
-        console.log("Questions added successfully via focused API:", addResponseData);
         
         // Update local state to match the server
       const updatedSections = sections.map(section => {
@@ -2422,7 +2332,6 @@ export default function QuestionsPage() {
         
         setSections(updatedSections);
       } catch (directApiError) {
-        console.log("Error with direct API, falling back to full save", directApiError);
         
         // Fall back to updating the full sections object
         const updatedSections = sections.map(section => {

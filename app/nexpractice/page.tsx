@@ -614,7 +614,6 @@ export default function NexPractice() {
                           ) : filteredProblems.length > 0 ? (
                             <>
                               {paginatedProblems.map((problem, index) => {
-                                console.log('Linking to questionId:', problem.questionId);
                             return (
                               <TableRow 
                                     key={problem.id}

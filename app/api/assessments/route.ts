@@ -52,10 +52,8 @@ const createAssessmentSchema = z.object({
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('User session:', session);
     
     if (!session?.user?.email) {
-      console.log('No user session found');
       return NextResponse.json({ message: "Unauthorized - login required" }, { status: 401 });
     }
 
@@ -65,18 +63,13 @@ export async function POST(req: Request) {
     });
 
     if (!user) {
-      console.log('User not found in database:', session.user.email);
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    console.log('Authenticated user:', user);
-    
     const body = await req.json();
-    console.log('Received raw request body:', body);
 
     // Validate the request body
     const validatedData = createAssessmentSchema.parse(body);
-    console.log('Validated assessment data:', validatedData);
     
     // Prepare the data for Prisma
     const assessmentData = {
@@ -112,26 +105,20 @@ export async function POST(req: Request) {
       disableCopyPaste: validatedData.disableCopyPaste
     };
 
-    console.log('Prepared Prisma data:', assessmentData);
-
     try {
       // Create the assessment
       const assessment = await db.assessment.create({
         data: assessmentData
       });
-      console.log('Successfully created assessment:', assessment);
       return NextResponse.json(assessment);
     } catch (dbError) {
-      console.error('Database error creating assessment:', dbError);
       return NextResponse.json(
         { message: 'Database error', error: String(dbError) },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Error in POST handler:', error);
     if (error instanceof z.ZodError) {
-      console.log('Validation error:', error.errors);
       return NextResponse.json(
         { message: 'Invalid request data', errors: error.errors }, 
         { status: 400 }
@@ -192,7 +179,6 @@ export async function GET(req: Request) {
       }
     });
   } catch (error) {
-    console.error("[ASSESSMENTS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -219,7 +205,6 @@ export async function PUT(req: Request) {
 
     return NextResponse.json(assessment);
   } catch (error) {
-    console.error("[ASSESSMENTS_PUT]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -245,7 +230,6 @@ export async function DELETE(req: Request) {
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error("[ASSESSMENTS_DELETE]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

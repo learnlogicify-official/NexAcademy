@@ -509,30 +509,20 @@ export function CodingQuestionFormModal({
 
   // Use useEffect to initialize the form data when initialData changes
   useEffect(() => {
-    console.log("CODING FORM MODAL - Initial data received:", JSON.stringify(initialData, null, 2));
+   
     
     if (initialData) {
-      console.log("CODING FORM MODAL - Setting form values from initialData");
-      
-      // Set basic form data
-      console.log("CODING FORM MODAL - Name:", initialData.name);
-      console.log("CODING FORM MODAL - FolderId:", initialData.folderId);
-      console.log("CODING FORM MODAL - Question Text:", initialData.questionText ? (initialData.questionText.length > 100 ? initialData.questionText.substring(0, 100) + '...' : initialData.questionText) : '');
-      console.log("CODING FORM MODAL - Difficulty:", initialData.difficulty);
-      console.log("CODING FORM MODAL - Default Mark:", initialData.defaultMark);
-      console.log("CODING FORM MODAL - Status:", initialData.status);
+     
       
       // Extract tags from either initialData or initialData.codingQuestion
       let tags: TagObj[] = [];
       
       if (initialData.tags && Array.isArray(initialData.tags)) {
-        console.log("CODING FORM MODAL - Setting tags from initialData.tags:", initialData.tags);
         tags = initialData.tags.map((t: any) => {
           if (typeof t === 'string') return { id: t, name: t };
           return { id: t.id, name: t.name || t.id };
         });
       } else if (initialData.codingQuestion?.tags && Array.isArray(initialData.codingQuestion.tags)) {
-        console.log("CODING FORM MODAL - Setting tags from initialData.codingQuestion.tags:", initialData.codingQuestion.tags);
         tags = initialData.codingQuestion.tags.map((t: any) => {
           if (typeof t === 'string') return { id: t, name: t };
           return { id: t.id, name: t.name || t.id };
@@ -553,8 +543,7 @@ export function CodingQuestionFormModal({
       
       // Set language options
       if (initialData.languageOptions && Array.isArray(initialData.languageOptions)) {
-        console.log("CODING FORM MODAL - Setting language options (direct):", 
-          JSON.stringify(initialData.languageOptions, null, 2));
+       
         
         setFormData(prevData => ({
           ...prevData,
@@ -568,24 +557,20 @@ export function CodingQuestionFormModal({
         
         // Set selected languages
         const langs = initialData.languageOptions.map((lang: any) => lang.language);
-        console.log("CODING FORM MODAL - Selected languages:", langs);
         setSelectedLanguages(langs);
         
         // Set default language
         const defaultLang = initialData.defaultLanguage && langs.includes(initialData.defaultLanguage)
           ? initialData.defaultLanguage
           : (langs.length > 0 ? langs[0] : "");
-        console.log("CODING FORM MODAL - Default language:", defaultLang);
         setDefaultLanguage(defaultLang);
         
         // Set active language tab
         if (langs.length > 0) {
-          console.log("CODING FORM MODAL - Setting active language tab:", langs[0]);
           setActiveLanguageTab(langs[0]);
         }
       } else if (initialData.codingQuestion?.languageOptions && Array.isArray(initialData.codingQuestion.languageOptions)) {
-        console.log("CODING FORM MODAL - Setting language options (from codingQuestion):", 
-          JSON.stringify(initialData.codingQuestion.languageOptions, null, 2));
+        
         
         setFormData(prevData => ({
           ...prevData,
@@ -599,36 +584,23 @@ export function CodingQuestionFormModal({
         
         // Set selected languages
         const langs = initialData.codingQuestion.languageOptions.map((lang: any) => lang.language);
-        console.log("CODING FORM MODAL - Selected languages (from codingQuestion):", langs);
         setSelectedLanguages(langs);
         
         // Set default language
         const defaultLang = initialData.codingQuestion.defaultLanguage && langs.includes(initialData.codingQuestion.defaultLanguage)
           ? initialData.codingQuestion.defaultLanguage
           : (langs.length > 0 ? langs[0] : "");
-        console.log("CODING FORM MODAL - Default language (from codingQuestion):", defaultLang);
         setDefaultLanguage(defaultLang);
         
         // Set active language tab
         if (langs.length > 0) {
-          console.log("CODING FORM MODAL - Setting active language tab:", langs[0]);
           setActiveLanguageTab(langs[0]);
         }
-      } else {
-        console.log("CODING FORM MODAL - No language options found");
-      }
+      } 
       
       // Set test cases
       if (initialData.testCases && Array.isArray(initialData.testCases)) {
-        console.log("CODING FORM MODAL - Setting test cases (direct):", 
-          JSON.stringify(initialData.testCases.map((tc: any) => ({
-            id: tc.id,
-            input: tc.input,
-            output: tc.output,
-            isHidden: tc.isHidden,
-            isSample: tc.isSample,
-            type: tc.type
-          })), null, 2));
+        
        
         setFormData(prevData => ({
           ...prevData,
@@ -672,15 +644,7 @@ export function CodingQuestionFormModal({
           })
         }));
       } else if (initialData.codingQuestion?.testCases && Array.isArray(initialData.codingQuestion.testCases)) {
-        console.log("CODING FORM MODAL - Setting test cases (from codingQuestion):", 
-          JSON.stringify(initialData.codingQuestion.testCases.map((tc: any) => ({
-            id: tc.id,
-            input: tc.input,
-            output: tc.output,
-            isHidden: tc.isHidden,
-            isSample: tc.isSample,
-            type: tc.type
-          })), null, 2));
+        
         
         setFormData(prevData => ({
           ...prevData,
@@ -723,13 +687,10 @@ export function CodingQuestionFormModal({
             };
           })
         }));
-      } else {
-        console.log("CODING FORM MODAL - No test cases found");
-      }
+      } 
       
       // Set all-or-nothing grading
       const useAllOrNothing = initialData.allOrNothingGrading === true || initialData.codingQuestion?.isAllOrNothing === true;
-      console.log("CODING FORM MODAL - All or nothing grading:", useAllOrNothing);
       setAllOrNothingGrading(useAllOrNothing);
       
       // Set default language again from possible alternatives
@@ -737,21 +698,12 @@ export function CodingQuestionFormModal({
         initialData.defaultLanguage || 
         initialData.codingQuestion?.defaultLanguage || 
         (selectedLanguages.length > 0 ? selectedLanguages[0] : "");
-      console.log("CODING FORM MODAL - Final default language:", finalDefaultLang);
       if (finalDefaultLang) {
         setDefaultLanguage(finalDefaultLang);
       }
       
       // Log the final form state
-      setTimeout(() => {
-        console.log("CODING FORM MODAL - Final form state:", {
-          formData: JSON.stringify(formData, null, 2),
-          selectedLanguages,
-          activeLanguageTab,
-          defaultLanguage,
-          allOrNothingGrading
-        });
-      }, 500);
+      
     }
   }, [initialData]);
 
@@ -782,7 +734,7 @@ export function CodingQuestionFormModal({
         return;
       }
       // Await the onSubmit call and only close on success
-      console.log('SUBMITTING:', codingQuestion);
+
       await onSubmit(codingQuestion);
       toast({
         title: "Success",
@@ -874,8 +826,7 @@ export function CodingQuestionFormModal({
     
     // Prepare tag IDs - ensure we're only sending the IDs, not the full objects
     const tagIds = formData.tags.map(tag => tag.id);
-    console.log("FORM SUBMIT - formData.tags:", formData.tags);
-    console.log("FORM SUBMIT - tagIds to submit:", tagIds);
+  
     
     // Create the properly structured data
     return {
@@ -1393,52 +1344,23 @@ export function CodingQuestionFormModal({
 
   // Improved function to add all 10 languages at once
   const addAllLanguages = () => {
-    const allLangIds = languages.map(lang => String(lang.id));
-    
-    
-    // Keep existing language options to preserve solutions and preload code
-    const currentOptions = new Map<string, LanguageOption>();
-    formData.languageOptions.forEach(opt => {
-      currentOptions.set(opt.language, opt);
+    if (!languages || languages.length === 0) return;
+    // Use the full Judge0 language object for each language
+    const newLangOptions = languages.map(lang => {
+      // Try to preserve existing solution/preloadCode if present
+      const existing = formData.languageOptions.find(opt => String(opt.language) === String(lang.id));
+      return {
+        id: `lang-${lang.id}-${Date.now()}`,
+        language: String(lang.id),
+        solution: existing?.solution || "",
+        preloadCode: existing?.preloadCode || "",
+        name: lang.name,
+        languageId: lang.id
+      };
     });
-    
-    // Create language options for all supported languages
-    const newLangOptions: LanguageOption[] = [];
-    
-    // For each supported language
-    for (const langId of allLangIds) {
-      // Use the exact language ID from languages
-      const exactLangId = langId;
-      
-      // If we already have this language, keep its existing data
-      if (currentOptions.has(exactLangId)) {
-        newLangOptions.push(currentOptions.get(exactLangId)!);
-      } else {
-        // Otherwise create a new empty option - with exact language ID
-        newLangOptions.push({
-          id: `lang-${exactLangId}-${Date.now()}`,
-          language: exactLangId, // Using exact language ID is crucial
-          solution: "",
-          preloadCode: ""
-        });
-      }
-    }
-    
-   
-    // Update state
-    setSelectedLanguages(allLangIds);
-    
-    // Keep the current active tab if it exists, otherwise use the first language
-    if (!allLangIds.includes(activeLanguageTab)) {
-      setActiveLanguageTab(allLangIds[0] || '');
-    }
-    
-    // Keep the current default language if it exists, otherwise use the first language
-    if (!allLangIds.includes(defaultLanguage)) {
-      setDefaultLanguage(allLangIds[0] || '');
-    }
-    
-  
+    setSelectedLanguages(languages.map(lang => String(lang.id)));
+    setActiveLanguageTab(String(languages[0]?.id) || '');
+    setDefaultLanguage(String(languages[0]?.id) || '');
     setFormData(prev => ({
       ...prev,
       languageOptions: newLangOptions

@@ -49,7 +49,6 @@ export async function GET(
     // Check if we should include order in the response
     const includeOrder = url.searchParams.get('includeOrder') === 'true';
     
-    console.log(`Getting assessment ${id} with includeSectionMarks=${includeSectionMarks}, includeOrder=${includeOrder}`);
 
     // Get assessment data
     const assessment = await prisma.assessment.findUnique({

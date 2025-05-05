@@ -375,7 +375,6 @@ export default function AdminQuestionsPage() {
       // Update the current page state
       setCurrentPage(page);
 
-      console.log('Fetching questions with params:', Object.fromEntries(queryParams.entries()));
 
       // First fetch to get paginated results
       const response = await axios.get(`/api/questions?${queryParams.toString()}`);
@@ -681,7 +680,6 @@ export default function AdminQuestionsPage() {
 
   const handleFormSubmit = async (data: any) => {
     try {
-      console.log("FORM SUBMIT - Initial data received:", data);
       
       let url = '/api/questions';
       let method = 'POST';
@@ -690,15 +688,12 @@ export default function AdminQuestionsPage() {
       if (data.id) {
         url = `/api/questions/${data.id}`;
         method = 'PUT';
-        console.log(`FORM SUBMIT - Editing existing question with ID: ${data.id}`);
-      } else {
-        console.log("FORM SUBMIT - Creating new question");
-      }
+      } 
 
       // Transform the data to match the API's expected format
       if (data.type === 'MCQ') {
         // Make sure questionText is included
-        console.log("FORM SUBMIT - Processing MCQ data");
+        
         body = {
           id: data.id,
           name: data.name,
@@ -720,7 +715,6 @@ export default function AdminQuestionsPage() {
           }
         };
       } else if (data.type === 'CODING') {
-        console.log("FORM SUBMIT - Processing CODING data");
         body = {
           id: data.id,
           name: data.name,
@@ -740,7 +734,6 @@ export default function AdminQuestionsPage() {
         };
       }
 
-      console.log("FORM SUBMIT - Final data to submit:", JSON.stringify(body, null, 2));
 
       const response = await fetch(url, {
         method,
@@ -757,7 +750,6 @@ export default function AdminQuestionsPage() {
       }
 
       const result = await response.json();
-      console.log("FORM SUBMIT - Success response:", result);
       
       toast({
         title: "Success",
@@ -837,11 +829,9 @@ export default function AdminQuestionsPage() {
   };
 
   const handleEditQuestion = (question: QuestionType) => {
-    console.log("EDIT QUESTION - Original question data:", JSON.stringify(question, null, 2));
     
     // Get MCQ-specific data with proper typing
     const mcqQuestion = (question.mCQQuestion || {}) as any;
-    console.log("EDIT QUESTION - MCQ Question data:", JSON.stringify(mcqQuestion, null, 2));
     
     // Format MCQ options with standard property names
     const mcqOptions = (mcqQuestion.options || []).map((opt: any) => ({
@@ -850,11 +840,9 @@ export default function AdminQuestionsPage() {
       grade: opt.grade || 0,
       feedback: opt.feedback || ""
     }));
-    console.log("EDIT QUESTION - Formatted MCQ options:", JSON.stringify(mcqOptions, null, 2));
     
     // Get Coding-specific data with proper typing
     const codingQuestion = (question.codingQuestion || {}) as any;
-    console.log("EDIT QUESTION - Coding Question data:", JSON.stringify(codingQuestion, null, 2));
     
     // Format language options with standard property names
     const languageOptions = (codingQuestion.languageOptions || []).map((lang: any) => ({
@@ -863,7 +851,6 @@ export default function AdminQuestionsPage() {
       solution: lang.solution || "",
       preloadCode: lang.preloadCode || ""
     }));
-    console.log("EDIT QUESTION - Formatted language options:", JSON.stringify(languageOptions, null, 2));
     
     // Format test cases with standard property names
     const testCases = (codingQuestion.testCases || []).map((tc: any, tcIdx: number) => ({
@@ -875,7 +862,6 @@ export default function AdminQuestionsPage() {
       showOnFailure: tc.showOnFailure === true, // Always include showOnFailure, default to false if undefined
       gradePercentage: tc.gradePercentage || 0
     }));
-    console.log("EDIT QUESTION - Formatted test cases:", JSON.stringify(testCases, null, 2));
     
     // Extract the question text from the appropriate location
     const questionText = 
@@ -883,7 +869,6 @@ export default function AdminQuestionsPage() {
       mcqQuestion.questionText || 
       codingQuestion.questionText || 
       "";
-    console.log("EDIT QUESTION - Extracted question text:", questionText);
     
     // Create the question data object matching the expected structure
     const formData = {
@@ -908,17 +893,14 @@ export default function AdminQuestionsPage() {
       tags: codingQuestion.tags || []
     };
     
-    console.log("EDIT QUESTION - Final formData prepared for editing:", JSON.stringify(formData, null, 2));
     
     // Set the editingQuestion state with the formatted data
     setEditingQuestion(formData as QuestionFormData);
     
     // Open the appropriate modal based on question type
     if (question.type === 'CODING') {
-      console.log("EDIT QUESTION - Opening coding form modal");
       setIsCodingFormModalOpen(true);
     } else {
-      console.log("EDIT QUESTION - Opening MCQ form modal");
       setIsFormModalOpen(true);
     }
   };
@@ -1121,22 +1103,18 @@ export default function AdminQuestionsPage() {
 
   const prepareDataForMCQModal = () => {
     if (!editingQuestion) {
-      console.log("prepareDataForMCQModal - No editing question data available");
       return undefined;
     }
     
-    console.log("prepareDataForMCQModal - Returning editing question data:", JSON.stringify(editingQuestion, null, 2));
     // Return only the data structure the MCQ modal expects
     return editingQuestion;
   };
 
   const prepareDataForCodingModal = () => {
     if (!editingQuestion) {
-      console.log("prepareDataForCodingModal - No editing question data available");
       return undefined;
     }
 
-    console.log("prepareDataForCodingModal - Returning editing question data:", JSON.stringify(editingQuestion, null, 2));
     // Return only the data structure the coding modal expects
     return editingQuestion;
   };
@@ -1347,9 +1325,7 @@ export default function AdminQuestionsPage() {
       }
 
       // If no match found, use the default language
-      console.log(
-        `Language not found in Judge0: ${lang}, using default language instead`
-      );
+     
       return (
         selectedDefaultLanguage ||
         (languages && languages.length > 0 ? String(languages[0].id) : "")
@@ -1377,9 +1353,7 @@ export default function AdminQuestionsPage() {
             codingQuestion: {
               languageOptions: q.languageOptions.map((lang: any) => {
                 const mappedLanguage = mapLanguageToSupported(lang.language);
-                console.log(
-                  `Mapping language ${lang.language} to ${mappedLanguage}`
-                );
+                
                 return {
                   ...lang,
                   language: mappedLanguage,
@@ -1398,10 +1372,7 @@ export default function AdminQuestionsPage() {
             },
           };
 
-          console.log(
-            "Submitting question:",
-            JSON.stringify(formData, null, 2)
-          );
+        
 
           const response = await axios.post("/api/questions", formData);
           successCount++;
@@ -1444,10 +1415,7 @@ export default function AdminQuestionsPage() {
       selectedDefaultLanguage ||
       (languages && languages.length > 0 ? String(languages[0].id) : "");
 
-    console.log(
-      "Parsing XML questions with default language:",
-      defaultLangId
-    );
+   
 
     return questions.map((q: any, idx: number) => {
       // Extract language from the question
@@ -1456,7 +1424,7 @@ export default function AdminQuestionsPage() {
       // First try to extract from prototypetype which sometimes contains language info
       if (q.prototypetype?.text) {
         const prototypeType = q.prototypetype.text.toLowerCase();
-        console.log(`Question ${idx + 1} prototype: ${prototypeType}`);
+   
 
         // Common Moodle CodeRunner prototypes
         if (prototypeType.includes("python")) detectedLanguage = "python";
@@ -1509,9 +1477,7 @@ export default function AdminQuestionsPage() {
       }
 
       const solution = q.answer?.["#cdata-section"] || q.answer || "";
-      console.log(
-        `Question ${idx + 1} detected language: ${detectedLanguage || "none"}`
-      );
+      
 
       // Map the detected language to Judge0 language ID using robust matching
       let mappedDefaultLang = defaultLangId;
@@ -1554,7 +1520,6 @@ export default function AdminQuestionsPage() {
         languageOptions: languageOptions,
         testCases: (q.testcases?.testcase || []).map((tc: any, tcIdx: number) => {
           // Debug: log the raw testcase object
-          console.log(`Parsing test case #${tcIdx + 1} for question '${q.name?.text || `Question`}':`, tc);
           // Robust extraction for input
           let input = '';
           if (tc.stdin) {
@@ -1570,9 +1535,7 @@ export default function AdminQuestionsPage() {
             if (typeof tc.expected === 'string') output = tc.expected;
             else if (tc.expected['#cdata-section']) output = tc.expected['#cdata-section'];
           }
-          // Debug: log the extracted input/output
-          console.log(`Extracted input:`, input);
-          console.log(`Extracted output:`, output);
+       
           return {
             input,
             output: String(output),
@@ -1614,10 +1577,7 @@ export default function AdminQuestionsPage() {
               setBulkFolderId('');
               setBulkStatus('DRAFT');
               setSelectedDefaultLanguage(''); // Always reset to empty string
-              console.log('Modal closed, reset language to empty string');
-            } else {
-              console.log('Import modal opened with language:', selectedDefaultLanguage);
-            }
+            } 
           }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="ml-2">
@@ -1731,7 +1691,6 @@ export default function AdminQuestionsPage() {
                       className="mt-3 border-destructive/30 hover:bg-destructive/10 ml-7" 
                       onClick={() => {
                         if (fileContent) {
-                          console.log("MANUAL XML DEBUG:");
                           try {
                             const parser = new XMLParser({
                               ignoreAttributes: false,
@@ -1739,16 +1698,13 @@ export default function AdminQuestionsPage() {
                               processEntities: true
                             });
                             const parsed = parser.parse(fileContent);
-                            console.log("RAW XML STRUCTURE:", JSON.stringify(parsed, null, 2));
                             
                             // Attempt to find testcases
                             const findTestcases = (obj: any) => {
                               if (!obj) return [];
                               if (obj.testcases) {
-                                console.log("FOUND TESTCASES:", JSON.stringify(obj.testcases, null, 2));
                               }
                               if (obj.testcase) {
-                                console.log("FOUND TESTCASE:", JSON.stringify(obj.testcase, null, 2));
                               }
                               if (typeof obj === 'object') {
                                 Object.keys(obj).forEach(key => {

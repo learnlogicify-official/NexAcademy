@@ -1,8 +1,7 @@
 const JUDGE0_API_URL = "http://128.199.24.150:2358"
 const JUDGE0_API_KEY = process.env.NEXT_PUBLIC_JUDGE0_API_KEY
 
-console.log('Using self-hosted Judge0 at:', JUDGE0_API_URL)
-console.log('Judge0 API Key available:', Boolean(JUDGE0_API_KEY))
+
 
 // Current Judge0 language IDs (updated 2023)
 const CURRENT_LANGUAGE_IDS = {
@@ -78,13 +77,27 @@ export interface Judge0Result {
   memory?: string
 }
 
+// Helper functions for base64 encoding/decoding
+function base64Encode(str: string): string {
+  return Buffer.from(str).toString('base64');
+}
+
+function base64Decode(str: string): string {
+  try {
+    return Buffer.from(str, 'base64').toString('utf-8');
+  } catch (error) {
+    console.error('Error decoding base64:', error);
+    return '[Error decoding content]';
+  }
+}
+
 // Fallback execution method when Judge0 API is unavailable
 async function localFallbackExecution(
   sourceCode: string, 
   language: number, 
   testCases: Judge0TestCase[]
 ): Promise<Judge0Result[]> {
-  console.log('Using local fallback execution')
+  
   // Simple local execution simulation
   const results: Judge0Result[] = []
   
@@ -201,8 +214,7 @@ export async function runWithJudge0({
   languageId: number
   testCases: Judge0TestCase[]
 }): Promise<Judge0Result[]> {
-  console.log(`Starting Judge0 execution for language ID: ${languageId}`)
-  console.log(`Number of test cases: ${testCases.length}`)
+ 
   
   // Check for empty code submission or just comments
   const trimmedCode = sourceCode.trim();
@@ -237,25 +249,23 @@ export async function runWithJudge0({
   // First check if we need to update the language ID
   const updatedLanguageId = getUpdatedLanguageId(languageId);
   if (updatedLanguageId !== languageId) {
-    console.log(`Updated deprecated language ID ${languageId} to ${updatedLanguageId}`);
     languageId = updatedLanguageId;
   }
   
   const results: Judge0Result[] = []
   try {
     for (const testCase of testCases) {
-      console.log('Submitting test case:', { input: testCase.input.substring(0, 50) + '...' })
       // 1. Submit code
-      const submissionRes = await fetch(`${JUDGE0_API_URL}/submissions?base64_encoded=false&wait=false`, {
+      const submissionRes = await fetch(`${JUDGE0_API_URL}/submissions?base64_encoded=true&wait=false`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          source_code: sourceCode,
+          source_code: base64Encode(sourceCode),
           language_id: languageId,
-          stdin: testCase.input,
-          expected_output: testCase.expectedOutput,
+          stdin: base64Encode(testCase.input),
+          expected_output: base64Encode(testCase.expectedOutput),
         }),
       })
       if (!submissionRes.ok) {
@@ -264,7 +274,6 @@ export async function runWithJudge0({
         
         // Check if this is a subscription error
         if (errorText.includes("not subscribed") || errorText.includes("subscription")) {
-          console.log("Subscription error detected, using fallback execution")
           return localFallbackExecution(sourceCode, languageId, testCases)
         }
         
@@ -289,7 +298,6 @@ Original error: ${errorText}`,
         throw new Error(`Judge0 API error: ${submissionRes.status} ${errorText}`)
       }
       const submission = await submissionRes.json()
-      console.log('Submission response:', submission)
       const { token } = submission
       if (!token) {
         throw new Error('No token in Judge0 response')
@@ -298,11 +306,11 @@ Original error: ${errorText}`,
       // 2. Poll for result
       let result
       let attemptsLeft = 20
-      console.log('Polling for results with token:', token)
+  
       while (attemptsLeft > 0) {
         await new Promise((r) => setTimeout(r, 1500))
         try {
-          const res = await fetch(`${JUDGE0_API_URL}/submissions/${token}?base64_encoded=false`, {
+          const res = await fetch(`${JUDGE0_API_URL}/submissions/${token}?base64_encoded=true`, {
             headers: {
               "Content-Type": "application/json"
             },
@@ -312,7 +320,13 @@ Original error: ${errorText}`,
             throw new Error(`Error fetching result: ${res.status}`)
           }
           result = await res.json()
-          console.log('Poll result:', { status: result.status, stdout: result.stdout?.substring(0, 50) })
+          
+          // Decode base64 fields if they exist
+          if (result.stdout) result.stdout = base64Decode(result.stdout)
+          if (result.stderr) result.stderr = base64Decode(result.stderr)
+          if (result.compile_output) result.compile_output = base64Decode(result.compile_output)
+          if (result.message) result.message = base64Decode(result.message)
+          
           if (result.status?.id >= 3) break // 3+ means finished
         } catch (e) {
           console.error('Error during polling:', e)
@@ -337,27 +351,34 @@ Original error: ${errorText}`,
 
       // 3. Map status to verdict
       let verdict = "Unknown"
-      if (result.status.id === 3) {
-        verdict = (result.stdout?.trim() === testCase.expectedOutput.trim()) ? "Accepted" : "Wrong Answer"
-      } else if (result.status.id === 4) {
-        verdict = "Wrong Answer"
-      } else if (result.status.id === 5) {
-        verdict = "Memory Limit Exceeded"
-      } else if (result.status.id === 6) {
-        verdict = "Compile Error"
-      } else if (result.status.id === 11) {
-        verdict = "Time Limit Exceeded"
-      } else if (result.status.id === 13) {
-        verdict = "Runtime Error"
+      try {
+        if (result.status.id === 3) {
+          // Safety check to ensure values exist and are strings before trim()
+          const stdoutStr = typeof result.stdout === 'string' ? result.stdout.trim() : '';
+          const expectedStr = typeof testCase.expectedOutput === 'string' ? testCase.expectedOutput.trim() : '';
+          verdict = (stdoutStr === expectedStr) ? "Accepted" : "Wrong Answer"
+        } else if (result.status.id === 4) {
+          verdict = "Wrong Answer"
+        } else if (result.status.id === 5) {
+          verdict = "Memory Limit Exceeded"
+        } else if (result.status.id === 6) {
+          verdict = "Compile Error"
+        } else if (result.status.id === 11) {
+          verdict = "Time Limit Exceeded"
+        } else if (result.status.id === 13) {
+          verdict = "Runtime Error"
+        }
+        // --- Ensure compile errors are always mapped correctly ---
+        if (result.compile_output) {
+          verdict = "Compile Error";
+        } else if (result.stderr && verdict !== "Compile Error") {
+          verdict = "Runtime Error";
+        }
+      } catch (error) {
+        console.error('Error determining verdict:', error, result);
+        verdict = "Execution Error";
       }
-      // --- Ensure compile errors are always mapped correctly ---
-      if (result.compile_output) {
-        verdict = "Compile Error";
-      } else if (result.stderr && verdict !== "Compile Error") {
-        verdict = "Runtime Error";
-      }
-      // --- End robust mapping ---
-      console.log('Final verdict:', verdict)
+      
 
       results.push({
         input: testCase.input,

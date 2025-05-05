@@ -183,7 +183,6 @@ export function QuestionRow({
                     variant="ghost" 
                     size="icon" 
                     onClick={() => {
-                      console.log("Edit button clicked for question:", JSON.stringify(question, null, 2));
                       onEdit(question);
                     }}
                     className="h-8 w-8 text-muted-foreground hover:text-foreground"

@@ -5,7 +5,6 @@ export async function GET() {
   try {
     // Get list of valid model names in Prisma client
     const modelNames = Object.keys(prisma).filter(key => !key.startsWith('_'));
-    console.log("Available Prisma models:", modelNames);
     
     // Check if we have an assessment model
     if ('assessment' in prisma) {

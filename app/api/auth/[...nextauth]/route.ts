@@ -78,7 +78,6 @@ export const authOptions: AuthOptions = {
 
           // If user doesn't exist, create a new one
           if (!existingUser) {
-            console.log(`Creating new user for Google account: ${user.email}`);
             
             // Generate a random password for OAuth users
             const randomPassword = Math.random().toString(36).slice(-10);
@@ -94,7 +93,6 @@ export const authOptions: AuthOptions = {
               },
             });
             
-            console.log(`Successfully created user for: ${user.email}`);
           }
         } catch (error) {
           console.error("Error during Google sign in:", error);

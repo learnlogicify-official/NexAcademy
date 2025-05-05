@@ -116,11 +116,10 @@ function getSimplifiedLanguageName(id: number): string {
   return fullName;
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, context: Promise<{ params: { id: string } }>) {
   try {
+    const { params } = await context;
+    /* @next-codemod-ignore */
     const id = params.id;
     
     // Fetch coding question from database

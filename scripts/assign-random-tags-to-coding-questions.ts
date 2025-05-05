@@ -8,7 +8,6 @@ async function main() {
   const codingQuestions = await prisma.codingQuestion.findMany();
 
   if (tags.length === 0) {
-    console.log('No tags found in the database.');
     return;
   }
 
@@ -27,14 +26,11 @@ async function main() {
         },
       },
     });
-
-    console.log(`Assigned ${selectedTags.length} tags to coding question ${cq.id}`);
   }
 }
 
 main()
   .catch(e => {
-    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

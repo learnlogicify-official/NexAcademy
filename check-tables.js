@@ -11,31 +11,11 @@ async function checkTables() {
       ORDER BY table_name;
     `;
     
-    console.log('Tables in database:');
-    tableInfo.forEach(table => {
-      console.log(`- ${table.table_name}`);
-    });
-    
     // Check SectionQuestion table specifically
     const sectionQuestionTable = tableInfo.find(t => t.table_name === 'SectionQuestion');
     if (sectionQuestionTable) {
-      console.log('\nSectionQuestion table exists! Getting column info:');
-      
-      const columnInfo = await prisma.$queryRaw`
-        SELECT column_name, data_type, is_nullable, column_default
-        FROM information_schema.columns
-        WHERE table_name = 'SectionQuestion'
-        ORDER BY ordinal_position;
-      `;
-      
-      console.log('\nColumns in SectionQuestion table:');
-      columnInfo.forEach(col => {
-        console.log(`- ${col.column_name} (${col.data_type}, nullable: ${col.is_nullable}, default: ${col.column_default || 'none'})`);
-      });
-      
       // Count records in the table
       const recordCount = await prisma.sectionQuestion.count();
-      console.log(`\nTotal records in SectionQuestion table: ${recordCount}`);
       
       // Sample some records if available
       if (recordCount > 0) {
@@ -49,19 +29,15 @@ async function checkTables() {
             sectionMark: true
           }
         });
-        
-        console.log('\nSample records:');
-        console.log(sampleRecords);
       }
     } else {
-      console.error('\nSectionQuestion table does not exist in the database!');
+      // ... existing code ...
     }
     
   } catch (e) {
-    console.error('Error checking tables:', e);
+    // ... existing code ...
   } finally {
     await prisma.$disconnect();
-    console.log('\nDisconnected from database');
   }
 }
 

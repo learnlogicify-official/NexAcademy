@@ -61,7 +61,7 @@ export async function POST(
 
     // Validate body
     const body = await req.json();
-    console.log("Received body:", body); // Debug log
+    
     
     const validation = updateQuestionsSchema.safeParse(body);
     
@@ -75,13 +75,7 @@ export async function POST(
 
     const { sections: sectionInput } = validation.data;
 
-    // Debug logging to verify question arrays are coming through correctly
-    for (const section of sectionInput) {
-      console.log(`Processing section ${section.name}: ${section.questions.length} questions`);
-      if (section.questions.length > 0) {
-        console.log(`  Question items: ${JSON.stringify(section.questions)}`);
-      }
-    }
+    
 
     // Check if assessment exists and user has access
     const assessment = await prismaAny.assessment.findUnique({
@@ -116,7 +110,7 @@ export async function POST(
         }
       });
       
-      console.log(`Found ${existingSections.length} existing sections`);
+      
       
       // Track sections to keep and new sections to create
       const existingSectionIds = existingSections.map((s: any) => s.id);
@@ -127,7 +121,6 @@ export async function POST(
       
       // Only delete sections that need to be removed
       if (sectionIdsToDelete.length > 0) {
-        console.log(`Deleting ${sectionIdsToDelete.length} removed sections: ${sectionIdsToDelete.join(', ')}`);
         await prismaAny.section.deleteMany({
           where: { 
             id: {
@@ -135,12 +128,9 @@ export async function POST(
             }
           }
         });
-        console.log(`Successfully deleted removed sections`);
         // Update marks after section deletion
         await updateAssessmentTotalMarks(assessmentId);
-      } else {
-        console.log(`No sections need to be deleted`);
-      }
+      } 
 
       // Update total marks after all section modifications
       // Update total marks after all section modifications
@@ -151,7 +141,6 @@ export async function POST(
         
         for (const section of sectionInput) {
           try {
-          console.log(`Processing section ${section.name} with ${section.questions.length} questions`);
             
           // Check if section exists
           const existingSection = existingSections.find((s: any) => s.id === section.id);
@@ -159,7 +148,6 @@ export async function POST(
           let newSection;
           if (existingSection) {
             // Update existing section
-            console.log(`Updating existing section: ${section.id}`);
             newSection = await prismaAny.section.update({
               where: { id: section.id },
               data: {
@@ -186,7 +174,6 @@ export async function POST(
             
             // Remove questions that are no longer in the section
             if (questionIdsToRemove.length > 0) {
-              console.log(`Removing ${questionIdsToRemove.length} questions from section ${section.id}`);
               await prismaAny.sectionQuestion.deleteMany({
                 where: {
                   sectionId: section.id,
@@ -198,7 +185,6 @@ export async function POST(
             }
           } else {
             // Create new section
-            console.log(`Creating new section: ${section.id}`);
             newSection = await prismaAny.section.create({
               data: {
                 id: section.id,
@@ -215,11 +201,9 @@ export async function POST(
             });
           }
             
-          console.log(`Section processed with ID: ${newSection.id}`);
             
           // Add questions to section if there are any new ones
             if (section.questions && section.questions.length > 0) {
-            console.log(`Processing ${section.questions.length} questions for section ${newSection.id}`);
               
             // Process questions, which might be strings or objects
             const questionEntries = section.questions.map(q => {
@@ -245,7 +229,6 @@ export async function POST(
               });
               
             const existingQuestionIds = existingQuestions.map((q: { id: string }) => q.id);
-              console.log(`Found ${existingQuestions.length} existing questions out of ${questionIds.length}`);
               
             // Check which questions are already in the section to avoid duplicates
             const existingRelationships = await prismaAny.sectionQuestion.findMany({
@@ -308,12 +291,10 @@ export async function POST(
                   skipDuplicates: true
                 });
                 
-                console.log(`Successfully created ${sectionQuestionData.length} section-question relationships in batch`);
               } catch (batchError) {
                 console.error(`Error in bulk creation:`, batchError);
                 
                 // Fallback to individual creation only if bulk fails
-                console.log("Trying individual creation as fallback...");
                 let successCount = 0;
                 
                 for (const item of sectionQuestionData) {
@@ -325,7 +306,6 @@ export async function POST(
                   }
                 }
                 
-                console.log(`Fallback: Created ${successCount} out of ${sectionQuestionData.length} relationships`);
               }
             }
             
@@ -347,7 +327,6 @@ export async function POST(
             }
             
             if (sectionQuestionUpdates.length > 0) {
-              console.log(`Updated marks for ${sectionQuestionUpdates.length} existing questions`);
             }
             }
             
@@ -363,7 +342,6 @@ export async function POST(
           }
         }
         
-      console.log(`Processed ${createdSections.length} sections`);
         
       // Get count of section-question relationships
       const totalRelationships = await prismaAny.sectionQuestion.count({
@@ -374,13 +352,11 @@ export async function POST(
           }
         });
         
-      console.log(`Total section-question relationships: ${totalRelationships}`);
         
       // Update total marks using centralized function
       const updatedAssessment = await updateAssessmentTotalMarks(assessmentId);
       const totalMarks = updatedAssessment.totalMarks;
       
-      console.log(`Updated assessment ${assessmentId} with total marks: ${totalMarks}`);
         
       return NextResponse.json({
         id: assessmentId,

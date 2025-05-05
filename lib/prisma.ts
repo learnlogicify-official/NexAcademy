@@ -12,8 +12,6 @@ const prismaClientSingleton = () => {
   // This is a temporary workaround until the models are properly migrated
   prisma.$connect()
     .then(() => {
-      console.log("[PRISMA] Connected to database")
-      
       // Check if ProblemSubmission table exists
       return prisma.$queryRaw<ExistsResult[]>`
         SELECT EXISTS (
@@ -27,8 +25,6 @@ const prismaClientSingleton = () => {
       const exists = (result && result[0]?.exists) || false
       
       if (!exists) {
-        console.log("[PRISMA] ProblemSubmission table doesn't exist, creating...")
-        
         // Create the table manually if it doesn't exist
         return prisma.$executeRaw`
           CREATE TABLE IF NOT EXISTS "ProblemSubmission" (
@@ -73,8 +69,6 @@ const prismaClientSingleton = () => {
       const exists = (result && result[0]?.exists) || false
       
       if (!exists) {
-        console.log("[PRISMA] lastAcceptedSubmissionId column doesn't exist in UserProblemSettings, adding...")
-        
         try {
           // First check if the UserProblemSettings table exists
           return prisma.$queryRaw<ExistsResult[]>`
@@ -87,7 +81,6 @@ const prismaClientSingleton = () => {
             const hasTable = (tableExists && tableExists[0]?.exists) || false
             
             if (!hasTable) {
-              console.log("[PRISMA] UserProblemSettings table doesn't exist, skipping column add")
               return Promise.resolve()
             }
             
@@ -106,7 +99,6 @@ const prismaClientSingleton = () => {
             `.then(() => Promise.resolve())
           })
         } catch (error) {
-          console.error("[PRISMA] Error checking UserProblemSettings table:", error)
           return Promise.resolve()
         }
       }
@@ -127,7 +119,6 @@ const prismaClientSingleton = () => {
     .then((result) => {
       const exists = (result && result[0]?.exists) || false
       if (!exists) {
-        console.log("[PRISMA] hideAcceptedTab column doesn't exist in UserProblemSettings, adding...")
         return prisma.$executeRaw`
           ALTER TABLE "UserProblemSettings"
           ADD COLUMN IF NOT EXISTS "hideAcceptedTab" BOOLEAN DEFAULT false;

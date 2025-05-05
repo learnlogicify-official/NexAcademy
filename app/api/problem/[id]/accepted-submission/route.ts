@@ -7,30 +7,26 @@ import fs from 'fs';
 import path from 'path';
 
 // GET /api/problem/[id]/accepted-submission
-export async function GET(request: Request, context: { params: { id: string } }) {
-  console.log("[API] accepted-submission: Starting request");
+export async function GET(request: Request, context: Promise<{ params: { id: string } }>) {
+  const { params } = await context;
   
   try {
     // Step 1: Get user session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      console.log("[API] accepted-submission: Unauthorized - no session user id");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
-    const problemId = context.params.id;
+    const problemId = params.id;
     
-    console.log(`[API] accepted-submission: Processing for user ${userId}, problem ${problemId}`);
     
     // Step 2: Ensure tables exist
     try {
       // Load and execute the setup script
       const setupScript = fs.readFileSync(path.join(process.cwd(), 'scripts', 'setup-tables.sql'), 'utf8');
-      console.log("[API] accepted-submission: Setting up database tables");
       
       await prisma.$executeRawUnsafe(setupScript);
-      console.log("[API] accepted-submission: Database tables setup completed");
     } catch (setupError) {
       console.error("[API] accepted-submission: Error setting up tables:", setupError instanceof Error ? setupError.message : String(setupError));
       // Continue anyway - tables might already exist
@@ -38,7 +34,6 @@ export async function GET(request: Request, context: { params: { id: string } })
     
     try {
       // Step 3: Check if there's a last accepted submission ID in the settings
-      console.log("[API] accepted-submission: Querying for user settings and last submission");
       
       const userSettingsQuery = `
         SELECT 
@@ -54,7 +49,6 @@ export async function GET(request: Request, context: { params: { id: string } })
         LIMIT 1
       `;
       
-      console.log("[API] accepted-submission: Executing query:", userSettingsQuery);
       
       const userSettingsWithSubmission = await prisma.$queryRawUnsafe(userSettingsQuery);
       
@@ -66,7 +60,6 @@ export async function GET(request: Request, context: { params: { id: string } })
         
         const submission = userSettingsWithSubmission[0];
         const hideAcceptedTab = !!userSettingsWithSubmission[0].hideAcceptedTab;
-        console.log("[API] accepted-submission: Found submission from settings:", submission.id);
         
         return NextResponse.json({ 
           hasAcceptedSubmission: true, 
@@ -76,7 +69,6 @@ export async function GET(request: Request, context: { params: { id: string } })
       }
 
       // Step 4: If no setting exists or submission not found, try to find the most recent accepted submission
-      console.log("[API] accepted-submission: No submission found in settings, searching for latest accepted");
       
       const latestAcceptedQuery = `
         SELECT 
@@ -92,17 +84,14 @@ export async function GET(request: Request, context: { params: { id: string } })
         LIMIT 1
       `;
       
-      console.log("[API] accepted-submission: Executing query:", latestAcceptedQuery);
       
       const latestAccepted = await prisma.$queryRawUnsafe(latestAcceptedQuery);
 
       if (latestAccepted && Array.isArray(latestAccepted) && latestAccepted.length > 0) {
         const submission = latestAccepted[0];
-        console.log("[API] accepted-submission: Found latest accepted submission:", submission.id);
         
         // Step 5: Update the user settings for future requests
         try {
-          console.log("[API] accepted-submission: Updating user settings with latest submission");
           
           // Check if settings record exists
           const existingSettingsQuery = `
@@ -111,7 +100,6 @@ export async function GET(request: Request, context: { params: { id: string } })
             LIMIT 1
           `;
           
-          console.log("[API] accepted-submission: Checking for existing settings:", existingSettingsQuery);
           
           const existingSettings = await prisma.$queryRawUnsafe(existingSettingsQuery);
           const hasSettings = Array.isArray(existingSettings) && existingSettings.length > 0;
@@ -124,7 +112,6 @@ export async function GET(request: Request, context: { params: { id: string } })
               WHERE "userId" = '${userId}' AND "problemId" = '${problemId}'
             `;
             
-            console.log("[API] accepted-submission: Updating settings:", updateSettingsQuery);
             await prisma.$executeRawUnsafe(updateSettingsQuery);
           } else {
             // Create new settings
@@ -137,11 +124,9 @@ export async function GET(request: Request, context: { params: { id: string } })
               )
             `;
             
-            console.log("[API] accepted-submission: Creating settings:", insertSettingsQuery);
             await prisma.$executeRawUnsafe(insertSettingsQuery);
           }
           
-          console.log("[API] accepted-submission: User settings updated successfully");
         } catch (settingsError) {
           console.error("[API] accepted-submission: Error updating settings:", settingsError instanceof Error ? settingsError.message : String(settingsError));
           // Still return success even if settings update fails
@@ -153,7 +138,6 @@ export async function GET(request: Request, context: { params: { id: string } })
         });
       }
 
-      console.log("[API] accepted-submission: No accepted submissions found");
       return NextResponse.json({ 
         hasAcceptedSubmission: false,
         hideAcceptedTab: false
@@ -175,14 +159,15 @@ export async function GET(request: Request, context: { params: { id: string } })
 }
 
 // Add POST endpoint to hide the accepted tab
-export async function POST(request: Request, context: { params: { id: string } }) {
+export async function POST(request: Request, context: Promise<{ params: { id: string } }>) {
+  const { params } = await context;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
-    const problemId = context.params.id;
+    const problemId = params.id;
     // Set hideAcceptedTab to true for this user/problem
     const updateSQL = `
       UPDATE "UserProblemSettings"

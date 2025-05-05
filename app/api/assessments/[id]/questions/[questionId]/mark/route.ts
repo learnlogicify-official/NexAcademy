@@ -28,7 +28,6 @@ export async function PUT(
     // Await params before using
     // Already destructured from params above
 
-    console.log(`Updating mark for question ${questionId} in section ${sectionId} to ${mark}`);
     
     // First, check if the record exists
     const existingRecords = await prisma.$queryRaw<Array<{ id: string }>>`

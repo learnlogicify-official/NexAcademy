@@ -37,6 +37,9 @@ export async function DELETE(request: Request) {
               return { id, success: false, error: "Question not found" };
             }
 
+            // Delete all UserProblemSettings referencing the question
+            await prisma.userProblemSettings.deleteMany({ where: { problemId: id } });
+
             // Delete the question and its related data
             if (question.type === "MCQ" && question.mCQQuestion) {
               // Delete MCQ options

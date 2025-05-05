@@ -118,7 +118,6 @@ export function CodeEditor({
     // First check if this is a numeric Judge0 language ID
     if (!isNaN(Number(language)) && judge0LanguageMapping[language]) {
       langMode = judge0LanguageMapping[language];
-      console.log(`Mapped Judge0 language ID ${language} to mode: ${langMode}`);
     } 
     // If not a numeric ID, try to normalize common language names
     else {
@@ -129,7 +128,7 @@ export function CodeEditor({
       else if (langMode.includes('c++') || langMode.includes('cpp')) langMode = 'cpp';
       else if (langMode.includes('php')) langMode = 'php';
       
-      console.log(`Using language mode: ${langMode} for input: ${language}`);
+   
     }
     
     // Set the appropriate extension

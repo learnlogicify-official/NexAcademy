@@ -154,47 +154,29 @@ export default function CreateAssessmentPage() {
 
   // Add effect to check form setup
   useEffect(() => {
-    console.log("Form setup check:", { 
-      formExists: !!form,
-      formMethods: Object.keys(form),
-      handleSubmit: !!form.handleSubmit,
-    });
     
-    // Check if DOM elements exist
-    setTimeout(() => {
-      const formElement = document.querySelector('form');
-      const submitButton = document.querySelector('button[type="button"]');
-      console.log("DOM check:", {
-        formElement: !!formElement,
-        submitButton: !!submitButton,
-        formAction: formElement?.getAttribute('action'),
-        formMethod: formElement?.getAttribute('method'),
-      });
-    }, 1000);
-  }, [form]);
+    
+  
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    console.log("Form submission started with values:", values);
+    
     try {
       setIsLoading(true);
       
       // Check for required fields
       if (!values.name) {
-        console.log("Missing required field: name");
         toast.error("Assessment name is required");
         setIsLoading(false);
         return;
       }
 
       if (values.timeBoundEnabled && (!values.startDate || !values.endDate)) {
-        console.log("Missing required time bound fields:", { startDate: values.startDate, endDate: values.endDate });
         toast.error("Start date and end date are required for time-bound assessments");
         setIsLoading(false);
         return;
       }
       
       if (values.timeLimitEnabled && !values.duration) {
-        console.log("Missing required duration field for time-limited assessment");
         toast.error("Duration is required when time limit is enabled");
         setIsLoading(false);
       return;
@@ -205,18 +187,14 @@ export default function CreateAssessmentPage() {
       
       try {
         // Check if we have any folders
-        console.log("Fetching existing folders...");
         const foldersResponse = await fetch("/api/folders");
         const folders = await foldersResponse.json();
-        console.log("Existing folders:", folders);
         
         if (folders && folders.length > 0) {
           // Use the first folder
           folderIdToUse = folders[0].id;
-          console.log("Using existing folder:", folders[0]);
         } else {
           // Create a new folder
-          console.log("No existing folders found, creating new folder...");
           const folderResponse = await fetch("/api/folders", {
             method: "POST",
             headers: {
@@ -231,7 +209,6 @@ export default function CreateAssessmentPage() {
           
           const newFolder = await folderResponse.json();
           folderIdToUse = newFolder.id;
-          console.log("Created new folder:", newFolder);
         }
       } catch (error) {
         console.error("Error handling folders:", error);
@@ -267,7 +244,6 @@ export default function CreateAssessmentPage() {
         disableCopyPaste: values.disableCopyPaste
       };
 
-      console.log('Submitting assessment with transformed data:', transformedData);
 
       const response = await fetch("/api/assessments", {
         method: "POST",
@@ -277,10 +253,7 @@ export default function CreateAssessmentPage() {
         body: JSON.stringify(transformedData),
       });
 
-      console.log('Got response from API:', {
-        status: response.status,
-        statusText: response.statusText,
-      });
+  
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -289,7 +262,6 @@ export default function CreateAssessmentPage() {
       }
 
       const data = await response.json();
-      console.log('API success response:', data);
       toast.success("Assessment created successfully");
       
       // Redirect to assessments list page
@@ -318,9 +290,7 @@ export default function CreateAssessmentPage() {
           type="button"
               disabled={isLoading}
               onClick={() => {
-                console.log("Button clicked directly");
                 const values = form.getValues();
-                console.log("Current form values:", values);
                 onSubmit(values);
               }}
             >

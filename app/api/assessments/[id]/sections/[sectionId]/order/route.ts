@@ -43,7 +43,6 @@ export async function PUT(
 
     // Parse and validate the request body
     const body = await req.json();
-    console.log("Received body for updating question order:", body);
     
     const validation = orderUpdateSchema.safeParse(body);
     if (!validation.success) {
@@ -102,7 +101,6 @@ export async function PUT(
     });
 
     const existingQuestionIds = existingQuestions.map((q: { id: string }) => q.id);
-    console.log(`Found ${existingQuestions.length} valid questions out of ${questions.length} requested`);
 
     // Check if any questions don't exist
     const nonExistentQuestions = questionIds.filter(id => !existingQuestionIds.includes(id));

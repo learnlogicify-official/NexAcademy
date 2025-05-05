@@ -5,32 +5,79 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { getJudge0LanguageName } from '@/utils/getJudge0LanguageName';
+
+// Map of Judge0 language IDs to their display names for backward compatibility
+const JUDGE0_LANGUAGE_MAP: Record<number, string> = {
+  45: "Assembly (NASM 2.14.02)",
+  46: "Bash (5.0.0)",
+  47: "Basic (FBC 1.07.1)",
+  75: "C (Clang 7.0.1)",
+  76: "C++ (Clang 7.0.1)",
+  48: "C (GCC 7.4.0)",
+  52: "C++ (GCC 7.4.0)",
+  49: "C (GCC 8.3.0)",
+  53: "C++ (GCC 8.3.0)",
+  50: "C (GCC 9.2.0)",
+  54: "C++ (GCC 9.2.0)",
+  86: "Clojure (1.10.1)",
+  51: "C# (Mono 6.6.0.161)",
+  77: "COBOL (GnuCOBOL 2.2)",
+  55: "Common Lisp (SBCL 2.0.0)",
+  56: "D (DMD 2.089.1)",
+  57: "Elixir (1.9.4)",
+  58: "Erlang (OTP 22.2)",
+  44: "Executable",
+  87: "F# (.NET Core SDK 3.1.202)",
+  59: "Fortran (GFortran 9.2.0)",
+  60: "Go (1.13.5)",
+  88: "Groovy (3.0.3)",
+  61: "Haskell (GHC 8.8.1)",
+  62: "Java (OpenJDK 13.0.1)",
+  63: "JavaScript (Node.js 12.14.0)",
+  78: "Kotlin (1.3.70)",
+  64: "Lua (5.3.5)",
+  89: "Multi-file program",
+  79: "Objective-C (Clang 7.0.1)",
+  65: "OCaml (4.09.0)",
+  66: "Octave (5.1.0)",
+  67: "Pascal (FPC 3.0.4)",
+  85: "Perl (5.28.1)",
+  68: "PHP (7.4.1)",
+  43: "Plain Text",
+  69: "Prolog (GNU Prolog 1.4.5)",
+  70: "Python (2.7.17)",
+  71: "Python (3.8.1)",
+  80: "R (4.0.0)",
+  72: "Ruby (2.7.0)",
+  73: "Rust (1.40.0)",
+  81: "Scala (2.13.2)",
+  82: "SQL (SQLite 3.27.2)",
+  83: "Swift (5.2.3)",
+  74: "TypeScript (3.7.4)",
+  84: "Visual Basic.Net (vbnc 0.0.0.5943)"
+};
 
 // POST /api/problem/[id]/save-submission
 export async function POST(request: Request, context: { params: { id: string } }) {
-  console.log("[API] save-submission: Starting request");
   
   try {
     // Step 1: Get user session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      console.log("[API] save-submission: Unauthorized - no session user id");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
     const problemId = context.params.id;
     
-    console.log(`[API] save-submission: Processing for user ${userId}, problem ${problemId}`);
     
     // Step 2: Ensure tables exist
     try {
       // Load and execute the setup script
       const setupScript = fs.readFileSync(path.join(process.cwd(), 'scripts', 'setup-tables.sql'), 'utf8');
-      console.log("[API] save-submission: Setting up database tables");
       
       await prisma.$executeRawUnsafe(setupScript);
-      console.log("[API] save-submission: Database tables setup completed");
     } catch (setupError) {
       console.error("[API] save-submission: Error setting up tables:", setupError instanceof Error ? setupError.message : String(setupError));
       // Continue anyway - tables might already exist
@@ -39,7 +86,6 @@ export async function POST(request: Request, context: { params: { id: string } }
     // Step 3: Parse request body
     try {
       const body = await request.json();
-      console.log("[API] save-submission: Request body received");
       
       const { 
         language,
@@ -54,12 +100,21 @@ export async function POST(request: Request, context: { params: { id: string } }
       } = body;
 
       if (!language || !code || testcasesPassed === undefined || totalTestcases === undefined) {
-        console.log("[API] save-submission: Missing required fields");
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
       
+      // Convert language ID to full name if needed
+      let fullLanguageName = language;
+      if (!isNaN(Number(language))) {
+        const languageId = Number(language);
+        const mappedName = await getJudge0LanguageName(languageId);
+        if (mappedName) {
+          fullLanguageName = mappedName;
+        }
+      }
+      
+      
       // Step 4: Save submission
-      console.log("[API] save-submission: Creating submission record");
       
       // Generate a UUID for the submission
       const submissionId = crypto.randomUUID();
@@ -73,23 +128,20 @@ export async function POST(request: Request, context: { params: { id: string } }
           "runtimePercentile", "memoryPercentile"
         ) 
         VALUES (
-          '${submissionId}', '${userId}', '${problemId}', '${language.replace(/'/g, "''")}', '${code.replace(/'/g, "''")}', 
+          '${submissionId}', '${userId}', '${problemId}', '${fullLanguageName.replace(/'/g, "''")}', '${code.replace(/'/g, "''")}', 
           NOW(), ${testcasesPassed}, ${totalTestcases}, 
           ${!!allPassed}, ${runtime ? `'${runtime}'` : 'NULL'}, ${memory ? `'${memory}'` : 'NULL'}, 
           ${runtimePercentile ? `'${runtimePercentile}'` : 'NULL'}, ${memoryPercentile ? `'${memoryPercentile}'` : 'NULL'}
         )
       `;
       
-      console.log("[API] save-submission: Executing SQL:", insertSQL);
       
       // Save the submission using raw SQL
       await prisma.$executeRawUnsafe(insertSQL);
       
-      console.log("[API] save-submission: Submission created with ID:", submissionId);
       
       // Step 5: Update user settings if submission passed all tests
       if (allPassed) {
-        console.log("[API] save-submission: Updating user problem settings for accepted submission");
         
         try {
           // Check if a setting exists first
@@ -99,7 +151,6 @@ export async function POST(request: Request, context: { params: { id: string } }
             LIMIT 1
           `;
           
-          console.log("[API] save-submission: Checking for existing settings:", checkSettingsSQL);
           
           const existingSettings = await prisma.$queryRawUnsafe(checkSettingsSQL);
           const hasSettings = Array.isArray(existingSettings) && existingSettings.length > 0;
@@ -108,13 +159,12 @@ export async function POST(request: Request, context: { params: { id: string } }
             // Update existing settings
             const updateSettingsSQL = `
               UPDATE "UserProblemSettings"
-              SET "lastLanguage" = '${language.replace(/'/g, "''")}',
+              SET "lastLanguage" = '${fullLanguageName.replace(/'/g, "''")}',
                   "lastAcceptedSubmissionId" = '${submissionId}',
                   "hideAcceptedTab" = false
               WHERE "userId" = '${userId}' AND "problemId" = '${problemId}'
             `;
             
-            console.log("[API] save-submission: Updating settings:", updateSettingsSQL);
             await prisma.$executeRawUnsafe(updateSettingsSQL);
           } else {
             // Create new settings
@@ -123,15 +173,13 @@ export async function POST(request: Request, context: { params: { id: string } }
                 "id", "userId", "problemId", "lastLanguage", "lastAcceptedSubmissionId", "hideAcceptedTab"
               )
               VALUES (
-                '${crypto.randomUUID()}', '${userId}', '${problemId}', '${language.replace(/'/g, "''")}', '${submissionId}', false
+                '${crypto.randomUUID()}', '${userId}', '${problemId}', '${fullLanguageName.replace(/'/g, "''")}', '${submissionId}', false
               )
             `;
             
-            console.log("[API] save-submission: Creating settings:", insertSettingsSQL);
             await prisma.$executeRawUnsafe(insertSettingsSQL);
           }
           
-          console.log("[API] save-submission: User problem settings updated successfully");
         } catch (settingsError) {
           console.error("[API] save-submission: Error updating settings:", settingsError instanceof Error ? settingsError.message : String(settingsError));
           // Still return success even if settings update fails
@@ -139,14 +187,13 @@ export async function POST(request: Request, context: { params: { id: string } }
       }
       
       // Step 6: Return success response
-      console.log("[API] save-submission: Returning success response");
       return NextResponse.json({ 
         success: true, 
         submission: {
           id: submissionId,
           userId,
           problemId,
-          language,
+          language: fullLanguageName,
           testcasesPassed,
           totalTestcases,
           allPassed: !!allPassed,

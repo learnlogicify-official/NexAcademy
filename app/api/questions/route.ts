@@ -364,7 +364,6 @@ export async function POST(request: NextRequest) {
             } else if (body.type === "CODING") {
               // Extract tags from both possible locations
               const tagsToConnect = (body.tags || body.codingQuestion?.tags || []);
-              console.log("Tags to connect:", tagsToConnect);
               
               await tx.codingQuestion.create({
                 data: {
@@ -540,7 +539,6 @@ export async function PUT(request: NextRequest) {
       else if (question.type === "CODING" && body.codingQuestion) {
         // Extract tags from both possible locations
         const tagsToConnect = (body.tags || body.codingQuestion?.tags || []);
-        console.log("Tags to connect (update):", tagsToConnect);
         
         // Update or create the coding question
         await tx.codingQuestion.upsert({

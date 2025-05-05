@@ -12,8 +12,7 @@ async function getQuestions() {
       }
     });
     
-    console.log('Available questions:');
-    console.log(questions);
+
     
     // Also get available sections
     const sections = await prisma.section.findMany({
@@ -25,14 +24,13 @@ async function getQuestions() {
       }
     });
     
-    console.log('\nAvailable sections:');
-    console.log(sections);
+
     
   } catch (e) {
     console.error('Error fetching questions:', e);
   } finally {
     await prisma.$disconnect();
-    console.log('Disconnected from database');
+   
   }
 }
 

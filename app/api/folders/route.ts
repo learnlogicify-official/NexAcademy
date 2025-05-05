@@ -31,7 +31,6 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    console.log('Received folder data:', body);
 
     // Validate the request body
     const validatedData = createFolderSchema.parse(body);
@@ -44,7 +43,6 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log('Created folder:', folder);
     return NextResponse.json(folder);
   } catch (error) {
     console.error('Error creating folder:', error);

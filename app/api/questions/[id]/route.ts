@@ -61,6 +61,9 @@ export async function DELETE(
       DELETE FROM "CodingQuestion" WHERE "questionId" = ${id}
     `;
     
+    // Before deleting the question, delete all UserProblemSettings referencing it
+    await prisma.userProblemSettings.deleteMany({ where: { problemId: id } });
+    
     // Finally delete the question
     await prisma.$executeRaw`
       DELETE FROM "Question" WHERE "id" = ${id}
@@ -170,7 +173,6 @@ export async function PUT(
 
     const body = await request.json();
     
-    console.log('Received request body:', JSON.stringify(body, null, 2));
     const {
       name,
       questionText,

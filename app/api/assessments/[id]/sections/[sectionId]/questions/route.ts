@@ -43,7 +43,6 @@ export async function POST(
 
     // Parse and validate the request body
     const body = await req.json();
-    console.log("Received body for adding questions to section:", body);
     
     const validation = addQuestionsSchema.safeParse(body);
     if (!validation.success) {
@@ -102,7 +101,6 @@ export async function POST(
     });
 
     const existingQuestionIds = existingQuestions.map((q: { id: string }) => q.id);
-    console.log(`Found ${existingQuestions.length} valid questions out of ${questions.length} requested`);
 
     // Check if any questions don't exist
     const nonExistentQuestions = questionIds.filter(id => !existingQuestionIds.includes(id));
@@ -136,7 +134,6 @@ export async function POST(
         sectionMark: q.sectionMark
       }));
 
-    console.log(`Adding ${newQuestionData.length} new questions to section ${sectionId}`);
 
     // Create the relationships in bulk for better performance
     if (newQuestionData.length > 0) {
@@ -146,7 +143,6 @@ export async function POST(
           skipDuplicates: true
         });
 
-        console.log(`Created ${result.count} section-question relationships`);
 
         // Update the assessment's total marks after adding questions
         const updatedAssessment = await updateAssessmentTotalMarks(assessmentId);

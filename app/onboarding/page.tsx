@@ -5,7 +5,6 @@ import OnboardingClientPage from "@/components/onboarding/onboarding-client-page
 
 export default async function OnboardingPage() {
   const session = await getServerSession(authOptions)
-  console.log('[Server] Session in /onboarding:', session)
   if (session?.user?.hasOnboarded) {
     redirect("/dashboard")
   }

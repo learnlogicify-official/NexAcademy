@@ -17,9 +17,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Debug: log the received tags
-    console.log('Received codingQuestion.tags:', (body.codingQuestion || body).tags);
-    console.log('Full body:', JSON.stringify(body, null, 2));
-
+  
     // Validate required fields
     if (!body.name) {
       return NextResponse.json(
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
         ? extractTagIds(body.tags)
         : [];
     
-    console.log('Extracted tag IDs:', tags);
+  
 
     // Validate that the tags exist before attempting to connect them
     if (tags.length > 0) {
@@ -71,8 +69,8 @@ export async function POST(request: NextRequest) {
           }
         });
         
-        console.log(`Found ${existingTags.length} tags out of ${tags.length} requested:`);
-        existingTags.forEach(tag => console.log(`  - ${tag.name} (${tag.id})`));
+
+        
         
         // If some tags weren't found, log a warning
         if (existingTags.length < tags.length) {
@@ -208,7 +206,7 @@ export async function POST(request: NextRequest) {
 
       // Add additional verification of tags
       if (tags.length > 0) {
-        console.log("Verifying tags connection via direct query...");
+   
         try {
           // Get tags directly from the created coding question
           const updatedCodingQuestion = await tx.codingQuestion.findUnique({
@@ -218,12 +216,10 @@ export async function POST(request: NextRequest) {
             }
           });
           
-          console.log("Retrieved coding question with tags:", 
-            JSON.stringify(updatedCodingQuestion?.tags, null, 2));
+            
             
           // If tags are still missing, try one last approach as a fallback
           if (!updatedCodingQuestion?.tags || updatedCodingQuestion.tags.length === 0) {
-            console.log("Tags not connected yet, trying direct SQL manipulation...");
             
             // Get the actual column names from the database for debugging
             const schema = await tx.$queryRaw`
@@ -231,13 +227,11 @@ export async function POST(request: NextRequest) {
               FROM information_schema.columns 
               WHERE table_name = '_CodingQuestionTags'
             `;
-            console.log("_CodingQuestionTags schema:", JSON.stringify(schema, null, 2));
             
             // Use raw SQL to connect tags directly in the join table
             for (const tagId of tags) {
               if (typeof tagId === 'string' && tagId.trim()) {
                 // Log each tag connection attempt
-                console.log(`Connecting tag ${tagId} to coding question ${createdCodingQuestion.id}`);
                 
                 // Try with explicit column names based on schema inspection
                 try {
@@ -247,7 +241,6 @@ export async function POST(request: NextRequest) {
                     VALUES (${createdCodingQuestion.id}, ${tagId})
                     ON CONFLICT DO NOTHING
                   `;
-                  console.log(`Tag ${tagId} connection SQL executed successfully`);
                 } catch (innerError) {
                   console.error(`Error with standard column names for tag ${tagId}:`, innerError);
                   
@@ -258,7 +251,6 @@ export async function POST(request: NextRequest) {
                       VALUES (${createdCodingQuestion.id}, ${tagId})
                       ON CONFLICT DO NOTHING
                     `;
-                    console.log(`Tag ${tagId} connected with alternative column names`);
                   } catch (altError) {
                     console.error(`Error with alternative column names for tag ${tagId}:`, altError);
                   }
@@ -300,9 +292,7 @@ export async function POST(request: NextRequest) {
       tags: result.codingQuestion?.tags || []
     } : result;
 
-    // Log the formatted response tags for debugging
-    console.log("RESPONSE - Tags in formatted response:", 
-      JSON.stringify(formattedResult.codingQuestion?.tags || [], null, 2));
+    
 
     return NextResponse.json(formattedResult);
   } catch (error) {

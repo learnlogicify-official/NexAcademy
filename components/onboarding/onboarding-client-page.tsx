@@ -61,7 +61,7 @@ export default function OnboardingClientPage() {
   const router = useRouter();
   useEffect(() => {
     if (status !== "authenticated") return;
-    console.log('[Client] Session in onboarding-client-page:', session)
+    
     if (session?.user?.hasOnboarded) {
       router.replace("/dashboard");
     }

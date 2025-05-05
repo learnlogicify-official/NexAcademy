@@ -337,15 +337,32 @@ export function Sidebar({
       >
         {/* Glass morphism container with theme-based gradient */}
         <div
-          className={`absolute inset-0 rounded-xl backdrop-blur-2xl bg-gradient-to-br ${currentTheme.sidebar} border shadow-[0_0_25px_rgba(0,0,0,0.4)]`}
+          className={cn(
+            "absolute inset-0 rounded-xl backdrop-blur-2xl bg-gradient-to-br border shadow-[0_0_25px_rgba(0,0,0,0.4)]",
+            theme === "light" 
+              ? "from-white/70 via-white/70 to-white/70 border-black/10" 
+              : "from-black/100 via-black/100 to-black/100 border-white/10"
+          )}
         ></div>
 
         {/* Gradient overlay with theme-based accent */}
-        <div className={`absolute inset-0 rounded-xl bg-gradient-to-b ${currentTheme.overlay} opacity-50`}></div>
+        <div 
+          className={cn(
+            "absolute inset-0 rounded-xl bg-gradient-to-b opacity-50",
+            theme === "light" 
+              ? "from-white/20 via-white/10 to-transparent" 
+              : "from-black/20 via-black/10 to-transparent"
+          )}
+        ></div>
 
         {/* Animated glow effect with theme-based accent */}
         <div
-          className={`absolute -inset-[1px] rounded-xl bg-gradient-to-r ${currentTheme.glow} animate-glow-slow`}
+          className={cn(
+            "absolute -inset-[1px] rounded-xl bg-gradient-to-r animate-glow-slow",
+            theme === "light" 
+              ? "from-black/5 via-black/5 to-black/5" 
+              : "from-white/5 via-white/5 to-white/5"
+          )}
         ></div>
 
         {/* Content container */}
