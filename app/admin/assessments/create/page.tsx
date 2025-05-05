@@ -154,9 +154,8 @@ export default function CreateAssessmentPage() {
 
   // Add effect to check form setup
   useEffect(() => {
-    
-    
-  
+    // Your effect logic here (if needed)
+  }, []);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     
