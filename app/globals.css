@@ -1263,15 +1263,15 @@ body.resize-active {
   color: rgb(250, 204, 21);
 }
 
-/* Enhanced header for problem page */
+/* Enhanced problem header layout */
 .problem-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 1rem;
   height: 60px;
   border-bottom: 1px solid hsl(var(--border));
   background: linear-gradient(to right, hsl(var(--background)), hsl(var(--background)), hsl(var(--muted)/0.3));
-  padding: 0 1rem;
   position: relative;
   z-index: 20;
   box-shadow: 0 1px 4px rgba(0,0,0,0.03);
@@ -1288,6 +1288,21 @@ body.resize-active {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.problem-header-section.flex-1 {
+  min-width: 0;
+}
+
+/* Ensure middle section is centered for run/submit buttons */
+.problem-header > div:nth-child(2) {
+  text-align: center;
+  justify-content: center;
+}
+
+/* Right section alignment */
+.problem-header-section.justify-end {
+  justify-content: flex-end;
 }
 
 .problem-header-title {
@@ -1503,6 +1518,17 @@ body.resize-active {
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);
 }
 
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .problem-header-section.flex-1:first-child {
+    flex: 2;
+  }
+  
+  .problem-header-section.flex-1:last-child {
+    flex: 2;
+  }
+}
+
 /* Modern tabs styling for the problem page */
 .modern-tabs .tab-trigger {
   position: relative;
@@ -1638,4 +1664,1235 @@ body.resize-active {
 /* Remove duplicate rule for vertical-resizer + test-panel */
 .vertical-resizer + .test-panel {
   margin-top: 16px !important;
+}
+
+/* Mobile responsive styles for problem page */
+@media screen and (max-width: 768px) {
+  /* Make problem header more compact on mobile */
+  .problem-header {
+    height: auto;
+    min-height: 56px;
+    padding: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .problem-header-section {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Make problem title and header elements fit on mobile */
+  .problem-header-title {
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
+  /* Hide certain elements on very small screens */
+  @media screen and (max-width: 480px) {
+    .problem-header-actions,
+    .problem-header-divider {
+      display: none;
+    }
+    
+    .problem-btn-primary,
+    .problem-btn-success {
+      padding: 0 0.5rem;
+      height: 2rem;
+      min-width: 4rem;
+    }
+  }
+
+  /* Stack panels vertically on mobile */
+  .panels-container {
+    flex-direction: column;
+    overflow: auto;
+    height: calc(100vh - 56px);
+  }
+
+  .left-panel, 
+  .right-panel {
+    width: 100% !important;
+    height: auto;
+    min-height: 300px;
+    max-height: 50vh;
+    overflow: auto;
+  }
+
+  /* Make sure resizers don't appear on mobile */
+  .horizontal-resizer {
+    display: none !important;
+  }
+
+  /* Fix code panel to take remaining height */
+  .code-panel {
+    min-height: 200px;
+    height: auto !important;
+  }
+
+  /* Hide or adjust test panel on small screens */
+  .test-panel {
+    height: auto !important;
+    max-height: 200px;
+  }
+
+  /* Make sure fullscreen mode works properly on mobile */
+  .isFullscreen .panels-container {
+    height: 100vh;
+  }
+
+  .vertical-resizer {
+    display: none !important;
+  }
+
+  html, body, .main-container, .panels-container {
+    overflow-x: hidden !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  /* Prevent children from causing overflow */
+  .left-panel, .right-panel, .code-panel, .test-panel {
+    max-width: 100vw !important;
+    box-sizing: border-box;
+  }
+}
+
+/* Fix zoom issues with absolute positioning */
+@media screen and (min-width: 769px) {
+  /* Ensure elements don't overlap when zoomed in */
+  .problem-header {
+    min-height: 60px;
+    height: auto;
+  }
+
+  /* Fix for run/submit buttons to stay centered */
+  .problem-header .absolute {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    margin: 0 auto;
+  }
+  
+  /* Prevent control button layout issues when zoomed */
+  .vertical-resizer .group-hover\:opacity-100,
+  .horizontal-resizer .group-hover\:opacity-100 {
+    max-width: 100%;
+    overflow: visible;
+  }
+  
+  /* Ensure panels maintain proper sizing */
+  .panels-container {
+    min-height: 0;
+    flex: 1;
+  }
+  
+  /* Fix for overlap issues in the problem header */
+  .problem-header-section {
+    flex-wrap: wrap;
+  }
+}
+
+/* Fix specifically for button layering when zoomed */
+.problem-btn-primary,
+.problem-btn-success {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Ensure scrolling works properly across all zoom levels */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Ensure panels don't collapse */
+.left-panel,
+.right-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Ensure the vertical resizer stays in bounds */
+.vertical-resizer {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Fix for vertical resizer on zoom and smaller screens */
+.vertical-resizer {
+  width: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  z-index: 30 !important;
+}
+
+/* Prevent content from being cut off on zoom */
+.problem-header {
+  min-height: 60px;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Fix responsiveness on mobile */
+@media (max-width: 768px) {
+  /* Adjust the main container on mobile */
+  .main-container {
+    height: 100% !important;
+    min-height: 100vh;
+  }
+
+  /* Fix panels stacking on mobile */
+  .panels-container {
+    display: flex;
+    flex-direction: column;
+    height: auto !important;
+    min-height: calc(100vh - 100px) !important;
+    overflow: auto !important;
+  }
+
+  /* Make left panel scrollable on mobile */
+  .left-panel {
+    max-height: 50vh !important;
+    overflow: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid hsl(var(--border)) !important;
+  }
+
+  /* Ensure right panel takes remaining space */
+  .right-panel {
+    flex: 1 !important;
+    min-height: 50vh !important;
+    overflow: auto !important;
+  }
+  
+  /* Fix code editor container on mobile */
+  .code-panel {
+    height: 50vh !important;
+    min-height: 200px !important;
+  }
+  
+  /* Make test panel flexible on mobile */
+  .test-panel {
+    height: auto !important;
+    max-height: 40vh !important;
+  }
+  
+  /* Prevent run/submit overlaps */
+  .problem-header .absolute {
+    position: static !important;
+    transform: none !important;
+    display: none !important;
+  }
+  
+  /* Fix dropdown menus on mobile */
+  .dropdownMenu-content {
+    width: 280px !important;
+    max-width: 90vw !important;
+  }
+}
+
+/* Improve hover states for all devices */
+.problem-btn-primary:hover,
+.problem-btn-success:hover {
+  transform: translateY(-1px);
+}
+
+/* Fix any scrolling issues when zoomed */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Fix for panel layout when zoomed */
+@media screen and (min-width: 769px) {
+  /* Ensure main container maintains fixed positioning */
+  .main-container {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* Adjust panels container for zoom */
+  .panels-container {
+    display: flex;
+    width: 100%;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+  }
+
+  /* Fix horizontal resizer */
+  .horizontal-resizer {
+    position: absolute;
+    width: 6px;
+    cursor: col-resize;
+    height: 100%;
+    z-index: 40;
+  }
+
+  /* Adjust panels when zoomed */
+  .left-panel,
+  .right-panel {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Ensure problem header positioning */
+  .problem-header {
+    position: relative;
+    overflow: visible;
+    z-index: 50;
+  }
+
+  /* Fix for centered buttons */
+  .problem-header .absolute {
+    display: flex !important;
+  }
+}
+
+/* Ensure panels expand/shrink appropriately */
+.left-panel {
+  flex-shrink: 0;
+  flex-grow: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fix for content overflow */
+.problem-header-title,
+.problem-header-actions button span,
+.problem-btn-primary span,
+.problem-btn-success span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Make sure the run/submit buttons don't get hidden */
+.problem-header .z-20 {
+  z-index: 50 !important;
+}
+
+/* Fullscreen mode styling */
+:fullscreen .main-container,
+:-webkit-full-screen .main-container {
+  height: 100vh;
+  width: 100vw;
+  max-width: 100vw;
+  max-height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  background-color: var(--background);
+}
+
+:fullscreen .panels-container,
+:-webkit-full-screen .panels-container {
+  height: calc(100vh - 60px);
+}
+
+:fullscreen .problem-header,
+:-webkit-full-screen .problem-header {
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+:fullscreen .problem-header-section:first-child,
+:-webkit-full-screen .problem-header-section:first-child {
+  flex: 1 1 30%;
+}
+
+:fullscreen .problem-header > div:nth-child(2),
+:-webkit-full-screen .problem-header > div:nth-child(2) {
+  flex: 1 1 40%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 300px;
+}
+
+:fullscreen .problem-header-section.justify-end,
+:-webkit-full-screen .problem-header-section.justify-end {
+  flex: 1 1 30%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Tablet and intermediate screen sizes */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Ensure the right section doesn't get overlapped in mid-sized screens */
+  .problem-header {
+    padding: 0 0.75rem;
+  }
+  
+  /* Make problem title more compact */
+  .problem-header-title {
+    max-width: 180px;
+  }
+  
+  /* Ensure left section doesn't take too much space */
+  .problem-header-section.flex-1:first-child {
+    flex: 1;
+  }
+  
+  /* Ensure middle section with run/submit stays bounded */
+  .problem-header > div:nth-child(2) {
+    flex: 0 1 auto;
+  }
+  
+  /* Give right section higher priority */
+  .problem-header-section.justify-end {
+    flex: 0 0 auto;
+    margin-left: 1rem;
+  }
+  
+  /* Improve theme toggle prominence */
+  .mode-toggle {
+    height: 2rem;
+    width: 2rem;
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    z-index: 30;
+  }
+}
+
+/* Enhanced theme toggle styling for single icon */
+.mode-toggle {
+  border-radius: 9999px;
+  transition: all 0.25s ease-in-out;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  z-index: 30;
+  overflow: hidden;
+  position: relative;
+}
+
+.mode-toggle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, 
+    hsl(var(--primary)/0.15),
+    transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mode-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-color: hsl(var(--primary)/0.4);
+}
+
+.mode-toggle:hover::before {
+  opacity: 1;
+}
+
+/* Create a clean animation for icon change */
+.mode-toggle svg {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Ensure the fullscreen container doesn't shift */
+@media (max-width: 1023px) {
+  :fullscreen .fullscreen-center,
+  :-webkit-full-screen .fullscreen-center {
+    max-width: 220px !important;
+  }
+}
+
+/* Hide fullscreen specific buttons if needed */
+@media (max-width: 850px) {
+  :fullscreen .problem-header-section .problem-nav-btn,
+  :-webkit-full-screen .problem-header-section .problem-nav-btn {
+    display: none;
+  }
+}
+
+/* Panels fullscreen mode styling */
+.panels-container.panels-fullscreen {
+  height: 100vh !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  padding: 1rem !important;
+  background-color: hsl(var(--background));
+  border-radius: 0 !important;
+  z-index: 9999;
+}
+
+.panels-container.panels-fullscreen .left-panel,
+.panels-container.panels-fullscreen .right-panel {
+  height: 100% !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.06) !important;
+}
+
+.panels-container.panels-fullscreen .horizontal-resizer {
+  height: calc(100% - 2rem) !important;
+  margin: 1rem 0 !important;
+}
+
+.dark .panels-container.panels-fullscreen {
+  background-color: hsl(var(--background));
+}
+
+.dark .panels-container.panels-fullscreen .left-panel,
+.dark .panels-container.panels-fullscreen .right-panel {
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25), 0 4px 10px rgba(0,0,0,0.15) !important;
+}
+
+/* Panels fullscreen button styling */
+.panels-fullscreen-btn {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.75rem;
+  z-index: 50;
+  border-radius: 9999px;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.panels-fullscreen-btn:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Show fullscreen button on hover */
+.left-panel:hover .panels-fullscreen-btn {
+  opacity: 1;
+}
+
+.dark .panels-fullscreen-btn {
+  background-color: hsl(var(--secondary));
+  border-color: hsl(var(--border));
+}
+
+.dark .panels-fullscreen-btn:hover {
+  background-color: hsl(var(--secondary)/0.8);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Left panel fullscreen mode styling */
+.left-panel.left-panel-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 1rem !important;
+  z-index: 9999;
+  background-color: hsl(var(--background));
+  border-radius: 0 !important;
+  border: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: auto;
+}
+
+.left-panel.left-panel-fullscreen::before {
+  display: none; /* Hide the top highlight effect */
+}
+
+.left-panel.left-panel-fullscreen .panels-fullscreen-btn {
+  position: fixed !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  z-index: 9999 !important;
+  opacity: 1 !important;
+}
+
+.left-panel.left-panel-fullscreen .panel-scrollable {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.dark .left-panel.left-panel-fullscreen {
+  background-color: hsl(var(--background));
+}
+
+/* Panels fullscreen mode styling */
+.panels-container.panels-fullscreen {
+  height: 100vh !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  padding: 1rem !important;
+  background-color: hsl(var(--background));
+  border-radius: 0 !important;
+  z-index: 9999;
+}
+
+/* Left panel expanded mode styling */
+.left-panel.left-panel-expanded {
+  border-radius: 12px !important;
+  transition: width 0.3s ease-in-out;
+  max-width: 100% !important;
+  border-right: none !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02) !important;
+}
+
+.dark .left-panel.left-panel-expanded {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05) !important;
+}
+
+.left-panel.left-panel-expanded .panels-fullscreen-btn {
+  opacity: 1 !important;
+}
+
+.left-panel.left-panel-expanded .panel-scrollable {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Center the content in expanded mode on larger screens */
+@media (min-width: 1200px) {
+  .left-panel.left-panel-expanded .left-panel-content {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+}
+
+/* Left panel expanded mode styling */
+.left-panel.left-panel-expanded {
+  border-radius: 12px !important;
+  transition: width 0.3s ease-in-out;
+  max-width: 100% !important;
+  border-right: none !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02) !important;
+}
+
+.dark .left-panel.left-panel-expanded {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05) !important;
+}
+
+/* Make the panel content use more space when expanded */
+.left-panel.left-panel-expanded .panel-scrollable {
+  padding-left: 10% !important;
+  padding-right: 10% !important;
+  max-width: 100% !important;
+}
+
+/* Adjust content within the scrollable area */
+.left-panel.left-panel-expanded .panel-scrollable > div {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Make sure the fullscreen button stays visible */
+.left-panel.left-panel-expanded .panels-fullscreen-btn {
+  opacity: 1 !important;
+}
+
+/* Improve typography for expanded mode */
+.left-panel.left-panel-expanded .problem-description-content {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.left-panel.left-panel-expanded .problem-description-content pre,
+.left-panel.left-panel-expanded .problem-description-content code {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Improve content layout for code samples in the description */
+.left-panel.left-panel-expanded .test-case-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .left-panel.left-panel-expanded .test-case-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Optimize for different screen sizes */
+@media (max-width: 768px) {
+  .left-panel.left-panel-expanded .panel-scrollable {
+    padding-left: 5% !important;
+    padding-right: 5% !important;
+  }
+}
+
+@media (min-width: 1600px) {
+  .left-panel.left-panel-expanded .panel-scrollable {
+    padding-left: 15% !important;
+    padding-right: 15% !important;
+  }
+}
+
+/* Left panel expanded mode styling */
+.left-panel.left-panel-expanded {
+  border-radius: 12px !important;
+  transition: width 0.3s ease-in-out;
+  max-width: 100% !important;
+  border-right: none !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02) !important;
+}
+
+.dark .left-panel.left-panel-expanded {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05) !important;
+}
+
+/* Make the panel content use maximum available space when expanded */
+.left-panel.left-panel-expanded .panel-scrollable {
+  padding-left: 3% !important;
+  padding-right: 3% !important;
+  max-width: 100% !important;
+}
+
+/* Adjust content within the scrollable area to use full width */
+.left-panel.left-panel-expanded .panel-scrollable > div {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Force all expandable containers to use full width */
+.left-panel.left-panel-expanded .prose,
+.left-panel.left-panel-expanded .prose-invert {
+  max-width: none !important;
+}
+
+/* Override any p, div, and other container elements to use more width */
+.left-panel.left-panel-expanded .problem-description-content > * {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Make sure the fullscreen button stays visible */
+.left-panel.left-panel-expanded .panels-fullscreen-btn {
+  opacity: 1 !important;
+}
+
+/* Improve typography for expanded mode */
+.left-panel.left-panel-expanded .problem-description-content {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.left-panel.left-panel-expanded .problem-description-content pre,
+.left-panel.left-panel-expanded .problem-description-content code {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Improve content layout for code samples and test cases */
+.left-panel.left-panel-expanded .test-case-grid {
+  width: 100% !important;
+  max-width: 100% !important;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Fix specific layout issues in expanded mode */
+.left-panel.left-panel-expanded .p-4 {
+  padding: 1.5rem !important;
+}
+
+.left-panel.left-panel-expanded h2,
+.left-panel.left-panel-expanded h3,
+.left-panel.left-panel-expanded h4 {
+  width: 100% !important;
+}
+
+/* Better responsiveness for expanded mode */
+@media (min-width: 768px) {
+  .left-panel.left-panel-expanded .test-case-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Only on very large screens, add some side padding */
+@media (min-width: 2000px) {
+  .left-panel.left-panel-expanded .panel-scrollable {
+    padding-left: 10% !important;
+    padding-right: 10% !important;
+  }
+}
+
+/* --- PATCH: Ensure left panel expanded never exceeds viewport and right border is visible --- */
+.left-panel.left-panel-expanded {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+.left-panel.left-panel-expanded .panel-scrollable {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  /* Reduce side padding to avoid overflow */
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+/* --- END PATCH --- */
+
+/* --- PATCH: Improved left/right padding for expanded left panel content --- */
+.left-panel.left-panel-expanded .panel-scrollable {
+  padding-left: 2vw !important;
+  padding-right: 2vw !important;
+}
+@media (min-width: 1600px) {
+  .left-panel.left-panel-expanded .panel-scrollable {
+    padding-left: 5vw !important;
+    padding-right: 5vw !important;
+  }
+}
+@media (max-width: 768px) {
+  .left-panel.left-panel-expanded .panel-scrollable {
+    padding-left: 5% !important;
+    padding-right: 5% !important;
+  }
+}
+/* --- END PATCH --- */
+
+@media (max-width: 768px) {
+  .left-panel, .right-panel {
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .left-panel.left-panel-expanded {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    border-radius: 12px !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .code-panel.focus-mode {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: calc(100vw - 16px) !important;
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+    display: flex;
+    flex-direction: column;
+  }
+  .code-panel.focus-mode .editor-status-bar {
+    display: flex !important;
+  }
+  .code-panel.focus-mode .editor-container {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .code-panel.focus-mode .vscode-status-bar {
+    display: flex !important;
+    position: static !important;
+    width: 100% !important;
+    border-radius: 0 0 12px 12px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .test-panel {
+    max-height: 40vh !important;
+    min-height: 180px !important;
+    height: auto !important;
+    display: flex !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Ensure test panel is visible and properly sized on mobile */
+  .test-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
+    max-height: 40vh !important;
+    min-height: 220px !important;
+    height: auto !important;
+    width: calc(100vw - 16px) !important;
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    z-index: 10 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    border-radius: 12px !important;
+  }
+  
+  /* Ensure the tabs container inside the test panel is visible */
+  .test-panel > div:first-child,
+  .test-panel .TabsList,
+  .test-panel .TabsTrigger {
+    display: flex !important;
+    visibility: visible !important;
+  }
+  
+  /* Make sure tab content is visible */
+  .test-panel .TabsContent {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Override any focus mode hiding that might affect the test panel */
+  .right-panel .test-panel {
+    display: flex !important;
+  }
+  
+  /* Make sure the panel content is visible */
+  .test-panel-content {
+    flex: 1 !important;
+    display: block !important;
+    overflow: auto !important;
+    padding: 16px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Override the focusMode hiding of test panel on mobile */
+  .code-panel {
+    max-height: 60vh !important;
+    min-height: 200px !important;
+  }
+  
+  .test-panel {
+    display: flex !important; /* This override is crucial */
+    min-height: 180px !important;
+    max-height: 40vh !important;
+    border-radius: 12px !important;
+    margin-top: 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+  }
+  
+  /* Make sure all parts of the test panel are visible */
+  .test-panel > div, 
+  .test-panel .border-b,
+  .test-panel .flex-1 {
+    display: flex !important;
+  }
+  
+  /* Focus mode should not hide test panel on mobile */
+  .right-panel div[style*="display: none"] {
+    display: flex !important;
+  }
+}
+
+/* Fix for test results not showing on mobile view */
+@media (max-width: 768px) {
+  /* Ensure test panel tabs are visible */
+  .test-panel .TabsList,
+  .test-panel [role="tablist"] {
+    display: flex !important;
+    visibility: visible !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+  }
+  
+  /* Make sure test result tab is properly styled and visible */
+  .test-panel [role="tab"],
+  .test-panel .TabsTrigger {
+    display: flex !important;
+    padding: 8px !important;
+    font-size: 14px !important;
+    opacity: 1 !important;
+  }
+  
+  /* Ensure the results content is visible when active */
+  .test-panel [role="tabpanel"],
+  .test-panel .TabsContent[data-state="active"] {
+    display: flex !important;
+    flex-direction: column !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    height: auto !important;
+    overflow: auto !important;
+    flex: 1 !important;
+  }
+  
+  /* Style the run/submit result to ensure it's clearly visible */
+  .test-panel .TabsContent[value="result"] {
+    padding: 12px !important;
+    background-color: hsl(var(--background)) !important;
+  }
+  
+  /* Ensure results panel and its children are visible */
+  .test-panel [value="result"],
+  .test-panel [value="result"] > div,
+  .test-panel [value="result"] > * {
+    display: block !important;
+    visibility: visible !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Override focus mode hiding on mobile */
+  .test-panel[style*="display: none"] {
+    display: flex !important; /* Force display even with inline style display:none */
+  }
+  
+  /* If the panel itself is visible but content is hidden, show it */
+  .right-panel:has(.code-panel) .test-panel {
+    display: flex !important;
+  }
+  
+  /* Make sure the run/submit button results are visible */
+  .test-panel div[style*="display: none"] {
+    display: block !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Ensure test tab is properly styled on mobile */
+  .test-panel .TabsTrigger[data-state="active"],
+  .test-panel [role="tab"][aria-selected="true"] {
+    color: hsl(var(--primary)) !important;
+    border-color: hsl(var(--primary)) !important;
+    background-color: hsl(var(--primary) / 0.1) !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Make result content stand out */
+  .test-panel .TabsContent[value="result"] .bg-green-50,
+  .test-panel .TabsContent[value="result"] .bg-red-50,
+  .test-panel .TabsContent[value="result"] .bg-blue-50 {
+    margin: 8px 0 !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
+  }
+  
+  /* Fix display issues in test results */
+  .test-panel .TabsContent[value="result"] p,
+  .test-panel .TabsContent[value="result"] .text-xs,
+  .test-panel .TabsContent[value="result"] .font-medium {
+    display: block !important;
+    margin: 4px 0 !important;
+  }
+  
+  /* Fix specific issue with result tab showing */  
+  .test-panel .TabsContent[value="result"]:not([hidden]) {
+    display: flex !important; 
+  }
+}
+
+/* Mobile view: Always show test panel below code editor */
+@media (max-width: 768px) {
+  /* Force right panel to be column layout */
+  .right-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: visible !important;
+    min-height: auto !important;
+  }
+  
+  /* Ensure code panel has reasonable height */
+  .code-panel {
+    width: calc(100vw - 16px) !important;
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    height: 50vh !important;
+    min-height: 250px !important;
+    max-height: 50vh !important;
+    margin-bottom: 16px !important;
+    border-radius: 12px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Always show test panel in both focus and non-focus modes */
+  .test-panel,
+  .test-panel[style*="display: none"] {
+    display: flex !important;
+    width: calc(100vw - 16px) !important;
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    position: relative !important;
+    margin-top: 16px !important;
+    height: auto !important;
+    min-height: 200px !important;
+    max-height: 40vh !important;
+    flex-shrink: 0 !important;
+    border-radius: 12px !important;
+    border: 1px solid hsl(var(--border)) !important;
+    background-color: hsl(var(--background)) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+  }
+  
+  /* Fix for focus mode - even in focus mode, show test panel */
+  .right-panel[style*="width: 100%"] .test-panel {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Fix vertical spacing when panels stack */
+  .right-panel {
+    padding-bottom: 20px !important; /* Add extra padding at bottom for breathing room */
+  }
+  
+  /* Fix vertical resizer in mobile - still hide it */
+  .vertical-resizer {
+    display: none !important;
+  }
+}
+
+/* Style test panel tabs on mobile */
+@media (max-width: 768px) {
+  /* Tab container */
+  .test-panel > div:first-child {
+    background-color: hsl(var(--muted) / 0.3) !important;
+    padding: 8px 12px 0 !important;
+    display: flex !important;
+    border-top-left-radius: 12px !important;
+    border-top-right-radius: 12px !important;
+  }
+  
+  /* Tab list */
+  .test-panel .TabsList {
+    background-color: transparent !important;
+    border: none !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    width: 100% !important;
+    padding-bottom: 0 !important;
+  }
+  
+  /* Individual tabs */
+  .test-panel .TabsTrigger {
+    padding: 8px 12px !important;
+    font-size: 0.875rem !important;
+    border-radius: 6px 6px 0 0 !important;
+    color: hsl(var(--foreground) / 0.7) !important;
+    min-width: 80px !important;
+    text-align: center !important;
+  }
+  
+  /* Active tab */
+  .test-panel .TabsTrigger[data-state="active"] {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--primary)) !important;
+    border-bottom: 2px solid hsl(var(--primary)) !important;
+    font-weight: 500 !important;
+  }
+  
+  /* Tab content panel */
+  .test-panel .TabsContent {
+    padding: 16px !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    background-color: hsl(var(--background)) !important;
+  }
+}
+
+/* Style test cases on mobile */
+@media (max-width: 768px) {
+  /* Test case container */
+  .test-panel .test-case-grid {
+    grid-template-columns: 1fr !important; /* Stack test cases vertically on mobile */
+    gap: 16px !important;
+  }
+  
+  /* Input/output sections */
+  .test-panel .test-case-section {
+    margin-bottom: 12px !important;
+  }
+  
+  /* Section headers */
+  .test-panel .test-case-header {
+    padding: 8px 12px !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+  }
+  
+  /* Content area */
+  .test-panel .test-case-content {
+    padding: 12px !important;
+    max-height: 150px !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Code blocks in test cases */
+  .test-panel pre, 
+  .test-panel code {
+    font-size: 0.875rem !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+  }
+  
+  /* Test status indicators */
+  .test-panel .status-badge {
+    padding: 4px 8px !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Expanded test panel covers the right panel area */
+.test-panel.test-panel-expanded {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 100 !important;
+  background: var(--background);
+  border-radius: 12px !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: auto !important;
+}
+
+.test-panel.test-panel-expanded .test-panel-expand-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 110;
 }

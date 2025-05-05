@@ -25,6 +25,10 @@ async function getProperLanguageName(languageIdOrName: string): Promise<string> 
   const numericId = Number(languageId);
   if (!isNaN(numericId)) {
     try {
+      // Handle known Python versions specifically
+      if (numericId === 70) return "Python (2.7.17)";
+      if (numericId === 71) return "Python (3.8.1)";
+      
       // Try to fetch from Judge0 API directly
       const res = await fetch(`${JUDGE0_API_URL}/languages`);
       if (res.ok) {

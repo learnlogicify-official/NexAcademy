@@ -766,11 +766,18 @@ export function ExpandableProblemSidebar() {
   const [initialLoading, setInitialLoading] = React.useState(true)
   const [problems, setProblems] = React.useState<SidebarProblem[]>([])
   const sidebarRef = React.useRef<HTMLDivElement>(null)
+  const expandButtonRef = React.useRef<HTMLButtonElement>(null)
   const params = useParams()
   const router = useRouter()
   
   // Get current problem ID from URL params
   const currentProblemId = params?.id as string
+
+  // Toggle sidebar expansion
+  const toggleSidebar = React.useCallback(() => {
+    console.log('Toggling sidebar, current state:', expanded);
+    setExpanded(prev => !prev);
+  }, [expanded]);
 
   // Fetch all coding problems
   React.useEffect(() => {
@@ -853,13 +860,14 @@ export function ExpandableProblemSidebar() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.15 }}
-            className="fixed top-4 left-4 z-50"
+            className="fixed top-4 left-4 z-[100]"
           >
             <Button
+              ref={expandButtonRef}
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full bg-white dark:bg-gray-800 shadow-[0_2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm"
-              onClick={() => setExpanded(true)}
+              onClick={toggleSidebar}
               aria-label="Show problem list"
             >
               <svg 
@@ -893,7 +901,7 @@ export function ExpandableProblemSidebar() {
             animate={{ x: 0 }}
             exit={{ x: -400 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed top-0 left-0 h-full w-[400px] flex flex-col z-40 shadow-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50"
+            className="fixed top-0 left-0 h-full w-[400px] flex flex-col z-[100] shadow-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50"
             style={{ maxWidth: '90vw' }}
           >
             <div className="p-4 flex items-center justify-between border-b border-gray-200/80 dark:border-gray-800/80">
@@ -925,7 +933,7 @@ export function ExpandableProblemSidebar() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setExpanded(false)}
+                onClick={toggleSidebar}
                 className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />

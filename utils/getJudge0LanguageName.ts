@@ -24,6 +24,7 @@ export async function getJudge0LanguageName(id: number): Promise<string | null> 
         53: "C++ (GCC 8.3.0)",
         54: "C++ (GCC 9.2.0)",
         63: "JavaScript (Node.js 12.14.0)",
+        70: "Python (2.7.17)",
         71: "Python (3.8.1)",
         62: "Java (OpenJDK 13.0.1)",
       };

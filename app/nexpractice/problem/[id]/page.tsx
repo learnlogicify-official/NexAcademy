@@ -45,6 +45,7 @@ import {
   CheckCircle2,
   Database,
   XCircle,
+  Minimize,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -70,6 +71,7 @@ import { Label } from "@/components/ui/label"
 import { ModeToggle } from "@/components/nexpractice/mode-toggle"
 import { motion, AnimatePresence } from "framer-motion"
 import { ExpandableProblemSidebar } from "@/components/nexpractice/ui/sidebar"
+import { PanelsFullscreen } from "@/components/nexpractice/ui/panels-fullscreen"
 import { runWithJudge0 } from "@/utils/judge0"
 import { useSession, signOut } from "next-auth/react"
 import { useProfilePic } from "@/components/ProfilePicContext"
@@ -106,6 +108,17 @@ interface Problem {
   explanation?: string;
   xpReward?: number;
   languageOptions?: LanguageOption[];
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  return isMobile;
 }
 
 export default function ProblemPage() {
@@ -152,6 +165,7 @@ export default function ProblemPage() {
   const [showSubmissionTab, setShowSubmissionTab] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [submissionLoading, setSubmissionLoading] = useState(false);
+  const [isTestPanelExpanded, setIsTestPanelExpanded] = useState(false);
 
   const confettiRef = useRef<HTMLDivElement>(null)
   const rightPanelRef = useRef<HTMLDivElement>(null)
@@ -163,6 +177,8 @@ export default function ProblemPage() {
 
   const { data: session } = useSession();
   const { languages: judge0Languages } = useJudge0Languages();
+  
+  const isMobile = useIsMobile();
   
   // Memoize the displayed language name
   const displayedLanguageName = useMemo(() => {
@@ -819,7 +835,17 @@ public:
   }
 
   const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen)
+    if (!document.fullscreenElement) {
+      // Enter fullscreen
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
   }
 
   const toggleFocusMode = () => {
@@ -1956,7 +1982,8 @@ public:
         '11': 'python',    // Python 3 
         '10': 'python',    // Python 2
         '26': 'python',    // Python 3.6
-        '71': 'python',    // Python 3.8
+        '70': 'python',    // Python 2.7.17
+        '71': 'python',    // Python 3.8.1
         '29': 'java',      // Java 
         '54': 'cpp',       // C++
         '53': 'cpp',       // C++ GCC 8.3.0
@@ -2081,10 +2108,25 @@ public:
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [code, problemId, language, session?.user?.id]);
 
+  // Listen for fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   return (
     <div className="main-container">
-      {/* Add Expandable Problem Sidebar */}
-      <ExpandableProblemSidebar />
+      {/* Add Expandable Problem Sidebar with higher z-index */}
+      <div className="fixed top-0 left-0 z-[100]">
+        <ExpandableProblemSidebar />
+      </div>
+      
       {/* Confetti container */}
       <div ref={confettiRef} className="fixed inset-0 pointer-events-none z-50"></div>
 
@@ -2102,9 +2144,9 @@ public:
       </AnimatePresence>
 
       {/* Header */}
-      <header className="problem-header relative">
+      <header className="problem-header relative flex items-center justify-between">
         {/* Left Section */}
-        <div className="problem-header-section z-10">
+        <div className="problem-header-section z-10 flex-1">
           <Button variant="ghost" size="icon" className="text-primary/90">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L1 12H4V21H10V15H14V21H20V12H23L12 2Z" fill="currentColor" />
@@ -2126,27 +2168,15 @@ public:
           
           <div className="problem-header-divider"></div>
           
-          <div className="problem-header-actions">
-            <button className="problem-nav-btn" title="Previous Problem">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="problem-nav-btn" title="Next Problem">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button className="problem-nav-btn" title="Toggle Fullscreen" onClick={toggleFullscreen}>
-              <Maximize className="h-4 w-4" />
-            </button>
-            
-            <div className="problem-header-divider"></div>
-            
-            <button className="problem-nav-btn">
-              <Settings className="h-4 w-4" />
+          <div className="problem-header-actions hidden sm:flex">
+            <button className="problem-nav-btn" title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"} onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Centered Run and Submit buttons - absolutely centered */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-2 z-0">
+        {/* Center Section with Run and Submit buttons */}
+        <div className="hidden md:flex justify-center items-center gap-2 z-20 flex-1 max-w-[300px] mx-auto fullscreen-center">
           <Button 
             onClick={runCode} 
             disabled={isRunning || isSubmitting}
@@ -2185,7 +2215,7 @@ public:
         </div>
 
         {/* Right Section */}
-        <div className="problem-header-section z-10">
+        <div className="problem-header-section z-10 flex-1 justify-end">
           {savedSnippets.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -2208,10 +2238,12 @@ public:
             </DropdownMenu>
           )}
           
-          <div className="problem-header-divider"></div>
+          <div className="problem-header-divider hidden lg:block"></div>
           
-          <div className="problem-user-section">
-            <ModeToggle />
+          <div className="problem-user-section flex-shrink-0">
+            <div className="hidden md:block">
+              <ModeToggle />
+            </div>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -2252,7 +2284,7 @@ public:
             </DropdownMenu>
             
             <button
-              className="problem-premium-badge ml-2"
+              className="problem-premium-badge ml-2 hidden sm:flex"
               onClick={togglePremiumStatus}
             >
               <Crown className="h-4 w-4" />
@@ -2262,7 +2294,7 @@ public:
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center gap-1 ml-2 text-primary hover:text-primary/80"
+              className="hidden lg:flex items-center gap-1 ml-2 text-primary hover:text-primary/80"
               onClick={() => window.location.href = "/nexpractice"}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -2271,6 +2303,63 @@ public:
           </div>
         </div>
       </header>
+
+      {/* Mobile Run/Submit Buttons - show only on small screens */}
+      <div className="flex md:hidden items-center justify-between gap-2 z-10 w-full py-2 px-2 border-t border-b border-border bg-background">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 flex-none"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+          </Button>
+          
+          <ModeToggle />
+        </div>
+        
+        <div className="flex gap-2 flex-1 justify-end">
+          <Button 
+            onClick={runCode} 
+            disabled={isRunning || isSubmitting}
+            className={`problem-btn-primary flex items-center justify-center h-9 px-3 ${isRunning ? 'opacity-70' : ''}`}
+            size="sm"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                <span className="text-sm">Running</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-3.5 w-3.5 mr-1" />
+                <span className="text-sm">Run</span>
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={submitCode}
+            disabled={isSubmitting || isRunning} 
+            className={`problem-btn-success flex items-center justify-center h-9 px-3 ${isSubmitting ? 'opacity-70' : ''}`}
+            size="sm"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                <span className="text-sm">Submitting</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5 mr-1" />
+                <span className="text-sm">Submit</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
 
       {/* Main content */}
       <main className="panels-container">
@@ -2282,6 +2371,9 @@ public:
             display: focusMode ? 'none' : 'flex' // Hide the panel completely in focus mode
           }}
         >
+          {/* Add PanelsFullscreen component */}
+          <PanelsFullscreen className="absolute top-3 right-3 z-50" />
+          
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col modern-tabs">
             <div className="border-border border-b flex-shrink-0 bg-background h-10 flex items-center" style={{minHeight: 40, height: 40, maxHeight: 40}}>
               <div className="px-4 pt-3 pb-0 flex items-center h-full" style={{height: '100%'}}>
@@ -2903,14 +2995,15 @@ public:
 
         {/* Horizontal Resizer */}
         <div
-          className="horizontal-resizer group"
+          className="horizontal-resizer group hidden md:block"
           style={{ 
             left: `${leftPanelWidth}%`,
             position: 'absolute',
             top: 0,
             bottom: 0,
-            zIndex: 10,
-            display: focusMode ? 'none' : 'block' // Hide the resizer in focus mode
+            zIndex: 40,
+            width: '6px',
+            cursor: 'col-resize'
           }}
           onMouseDown={startHorizontalResize}
           onDoubleClick={() => setLeftPanelWidth(50)}
@@ -3287,153 +3380,175 @@ public:
           {/* Panels Container */}
           <div className="flex flex-col flex-1" style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
             {/* Code Editor */}
-            <div 
-              className="code-panel"
-              style={{ 
-                height: `calc(${100 - bottomPanelHeight}% )`, 
-                boxSizing: 'border-box',
-                position: 'relative'
-              }}
-            >
-              {isCodeLoading ? (
-                <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-                    <p className="text-muted-foreground text-sm">Loading code editor...</p>
+            {!isTestPanelExpanded && (
+              <div 
+                className="code-panel"
+                style={{ 
+                  height: `calc(${100 - bottomPanelHeight}% )`, 
+                  boxSizing: 'border-box',
+                  position: 'relative'
+                }}
+              >
+                {isCodeLoading ? (
+                  <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                      <p className="text-muted-foreground text-sm">Loading code editor...</p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <CodeEditor 
-                  code={code} 
-                  setCode={setCode} 
-                  language={getCodeMirrorModeFromJudge0Name(getJudge0LangById(language)?.name || '')}
-                  preloadCode={getLanguageTemplate(language)}
-                  initialShowSettings={editorSettingsOpen}
-                  editorSettingsRef={editorSettingsRef}
-                  errorLine={errorLine}
-                  errorMessage={errorMessage}
-                />
-              )}
-            </div>
+                ) : (
+                  <CodeEditor 
+                    code={code} 
+                    setCode={setCode} 
+                    language={getCodeMirrorModeFromJudge0Name(getJudge0LangById(language)?.name || '')}
+                    preloadCode={getLanguageTemplate(language)}
+                    initialShowSettings={editorSettingsOpen}
+                    editorSettingsRef={editorSettingsRef}
+                    errorLine={errorLine}
+                    errorMessage={errorMessage}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Vertical Resizer */}
-            <div
-              className="vertical-resizer group"
-              style={{ 
-                position: 'absolute',
-                left: 0,
-                right: 0, 
-                top: `calc(${100 - bottomPanelHeight}% + 15px)`,
-                height: '6px',
-                zIndex: 50, // Higher z-index to ensure it's clickable
-                width: '100%',
-                display: focusMode ? 'none' : 'block', // Hide the resizer in focus mode
-                cursor: 'row-resize' // Ensure cursor is always visible on hover
-              }}
-              onMouseDown={startVerticalResize}
-              onDoubleClick={() => setBottomPanelHeight(30)}
-              title="Drag to resize (double-click to reset)"
-            >
-              <div className="absolute bottom-full right-2 flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                        onClick={() => setBottomPanelHeight(20)}
-                      >
-                        <div className="flex flex-col h-4 w-4">
-                          <div className="h-4/5 w-full bg-primary/30"></div>
-                          <div className="h-1/5 w-full bg-primary/10"></div>
-                        </div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="tooltip-content">
-                      <p>80% - 20% (Alt+9)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                        onClick={() => setBottomPanelHeight(30)}
-                      >
-                        <div className="flex flex-col h-4 w-4">
-                          <div className="h-[70%] w-full bg-primary/30"></div>
-                          <div className="h-[30%] w-full bg-primary/10"></div>
-                        </div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="tooltip-content">
-                      <p>70% - 30% (Alt+8)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                        onClick={() => setBottomPanelHeight(40)}
-                      >
-                        <div className="flex flex-col h-4 w-4">
-                          <div className="h-[60%] w-full bg-primary/30"></div>
-                          <div className="h-[40%] w-full bg-primary/10"></div>
-                        </div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="tooltip-content">
-                      <p>60% - 40% (Alt+7)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+            {!isTestPanelExpanded && (
+              <div
+                className="vertical-resizer group"
+                style={{ 
+                  position: 'absolute',
+                  left: 0,
+                  right: 0, 
+                  top: `calc(${100 - bottomPanelHeight}% + 15px)`,
+                  height: '6px',
+                  zIndex: 50,
+                  width: '100%',
+                  display: focusMode ? 'none' : 'block',
+                  cursor: 'row-resize'
+                }}
+                onMouseDown={startVerticalResize}
+                onDoubleClick={() => setBottomPanelHeight(30)}
+                title="Drag to resize (double-click to reset)"
+              >
+                <div className="absolute bottom-full right-2 flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                          onClick={() => setBottomPanelHeight(20)}
+                        >
+                          <div className="flex flex-col h-4 w-4">
+                            <div className="h-4/5 w-full bg-primary/30"></div>
+                            <div className="h-1/5 w-full bg-primary/10"></div>
+                          </div>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="tooltip-content">
+                        <p>80% - 20% (Alt+9)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                          onClick={() => setBottomPanelHeight(30)}
+                        >
+                          <div className="flex flex-col h-4 w-4">
+                            <div className="h-[70%] w-full bg-primary/30"></div>
+                            <div className="h-[30%] w-full bg-primary/10"></div>
+                          </div>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="tooltip-content">
+                        <p>70% - 30% (Alt+8)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                          onClick={() => setBottomPanelHeight(40)}
+                        >
+                          <div className="flex flex-col h-4 w-4">
+                            <div className="h-[60%] w-full bg-primary/30"></div>
+                            <div className="h-[40%] w-full bg-primary/10"></div>
+                          </div>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="tooltip-content">
+                        <p>60% - 40% (Alt+7)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                        onClick={() => setBottomPanelHeight(50)}
-                      >
-                        <div className="flex flex-col h-4 w-4">
-                          <div className="h-1/2 w-full bg-primary/30"></div>
-                          <div className="h-1/2 w-full bg-primary/10"></div>
-                        </div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="tooltip-content">
-                      <p>50% - 50% (Alt+5)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                          onClick={() => setBottomPanelHeight(50)}
+                        >
+                          <div className="flex flex-col h-4 w-4">
+                            <div className="h-1/2 w-full bg-primary/30"></div>
+                            <div className="h-1/2 w-full bg-primary/10"></div>
+                          </div>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="tooltip-content">
+                        <p>50% - 50% (Alt+5)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Test Cases Panel */}
             <div 
-              className="test-panel border-t flex flex-col"
+              className={`test-panel border-t flex flex-col${isTestPanelExpanded ? ' test-panel-expanded' : ''}`}
               style={{ 
-                height: `${bottomPanelHeight}%`,
-                boxSizing: 'border-box',
-                display: focusMode ? 'none' : 'flex', // Hide the test panel in focus mode
-                minHeight: '20%', // Ensure panel has a minimum height
-                maxHeight: '80%', // Maximum height to maintain editor visibility
-                overflow: 'hidden' // Prevent content from spilling out
+                height: isTestPanelExpanded ? '100%' : `${bottomPanelHeight}%`,
+                position: isTestPanelExpanded ? 'absolute' : 'relative',
+                top: isTestPanelExpanded ? 0 : undefined,
+                left: isTestPanelExpanded ? 0 : undefined,
+                width: isTestPanelExpanded ? '100%' : undefined,
+                zIndex: isTestPanelExpanded ? 100 : undefined,
+                background: isTestPanelExpanded ? 'var(--background)' : undefined,
+                boxShadow: isTestPanelExpanded ? '0 8px 30px rgba(0,0,0,0.1)' : undefined,
+                borderRadius: isTestPanelExpanded ? 12 : undefined,
+                minHeight: '20%',
+                maxHeight: '80%',
+                overflow: 'hidden'
               }}
             >
-              {/* Removed test-panel-header */}
+              {/* Expand/Collapse Button */}
+              <div className="flex justify-end p-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="test-panel-expand-btn"
+                  onClick={() => setIsTestPanelExpanded(!isTestPanelExpanded)}
+                  title={isTestPanelExpanded ? "Collapse Test Panel" : "Expand Test Panel"}
+                >
+                  {isTestPanelExpanded ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+                </Button>
+              </div>
+              {/* ...rest of test panel... */}
               <div className="flex flex-1 overflow-hidden">
                 <div className="w-10 border-border border-r flex flex-col items-center py-2 flex-shrink-0">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">

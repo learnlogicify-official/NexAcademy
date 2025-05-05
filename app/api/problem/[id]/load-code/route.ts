@@ -23,7 +23,14 @@ export async function GET(request: Request, context: Promise<{ params: { id: str
   let judge0LanguageName = null;
   const languageId = Number(language);
   if (!isNaN(languageId)) {
-    judge0LanguageName = await getJudge0LanguageName(languageId);
+    // Special handling for Python versions
+    if (languageId === 70) {
+      judge0LanguageName = "Python (2.7.17)";
+    } else if (languageId === 71) {
+      judge0LanguageName = "Python (3.8.1)";
+    } else {
+      judge0LanguageName = await getJudge0LanguageName(languageId);
+    }
   }
 
   // Try to find a draft by exact Judge0 language name

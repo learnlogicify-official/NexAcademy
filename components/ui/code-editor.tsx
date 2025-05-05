@@ -41,7 +41,8 @@ const judge0LanguageMapping: Record<string, string> = {
   "11": "python",    // Python 3
   "10": "python",    // Python 2
   "26": "python",    // Python 3.6
-  "71": "python",    // Python 3.8
+  "70": "python",    // Python 2.7.17
+  "71": "python",    // Python 3.8.1
   "29": "java",      // Java
   "54": "cpp",       // C++
   "55": "java",      // Java
