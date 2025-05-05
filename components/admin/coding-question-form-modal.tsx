@@ -1961,8 +1961,7 @@ export function CodingQuestionFormModal({
                   <SelectContent>
                     {selectedLanguages.map((langId) => (
                       <SelectItem key={langId} value={langId}>
-                        {languages.find((l) => String(l.id) === langId)?.name ||
-                          langId}
+                        {languages.find((l: { id: number|string, name: string }) => String(l.id) === String(langId))?.name || langId}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2416,7 +2415,7 @@ export function CodingQuestionFormModal({
                   {selectedLanguages.map((langId) => {
                     const langOption = getLanguageOption(langId);
                     const langName =
-                      languages.find((l) => String(l.id) === langId)?.name ||
+                      languages.find((l: { id: number|string, name: string }) => String(l.id) === String(langId))?.name ||
                       langId;
 
                     return (

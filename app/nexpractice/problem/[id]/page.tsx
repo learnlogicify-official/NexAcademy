@@ -76,6 +76,7 @@ import { useProfilePic } from "@/components/ProfilePicContext"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, LogOut } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns';
+import { useJudge0Languages } from '@/components/hooks/useJudge0Languages';
 
 // Define language option interface
 interface LanguageOption {
@@ -105,190 +106,6 @@ interface Problem {
   explanation?: string;
   xpReward?: number;
   languageOptions?: LanguageOption[];
-}
-
-// Judge0 language map for showing tooltips and handling language versions
-const JUDGE0_LANGUAGE_MAP: Record<number, string> = {
-  // C language family
-  50: "C (GCC 9.2.0)",
-  54: "C++ (GCC 9.2.0)",
-  51: "C# (Mono 6.6.0.161)",
-  
-  // JavaScript/TypeScript
-  63: "JavaScript (Node.js 12.14.0)",
-  74: "TypeScript (3.7.4)",
-  
-  // Java
-  62: "Java (OpenJDK 13.0.1)",
-  
-  // Python
-  71: "Python (3.8.1)",
-  70: "Python (2.7.17)",
-  
-  // Ruby
-  72: "Ruby (2.7.0)",
-  
-  // Go
-  60: "Go (1.13.5)",
-  
-  // Other languages
-  73: "Rust (1.40.0)",
-  68: "PHP (7.4.1)",
-  83: "Swift (5.2.3)",
-  78: "Kotlin (1.3.70)",
-  
-  // Legacy IDs kept for reference
-  // (Don't use these for new submissions)
-  1: "C (GCC 7.4.0) [Deprecated]",
-  2: "C++ (GCC 7.4.0) [Deprecated]",
-  3: "C++ (GCC 8.3.0) [Deprecated]",
-  4: "C++ (GCC 9.2.0) [Deprecated]",
-  5: "C# (Mono 6.6.0.161) [Deprecated]",
-  6: "C# (.NET Core 3.1.0) [Deprecated]",
-  7: "C# (Mono 4.6.2.0) [Deprecated]",
-  8: "JavaScript (Node.js 12.14.0) [Deprecated]",
-  9: "JavaScript (Node.js 10.16.3) [Deprecated]",
-  10: "Java (OpenJDK 13.0.1) [Deprecated]",
-  11: "Java (OpenJDK 13.0.1) [Use ID 62]", // Map to current Java
-  12: "Java (OpenJDK 8) [Deprecated]",
-  13: "Python (3.8.1) [Deprecated]",
-  14: "Python (2.7.17) [Deprecated]",
-  15: "Ruby (2.7.0) [Deprecated]",
-  16: "Go (1.13.5) [Deprecated]",
-};
-
-// Helper function to separate base language name and version
-function getLanguageBaseAndVersion(langName: string): React.ReactNode {
-  // Split by space to separate base name and version
-  const parts = langName.split(' ');
-  if (parts.length === 1) {
-    // No version part
-    return <>{langName}</>;
-  }
-  
-  // Base name is the first part, version is the rest
-  const baseName = parts[0];
-  const version = parts.slice(1).join(' ');
-  
-  return (
-    <>
-      {baseName} <span className="version">{version}</span>
-    </>
-  );
-}
-
-// Helper function to get an icon for each language
-function getLanguageIcon(langName: string): React.ReactNode {
-  const baseLanguage = langName.split(' ')[0].toLowerCase();
-  
-  // Language-specific colors
-  const colorMap: Record<string, string> = {
-    javascript: '#F7DF1E',
-    typescript: '#3178C6',
-    python: '#3776AB',
-    java: '#ED8B00',
-    'c++': '#00599C',
-    'c#': '#239120',
-    c: '#A8B9CC',
-    go: '#00ADD8',
-    rust: '#DEA584',
-    php: '#777BB4',
-    ruby: '#CC342D',
-    swift: '#F05138',
-    kotlin: '#7F52FF',
-    dart: '#0175C2'
-  };
-  
-  // Get color based on language
-  const color = colorMap[baseLanguage] || '#A0AEC0';
-  
-  return (
-    <div
-      style={{
-        backgroundColor: color,
-        width: '12px',
-        height: '12px',
-        borderRadius: '3px',
-      }}
-    />
-  );
-}
-
-// Function to update deprecated language IDs to current ones
-function updateLanguageId(languageId: number): number {
-  // Map deprecated IDs to current ones
-  switch (languageId) {
-    // Java
-    case 10:
-    case 11:
-    case 12:
-      return 62; // Current Java ID
-      
-    // JavaScript
-    case 8:
-    case 9:
-      return 63; // Current Node.js ID
-      
-    // Python 3
-    case 13:
-    case 44:
-      return 71; // Current Python 3 ID
-      
-    // Python 2
-    case 14:
-      return 70; // Current Python 2 ID
-      
-    // C++
-    case 2:
-    case 3:
-    case 4:
-    case 23:
-    case 24:
-      return 54; // Current C++ ID
-      
-    // C
-    case 1:
-      return 50; // Current C ID
-      
-    // C#
-    case 5:
-    case 6:
-    case 7:
-      return 51; // Current C# ID
-      
-    // Ruby
-    case 15:
-    case 35:
-      return 72; // Current Ruby ID
-      
-    // Go
-    case 16:
-      return 60; // Current Go ID
-      
-    // Rust
-    case 20:
-      return 73; // Current Rust ID
-      
-    // PHP
-    case 21:
-      return 68; // Current PHP ID
-      
-    // TypeScript
-    case 22:
-      return 74; // Current TypeScript ID
-      
-    // Swift
-    case 19:
-      return 83; // Current Swift ID
-      
-    // Kotlin
-    case 25:
-      return 78; // Current Kotlin ID
-      
-    // Keep IDs that are already current
-    default:
-      return languageId;
-  }
 }
 
 export default function ProblemPage() {
@@ -345,6 +162,7 @@ export default function ProblemPage() {
   const problemId = params.id as string
 
   const { data: session } = useSession();
+  const { languages: judge0Languages } = useJudge0Languages();
 
   // Reset layout function
   const resetLayout = () => {
@@ -1289,7 +1107,7 @@ public:
           // Update language IDs to match current Judge0 API
           const updatedLanguageOptions = data.languageOptions.map((lang: LanguageOption) => ({
             ...lang,
-            languageId: updateLanguageId(lang.languageId)
+            languageId: lang.languageId
           }));
           
           setAvailableLanguages(updatedLanguageOptions);
@@ -1340,7 +1158,7 @@ public:
           // Update language IDs for sample problem too
           const updatedSampleLanguages = (sampleProblem as any).languageOptions.map((lang: LanguageOption) => ({
             ...lang,
-            languageId: updateLanguageId(lang.languageId)
+            languageId: lang.languageId
           }));
           
           setAvailableLanguages(updatedSampleLanguages);
@@ -1851,6 +1669,52 @@ public:
         .finally(() => setSubmissionsLoading(false));
     }
   }, [activeTab, session?.user?.id, problemId]);
+
+  // Restore getLanguageBaseAndVersion and getLanguageIcon helpers:
+  function getLanguageBaseAndVersion(langName: string): React.ReactNode {
+    const parts = langName.split(' ');
+    if (parts.length === 1) {
+      return <>{langName}</>;
+    }
+    const baseName = parts[0];
+    const version = parts.slice(1).join(' ');
+    return (
+      <>
+        {baseName} <span className="version">{version}</span>
+      </>
+    );
+  }
+
+  function getLanguageIcon(langName: string): React.ReactNode {
+    const baseLanguage = langName.split(' ')[0].toLowerCase();
+    const colorMap: Record<string, string> = {
+      javascript: '#F7DF1E',
+      typescript: '#3178C6',
+      python: '#3776AB',
+      java: '#ED8B00',
+      'c++': '#00599C',
+      'c#': '#239120',
+      c: '#A8B9CC',
+      go: '#00ADD8',
+      rust: '#DEA584',
+      php: '#777BB4',
+      ruby: '#CC342D',
+      swift: '#F05138',
+      kotlin: '#7F52FF',
+      dart: '#0175C2'
+    };
+    const color = colorMap[baseLanguage] || '#A0AEC0';
+    return (
+      <div
+        style={{
+          backgroundColor: color,
+          width: '12px',
+          height: '12px',
+          borderRadius: '3px',
+        }}
+      />
+    );
+  }
 
   return (
     <div className="main-container">
@@ -2793,7 +2657,7 @@ public:
                 <DropdownMenu open={languageDropdownOpen} onOpenChange={setLanguageDropdownOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="flex items-center gap-2 text-sm h-8 px-3">
-                      {language}
+                      {judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(language))?.name || language}
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground">
                         <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
@@ -2852,7 +2716,7 @@ public:
                                 <span className="language-icon">
                                   {getLanguageIcon(lang.name)}
                                 </span>
-                                <span title={JUDGE0_LANGUAGE_MAP[lang.languageId]}>
+                                <span title={judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(lang.languageId))?.name || lang.languageId}>
                                   {getLanguageBaseAndVersion(lang.name)}
                                 </span>
                               </div>
@@ -2890,7 +2754,7 @@ public:
                                 <span className="language-icon">
                                   {getLanguageIcon(lang.name)}
                                 </span>
-                                <span title={JUDGE0_LANGUAGE_MAP[lang.languageId]}>
+                                <span title={judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(lang.languageId))?.name || lang.languageId}>
                                   {getLanguageBaseAndVersion(lang.name)}
                                 </span>
                               </div>
@@ -2928,7 +2792,7 @@ public:
                                 <span className="language-icon">
                                   {getLanguageIcon(lang.name)}
                                 </span>
-                                <span title={JUDGE0_LANGUAGE_MAP[lang.languageId]}>
+                                <span title={judge0Languages.find((l: { id: number|string, name: string }) => String(l.id) === String(lang.languageId))?.name || lang.languageId}>
                                   {getLanguageBaseAndVersion(lang.name)}
                                 </span>
                               </div>
