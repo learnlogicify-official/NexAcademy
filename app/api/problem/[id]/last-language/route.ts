@@ -97,37 +97,81 @@ async function getProperLanguageName(languageIdOrName: string): Promise<string> 
 
 // GET: fetch last selected language for this user/problem
 export async function GET(request: Request, context: Promise<{ params: { id: string } }>) {
+  // Properly await the context
   const { params } = await context;
+  
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
   const userId = session.user.id;
   const problemId = params.id;
-  const settings = await prisma.userProblemSettings.findUnique({
-    where: { userId_problemId: { userId, problemId } },
-  });
-  return NextResponse.json({ lastLanguage: settings?.lastLanguage || null });
+  
+  try {
+    // Get user problem settings to find lastLanguage
+    const settings = await prisma.userProblemSettings.findUnique({
+      where: { userId_problemId: { userId, problemId } },
+    });
+    
+    // Get any saved code for this problem and language
+    let savedCode = null;
+    if (settings?.lastLanguage) {
+      const codeDraft = await prisma.userCodeDraft.findFirst({
+        where: {
+          userId,
+          problemId,
+          language: settings.lastLanguage
+        },
+        select: {
+          code: true
+        }
+      });
+      
+      savedCode = codeDraft?.code || null;
+    }
+    
+    // Return both lastLanguage and savedCode in one response
+    return NextResponse.json({ 
+      lastLanguage: settings?.lastLanguage || null,
+      savedCode
+    });
+  } catch (error) {
+    console.error("Error getting last language:", error);
+    return NextResponse.json({ error: "Failed to get last language" }, { status: 500 });
+  }
 }
 
 // POST: set last selected language for this user/problem
 export async function POST(request: Request, context: Promise<{ params: { id: string } }>) {
+  // Properly await the context
   const { params } = await context;
+  
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
   const userId = session.user.id;
   const problemId = params.id;
-  const { language } = await request.json();
   
-  // Get proper language name with version
-  const languageToStore = await getProperLanguageName(language);
+  try {
+    const { language } = await request.json();
+    if (!language) {
+      return NextResponse.json({ error: "Missing language parameter" }, { status: 400 });
+    }
+    
+    // Get proper language name with version
+    const languageToStore = await getProperLanguageName(language);
 
-  await prisma.userProblemSettings.upsert({
-    where: { userId_problemId: { userId, problemId } },
-    update: { lastLanguage: languageToStore },
-    create: { userId, problemId, lastLanguage: languageToStore },
-  });
-  return NextResponse.json({ success: true });
+    await prisma.userProblemSettings.upsert({
+      where: { userId_problemId: { userId, problemId } },
+      update: { lastLanguage: languageToStore },
+      create: { userId, problemId, lastLanguage: languageToStore },
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error setting last language:", error);
+    return NextResponse.json({ error: "Failed to set last language" }, { status: 500 });
+  }
 } 

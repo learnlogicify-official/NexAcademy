@@ -55,27 +55,37 @@ async function getProperLanguageName(languageIdOrName: string): Promise<string> 
 
 // POST /api/problem/[id]/save-code
 export async function POST(request: Request, context: Promise<{ params: { id: string } }>) {
+  // Await the context to get params
   const { params } = await context;
+  
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  
+  // Use the awaited params
   const userId = session.user.id;
   const problemId = params.id;
-  const body = await request.json();
-  const { code, language } = body;
-  if (!code || !language) {
-    return NextResponse.json({ error: "Missing code or language" }, { status: 400 });
-  }
-
-  // Get proper language name with version
-  const languageToStore = await getProperLanguageName(language);
   
-  // Upsert the draft
-  const draft = await prisma.userCodeDraft.upsert({
-    where: { userId_problemId_language: { userId, problemId, language: languageToStore } },
-    update: { code },
-    create: { userId, problemId, language: languageToStore, code },
-  });
-  return NextResponse.json({ success: true, draft });
+  try {
+    const body = await request.json();
+    const { code, language } = body;
+    if (!code || !language) {
+      return NextResponse.json({ error: "Missing code or language" }, { status: 400 });
+    }
+
+    // Get proper language name with version
+    const languageToStore = await getProperLanguageName(language);
+    
+    // Upsert the draft
+    const draft = await prisma.userCodeDraft.upsert({
+      where: { userId_problemId_language: { userId, problemId, language: languageToStore } },
+      update: { code },
+      create: { userId, problemId, language: languageToStore, code },
+    });
+    return NextResponse.json({ success: true, draft });
+  } catch (error) {
+    console.error("Error saving code:", error);
+    return NextResponse.json({ error: "Failed to save code" }, { status: 500 });
+  }
 } 

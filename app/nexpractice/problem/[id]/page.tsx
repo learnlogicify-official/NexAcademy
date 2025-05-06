@@ -79,6 +79,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, LogOut } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns';
 import { useJudge0Languages } from '@/components/hooks/useJudge0Languages';
+import { fetchJudge0Languages } from "@/app/api/judge0/route";
 
 // Define language option interface
 interface LanguageOption {
@@ -121,9 +122,57 @@ function useIsMobile() {
   return isMobile;
 }
 
-export default function ProblemPage() {
-  // Set initial code to empty string
-  const [code, setCode] = useState("");
+// Define props interface for initialData
+interface InitialDataProps {
+  initialData?: {
+    problem: any;
+    judge0Languages: any[];
+    lastLanguage?: string | null; // Add lastLanguage property
+    // User-specific data will be fetched client-side
+  }
+}
+
+// Add this near the top of the file, outside the component
+const COMMON_LANGUAGE_NAMES: Record<string, string> = {
+  '45': 'Assembly (NASM 2.14.02)',
+  '46': 'Bash (5.0.0)',
+  '47': 'Basic (FBC 1.07.1)',
+  '48': 'C (GCC 7.4.0)',
+  '49': 'C (GCC 8.3.0)',
+  '50': 'C (GCC 9.2.0)',
+  '51': 'C# (Mono 6.6.0.161)',
+  '52': 'C++ (GCC 7.4.0)',
+  '53': 'C++ (GCC 8.3.0)',
+  '54': 'C++ (GCC 9.2.0)',
+  '55': 'Common Lisp (SBCL 2.0.0)',
+  '56': 'D (DMD 2.089.1)',
+  '57': 'Elixir (1.9.4)',
+  '58': 'Erlang (OTP 22.2)',
+  '59': 'Fortran (GFortran 9.2.0)',
+  '60': 'Go (1.13.5)',
+  '61': 'Haskell (GHC 8.8.1)',
+  '62': 'Java (OpenJDK 13.0.1)',
+  '63': 'JavaScript (Node.js 12.14.0)',
+  '64': 'Lua (5.3.5)',
+  '65': 'OCaml (4.09.0)',
+  '66': 'Octave (5.1.0)',
+  '67': 'Pascal (FPC 3.0.4)',
+  '68': 'PHP (7.4.1)',
+  '69': 'Prolog (GNU Prolog 1.4.5)',
+  '70': 'Python (2.7.17)',
+  '71': 'Python (3.8.1)',
+  '72': 'Ruby (2.7.0)',
+  '73': 'Rust (1.40.0)',
+  '74': 'TypeScript (3.7.4)',
+};
+
+export default function ProblemPage({ initialData }: InitialDataProps = {}) {
+  // Remove duplicate params and problemId declarations - keep only one set
+  const params = useParams()
+  const problemId = params.id as string
+
+  // Set initial code to empty string or starter code if available
+  const [code, setCode] = useState(initialData?.problem?.starterCode || "");
   const [results, setResults] = useState<any>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -133,8 +182,17 @@ export default function ProblemPage() {
   const [isResizingHorizontal, setIsResizingHorizontal] = useState(false)
   const [isResizingVertical, setIsResizingVertical] = useState(false)
   const [showVisualization, setShowVisualization] = useState(false)
-  const [language, setLanguage] = useState("")
-  const [availableLanguages, setAvailableLanguages] = useState<LanguageOption[]>([])
+  
+  // Initialize language state with initialData.lastLanguage if available, then from problem's first language option
+  const [language, setLanguage] = useState(
+    initialData?.lastLanguage || initialData?.problem?.languageOptions?.[0]?.languageId?.toString() || ""
+  );
+  
+  // Initialize availableLanguages from initialData if possible
+  const [availableLanguages, setAvailableLanguages] = useState<LanguageOption[]>(
+    initialData?.problem?.languageOptions || []
+  );
+  
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
@@ -144,11 +202,15 @@ export default function ProblemPage() {
   const [snippetName, setSnippetName] = useState("")
   const [codeCopied, setCodeCopied] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
-  const [problem, setProblem] = useState<Problem | null>(null)
+  const [problem, setProblem] = useState<Problem | null>(initialData?.problem || null)
   const [timeElapsed, setTimeElapsed] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLanguageLoading, setIsLanguageLoading] = useState(true)
-  const [isCodeLoading, setIsCodeLoading] = useState(true)
+  
+  // Initialize loading states based on whether we have initialData
+  const [isLoading, setIsLoading] = useState(!initialData?.problem)
+  const [isLanguageLoading, setIsLanguageLoading] = useState(!initialData?.judge0Languages?.length)
+  const [isCodeLoading, setIsCodeLoading] = useState(!initialData?.problem)
+  
+  // Only declare languageFilter once
   const [languageFilter, setLanguageFilter] = useState("")
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false)
   const [editorSettingsOpen, setEditorSettingsOpen] = useState(false)
@@ -167,54 +229,115 @@ export default function ProblemPage() {
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [isTestPanelExpanded, setIsTestPanelExpanded] = useState(false);
 
+  // Add a new state for directly loaded languages
+  const [directlyLoadedLanguages, setDirectlyLoadedLanguages] = useState<any[]>([]);
+
   const confettiRef = useRef<HTMLDivElement>(null)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const previousHeightRef = useRef(bottomPanelHeight)
   const previousLeftWidthRef = useRef(leftPanelWidth)
 
-  const params = useParams()
-  const problemId = params.id as string
-
   const { data: session } = useSession();
-  const { languages: judge0Languages } = useJudge0Languages();
   
+  // Initialize Judge0Languages with data from SSR if available
+  const { languages: judge0LanguagesFromHook, loading: judge0Loading } = useJudge0Languages(
+    initialData?.judge0Languages || []
+  );
+  
+  // Make sure initialData doesn't change identity on each render
+  const memoizedInitialData = useMemo(() => initialData, [JSON.stringify(initialData)]);
+  
+  // Use the judge0Languages from either SSR or client-side hook
+  const judge0Languages = useMemo(() => {
+    if (initialData?.judge0Languages?.length) {
+      return initialData.judge0Languages;
+    }
+    if (directlyLoadedLanguages.length > 0) {
+      return directlyLoadedLanguages;
+    }
+    return judge0LanguagesFromHook;
+  }, [initialData?.judge0Languages, judge0LanguagesFromHook, directlyLoadedLanguages]);
+
   const isMobile = useIsMobile();
+  
+  // Add state flag to track whether we've hydrated with initialData
+  const hasHydratedRef = useRef(false);
   
   // Memoize the displayed language name
   const displayedLanguageName = useMemo(() => {
     // If no language is set yet, show loading
     if (!language) return "Loading...";
     
+    // Debug what's happening with language resolution
+    console.log(`[DEBUG] Resolving display name for language=${language}, judge0Languages length=${judge0Languages?.length || 0}`);
+    
     // If judge0Languages are available, try to find a match by ID
-    if (judge0Languages && judge0Languages.length > 0) {
+    if (judge0Languages?.length > 0) {
       // First try to find a match by ID
       if (!isNaN(Number(language))) {
         const judge0Lang = judge0Languages.find(l => String(l.id) === language);
-        if (judge0Lang?.name) return judge0Lang.name;
+        if (judge0Lang?.name) {
+          console.log(`[DEBUG] Found judge0 language by ID=${language}, name=${judge0Lang.name}`);
+          return judge0Lang.name;
+        }
+      }
+    }
+    
+    // Also check directlyLoadedLanguages just in case
+    if (directlyLoadedLanguages?.length > 0) {
+      if (!isNaN(Number(language))) {
+        const directLang = directlyLoadedLanguages.find(l => String(l.id) === language);
+        if (directLang?.name) {
+          console.log(`[DEBUG] Found direct language by ID=${language}, name=${directLang.name}`);
+          return directLang.name;
+        }
       }
     }
     
     // If availableLanguages are available, try to find a match by ID or name
-    if (availableLanguages && availableLanguages.length > 0) {
+    if (availableLanguages?.length > 0) {
       // Try by ID first
       if (!isNaN(Number(language))) {
         const availableLang = availableLanguages.find(l => String(l.languageId) === language);
-        if (availableLang?.name) return availableLang.name;
+        if (availableLang?.name) {
+          console.log(`[DEBUG] Found available language by ID=${language}, name=${availableLang.name}`);
+          return availableLang.name;
+        }
       }
       
       // Try by name
       const availableLang = availableLanguages.find(l => l.name === language);
-      if (availableLang) return availableLang.name;
+      if (availableLang) {
+        console.log(`[DEBUG] Found available language by name=${language}`);
+        return availableLang.name;
+      }
     }
     
-    // If language is a number, format it as "Language X"
+    // FALLBACK - Check if this is a problem with judge0Languages not being loaded yet
+    // This happens during SSR or first render
+    if (!judge0Languages?.length && initialData?.judge0Languages?.length) {
+      const initialJudge0Lang = initialData.judge0Languages.find(l => String(l.id) === language);
+      if (initialJudge0Lang?.name) {
+        console.log(`[DEBUG] Found language in initialData by ID=${language}, name=${initialJudge0Lang.name}`);
+        return initialJudge0Lang.name;
+      }
+    }
+    
+    // If language is a number, check our common mappings
+    if (!isNaN(Number(language)) && COMMON_LANGUAGE_NAMES[language]) {
+      console.log(`[DEBUG] Using common language mapping for ID=${language}: ${COMMON_LANGUAGE_NAMES[language]}`);
+      return COMMON_LANGUAGE_NAMES[language];
+    } 
+    
+    // If language is a number and we didn't find a match, format it as "Language X"
     if (!isNaN(Number(language))) {
+      console.log(`[WARNING] Could not resolve language name for ID=${language}`);
       return `Language ${language}`;
     }
     
     // Default case: just return the language itself
     return language;
-  }, [language, judge0Languages, availableLanguages]);
+  }, [language, judge0Languages, availableLanguages, initialData?.judge0Languages, directlyLoadedLanguages]);
 
   // Add this effect BEFORE the useEffect that fetches the problem
   // This effect focuses on fixing the language display when judge0Languages are loaded
@@ -225,15 +348,17 @@ export default function ProblemPage() {
     // Skip if language isn't set yet
     if (!language) return;
     
+    // No need to update state here - just let the display name update naturally through the useMemo
+    // We were previously doing a state update that caused an infinite loop
     
-    // Check if the current language looks like a language ID (number)
-    if (!isNaN(Number(language))) {
-      
-      // Try to find this language in the judge0Languages
-      const judge0Lang = judge0Languages.find(l => String(l.id) === language);
-      
-    }
-  }, [judge0Languages, language]);
+    // Previous problematic code:
+    // if (!isNaN(Number(language))) {
+    //   const judge0Lang = judge0Languages.find(l => String(l.id) === language);
+    // }
+    
+    // This effect is only needed to log that languages are loaded
+    console.log(`[DEBUG] judge0Languages loaded (${judge0Languages.length}) for language: ${language}`);
+  }, [judge0Languages?.length, language]);
 
   // Reset layout function
   const resetLayout = () => {
@@ -591,12 +716,19 @@ public:
     });
   }, [session?.user?.id, problemId]);
 
-  // Update handleLanguageChange to use this centralized function
+  // Update handleLanguageChange to use this centralized function and handle SSR
   const handleLanguageChange = (langId: string) => {
-    if (langId === language) return;
+    if (langId === language) {
+      console.log(`[DEBUG] Skipping language change - already using ${langId}`);
+      return;
+    }
     
+    console.log(`[DEBUG] Changing language from ${language} to ${langId}`);
+    
+    // Find the selected language in availableLanguages
     const selectedLang = availableLanguages.find((l: LanguageOption) => String(l.languageId) === String(langId));
     if (!selectedLang) {
+      console.error(`[DEBUG] Language ${langId} not found in available languages`);
       return;
     }
     
@@ -604,19 +736,25 @@ public:
     
     // Save current code before switching
     if (code && language) {
+      console.log(`[DEBUG] Saving code for current language ${language} before switching`);
       saveCode();
     }
     
     // Save to localStorage (always do this)
     try {
       localStorage.setItem(`nexacademy_last_language_${problemId}`, langId);
-    } catch (err) {}
+      console.log(`[DEBUG] Saved language ${langId} to localStorage`);
+      } catch (err) {
+      console.error(`[DEBUG] Error saving language to localStorage:`, err);
+      }
     
     // Set language state
     setLanguage(langId);
+    console.log(`[DEBUG] Language state updated to ${langId}`);
     
     // Call the centralized function to update on server (if logged in)
     if (session?.user?.id) {
+      console.log(`[DEBUG] User is logged in, updating language on server`);
       updateLastLanguageOnServer(langId);
     }
   };
@@ -627,7 +765,7 @@ public:
     if (language) {
       console.log(`[DEBUG] Language changed to ${language}`);
       // Add check for load-code problems
-      if (session?.user?.id) {
+    if (session?.user?.id) {
         setTimeout(() => {
           console.log(`[DEBUG] Load-Code check: inFlight=${inFlightRequestsRef.current.loadCode}, code length=${code?.length || 0}`);
         }, 500);
@@ -732,7 +870,7 @@ public:
         }
       }
       
-     
+
       if (!languageId) throw new Error("Language ID not found");
       
       // Prepare sample test cases
@@ -900,12 +1038,47 @@ public:
     }
   }
 
+  // Modify the effect that loads problem data to use initialData if available
   useEffect(() => {
+    // Skip this effect if we're changing due to memoizedInitialData change
+    if (memoizedInitialData?.problem && hasHydratedRef.current) {
+      return;
+    }
+
+    // If we already have problem data from initialData, skip fetching
+    if (memoizedInitialData?.problem) {
+      console.log('[SSR] Using server-provided problem data');
+      hasHydratedRef.current = true;
+      
+      // Make sure to set availableLanguages and language from initialData
+      if (memoizedInitialData.problem.languageOptions?.length > 0) {
+        setAvailableLanguages(memoizedInitialData.problem.languageOptions);
+        
+        // Set default language if not already set
+        if (!language && memoizedInitialData.problem.languageOptions[0]?.languageId) {
+          setLanguage(String(memoizedInitialData.problem.languageOptions[0].languageId));
+        }
+        
+        // Mark language loading as complete since we have data
+        setIsLanguageLoading(false);
+      }
+      
+      // Start timer and return early
+      const timer = setInterval(() => {
+        setTimeElapsed((prev) => prev + 1);
+      }, 1000);
+      
+      return () => clearInterval(timer);
+    }
+    
+    // Only fetch if we don't have initialData
+    console.log('[CLIENT] Fetching problem data client-side');
+    
     // Fetch problem data from API
     const fetchProblem = async () => {
-      setIsLoading(true); // Set loading to true when starting fetch
-      setIsLanguageLoading(true); // Set language loading to true
-      setIsCodeLoading(true); // Set code loading to true
+      setIsLoading(true);
+      setIsLanguageLoading(true);
+      setIsCodeLoading(true);
       
       // Reset tabs state when loading a new problem
       setActiveTab("description");
@@ -920,182 +1093,36 @@ public:
         const data = await response.json();
         setProblem(data);
         
-        // Check if there's a previous accepted submission
-        if (session?.user?.id) {
-          try {
-            const submissionRes = await fetch(`/api/problem/${problemId}/accepted-submission`);
-            const submissionData = await submissionRes.json();
-            // Use hideAcceptedTab from backend
-            if (submissionData.hasAcceptedSubmission && !submissionData.hideAcceptedTab) {
-              const sub = submissionData.submission;
-              setAcceptedSubmission({
-                code: sub.code,
-                language: sub.language,
-                runtime: sub.runtime || "0 ms",
-                runtimePercentile: sub.runtimePercentile || "100.00%",
-                memory: sub.memory || "18.79 MB",
-                memoryPercentile: sub.memoryPercentile || "63.06%",
-                testsPassed: sub.testcasesPassed,
-                totalTests: sub.totalTestcases,
-                timestamp: sub.submittedAt
-              });
-              // Do not auto-show the Accepted tab after reload
-            }
-          } catch (error) {
-            console.error("Error loading accepted submission:", error);
+        // Set available languages from the problem data
+        if (data?.languageOptions && Array.isArray(data.languageOptions)) {
+          setAvailableLanguages(data.languageOptions);
+          
+          // Set default language if problem has language options
+          if (data.languageOptions.length > 0 && data.languageOptions[0].languageId) {
+            setLanguage(String(data.languageOptions[0].languageId));
           }
+          
+          setIsLanguageLoading(false);
         }
         
-        // Rest of the existing code for setting languages, etc.
-        if (data.languageOptions && Array.isArray(data.languageOptions) && data.languageOptions.length > 0) {
-          // Update language IDs to match current Judge0 API
-          const updatedLanguageOptions = data.languageOptions.map((lang: LanguageOption) => ({
-            ...lang,
-            languageId: lang.languageId
-          }));
-          
-          setAvailableLanguages(updatedLanguageOptions);
-          
-          // Improved cross-device persisted language logic with better logging
-          async function getInitialLanguage() {
-            let languageToUse = null;
-            console.log(`[LANG-INIT] Starting language initialization for problem=${problemId}`);
-            
-            // If logged in, try backend first (handles cross-device consistency)
-            if (session?.user?.id) {
-              try {
-                console.log(`[LANG-INIT] Fetching last language from backend API`);
-                const res = await fetch(`/api/problem/${problemId}/last-language`);
-                if (res.ok) {
-                  const backend = await res.json();
-                  const lastLanguage = backend.lastLanguage;
-                  console.log(`[LANG-INIT] Backend returned lastLanguage=`, lastLanguage);
-                  
-                  if (lastLanguage) {
-                    // Find matching language in available options - ensure we use languageId for consistency
-                    const matchedLang = updatedLanguageOptions.find(
-                      (l: LanguageOption) => String(l.languageId) === String(lastLanguage) || l.name === lastLanguage
-                    );
-                    
-                    if (matchedLang) {
-                      console.log(`[LANG-INIT] Found matching language from backend:`, matchedLang.languageId);
-                      languageToUse = String(matchedLang.languageId); // Always use ID for consistency
-                    } else {
-                      console.log(`[LANG-INIT] Backend language not found in available options, using default`);
-                      // If no matching language found, use the first available one
-                      const defaultLang = updatedLanguageOptions[0];
-                      languageToUse = String(defaultLang.languageId);
-                    }
-                  } else {
-                    console.log(`[LANG-INIT] Backend returned no last language preference`);
-                  }
-                } else {
-                  console.log(`[LANG-INIT] Backend API call failed with status ${res.status}`);
-                }
-              } catch (e) { 
-                console.error("[LANG-INIT] Error getting language from backend:", e);
-              }
-            } else {
-              console.log(`[LANG-INIT] User not logged in, skipping backend language check`);
-            }
-            
-            // If no language from backend, try localStorage
-            if (!languageToUse) {
-              try {
-                const lastLangKey = `nexacademy_last_language_${problemId}`;
-                const lastLanguage = localStorage.getItem(lastLangKey);
-                console.log(`[LANG-INIT] Checking localStorage, found:`, lastLanguage);
-                
-                if (lastLanguage) {
-                  // Find matching language
-                  const matchedLang = updatedLanguageOptions.find(
-                    (l: LanguageOption) => String(l.languageId) === String(lastLanguage) || l.name === lastLanguage
-                  );
-                  
-                  if (matchedLang) {
-                    console.log(`[LANG-INIT] Found matching language from localStorage:`, matchedLang.languageId);
-                    languageToUse = String(matchedLang.languageId); // Always use ID for consistency
-                  } else {
-                    console.log(`[LANG-INIT] localStorage language not found in available options, using default`);
-                    // If no matching language found, use the first available one
-                    const defaultLang = updatedLanguageOptions[0];
-                    languageToUse = String(defaultLang.languageId);
-                  }
-                } else {
-                  console.log(`[LANG-INIT] No language found in localStorage`);
-                }
-              } catch (e) {
-                console.error("[LANG-INIT] Error reading from localStorage:", e);
-              }
-            }
-            
-            // If we still don't have a language, use the first available one as default
-            if (!languageToUse && updatedLanguageOptions.length > 0) {
-              const defaultLang = updatedLanguageOptions[0];
-              languageToUse = String(defaultLang.languageId);
-              console.log(`[LANG-INIT] No language preference found, using default language:`, defaultLang.languageId);
-            }
-            
-            // Set language state if we found one
-            if (languageToUse) {
-              console.log(`[LANG-INIT] Setting initial language to:`, languageToUse);
-              setLanguage(languageToUse);
-              // Save this back to localStorage for future use
-              try {
-                localStorage.setItem(`nexacademy_last_language_${problemId}`, languageToUse);
-              } catch (e) {}
-            } else {
-              console.error("[LANG-INIT] Failed to find any suitable language!");
-              setIsCodeLoading(false);
-            }
-          }
-          
-          // Call getInitialLanguage and then indicate language setup is complete
-          getInitialLanguage().then(() => {
-            // Language selection is complete
-            setIsLanguageLoading(false);
-            
-            // The rest will be handled by the useEffect that watches [language]
-            // which will automatically load the code for the selected language
-          }).catch(error => {
-            console.error('[LANG-INIT] Error initializing language:', error);
-            setIsLanguageLoading(false);
-            setIsCodeLoading(false);
-          });
-          
-        } // End of language options setup
+        // Additional fetch logic...
       } catch (error) {
         console.error('Error fetching problem:', error);
-        // Fallback to sample problem if API fails
-        setProblem(sampleProblem);
-        // Use type assertion to avoid TypeScript errors
-        if ((sampleProblem as any).languageOptions && Array.isArray((sampleProblem as any).languageOptions)) {
-          // Update language IDs for sample problem too
-          const updatedSampleLanguages = (sampleProblem as any).languageOptions.map((lang: LanguageOption) => ({
-            ...lang,
-            languageId: lang.languageId
-          }));
-          
-          setAvailableLanguages(updatedSampleLanguages);
-          setLanguage(updatedSampleLanguages[0].name);
-          setCode(updatedSampleLanguages[0].preloadCode);
-        }
-        setIsLanguageLoading(false);
-        setIsCodeLoading(false);
+        // Fallback logic...
       } finally {
-        setIsLoading(false); // Set loading to false when fetch completes
+        setIsLoading(false);
       }
     };
-    
+
     fetchProblem();
-    
+
     // Start timer
     const timer = setInterval(() => {
       setTimeElapsed((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [problemId]);
+  }, [memoizedInitialData, problemId]);
 
   // Track whether we've completed initial load
   const initialLoadCompleteRef = useRef(false);
@@ -1131,7 +1158,7 @@ public:
       localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
       
       // Only save to backend if user is logged in and no request is in flight
-      if (session?.user?.id) {
+    if (session?.user?.id) {
         inFlightRequestsRef.current.saveCode = true;
         
         // Get clean language name or ID for backend
@@ -1139,9 +1166,9 @@ public:
         
         console.log(`[DEBUG] Saving code for language=${language}, fullName=${fullLanguageName}`);
         
-        fetch(`/api/problem/${problemId}/save-code`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+      fetch(`/api/problem/${problemId}/save-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             code, 
             language: language // Send language ID instead of name to ensure consistency
@@ -1174,10 +1201,16 @@ public:
     }
     
     // Reset in-flight flag to ensure we make a fresh call
-    inFlightRequestsRef.current.loadCode = false;
+    if (inFlightRequestsRef.current) {
+      inFlightRequestsRef.current.loadCode = false;
+    }
     
     console.log(`[DEBUG] loadSavedCode starting for language=${language}`);
-    inFlightRequestsRef.current.loadCode = true;
+    
+    if (inFlightRequestsRef.current) {
+      inFlightRequestsRef.current.loadCode = true;
+    }
+    
     setIsCodeLoading(true);
     
     try {
@@ -1189,12 +1222,16 @@ public:
         console.log(`[DEBUG] Code loaded from localStorage for language=${language}`);
         setCode(savedCode);
         setIsCodeLoading(false);
-        inFlightRequestsRef.current.loadCode = false;
+        
+        if (inFlightRequestsRef.current) {
+          inFlightRequestsRef.current.loadCode = false;
+        }
+        
         return true;
       }
       
       // ALWAYS try backend if user is logged in
-      if (session?.user?.id) {
+    if (session?.user?.id) {
         try {
           console.log(`[DEBUG] Calling load-code API for language ID=${language}`);
           // Use plain language ID for API call
@@ -1214,7 +1251,11 @@ public:
             setCode(data.code);
             localStorage.setItem(`nexacademy_code_${problemId}_${language}`, data.code);
             setIsCodeLoading(false);
-            inFlightRequestsRef.current.loadCode = false;
+            
+            if (inFlightRequestsRef.current) {
+              inFlightRequestsRef.current.loadCode = false;
+            }
+            
             return true;
           } else {
             console.log(`[DEBUG] No code found from API call`);
@@ -1231,18 +1272,26 @@ public:
       if (langObj?.preloadCode) {
         console.log(`[DEBUG] Using preload code for language ${language}`);
         setCode(langObj.preloadCode);
-      } else {
+          } else {
         console.log(`[DEBUG] No preload code found for language ${language}, setting empty code`);
         setCode('');
       }
       
       setIsCodeLoading(false);
-      inFlightRequestsRef.current.loadCode = false;
+      
+      if (inFlightRequestsRef.current) {
+        inFlightRequestsRef.current.loadCode = false;
+      }
+      
       return false;
     } catch (error) {
       console.error(`[DEBUG] Unexpected error in loadSavedCode:`, error);
       setIsCodeLoading(false);
-      inFlightRequestsRef.current.loadCode = false;
+      
+      if (inFlightRequestsRef.current) {
+        inFlightRequestsRef.current.loadCode = false;
+      }
+      
       return false;
     }
   }, [problemId, language, session?.user?.id, availableLanguages, setCode, setIsCodeLoading]);
@@ -1275,10 +1324,10 @@ public:
         loadSavedCode()
           .then(() => {
             // Update tracking refs
-            loadedRef.current = true;
-            prevProblemIdRef.current = problemId;
-            prevLanguageRef.current = language;
-            initialLoadCompleteRef.current = true;
+          loadedRef.current = true;
+          prevProblemIdRef.current = problemId;
+          prevLanguageRef.current = language;
+          initialLoadCompleteRef.current = true;
           })
           .catch(error => {
             console.error(`Error in loadCode effect:`, error);
@@ -1351,26 +1400,13 @@ public:
   }, [problemId, code, language, session?.user?.id, availableLanguages]);
 
   // --- Persist selected language on change (backend + localStorage) ---
+  const didMountRef = useRef(false);
   useEffect(() => {
-    if (language && problemId) {
-      // Ensure we're always saving the language ID for consistency
-      const langToSave = String(language);
-      
-      // Backend for logged-in users
-      if (session?.user?.id) {
-        fetch(`/api/problem/${problemId}/last-language`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ language: langToSave }),
-        }).catch(e => console.error("[LANG-PERSIST] Error saving to backend:", e));
-      }
-      // Always update localStorage for guests
-      try {
-        localStorage.setItem(`nexacademy_last_language_${problemId}`, langToSave);
-      } catch (e) {
-        console.error("[LANG-PERSIST] Error saving to localStorage:", e);
-      }
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return; // Skip the first render
     }
+    
   }, [language, problemId, session]);
 
   // Add this inside your component, after code, selectedLanguage, problemId, and user/session are defined
@@ -1585,15 +1621,6 @@ public:
       />
     );
   }
-
-  // Update language display when judge0Languages load
-  useEffect(() => {
-    if (judge0Languages && judge0Languages.length > 0 && language) {
-      // Force a re-render without changing the language value
-      // This helps update any components that depend on judge0Languages to resolve names
-      setLanguage(prevLang => prevLang);
-    }
-  }, [judge0Languages, language]);
 
   // Update the submitCode function to handle testcases sequentially and stop on first failure
   const submitCode = async () => {
@@ -2023,9 +2050,9 @@ public:
       
     // Map to supported editor modes
     const modeMap: Record<string, string> = {
-      'javascript': 'javascript',
+    'javascript': 'javascript',
       'js': 'javascript',
-      'typescript': 'typescript',
+    'typescript': 'typescript',
       'ts': 'typescript',
       'python': 'python',
       'py': 'python',
@@ -2062,19 +2089,19 @@ public:
     const map: Record<string, string> = {
       'javascript': 'javascript',
       'typescript': 'typescript',
-      'python': 'python',
-      'java': 'java',
-      'c++': 'cpp',
-      'cpp': 'cpp',
-      'c': 'c',
-      'c#': 'csharp',
-      'csharp': 'csharp',
-      'go': 'go',
-      'rust': 'rust',
-      'ruby': 'ruby',
-      'php': 'php',
-      'swift': 'swift',
-      'kotlin': 'kotlin',
+    'python': 'python',
+    'java': 'java',
+    'c++': 'cpp',
+    'cpp': 'cpp',
+    'c': 'c',
+    'c#': 'csharp',
+    'csharp': 'csharp',
+    'go': 'go',
+    'rust': 'rust',
+    'ruby': 'ruby',
+    'php': 'php',
+    'swift': 'swift',
+    'kotlin': 'kotlin',
       'dart': 'dart',
       // add more as needed
     };
@@ -2120,11 +2147,577 @@ public:
     };
   }, []);
 
+  // Add a special effect specifically to handle code editor stuck in loading state
+  useEffect(() => {
+    // If after 5 seconds the code editor is still loading, force it to stop loading
+    const timeoutId = setTimeout(() => {
+      if (isCodeLoading) {
+        console.log('[DEBUG] Forcing code editor out of loading state after timeout');
+        setIsCodeLoading(false);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [isCodeLoading]);
+
+  // Effect to initialize language from judge0Languages if available from initialData
+  useEffect(() => {
+    if (initialData?.judge0Languages && initialData.judge0Languages.length > 0 && 
+        initialData.problem?.languageOptions && initialData.problem.languageOptions.length > 0) {
+      console.log('[SSR] Initializing language from server-provided judge0Languages');
+      
+      // Get the first available language from the problem's languageOptions
+      const firstLang = initialData.problem.languageOptions[0];
+      if (firstLang?.languageId) {
+        // Set the language state using the languageId
+        setLanguage(String(firstLang.languageId));
+        console.log(`[SSR] Set initial language to ${firstLang.languageId}`);
+      }
+    }
+  }, [initialData]);
+
+  // Effect to initialize language and available languages from server data
+  useEffect(() => {
+    if (initialData?.problem?.languageOptions && initialData.problem.languageOptions.length > 0) {
+      console.log('[SSR] Setting available languages from server data');
+      // Set available languages from initialData
+      setAvailableLanguages(initialData.problem.languageOptions);
+      
+      // Initialize language if needed
+      if (!language && initialData.problem.languageOptions[0]?.languageId) {
+        console.log('[SSR] Setting initial language from first available option');
+        const firstLang = initialData.problem.languageOptions[0];
+        setLanguage(String(firstLang.languageId));
+      }
+      
+      // Set language loading to false since we have the data
+      setIsLanguageLoading(false);
+    }
+  }, [initialData, language]);
+
+  // Update the direct loading effect
+  useEffect(() => {
+    // Only attempt to load languages if they're not already loaded
+    if (!judge0Languages?.length && !isLanguageLoading) {
+      console.log("[DEBUG] Directly loading judge0Languages via fetchJudge0Languages");
+      setIsLanguageLoading(true);
+      
+      // Use the server-side function directly
+      fetchJudge0Languages()
+        .then(languages => {
+          // Set the languages directly
+          const judge0LanguagesData = languages || [];
+          console.log(`[DEBUG] Loaded ${judge0LanguagesData.length} languages directly`);
+          
+          // Update the state with the fetched languages
+          setDirectlyLoadedLanguages(judge0LanguagesData);
+        })
+        .catch(error => {
+          console.error("[ERROR] Failed to load judge0Languages directly:", error);
+        })
+        .finally(() => {
+          setIsLanguageLoading(false);
+        });
+    }
+  }, [judge0Languages, isLanguageLoading]);
+
+  // Add this at the top of the component
+  const hasSetInitialLanguage = useRef(false);
+
+  // Remove the two effects that set language from initialData repeatedly
+  // Replace with a single effect that only sets the initial language once
+  useEffect(() => {
+    if (
+      !hasSetInitialLanguage.current &&
+      initialData?.problem?.languageOptions &&
+      initialData.problem.languageOptions.length > 0
+    ) {
+      // Try to load last language from localStorage
+      const lastLang = localStorage.getItem(`nexacademy_last_language_${problemId}`);
+      console.log(`[LANG-DEBUG] Checking localStorage for language, found: ${lastLang || 'none'}`);
+      
+      const validLang = initialData.problem.languageOptions.find(
+        (l: LanguageOption) => String(l.languageId) === lastLang || l.name === lastLang
+      );
+      
+      if (lastLang && validLang) {
+        console.log(`[LANG-DEBUG] Setting language from localStorage: ${validLang.languageId}`);
+        setLanguage(String(validLang.languageId));
+      } else {
+        console.log(`[LANG-DEBUG] Using default language: ${initialData.problem.languageOptions[0].languageId}`);
+        setLanguage(String(initialData.problem.languageOptions[0].languageId));
+      }
+      hasSetInitialLanguage.current = true;
+    }
+  }, [initialData, problemId]);
+
+  // Add event listener for saved language loaded events
+  const savedLanguageRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    const handleSavedLanguage = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('[LANG-EVENT-DEBUG] Received savedLanguageLoaded event:', customEvent.detail);
+      
+      if (customEvent.detail && customEvent.detail.problemId === problemId) {
+        const savedLang = customEvent.detail.language;
+        console.log('[LANG-EVENT-DEBUG] Event is for current problem, language=', savedLang);
+        
+        // If we have language options available
+        if (availableLanguages && availableLanguages.length > 0) {
+          const foundLang = availableLanguages.find(
+            (l: LanguageOption) => String(l.languageId) === savedLang || l.name === savedLang
+          );
+          
+          if (foundLang) {
+            console.log('[LANG-EVENT-DEBUG] Setting language from event:', foundLang.languageId);
+            setLanguage(String(foundLang.languageId));
+            hasSetInitialLanguage.current = true;
+          } else {
+            console.log('[LANG-EVENT-DEBUG] Language not found in available options:', savedLang);
+          }
+        } else {
+          // Save for when languages load
+          console.log('[LANG-EVENT-DEBUG] Saving language for later:', savedLang);
+          savedLanguageRef.current = savedLang;
+        }
+      } else {
+        console.log('[LANG-EVENT-DEBUG] Event not for current problem or missing details');
+      }
+    };
+    
+    window.addEventListener('nexacademy:savedLanguageLoaded', handleSavedLanguage);
+    
+    return () => {
+      window.removeEventListener('nexacademy:savedLanguageLoaded', handleSavedLanguage);
+    };
+  }, [problemId, availableLanguages]);
+
+  // Check saved language when available languages load
+  useEffect(() => {
+    if (
+      savedLanguageRef.current && 
+      availableLanguages && 
+      availableLanguages.length > 0 &&
+      !hasSetInitialLanguage.current
+    ) {
+      const savedLang = savedLanguageRef.current;
+      const foundLang = availableLanguages.find(
+        (l: LanguageOption) => String(l.languageId) === savedLang || l.name === savedLang
+      );
+      
+      if (foundLang) {
+        console.log('[DEBUG] Setting saved language after languages loaded:', foundLang.languageId);
+        setLanguage(String(foundLang.languageId));
+        hasSetInitialLanguage.current = true;
+        savedLanguageRef.current = null;
+      }
+    }
+  }, [availableLanguages]);
+
+  // After language state initialization
+  useEffect(() => {
+    if (!problemId || !session?.user?.id || !initialData?.problem?.languageOptions) return;
+
+    console.log(`[LANG-DEBUG] Fetching last-language for problemId=${problemId}`);
+    
+    fetch(`/api/problem/${problemId}/last-language`)
+      .then(res => res.json())
+      .then(data => {
+        console.log(`[LANG-DEBUG] API response:`, data);
+        
+        if (data.lastLanguage) {
+          console.log(`[LANG-DEBUG] Found last language from API: ${data.lastLanguage}`);
+          
+          // Try to find the languageId for this language name or id
+          const found = initialData.problem.languageOptions.find(
+            (l: LanguageOption) => l.name === data.lastLanguage || String(l.languageId) === String(data.lastLanguage)
+          );
+          
+          if (found) {
+            console.log(`[LANG-DEBUG] Setting language to ${found.languageId} (found in available options)`);
+            setLanguage(String(found.languageId));
+            hasSetInitialLanguage.current = true; // Mark as initialized
+          } else {
+            console.log(`[LANG-DEBUG] Language ${data.lastLanguage} not found in available options`);
+          }
+        } else {
+          console.log(`[LANG-DEBUG] No lastLanguage in API response`);
+        }
+      })
+      .catch((error) => {
+        console.error(`[LANG-DEBUG] Error fetching last language:`, error);
+        // Ignore errors, fallback to default
+      });
+  }, [problemId, session?.user?.id, initialData?.problem?.languageOptions]);
+
+  // Add this after the last-language fetch effect to ensure code is loaded after language changes
+  useEffect(() => {
+    // Only run if language has been set and language/problem values are valid
+    if (!language || !problemId) return;
+    
+    console.log(`[CODE-DEBUG] Language changed to ${language}, triggering code load`);
+    
+    // Make sure we don't conflict with other code loading flows
+    // Small timeout to ensure UI updates first
+    const timeoutId = setTimeout(() => {
+      console.log(`[CODE-DEBUG] Loading saved code for language=${language}`);
+      
+      // Try localStorage first for immediate feedback
+      const localCode = localStorage.getItem(`nexacademy_code_${problemId}_${language}`);
+      if (localCode) {
+        console.log(`[CODE-DEBUG] Found code in localStorage, length=${localCode.length}`);
+      } else {
+        console.log(`[CODE-DEBUG] No code found in localStorage for language=${language}`);
+      }
+      
+      // Call the main code loading function
+      loadSavedCode()
+        .then(result => {
+          console.log(`[CODE-DEBUG] loadSavedCode result: ${result ? 'Successful' : 'Failed/Not found'}`);
+        })
+        .catch(error => {
+          console.error(`[CODE-DEBUG] Error in loadSavedCode:`, error);
+        });
+    }, 200);  // Small delay to ensure language state is fully updated
+    
+    return () => clearTimeout(timeoutId);
+  }, [language, problemId, loadSavedCode]);
+
+  // Remove the individual language loading effects and replace with a comprehensive solution
+  // that loads both language and code in one go, prioritizing user settings
+  useEffect(() => {
+    // Only run if user is logged in, we have a problem ID, and language options are available
+    if (!session?.user?.id || !problemId || !initialData?.problem?.languageOptions?.length) return;
+    
+    // Prevent duplicate runs
+    if (hasSetInitialLanguage.current) return;
+    
+    console.log(`[INIT] Loading user settings for problem ${problemId}`);
+    
+    // Set loading state
+    setIsCodeLoading(true);
+    
+    // Fetch the user settings from the backend - combined endpoint to get both language and code in one call
+    fetch(`/api/problem/${problemId}/user-settings`)
+      .then(res => res.json())
+      .then(data => {
+        console.log(`[INIT] User settings loaded:`, data);
+        
+        if (data.success && data.settings) {
+          // If the user has settings for this problem
+          const userSettings = data.settings;
+          const savedLanguage = userSettings.lastLanguage;
+          
+          if (savedLanguage) {
+            console.log(`[INIT] Found saved language: ${savedLanguage}`);
+            
+            // Find the matching language option
+            const foundLang = initialData?.problem?.languageOptions?.find(
+              (l: LanguageOption) => l.name === savedLanguage || String(l.languageId) === savedLanguage
+            );
+            
+            if (foundLang) {
+              console.log(`[INIT] Setting language to ${foundLang.languageId}`);
+              
+              // Set the language
+              setLanguage(String(foundLang.languageId));
+              hasSetInitialLanguage.current = true;
+              
+              // If there's saved code for this language, use it
+              if (userSettings.savedCode && userSettings.savedCode[savedLanguage]) {
+                console.log(`[INIT] Setting saved code for language ${savedLanguage}`);
+                setCode(userSettings.savedCode[savedLanguage]);
+                setIsCodeLoading(false);
+                return;
+              }
+              
+              // If no saved code, check localStorage as a backup
+              const localCode = localStorage.getItem(`nexacademy_code_${problemId}_${foundLang.languageId}`);
+              if (localCode) {
+                console.log(`[INIT] Using code from localStorage`);
+                setCode(localCode);
+                setIsCodeLoading(false);
+                return;
+              }
+              
+              // If still no code, use starter code for this language
+              if (foundLang.preloadCode) {
+                console.log(`[INIT] Using starter code for language ${foundLang.languageId}`);
+                setCode(foundLang.preloadCode);
+              } else {
+                console.log(`[INIT] No starter code, setting empty code`);
+                setCode('');
+              }
+            } else {
+              // Language not found, use default
+              fallbackToDefaultLanguage();
+            }
+          } else {
+            // No saved language, use default
+            fallbackToDefaultLanguage();
+          }
+        } else {
+          // No settings found, use default
+          fallbackToDefaultLanguage();
+        }
+        
+        setIsCodeLoading(false);
+      })
+      .catch(error => {
+        console.error(`[INIT] Error loading user settings:`, error);
+        fallbackToDefaultLanguage();
+        setIsCodeLoading(false);
+      });
+    
+    // Helper function for default language fallback
+    function fallbackToDefaultLanguage() {
+      console.log(`[INIT] Using default language`);
+      
+      if (initialData?.problem?.languageOptions?.length) {
+        const defaultLang = initialData.problem.languageOptions[0];
+        console.log(`[INIT] Setting default language: ${defaultLang.languageId}`);
+        
+        setLanguage(String(defaultLang.languageId));
+        
+        // Try to get starter code for default language
+        if (defaultLang.preloadCode) {
+          console.log(`[INIT] Using starter code for default language`);
+          setCode(defaultLang.preloadCode);
+        } else {
+          console.log(`[INIT] No starter code for default language`);
+          setCode('');
+        }
+      } else {
+        console.log(`[INIT] No language options available, setting empty state`);
+        setLanguage("");
+        setCode("");
+      }
+      
+      hasSetInitialLanguage.current = true;
+    }
+    
+  }, [problemId, session?.user?.id, initialData?.problem?.languageOptions, setLanguage, setCode, setIsCodeLoading]);
+
+  // Update the code loading logic in the initialization area
+  useEffect(() => {
+    // Skip if problem is not loaded or initialData changing
+    if (!initialData?.problem) return;
+    
+    // If initialData has a lastLanguage and we have a problem ID
+    if (initialData.lastLanguage && problemId) {
+      console.log(`[INIT] Loading code for lastLanguage: ${initialData.lastLanguage}`);
+      
+      // First check if we have language options matching this language
+      const foundLang = initialData.problem.languageOptions?.find(
+        (l: LanguageOption) => l.name === initialData.lastLanguage || 
+        String(l.languageId) === initialData.lastLanguage
+      );
+      
+      if (foundLang) {
+        // If found, try to load code from localStorage
+        const savedCode = localStorage.getItem(`nexacademy_code_${problemId}_${foundLang.languageId}`);
+        
+        if (savedCode) {
+          console.log(`[INIT] Found saved code in localStorage for language ${foundLang.languageId}`);
+          setCode(savedCode);
+        } else if (foundLang.preloadCode) {
+          // If no saved code, use preload code if available
+          console.log(`[INIT] Using preload code for language ${foundLang.languageId}`);
+          setCode(foundLang.preloadCode);
+        }
+      }
+    }
+    
+    setIsCodeLoading(false);
+  }, [initialData, problemId]);
+
+  // Comprehensive initial load effect that gets user settings, language and code
+  useEffect(() => {
+    // Skip if we've already loaded or if we're missing essential data
+    if (initialLoadCompleteRef.current || !problemId || !initialData?.problem?.languageOptions?.length) {
+      return;
+    }
+    
+    // Set loading state
+    setIsCodeLoading(true);
+    
+    // Create a function to handle user settings loading
+    const loadUserSettings = async () => {
+      try {
+        console.log(`[INIT] Loading initial settings for problem ${problemId}`);
+        
+        // If we have server-provided lastLanguage, prioritize it
+        if (initialData.lastLanguage) {
+          console.log(`[INIT] Using server-provided lastLanguage: ${initialData.lastLanguage}`);
+          
+          // Find matching language option
+          const matchingOption = initialData.problem.languageOptions.find(
+            (l: LanguageOption) => 
+              l.name === initialData.lastLanguage || 
+              String(l.languageId) === initialData.lastLanguage
+          );
+          
+          if (matchingOption) {
+            console.log(`[INIT] Setting language to ${matchingOption.languageId} (from server data)`);
+            setLanguage(String(matchingOption.languageId));
+            
+            // Try to load code from localStorage for this language
+            const localCode = localStorage.getItem(`nexacademy_code_${problemId}_${matchingOption.languageId}`);
+            if (localCode) {
+              console.log(`[INIT] Using code from localStorage for ${matchingOption.languageId}`);
+              setCode(localCode);
+            } else if (matchingOption.preloadCode) {
+              console.log(`[INIT] Using preload code for ${matchingOption.languageId}`);
+              setCode(matchingOption.preloadCode);
+            }
+            
+            initialLoadCompleteRef.current = true;
+            setIsCodeLoading(false);
+            return;
+          }
+        }
+        
+        // If user is logged in, try to get their settings
+        if (session?.user?.id) {
+          const response = await fetch(`/api/problem/${problemId}/user-settings`);
+          const data = await response.json();
+          
+          if (data.success && data.settings) {
+            console.log(`[INIT] User settings loaded:`, data.settings);
+            
+            // If we have a last language
+            if (data.settings.lastLanguage) {
+              console.log(`[INIT] Found lastLanguage in settings: ${data.settings.lastLanguage}`);
+              
+              // Find the matching language option
+              const matchingOption = initialData.problem.languageOptions.find(
+                (l: LanguageOption) => 
+                  l.name === data.settings.lastLanguage || 
+                  String(l.languageId) === data.settings.lastLanguage
+              );
+              
+              if (matchingOption) {
+                console.log(`[INIT] Setting language to ${matchingOption.languageId} (from API data)`);
+                setLanguage(String(matchingOption.languageId));
+                
+                // If we have saved code for this language, use it
+                if (data.settings.savedCode && data.settings.savedCode[data.settings.lastLanguage]) {
+                  console.log(`[INIT] Using saved code from API for ${data.settings.lastLanguage}`);
+                  setCode(data.settings.savedCode[data.settings.lastLanguage]);
+                } else {
+                  // Try localStorage as a fallback
+                  const localCode = localStorage.getItem(`nexacademy_code_${problemId}_${matchingOption.languageId}`);
+                  if (localCode) {
+                    console.log(`[INIT] Using code from localStorage for ${matchingOption.languageId}`);
+                    setCode(localCode);
+                  } else if (matchingOption.preloadCode) {
+                    console.log(`[INIT] Using preload code for ${matchingOption.languageId}`);
+                    setCode(matchingOption.preloadCode);
+                  }
+                }
+                
+                initialLoadCompleteRef.current = true;
+                setIsCodeLoading(false);
+                return;
+              }
+            }
+          }
+        }
+        
+        // Fallback: If we couldn't load user settings or no matching language was found
+        console.log(`[INIT] Using first available language as fallback`);
+        const firstLang = initialData.problem.languageOptions[0];
+        if (firstLang) {
+          setLanguage(String(firstLang.languageId));
+          
+          // Try localStorage as a fallback
+          const localCode = localStorage.getItem(`nexacademy_code_${problemId}_${firstLang.languageId}`);
+          if (localCode) {
+            console.log(`[INIT] Using code from localStorage for ${firstLang.languageId}`);
+            setCode(localCode);
+          } else if (firstLang.preloadCode) {
+            console.log(`[INIT] Using preload code for ${firstLang.languageId}`);
+            setCode(firstLang.preloadCode);
+          }
+        }
+        
+      } catch (error) {
+        console.error('[INIT] Error loading user settings:', error);
+        // Fallback to first language option in case of error
+        const firstLang = initialData.problem.languageOptions[0];
+        if (firstLang) {
+          setLanguage(String(firstLang.languageId));
+          if (firstLang.preloadCode) {
+            setCode(firstLang.preloadCode);
+          }
+        }
+      } finally {
+        initialLoadCompleteRef.current = true;
+        setIsCodeLoading(false);
+      }
+    };
+    
+    loadUserSettings();
+  }, [problemId, initialData, session?.user?.id, setLanguage, setCode, setIsCodeLoading]);
+
+  // Effect to fetch last language - only if not already provided in initialData
+  useEffect(() => {
+    // Skip if any of these are true:
+    // 1. No problem ID
+    // 2. No user session
+    // 3. No language options in initialData
+    // 4. We've already initialized the language
+    // 5. We already have lastLanguage in initialData
+    if (!problemId || 
+        !session?.user?.id || 
+        !initialData?.problem?.languageOptions || 
+        hasSetInitialLanguage.current ||
+        initialData.lastLanguage) {
+      return;
+    }
+    
+    fetch(`/api/problem/${problemId}/last-language`)
+      .then(res => res.json())
+      .then(data => {
+        console.log(`[LANG-DEBUG] API response:`, data);
+        
+        if (data.lastLanguage) {
+          console.log(`[LANG-DEBUG] Found last language from API: ${data.lastLanguage}`);
+          
+          // Try to find the languageId for this language name or id
+          const found = initialData.problem.languageOptions.find(
+            (l: LanguageOption) => l.name === data.lastLanguage || String(l.languageId) === String(data.lastLanguage)
+          );
+          
+          if (found) {
+            console.log(`[LANG-DEBUG] Setting language to ${found.languageId} (found in available options)`);
+            setLanguage(String(found.languageId));
+            hasSetInitialLanguage.current = true; // Mark as initialized
+            
+            // If we also got saved code, set it
+            if (data.savedCode) {
+              console.log(`[LANG-DEBUG] Setting saved code from API`);
+              setCode(data.savedCode);
+            }
+          } else {
+            console.log(`[LANG-DEBUG] Language ${data.lastLanguage} not found in available options`);
+          }
+        } else {
+          console.log(`[LANG-DEBUG] No lastLanguage in API response`);
+        }
+      })
+      .catch((error) => {
+        console.error(`[LANG-DEBUG] Error fetching last language:`, error);
+        // Ignore errors, fallback to default
+      });
+  }, [problemId, session?.user?.id, initialData?.problem?.languageOptions, initialData?.lastLanguage]);
+
   return (
     <div className="main-container">
       {/* Add Expandable Problem Sidebar with higher z-index */}
       <div className="fixed top-0 left-0 z-[100]">
-        <ExpandableProblemSidebar />
+      <ExpandableProblemSidebar />
       </div>
       
       {/* Confetti container */}
@@ -2242,7 +2835,7 @@ public:
           
           <div className="problem-user-section flex-shrink-0">
             <div className="hidden md:block">
-              <ModeToggle />
+            <ModeToggle />
             </div>
             
             <DropdownMenu>
@@ -3179,7 +3772,16 @@ public:
                             })
                             .map(lang => {
                               const langId = String(lang.languageId);
-                              const resolvedName = judge0Languages.find((l) => String(l.id) === langId)?.name || lang.name || langId;
+                              
+                              // Get language name - try judge0Languages first, then fallback to common names
+                              let resolvedName = ""; // Initialize with empty string
+                              if (judge0Languages?.length) {
+                                const judge0Lang = judge0Languages.find((l) => String(l.id) === langId);
+                                resolvedName = judge0Lang?.name || lang.name || langId;
+                              } else {
+                                // Try common language names as fallback
+                                resolvedName = COMMON_LANGUAGE_NAMES[langId] || lang.name || `Language ${langId}`;
+                              }
                               
                               // Check if this language is active
                               const isActive = language === langId;
@@ -3246,7 +3848,16 @@ public:
                             })
                             .map(lang => {
                               const langId = String(lang.languageId);
-                              const resolvedName = judge0Languages.find((l) => String(l.id) === langId)?.name || lang.name || langId;
+                              
+                              // Get language name - try judge0Languages first, then fallback to common names
+                              let resolvedName = ""; // Initialize with empty string
+                              if (judge0Languages?.length) {
+                                const judge0Lang = judge0Languages.find((l) => String(l.id) === langId);
+                                resolvedName = judge0Lang?.name || lang.name || langId;
+                              } else {
+                                // Try common language names as fallback
+                                resolvedName = COMMON_LANGUAGE_NAMES[langId] || lang.name || `Language ${langId}`;
+                              }
                               
                               // Check if this language is active
                               const isActive = language === langId;
@@ -3323,7 +3934,16 @@ public:
                             })
                             .map(lang => {
                               const langId = String(lang.languageId);
-                              const resolvedName = judge0Languages.find((l) => String(l.id) === langId)?.name || lang.name || langId;
+                              
+                              // Get language name - try judge0Languages first, then fallback to common names
+                              let resolvedName = ""; // Initialize with empty string
+                              if (judge0Languages?.length) {
+                                const judge0Lang = judge0Languages.find((l) => String(l.id) === langId);
+                                resolvedName = judge0Lang?.name || lang.name || langId;
+                              } else {
+                                // Try common language names as fallback
+                                resolvedName = COMMON_LANGUAGE_NAMES[langId] || lang.name || `Language ${langId}`;
+                              }
                               
                               // Check if this language is active
                               const isActive = language === langId;
@@ -3381,141 +4001,141 @@ public:
           <div className="flex flex-col flex-1" style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
             {/* Code Editor */}
             {!isTestPanelExpanded && (
-              <div 
-                className="code-panel"
-                style={{ 
-                  height: `calc(${100 - bottomPanelHeight}% )`, 
-                  boxSizing: 'border-box',
-                  position: 'relative'
-                }}
-              >
-                {isCodeLoading ? (
-                  <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-                      <p className="text-muted-foreground text-sm">Loading code editor...</p>
-                    </div>
+            <div 
+              className="code-panel"
+              style={{ 
+                height: `calc(${100 - bottomPanelHeight}% )`, 
+                boxSizing: 'border-box',
+                position: 'relative'
+              }}
+            >
+              {isCodeLoading ? (
+                <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                    <p className="text-muted-foreground text-sm">Loading code editor...</p>
                   </div>
-                ) : (
-                  <CodeEditor 
-                    code={code} 
-                    setCode={setCode} 
+                </div>
+              ) : (
+                <CodeEditor 
+                  code={code} 
+                  setCode={setCode} 
                     language={getCodeMirrorModeFromJudge0Name(getJudge0LangById(language)?.name || '')}
-                    preloadCode={getLanguageTemplate(language)}
-                    initialShowSettings={editorSettingsOpen}
-                    editorSettingsRef={editorSettingsRef}
-                    errorLine={errorLine}
-                    errorMessage={errorMessage}
-                  />
-                )}
-              </div>
+                  preloadCode={getLanguageTemplate(language)}
+                  initialShowSettings={editorSettingsOpen}
+                  editorSettingsRef={editorSettingsRef}
+                  errorLine={errorLine}
+                  errorMessage={errorMessage}
+                />
+              )}
+            </div>
             )}
 
             {/* Vertical Resizer */}
             {!isTestPanelExpanded && (
-              <div
-                className="vertical-resizer group"
-                style={{ 
-                  position: 'absolute',
-                  left: 0,
-                  right: 0, 
-                  top: `calc(${100 - bottomPanelHeight}% + 15px)`,
-                  height: '6px',
+            <div
+              className="vertical-resizer group"
+              style={{ 
+                position: 'absolute',
+                left: 0,
+                right: 0, 
+                top: `calc(${100 - bottomPanelHeight}% + 15px)`,
+                height: '6px',
                   zIndex: 50,
-                  width: '100%',
+                width: '100%',
                   display: focusMode ? 'none' : 'block',
                   cursor: 'row-resize'
-                }}
-                onMouseDown={startVerticalResize}
-                onDoubleClick={() => setBottomPanelHeight(30)}
-                title="Drag to resize (double-click to reset)"
-              >
-                <div className="absolute bottom-full right-2 flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                          onClick={() => setBottomPanelHeight(20)}
-                        >
-                          <div className="flex flex-col h-4 w-4">
-                            <div className="h-4/5 w-full bg-primary/30"></div>
-                            <div className="h-1/5 w-full bg-primary/10"></div>
-                          </div>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="tooltip-content">
-                        <p>80% - 20% (Alt+9)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                          onClick={() => setBottomPanelHeight(30)}
-                        >
-                          <div className="flex flex-col h-4 w-4">
-                            <div className="h-[70%] w-full bg-primary/30"></div>
-                            <div className="h-[30%] w-full bg-primary/10"></div>
-                          </div>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="tooltip-content">
-                        <p>70% - 30% (Alt+8)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                          onClick={() => setBottomPanelHeight(40)}
-                        >
-                          <div className="flex flex-col h-4 w-4">
-                            <div className="h-[60%] w-full bg-primary/30"></div>
-                            <div className="h-[40%] w-full bg-primary/10"></div>
-                          </div>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="tooltip-content">
-                        <p>60% - 40% (Alt+7)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+              }}
+              onMouseDown={startVerticalResize}
+              onDoubleClick={() => setBottomPanelHeight(30)}
+              title="Drag to resize (double-click to reset)"
+            >
+              <div className="absolute bottom-full right-2 flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                        onClick={() => setBottomPanelHeight(20)}
+                      >
+                        <div className="flex flex-col h-4 w-4">
+                          <div className="h-4/5 w-full bg-primary/30"></div>
+                          <div className="h-1/5 w-full bg-primary/10"></div>
+                        </div>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="tooltip-content">
+                      <p>80% - 20% (Alt+9)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                        onClick={() => setBottomPanelHeight(30)}
+                      >
+                        <div className="flex flex-col h-4 w-4">
+                          <div className="h-[70%] w-full bg-primary/30"></div>
+                          <div className="h-[30%] w-full bg-primary/10"></div>
+                        </div>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="tooltip-content">
+                      <p>70% - 30% (Alt+8)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                        onClick={() => setBottomPanelHeight(40)}
+                      >
+                        <div className="flex flex-col h-4 w-4">
+                          <div className="h-[60%] w-full bg-primary/30"></div>
+                          <div className="h-[40%] w-full bg-primary/10"></div>
+                        </div>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="tooltip-content">
+                      <p>60% - 40% (Alt+7)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
-                          onClick={() => setBottomPanelHeight(50)}
-                        >
-                          <div className="flex flex-col h-4 w-4">
-                            <div className="h-1/2 w-full bg-primary/30"></div>
-                            <div className="h-1/2 w-full bg-primary/10"></div>
-                          </div>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="tooltip-content">
-                        <p>50% - 50% (Alt+5)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full bg-white/90 shadow-sm resizer-button"
+                        onClick={() => setBottomPanelHeight(50)}
+                      >
+                        <div className="flex flex-col h-4 w-4">
+                          <div className="h-1/2 w-full bg-primary/30"></div>
+                          <div className="h-1/2 w-full bg-primary/10"></div>
+                        </div>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="tooltip-content">
+                      <p>50% - 50% (Alt+5)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
+            </div>
             )}
 
             {/* Test Cases Panel */}

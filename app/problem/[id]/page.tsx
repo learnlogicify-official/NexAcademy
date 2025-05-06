@@ -1,439 +1,551 @@
-"use client"
+import { Suspense } from 'react'
+import { Metadata, ResolvingMetadata } from 'next'
+import ProblemPageClient from '@/app/nexpractice/problem/[id]/page'
+import { notFound } from 'next/navigation'
+import { authOptions } from '@/lib/auth'
+import { getServerSession } from 'next-auth'
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { type Problem, sampleProblem } from "@/data/problems"
-import { ArrowLeft, Clock, Maximize2, Minimize2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// Types for better type safety
+type ProblemData = {
+  id: string;
+  title: string;
+  difficulty: string;
+  description: string;
+  tags?: string[];
+  // Other fields as needed
+}
 
-export default function ProblemPage() {
-  const params = useParams()
-  const router = useRouter()
-  const problemId = params.id as string
+// Bundle response type
+type BundleResponse = {
+  problem: ProblemData;
+  judge0Languages: any[];
+  statistics: any;
+  similarProblems: any[];
+  lastLanguage: string | null;
+}
 
-  const [problem, setProblem] = useState<Problem | null>(null)
-  const [activeTab, setActiveTab] = useState("description")
-  const [isRunning, setIsRunning] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [timeElapsed, setTimeElapsed] = useState(0)
-  const [testResults, setTestResults] = useState<{
-    sampleTestCases: Problem["sampleTestCases"]
-    hiddenTestCases: Problem["hiddenTestCases"]
-    allPassed: boolean
-  } | null>(null)
-  const [solvedProblems, setSolvedProblems] = useState<number[]>([])
-  const [isFullScreen, setIsFullScreen] = useState(false)
-
-  useEffect(() => {
-    // In a real app, this would fetch from an API
-    setProblem(sampleProblem)
-
-    // Start timer
-    const timer = setInterval(() => {
-      setTimeElapsed((prev) => prev + 1)
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [problemId])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+/**
+ * Generate static params for the most popular problems
+ * This helps with SEO and performance for frequently visited problems
+ * 
+ * @returns Array of problem IDs for static generation
+ */
+export async function generateStaticParams() {
+  try {
+    // Fetch popular problem IDs
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/popular-problems`,
+      { next: { revalidate: 86400 } } // Cache for a day
+    );
+    
+    if (!response.ok) {
+      return [];
+    }
+    
+    const data = await response.json();
+    
+    // Return the popular problem IDs as params
+    return data.problems.map((problem: { id: string }) => ({
+      id: problem.id,
+    }));
+  } catch (error) {
+    console.error('Error fetching popular problems:', error);
+    // Return empty array to avoid blocking build
+    return [];
   }
+}
 
-  const handleRun = (code: string) => {
-    setIsRunning(true)
-
-    // Mock execution
-    setTimeout(() => {
-      if (problem) {
-        const updatedSampleTestCases = problem.sampleTestCases.map((testCase) => ({
-          ...testCase,
-          actualOutput: testCase.expectedOutput, // In a real app, this would be the actual output from running the code
-          status: "passed" as const,
-        }))
-
-        setTestResults({
-          sampleTestCases: updatedSampleTestCases,
-          hiddenTestCases: problem.hiddenTestCases,
-          allPassed: true,
-        })
-
-        setActiveTab("testResult")
-      }
-
-      setIsRunning(false)
-    }, 1500)
-  }
-
-  const handleSubmit = (code: string) => {
-    setIsSubmitting(true)
-
-    // Mock submission
-    setTimeout(() => {
-      if (problem) {
-        const updatedSampleTestCases = problem.sampleTestCases.map((testCase) => ({
-          ...testCase,
-          actualOutput: testCase.expectedOutput,
-          status: "passed" as const,
-        }))
-
-        const updatedHiddenTestCases = problem.hiddenTestCases.map((testCase) => ({
-          ...testCase,
-          status: "passed" as const,
-        }))
-
-        setTestResults({
-          sampleTestCases: updatedSampleTestCases,
-          hiddenTestCases: updatedHiddenTestCases,
-          allPassed: true,
-        })
-
-        setSolvedProblems((prev) => [...prev, 0]) // Mark current problem as solved
-        setActiveTab("testResult")
-      }
-
-      setIsSubmitting(false)
-    }, 2000)
-  }
-
-  const handleBack = () => {
-    router.back()
-  }
-
- 
-
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen)
-  }
-
+/**
+ * Generate metadata for the problem page
+ * This function is called by Next.js during build/request
+ * 
+ * @param params - URL parameters
+ * @param parent - Parent metadata
+ * @returns Metadata for the page
+ */
+export async function generateMetadata(
+  { params }: { params: { id: string } },
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const problemId = params.id
+  
+  // Fetch problem data for metadata
+  const problem = await fetchProblemData(problemId)
+  
+  // Handle missing problem
   if (!problem) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#121212]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0091FF]"></div>
-      </div>
-    )
+    return {
+      title: 'Problem Not Found',
+      description: 'The requested coding problem could not be found.'
+    }
   }
+  
+  // Get base metadata from parent
+  const previousImages = (await parent).openGraph?.images || []
+  
+  return {
+    title: `${problem.title} | NexAcademy`,
+    description: `Solve the ${problem.difficulty} coding problem "${problem.title}" on NexAcademy.`,
+    openGraph: {
+      title: `${problem.title} - ${problem.difficulty} | NexAcademy`,
+      description: `Practice your coding skills with "${problem.title}" - a ${problem.difficulty} level problem on NexAcademy.`,
+      images: [...previousImages],
+      type: 'article',
+      authors: ['NexAcademy'],
+      tags: problem.tags,
+    },
+  }
+}
+
+/**
+ * Fetch problem data from API with better error handling
+ * Used only for metadata generation to avoid duplicate data fetching
+ * 
+ * @param problemId - ID of the problem to fetch
+ * @returns Problem data or null if not found
+ */
+async function fetchProblemData(problemId: string): Promise<ProblemData | null> {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/problem/${problemId}`, 
+      {
+        next: { revalidate: 3600 }, // Cache for an hour
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      // Throw specific error based on status code
+      if (response.status === 404) {
+        throw new Error('PROBLEM_NOT_FOUND');
+      }
+      throw new Error(`Failed to fetch problem data: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching problem data:', error);
+    // Re-throw specific errors for proper handling
+    if (error instanceof Error && error.message === 'PROBLEM_NOT_FOUND') {
+      throw error;
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetch all problem-related data in a single request
+ * This consolidated API improves performance by reducing network overhead
+ * 
+ * @param problemId - ID of the problem to fetch
+ * @returns Bundle with problem data, languages, statistics, and similar problems
+ */
+async function fetchBundledData(problemId: string): Promise<BundleResponse | null> {
+  try {
+    // We can't use localStorage in server component, so we'll only add the query parameter
+    // in the client component or during a client-side navigation
+    
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/problem/${problemId}/bundle`,
+      {
+        next: { revalidate: 3600 }, // Cache for an hour
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('PROBLEM_NOT_FOUND');
+      }
+      throw new Error(`Failed to fetch bundled data: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching bundled data:', error);
+    if (error instanceof Error && error.message === 'PROBLEM_NOT_FOUND') {
+      throw error;
+    }
+    return null;
+  }
+}
+
+/**
+ * Server Component to show key problem info during initial load
+ * This renders instantly from the server while the client component loads
+ */
+function ProblemPageShell({ problemData }: { problemData: ProblemData }) {
+  // Difficulty badge colors
+  const difficultyColor = {
+    Easy: 'bg-green-100 text-green-800',
+    Medium: 'bg-yellow-100 text-yellow-800',
+    Hard: 'bg-red-100 text-red-800',
+  }[problemData.difficulty] || 'bg-gray-100 text-gray-800';
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#121212] overflow-hidden">
-      {/* Problem header */}
-      <header className="flex items-center justify-between p-3 bg-[#1a1a1a] border-b border-[#2d2d2d]">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" onClick={handleBack}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#0091FF] to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-              L
-            </div>
-            <span className="text-white font-medium">Problem Solving in Python</span>
-          </div>
-
-          <div className="flex gap-2">
-            {problem.tags.map((tag, index) => (
-              <span key={index} className="px-3 py-1 text-sm bg-[#252525] text-gray-300 rounded-full">
-                {tag}
-              </span>
-            ))}
-            <span className="px-3 py-1 text-sm bg-[#252525] text-gray-300 rounded-full">Level {problem.level}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-[#252525] px-3 py-1 rounded-md text-gray-300">
-            <Clock className="h-4 w-4" />
-            <span>{formatTime(timeElapsed)}</span>
-          </div>
-          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" onClick={toggleFullScreen}>
-            {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left panel - Problem description */}
-        <div className="w-1/2 overflow-hidden flex flex-col">
-          <div className="bg-[#1a1a1a] border-b border-[#2d2d2d] p-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="bg-[#252525]">
-                <TabsTrigger
-                  value="description"
-                  className="data-[state=active]:bg-[#0091FF] data-[state=active]:text-white"
-                >
-                  Description
-                </TabsTrigger>
-                <TabsTrigger
-                  value="testResult"
-                  className="data-[state=active]:bg-[#0091FF] data-[state=active]:text-white"
-                >
-                  Test Result
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {activeTab === "description" ? (
-              <div className="p-4">
-                <h2 className="text-2xl font-bold text-white mb-4">{problem.title}</h2>
-                <div className="prose prose-invert max-w-none">
-                  <h3 className="text-lg font-semibold text-white mt-6 mb-2">Problem Statement:</h3>
-                  <p className="text-gray-300">{problem.description}</p>
-
-                  <h3 className="text-lg font-semibold text-white mt-6 mb-2">Input Format:</h3>
-                  <p className="text-gray-300">{problem.inputFormat}</p>
-
-                  <h3 className="text-lg font-semibold text-white mt-6 mb-2">Output Format:</h3>
-                  <p className="text-gray-300">{problem.outputFormat}</p>
-
-                  <h3 className="text-lg font-semibold text-white mt-6 mb-2">Constraints:</h3>
-                  <ul className="list-disc pl-5 text-gray-300">
-                    {problem.constraints.map((constraint, index) => (
-                      <li key={index}>{constraint}</li>
-                    ))}
-                  </ul>
-
-                  <h3 className="text-lg font-semibold text-white mt-6 mb-2">Sample:</h3>
-                  {problem.sampleTestCases.map((testCase, index) => (
-                    <div key={index} className="mb-4">
-                      <h4 className="font-medium text-white">Sample {index + 1}:</h4>
-                      <div className="grid grid-cols-2 gap-4 mt-2">
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Input:</p>
-                          <pre className="bg-[#252525] p-2 rounded text-gray-300 overflow-x-auto">{testCase.input}</pre>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Output:</p>
-                          <pre className="bg-[#252525] p-2 rounded text-gray-300 overflow-x-auto">
-                            {testCase.expectedOutput}
-                          </pre>
-                        </div>
-                      </div>
-                      {testCase.explanation && (
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-400 mb-1">Explanation:</p>
-                          <p className="text-gray-300">{testCase.explanation}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4">
-                {testResults ? (
-                  <>
-                    <div
-                      className={`mb-6 p-3 rounded-md ${testResults.allPassed ? "bg-green-900/20 border border-green-700" : "bg-red-900/20 border border-red-700"}`}
-                    >
-                      <div className="flex items-center">
-                        <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 ${testResults.allPassed ? "bg-green-600" : "bg-red-600"}`}
-                        >
-                          {testResults.allPassed ? "✓" : "✗"}
-                        </div>
-                        <span className={`font-medium ${testResults.allPassed ? "text-green-400" : "text-red-400"}`}>
-                          {testResults.allPassed
-                            ? "Success: All test cases passed! 🎉"
-                            : "Error: Some test cases failed."}
-                        </span>
-                      </div>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-white mb-4">Sample Testcases</h3>
-                    <div className="overflow-x-auto mb-6">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="bg-[#252525] text-left">
-                            <th className="p-2 border border-[#2d2d2d] text-gray-300">Status</th>
-                            <th className="p-2 border border-[#2d2d2d] text-gray-300">Input</th>
-                            <th className="p-2 border border-[#2d2d2d] text-gray-300">Expected</th>
-                            <th className="p-2 border border-[#2d2d2d] text-gray-300">Got</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {testResults.sampleTestCases.map((testCase, index) => (
-                            <tr key={index} className="border-b border-[#2d2d2d]">
-                              <td className="p-2 border border-[#2d2d2d]">
-                                <div
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center ${testCase.status === "passed" ? "bg-green-600" : "bg-red-600"}`}
-                                >
-                                  {testCase.status === "passed" ? "✓" : "✗"}
-                                </div>
-                              </td>
-                              <td className="p-2 border border-[#2d2d2d] text-gray-300">{testCase.input}</td>
-                              <td className="p-2 border border-[#2d2d2d] text-gray-300">{testCase.expectedOutput}</td>
-                              <td className="p-2 border border-[#2d2d2d] text-gray-300">
-                                {testCase.actualOutput || "-"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-white mb-4">Background Testcases</h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="bg-[#252525] text-left">
-                            <th className="p-2 border border-[#2d2d2d] text-gray-300">Status</th>
-                            <th className="p-2 border border-[#2d2d2d] text-gray-300">Result</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {testResults.hiddenTestCases.map((testCase, index) => (
-                            <tr key={index} className="border-b border-[#2d2d2d]">
-                              <td className="p-2 border border-[#2d2d2d]">
-                                <div
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center ${testCase.status === "passed" ? "bg-green-600" : "bg-red-600"}`}
-                                >
-                                  {testCase.status === "passed" ? "✓" : "✗"}
-                                </div>
-                              </td>
-                              <td className="p-2 border border-[#2d2d2d] text-gray-300">
-                                {testCase.status === "passed" ? "Correct" : "Wrong Answer"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                    <p>Run your code to see test results</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right panel - Code editor */}
-        <div className="w-1/2 flex flex-col border-l border-[#2d2d2d]">
-          <div className="bg-[#1a1a1a] border-b border-[#2d2d2d] p-2 flex justify-between items-center">
-            <div className="flex items-center">
-              <span className="text-[#0091FF] mr-2">{"<>"}</span>
-              <span className="text-white">Code</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <select className="bg-[#252525] text-white border border-[#2d2d2d] rounded px-2 py-1 text-sm">
-                <option>Python</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-hidden">
-            <div className="h-full bg-[#1e1e1e] text-white font-mono p-4 overflow-y-auto">
-              <pre className="text-gray-300">
-                <code>
-                  {problem.starterCode.split("\n").map((line, i) => (
-                    <div key={i} className="flex">
-                      <span className="w-8 text-gray-500 select-none">{i + 1}</span>
-                      <span>{line}</span>
-                    </div>
-                  ))}
-                </code>
-              </pre>
-            </div>
-          </div>
-
-          {/* Sample testcases */}
-          <div className="border-t border-[#2d2d2d]">
-            <div className="bg-[#1a1a1a] p-2 flex items-center">
-              <span className="text-[#0091FF] mr-2">{"<>"}</span>
-              <span className="text-white">Sample Testcases</span>
-            </div>
-
-            <div className="p-4 bg-[#1a1a1a]">
-              <div className="flex mb-2">
-                {problem.sampleTestCases.map((_, index) => (
-                  <button
-                    key={index}
-                    className={`px-3 py-1 rounded-md mr-2 text-sm ${index === 0 ? "bg-[#0091FF] text-white" : "bg-[#252525] text-gray-300"}`}
-                  >
-                    Case {index + 1}
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Input</p>
-                  <pre className="bg-[#252525] p-2 rounded text-gray-300 overflow-x-auto">
-                    {problem.sampleTestCases[0].input}
-                  </pre>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Output</p>
-                  <pre className="bg-[#252525] p-2 rounded text-gray-300 overflow-x-auto">
-                    {problem.sampleTestCases[0].expectedOutput}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right sidebar - Test navigation */}
-        <div className="w-12 bg-[#1a1a1a] border-l border-[#2d2d2d] flex flex-col items-center py-4">
-          {Array.from({ length: 10 }).map((_, index) => (
-            <button
-              key={index}
-              className={`w-8 h-8 rounded-full mb-2 flex items-center justify-center ${
-                index === 0
-                  ? "bg-[#0091FF] text-white"
-                  : solvedProblems.includes(index)
-                    ? "bg-green-600 text-white"
-                    : "bg-[#252525] text-gray-300"
-              }`}
-              onClick={() => handleNavigate(index)}
-            >
-              {index + 1}
-            </button>
+    <div className="h-full w-full p-4 bg-white dark:bg-gray-950 transition-opacity duration-500" id="problem-shell">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-2">{problemData.title}</h1>
+        
+        <div className="flex gap-2 items-center mb-4">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${difficultyColor}`}>
+            {problemData.difficulty}
+          </span>
+          
+          {problemData.tags?.slice(0, 3).map(tag => (
+            <span key={tag} className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+              {tag}
+            </span>
           ))}
         </div>
-      </div>
-
-      {/* Bottom navigation */}
-      <div className="bg-[#1a1a1a] border-t border-[#2d2d2d] p-3 flex items-center justify-between">
-        <Button variant="outline" size="sm" className="text-gray-300 border-[#2d2d2d]" disabled={true}>
-          Prev
-        </Button>
-
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[#0091FF] border-[#0091FF] hover:bg-[#0091FF]/10"
-            onClick={() => handleRun(problem.starterCode)}
-            disabled={isRunning || isSubmitting}
-          >
-            {isRunning ? "Running..." : "Run"}
-          </Button>
-
-          <Button
-            variant="default"
-            size="sm"
-            className="bg-[#0091FF] hover:bg-[#0091FF]/90 text-white"
-            onClick={() => handleSubmit(problem.starterCode)}
-            disabled={isRunning || isSubmitting}
-          >
-            {isSubmitting ? "Submitting..." : "Submit"}
-          </Button>
+        
+        <div className="prose dark:prose-invert max-w-none">
+          <div dangerouslySetInnerHTML={{ __html: problemData.description }} />
         </div>
-
-        <Button variant="outline" size="sm" className="text-gray-300 border-[#2d2d2d]">
-          Next
-        </Button>
+        
+        <div className="mt-8 animate-pulse flex justify-center">
+          <p className="text-sm text-gray-500">Loading editor environment...</p>
+        </div>
       </div>
     </div>
-  )
+  );
+}
+
+/**
+ * Loading component for better visual feedback
+ * Displayed while the main client component is loading
+ */
+function ProblemPageLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <div className="animate-spin h-8 w-8 border-4 border-t-indigo-500 border-indigo-200 rounded-full mb-4"></div>
+      <h2 className="text-lg font-medium">Loading problem...</h2>
+    </div>
+  );
+}
+
+/**
+ * Loading component for streaming data
+ * Used for progressive loading of non-critical components
+ */
+function ProblemStatisticsLoading() {
+  return (
+    <div className="p-4 rounded-md bg-gray-50 dark:bg-gray-900 animate-pulse">
+      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded mb-2 w-3/4"></div>
+      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+    </div>
+  );
+}
+
+/**
+ * Component to display problem statistics
+ */
+function ProblemStatistics({ statistics }: { statistics: any }) {
+  if (!statistics) return null;
+  
+  return (
+    <div className="p-4 rounded-md bg-gray-50 dark:bg-gray-900">
+      <h3 className="font-medium mb-2">Problem Statistics</h3>
+      <p>Acceptance Rate: {statistics.acceptanceRate}%</p>
+      <p>Submissions: {statistics.totalSubmissions}</p>
+      <p>Solutions: {statistics.totalSolutions}</p>
+    </div>
+  );
+}
+
+/**
+ * Component to display similar problems
+ */
+function SimilarProblems({ problems }: { problems: any[] }) {
+  if (!problems?.length) return null;
+  
+  return (
+    <div className="p-4 rounded-md bg-gray-50 dark:bg-gray-900">
+      <h3 className="font-medium mb-2">Similar Problems</h3>
+      <ul className="space-y-1">
+        {problems.map(problem => (
+          <li key={problem.id}>
+            <a href={`/problem/${problem.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+              {problem.title}
+            </a>
+            <span className="text-xs ml-2 text-gray-500">({problem.difficulty})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Error boundary to handle rendering errors
+ */
+function ProblemError({ error }: { error: Error }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <h2 className="text-2xl font-bold text-red-500 mb-4">Failed to load problem</h2>
+      <p className="text-gray-600 mb-6">{error.message}</p>
+      <a href="/" className="px-4 py-2 bg-indigo-600 text-white rounded-md">
+        Return to Home
+      </a>
+    </div>
+  );
+}
+
+/**
+ * Main Problem Page Component
+ * Uses the bundled API for efficient data loading
+ */
+export default async function ProblemPage({ params }: { params: { id: string } }) {
+  const problemId = params.id;
+  
+  try {
+    // Fetch all data in a single request using the bundled API
+    const bundleData = await fetchBundledData(problemId);
+    
+    // Handle not found
+    if (!bundleData || !bundleData.problem) {
+      return notFound();
+    }
+    const problemId = params.id;
+  const session = await getServerSession(authOptions);
+
+  // Fetch problem and languages as before
+ 
+
+  // --- THIS IS THE IMPORTANT PART ---
+  
+  if (session?.user?.id) {
+    // Fetch from UserProblemSettings (or your equivalent table)
+    const userSetting = await prisma.userProblemSetting.findUnique({
+      where: {
+        userId_problemId: {
+          userId: session.user.id,
+          problemId: problemId,
+        },
+      },
+      select: { language: true },
+    });
+    lastLanguage = userSetting?.language || null;
+  }
+    const { problem: problemData, judge0Languages, statistics, similarProblems, lastLanguage } = bundleData;
+    
+    // Prepare initial data for client-side hydration
+    const initialData = {
+      problem: problemData,
+      judge0Languages: judge0Languages || null,
+      lastLanguage // Include the last selected language
+    };
+    
+    // Script for hydration data with proper escaping to prevent XSS
+    const safeJSON = JSON.stringify(initialData)
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e')
+      .replace(/&/g, '\\u0026')
+      .replace(/\//g, '\\u002f');
+    
+    const scriptContent = `window.__NEXT_DATA__ = {
+      props: {
+        pageProps: {
+          initialData: ${safeJSON}
+        }
+      }
+    };`;
+
+    // Add client-side code to handle language selection persistence
+    // This enhanced version includes detailed debugging and ensures correct localStorage behavior
+    const languagePersistenceScript = `
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('[DEBUG] Setting up language persistence handler');
+        
+        // First, check if there's a saved language in localStorage
+        const problemId = "${problemId}";
+        const savedLanguage = localStorage.getItem('nexacademy_last_language_' + problemId);
+        console.log('[DEBUG] Found saved language in localStorage:', savedLanguage || 'none');
+        
+        if (savedLanguage) {
+          // Dispatch an event to notify our app about the saved language
+          console.log('[DEBUG] Dispatching savedLanguageLoaded event with language:', savedLanguage);
+          window.dispatchEvent(new CustomEvent('nexacademy:savedLanguageLoaded', {
+            detail: {
+              problemId: problemId,
+              language: savedLanguage
+            }
+          }));
+        }
+        
+        // Set up the listener for language changes
+        window.addEventListener('nexacademy:languageChanged', function(e) {
+          try {
+            if (e.detail && e.detail.problemId && e.detail.language && e.detail.languageName) {
+              console.log('[DEBUG] Language changed event received:', 
+                          'problemId=', e.detail.problemId, 
+                          'languageId=', e.detail.language,
+                          'languageName=', e.detail.languageName);
+              
+              // Store the full language name instead of just the ID
+              localStorage.setItem('nexacademy_last_language_' + e.detail.problemId, e.detail.languageName);
+              console.log('[DEBUG] Saved language to localStorage:', e.detail.languageName);
+              
+              // Update last-language on server if an API call is requested
+              if (e.detail.updateServer) {
+                console.log('[DEBUG] Updating last-language on server for:', e.detail.languageName);
+                
+                fetch('/api/problem/' + e.detail.problemId + '/last-language', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ language: e.detail.languageName }),
+                  credentials: 'include'
+                }).then(response => {
+                  console.log('[DEBUG] Last language update response:', response.status);
+                }).catch(err => {
+                  console.error('[DEBUG] Error updating last language:', err);
+                });
+              }
+            }
+          } catch (err) {
+            console.error('[DEBUG] Error in language persistence handler:', err);
+          }
+        });
+        
+        // Add a debugging method to the window
+        window.debugLastLanguage = function() {
+          console.log('Saved language:', localStorage.getItem('nexacademy_last_language_' + problemId));
+          console.log('All localStorage keys:', Object.keys(localStorage));
+        };
+        
+        console.log('[DEBUG] Language persistence handler setup complete');
+      });
+    `;
+
+    // Add client-side onLoad to handle the transition from server shell to client component
+    const transitionScript = `
+      document.addEventListener('DOMContentLoaded', function() {
+        const shell = document.getElementById('problem-shell');
+        if (shell) {
+          setTimeout(() => {
+            shell.style.opacity = '0';
+            setTimeout(() => {
+              shell.style.display = 'none';
+            }, 500);
+          }, 300);
+        }
+      });
+    `;
+
+    // Handle page unload, tab switch, etc. to sync last language to server
+    // NO automatic sync on page load
+    const syncOnEventsScript = `
+      document.addEventListener('DOMContentLoaded', function() {
+        const problemId = "${problemId}";
+        let currentLanguage = null;
+        
+        // Helper function to get current language
+        function getCurrentLanguage() {
+          return window.__CURRENT_LANGUAGE || localStorage.getItem('nexacademy_last_language_' + problemId);
+        }
+        
+        // Save last language to server on specific events
+        function saveLastLanguageToServer() {
+          const langToSave = getCurrentLanguage();
+          
+          if (!langToSave) {
+            console.log('[DEBUG] No language to save to server');
+            return;
+          }
+          
+          console.log('[DEBUG] Saving last language to server on event:', langToSave);
+          
+          // Using fetch with keepalive for page unload events
+          fetch('/api/problem/' + problemId + '/last-language', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ language: langToSave }),
+            credentials: 'include',
+            keepalive: true
+          }).catch(err => {
+            // We can't log on unload, but the request will still be sent
+          });
+        }
+        
+        // Update currentLanguage when it changes
+        window.addEventListener('nexacademy:languageChanged', function(e) {
+          if (e.detail && e.detail.languageName) {
+            window.__CURRENT_LANGUAGE = e.detail.languageName;
+            currentLanguage = e.detail.languageName;
+          }
+        });
+        
+        // Page unload - always save
+        window.addEventListener('beforeunload', saveLastLanguageToServer);
+        
+        // Tab switch - save when tab becomes hidden
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'hidden') {
+            saveLastLanguageToServer();
+          }
+        });
+        
+        // Add global methods for run and submit buttons to call
+        window.__saveLastLanguageToServer = saveLastLanguageToServer;
+        
+        // Log that we're not syncing on load
+        console.log('[DEBUG] Last language will NOT be synced on page load');
+      });
+    `;
+
+    return (
+      <>
+        {/* Script to inject the data for client-side hydration */}
+        <script
+          id="__NEXT_DATA__SCRIPT"
+          type="application/json"
+          dangerouslySetInnerHTML={{ __html: scriptContent }}
+        />
+        
+        {/* Script to handle transition */}
+        <script
+          dangerouslySetInnerHTML={{ __html: transitionScript }}
+        />
+        
+        {/* Script to handle language persistence */}
+        <script
+          dangerouslySetInnerHTML={{ __html: languagePersistenceScript }}
+        />
+        
+        {/* Script to handle saving on specific events */}
+        <script
+          dangerouslySetInnerHTML={{ __html: syncOnEventsScript }}
+        />
+        
+        {/* Render server-first skeleton UI */}
+        <ProblemPageShell problemData={problemData} />
+        
+        {/* Optional server components as sidebar content - now directly using the data from bundle */}
+        <div className="hidden lg:block fixed right-4 top-20 w-64 space-y-4" id="problem-sidebar">
+          <ProblemStatistics statistics={statistics} />
+          <SimilarProblems problems={similarProblems} />
+        </div>
+        
+        {/* Render the client component with a loading fallback using Suspense */}
+        <Suspense fallback={<ProblemPageLoading />}>
+          <ProblemPageClient initialData={initialData} />
+        </Suspense>
+      </>
+    );
+  } catch (error) {
+    // Handle specific known errors
+    if (error instanceof Error && error.message === 'PROBLEM_NOT_FOUND') {
+      return notFound();
+    }
+    
+    // For other errors, show error component
+    return <ProblemError error={error instanceof Error ? error : new Error('Unknown error')} />;
+  }
 }
 
