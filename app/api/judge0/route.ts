@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Use the self-hosted Judge0 instance
 const JUDGE0_API_URL = "http://128.199.24.150:2358";
-const JUDGE0_LANGUAGES_URL = 'http://128.199.24.150:2358/languages';
+const JUDGE0_LANGUAGES_URL = 'https://ce.judge0.com/languages';
 
 // In-memory cache for languages
 let cachedLanguages: any[] | null = null;
