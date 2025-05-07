@@ -36,6 +36,7 @@ import {
   Database,
   XCircle,
   Minimize,
+  Users,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -69,6 +70,8 @@ import { User, LogOut } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns';
 import { useJudge0Languages } from '@/components/hooks/useJudge0Languages';
 import { fetchJudge0Languages } from "@/app/api/judge0/route";
+import { StudyGroup } from "@/components/nexpractice/ui/study-group"
+import { Toaster } from "@/components/ui/toaster"
 
 
 // Define language option interface
@@ -221,6 +224,7 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
   // Add a new state for directly loaded languages
   const [directlyLoadedLanguages, setDirectlyLoadedLanguages] = useState<any[]>([]);
 
+  const [isStudyGroupOpen, setIsStudyGroupOpen] = useState(false)
   
 
   const confettiRef = useRef<HTMLDivElement>(null)
@@ -1016,9 +1020,6 @@ public:
 
 
 
- 
-
-  // ... existing code ...
 
  
 
@@ -1989,6 +1990,7 @@ public:
                     <span className="text-sm font-medium">Submissions</span>
                   </TabsTrigger>
                   
+                 
                   {/* Dynamic Accepted Tab or Submission Details Tab */}
                   {showSubmissionTab && selectedSubmission && (
                     <TabsTrigger 
@@ -2570,6 +2572,21 @@ public:
                   </div>
                 </div>
               ) : null}
+            </TabsContent>
+            
+            {/* New Study Group Tab Content */}
+            <TabsContent value="studygroup" className="p-0 left-panel-content panel-scrollable">
+              {activeTab === 'studygroup' && problem && session?.user && (
+                <StudyGroup 
+                  problemId={problemId}
+                  problemTitle={problem.title || "Coding Problem"}
+                  currentUser={{
+                    id: session.user.id || "user1",
+                    name: session.user.name || "Current User",
+                    avatar: session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || "User")}&background=5E35B1&color=fff`
+                  }}
+                />
+              )}
             </TabsContent>
           </Tabs>
         </div>
@@ -3354,6 +3371,9 @@ public:
           Premium Active
         </div>
       )}
+
+      {/* Add Toaster component for notifications */}
+      <Toaster />
     </div>
   )
 }
