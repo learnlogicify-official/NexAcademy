@@ -234,6 +234,56 @@ const GET_QUESTION_STATS = gql`
   }
 `;
 
+// Add new queries for problem detail and languages
+const GET_PROBLEM_DETAIL = gql`
+  query GetProblemDetail($id: ID!) {
+    problemDetail(id: $id) {
+      id
+      title
+      difficulty
+      description
+      tags {
+        id
+        name
+      }
+      sampleTestCases {
+        id
+        input
+        output
+        isSample
+        isHidden
+      }
+      hiddenTestCases {
+        id
+        input
+        output
+        isSample
+        isHidden
+      }
+      languageOptions {
+        id
+        language
+        preloadCode
+        solution
+      }
+    }
+  }
+`;
+
+const GET_PROBLEM_LANGUAGES = gql`
+  query GetProblemLanguages($id: ID!) {
+    problemLanguages(id: $id) {
+      id
+      language
+      name
+      preloadCode
+      solution
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 // Define GraphQL mutations
 const CREATE_QUESTION = gql`
   mutation CreateQuestion($input: QuestionInput!) {
@@ -456,5 +506,25 @@ export const questionService = {
       console.error("Error in bulkImportCodingQuestions:", error);
       throw error;
     }
+  },
+
+  // Get problem detail using the new GraphQL endpoint
+  getProblemDetail: async (id: string) => {
+    const { data } = await apolloClient.query({
+      query: GET_PROBLEM_DETAIL,
+      variables: { id },
+      fetchPolicy: 'network-only',
+    });
+    return data.problemDetail;
+  },
+
+  // Get problem languages using the new GraphQL endpoint
+  getProblemLanguages: async (id: string) => {
+    const { data } = await apolloClient.query({
+      query: GET_PROBLEM_LANGUAGES,
+      variables: { id },
+      fetchPolicy: 'network-only',
+    });
+    return data.problemLanguages;
   },
 }; 

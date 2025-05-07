@@ -232,7 +232,7 @@ export function ResultPanel({ results }: { results: Results | null }) {
                     </div>
                     <div>
                       <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
-                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.expected}</div>
+                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.output}</div>
                     </div>
                   </div>
                   <div>
@@ -470,7 +470,7 @@ export function ResultPanel({ results }: { results: Results | null }) {
                     </div>
                     <div>
                       <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
-                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.expected}</div>
+                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.output}</div>
                     </div>
                   </div>
                   <div>

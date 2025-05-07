@@ -433,7 +433,7 @@
   content: "";
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 51.2%;
   transform: translate(-50%, -50%);
   width: 2px;
   height: 30px;
@@ -780,8 +780,8 @@ body.resize-active {
   position: relative;
   min-height: 20%;
   transition: height 0.3s ease;
-  border-radius: 10px;
-  margin: 6px 6px 16px 6px; /* Increased bottom margin for resizer space */
+  border-radius: 0px;
+  
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.02);
 }
 

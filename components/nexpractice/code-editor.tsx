@@ -1158,7 +1158,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
           flex-direction: row;
           align-items: center;
           padding: 0 10px;
-          border-radius: 0 0 6px 6px;
+          border-radius: 0 0 0 0;
         }
         
         .status-section {

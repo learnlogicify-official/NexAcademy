@@ -58,6 +58,7 @@ export const questionTypeDefs = gql`
     language: String!
     preloadCode: String
     solution: String!
+    name: String
     createdAt: String!
     updatedAt: String!
   }
@@ -215,6 +216,25 @@ export const questionTypeDefs = gql`
     totalCount: Int!
   }
 
+  type ProblemDetail {
+    id: ID!
+    number: Int
+    title: String!
+    difficulty: QuestionDifficulty!
+    tags: [Tag!]!
+    level: Int
+    description: String!
+    inputFormat: String
+    outputFormat: String
+    sampleTestCases: [TestCase!]!
+    hiddenTestCases: [TestCase!]
+    starterCode: String
+    solution: String
+    explanation: String
+    xpReward: Int
+    languageOptions: [LanguageOption!]!
+  }
+
   extend type Query {
     questions(
       type: QuestionType
@@ -254,6 +274,10 @@ export const questionTypeDefs = gql`
     judge0Languages: [Judge0Language!]!
     
     editorData: EditorData!
+    
+    problemDetail(id: ID!): ProblemDetail
+    
+    problemLanguages(id: ID!): [LanguageOption!]!
   }
 
   extend type Mutation {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,11 +10,15 @@ import { TestCases } from "@/components/nexpractice/test-cases"
 import { ResultPanel } from "@/components/nexpractice/result-panel"
 import { CompanyTags } from "@/components/nexpractice/company-tags"
 import { PremiumSolutions } from "@/components/nexpractice/premium-solutions"
+import { GuidedTour } from "@/components/nexpractice/guided-tour"
 import {
   Play,
   BookOpen,
   ChevronLeft,
+  ChevronRight,
+  List,
   Star,
+  Bell,
   Settings,
   FileCode,
   CheckSquare,
@@ -28,15 +32,19 @@ import {
   MessageSquare,
   Clock,
   Maximize,
+  Save,
   Folder,
+  Copy,
+  MoreHorizontal,
+  Github,
   FileText,
+  ChevronDown,
   Loader2,
   Send,
   CheckCircle2,
   Database,
   XCircle,
   Minimize,
-  Users,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -54,6 +62,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -69,10 +78,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, LogOut } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns';
 import { useJudge0Languages } from '@/components/hooks/useJudge0Languages';
-import { fetchJudge0Languages } from "@/app/api/judge0/route";
-import { StudyGroup } from "@/components/nexpractice/ui/study-group"
-import { Toaster } from "@/components/ui/toaster"
-
+import { questionService } from "@/lib/services/questionService";
 
 // Define language option interface
 interface LanguageOption {
@@ -115,57 +121,38 @@ function useIsMobile() {
   return isMobile;
 }
 
-// Define props interface for initialData
-interface InitialDataProps {
-  initialData?: {
-    problem: any;
-    judge0Languages: any[];
-    lastLanguage?: string | null; // Add lastLanguage property
-    // User-specific data will be fetched client-side
+// Update fetch function to use GraphQL and move it to an async helper function outside the component
+async function fetchProblemData(problemId: string) {
+  try {
+    const problemData = await questionService.getProblemDetail(problemId);
+    return problemData;
+  } catch (error) {
+    console.error("Error fetching problem:", error);
+    // Provide minimal fallback problem
+    return {
+      id: problemId,
+      title: "Problem information unavailable",
+      description: "There was an error loading this problem. Please try again later.",
+      difficulty: "MEDIUM",
+      sampleTestCases: [],
+      languageOptions: []
+    };
   }
 }
 
-// Add this near the top of the file, outside the component
-const COMMON_LANGUAGE_NAMES: Record<string, string> = {
-  '45': 'Assembly (NASM 2.14.02)',
-  '46': 'Bash (5.0.0)',
-  '47': 'Basic (FBC 1.07.1)',
-  '48': 'C (GCC 7.4.0)',
-  '49': 'C (GCC 8.3.0)',
-  '50': 'C (GCC 9.2.0)',
-  '51': 'C# (Mono 6.6.0.161)',
-  '52': 'C++ (GCC 7.4.0)',
-  '53': 'C++ (GCC 8.3.0)',
-  '54': 'C++ (GCC 9.2.0)',
-  '55': 'Common Lisp (SBCL 2.0.0)',
-  '56': 'D (DMD 2.089.1)',
-  '57': 'Elixir (1.9.4)',
-  '58': 'Erlang (OTP 22.2)',
-  '59': 'Fortran (GFortran 9.2.0)',
-  '60': 'Go (1.13.5)',
-  '61': 'Haskell (GHC 8.8.1)',
-  '62': 'Java (OpenJDK 13.0.1)',
-  '63': 'JavaScript (Node.js 12.14.0)',
-  '64': 'Lua (5.3.5)',
-  '65': 'OCaml (4.09.0)',
-  '66': 'Octave (5.1.0)',
-  '67': 'Pascal (FPC 3.0.4)',
-  '68': 'PHP (7.4.1)',
-  '69': 'Prolog (GNU Prolog 1.4.5)',
-  '70': 'Python (2.7.17)',
-  '71': 'Python (3.8.1)',
-  '72': 'Ruby (2.7.0)',
-  '73': 'Rust (1.40.0)',
-  '74': 'TypeScript (3.7.4)',
-};
+// New function to fetch enabled languages from GraphQL
+async function fetchProblemLanguages(problemId: string) {
+  try {
+    const languages = await questionService.getProblemLanguages(problemId);
+    return languages;
+  } catch (error) {
+    console.error("Error fetching problem languages:", error);
+    return [];
+  }
+}
 
-
-export default function ProblemPage({ initialData }: InitialDataProps = {}) {
-  // Remove duplicate params and problemId declarations - keep only one set
-  const params = useParams()
-  const problemId = params.id as string
-
-  // Set initial code to empty string or starter code if available
+export default function ProblemPage() {
+  // Set initial code to empty string
   const [code, setCode] = useState("");
   const [results, setResults] = useState<any>(null)
   const [isRunning, setIsRunning] = useState(false)
@@ -176,15 +163,8 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
   const [isResizingHorizontal, setIsResizingHorizontal] = useState(false)
   const [isResizingVertical, setIsResizingVertical] = useState(false)
   const [showVisualization, setShowVisualization] = useState(false)
-  
-  // Initialize language state with initialData.lastLanguage if available, then from problem's first language option
-  const [language, setLanguage] = useState("");
-  
-  // Initialize availableLanguages from initialData if possible
-  const [availableLanguages, setAvailableLanguages] = useState<LanguageOption[]>(
-    initialData?.problem?.languageOptions || []
-  );
-  
+  const [language, setLanguage] = useState("")
+  const [availableLanguages, setAvailableLanguages] = useState<LanguageOption[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
@@ -194,15 +174,11 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
   const [snippetName, setSnippetName] = useState("")
   const [codeCopied, setCodeCopied] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
-  const [problem, setProblem] = useState<Problem | null>(initialData?.problem || null)
+  const [problem, setProblem] = useState<Problem | null>(null)
   const [timeElapsed, setTimeElapsed] = useState(0)
-  
-  // Initialize loading states based on whether we have initialData
-  const [isLoading, setIsLoading] = useState(!initialData?.problem)
-  const [isLanguageLoading, setIsLanguageLoading] = useState(!initialData?.judge0Languages?.length)
-  const [isCodeLoading, setIsCodeLoading] = useState(!initialData?.problem)
-  
-  // Only declare languageFilter once
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLanguageLoading, setIsLanguageLoading] = useState(true)
+  const [isCodeLoading, setIsCodeLoading] = useState(true)
   const [languageFilter, setLanguageFilter] = useState("")
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false)
   const [editorSettingsOpen, setEditorSettingsOpen] = useState(false)
@@ -220,40 +196,57 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [isTestPanelExpanded, setIsTestPanelExpanded] = useState(false);
+  // Add state for the selected Judge0 language
+  const [selectedJudge0Lang, setSelectedJudge0Lang] = useState<any>(null);
+  const hasFetched = useRef(false); // Add this line
 
-  // Add a new state for directly loaded languages
-  const [directlyLoadedLanguages, setDirectlyLoadedLanguages] = useState<any[]>([]);
-
-  const [isStudyGroupOpen, setIsStudyGroupOpen] = useState(false)
-  
+  // Add this to the top of the file with the other refs
+  const inFlightRequestsRef = useRef<{ saveCode: boolean }>({ saveCode: false });
 
   const confettiRef = useRef<HTMLDivElement>(null)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const previousHeightRef = useRef(bottomPanelHeight)
   const previousLeftWidthRef = useRef(leftPanelWidth)
 
-  const { data: session } = useSession();
-  
-  // Initialize Judge0Languages with data from SSR if available
-  const { languages: judge0LanguagesFromHook, loading: judge0Loading } = useJudge0Languages(
-    initialData?.judge0Languages || []
-  );
-  
-  // Make sure initialData doesn't change identity on each render
-  const memoizedInitialData = useMemo(() => initialData, [JSON.stringify(initialData)]);
-  
-  // Use the judge0Languages from either SSR or client-side hook
-  const judge0Languages = useMemo(() => {
-    if (initialData?.judge0Languages?.length) {
-      return initialData.judge0Languages;
-    }
-    if (directlyLoadedLanguages.length > 0) {
-      return directlyLoadedLanguages;
-    }
-    return judge0LanguagesFromHook;
-  }, [initialData?.judge0Languages, judge0LanguagesFromHook, directlyLoadedLanguages]);
+  const params = useParams()
+  const problemId = params.id as string
 
- 
+  const { data: session } = useSession();
+  const { languages: judge0Languages } = useJudge0Languages();
+  
+  const isMobile = useIsMobile();
+  const COMMON_LANGUAGE_NAMES: Record<string, string> = {
+    "45": "Assembly (NASM 2.14.02)",
+    "46": "Bash (5.0.0)",
+    "47": "Basic (FBC 1.07.1)",
+    "48": "C (GCC 7.4.0)",
+    "49": "C (GCC 8.3.0)",
+    "50": "C (GCC 9.2.0)",
+    "51": "C# (Mono 6.6.0.161)",
+    "52": "C++ (GCC 7.4.0)",
+    "53": "C++ (GCC 8.3.0)",
+    "54": "C++ (GCC 9.2.0)",
+    "55": "Common Lisp (SBCL 2.0.0)",
+    "56": "D (DMD 2.089.1)",
+    "57": "Elixir (1.9.4)",
+    "58": "Erlang (OTP 22.2)",
+    "59": "Fortran (GFortran 9.2.0)",
+    "60": "Go (1.13.5)",
+    "61": "Haskell (GHC 8.8.1)",
+    "62": "Java (OpenJDK 13.0.1)",
+    "63": "JavaScript (Node.js 12.14.0)",
+    "64": "Lua (5.3.5)",
+    "65": "OCaml (4.09.0)",
+    "66": "Octave (5.1.0)",
+    "67": "Pascal (FPC 3.0.4)",
+    "68": "PHP (7.4.1)",
+    "69": "Prolog (GNU Prolog 1.4.5)",
+    "70": "Python (2.7.17)",
+    "71": "Python (3.8.1)",
+    "72": "Ruby (2.7.0)",
+    "73": "Rust (1.40.0)",
+    "74": "TypeScript (3.7.4)",
+  };
   
   // Memoize the displayed language name
   const displayedLanguageName = useMemo(() => {
@@ -275,16 +268,7 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
       }
     }
     
-    // Also check directlyLoadedLanguages just in case
-    if (directlyLoadedLanguages?.length > 0) {
-      if (!isNaN(Number(language))) {
-        const directLang = directlyLoadedLanguages.find(l => String(l.id) === language);
-        if (directLang?.name) {
-          console.log(`[DEBUG] Found direct language by ID=${language}, name=${directLang.name}`);
-          return directLang.name;
-        }
-      }
-    }
+    
     
     // If availableLanguages are available, try to find a match by ID or name
     if (availableLanguages?.length > 0) {
@@ -305,15 +289,7 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
       }
     }
     
-    // FALLBACK - Check if this is a problem with judge0Languages not being loaded yet
-    // This happens during SSR or first render
-    if (!judge0Languages?.length && initialData?.judge0Languages?.length) {
-      const initialJudge0Lang = initialData.judge0Languages.find(l => String(l.id) === language);
-      if (initialJudge0Lang?.name) {
-        console.log(`[DEBUG] Found language in initialData by ID=${language}, name=${initialJudge0Lang.name}`);
-        return initialJudge0Lang.name;
-      }
-    }
+     
     
     // If language is a number, check our common mappings
     if (!isNaN(Number(language)) && COMMON_LANGUAGE_NAMES[language]) {
@@ -329,7 +305,8 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
     
     // Default case: just return the language itself
     return language;
-  }, [language, judge0Languages, availableLanguages, initialData?.judge0Languages, directlyLoadedLanguages]);
+    }, [language, judge0Languages, availableLanguages, ]);
+  
 
   // Add this effect BEFORE the useEffect that fetches the problem
   // This effect focuses on fixing the language display when judge0Languages are loaded
@@ -340,17 +317,15 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
     // Skip if language isn't set yet
     if (!language) return;
     
-    // No need to update state here - just let the display name update naturally through the useMemo
-    // We were previously doing a state update that caused an infinite loop
     
-    // Previous problematic code:
-    // if (!isNaN(Number(language))) {
-    //   const judge0Lang = judge0Languages.find(l => String(l.id) === language);
-    // }
-    
-    // This effect is only needed to log that languages are loaded
-    console.log(`[DEBUG] judge0Languages loaded (${judge0Languages.length}) for language: ${language}`);
-  }, [judge0Languages?.length, language]);
+    // Check if the current language looks like a language ID (number)
+    if (!isNaN(Number(language))) {
+      
+      // Try to find this language in the judge0Languages
+      const judge0Lang = judge0Languages.find(l => String(l.id) === language);
+      
+    }
+  }, [judge0Languages, language]);
 
   // Reset layout function
   const resetLayout = () => {
@@ -618,46 +593,103 @@ export default function ProblemPage({ initialData }: InitialDataProps = {}) {
     }
   }, [isResizingHorizontal, isResizingVertical])
 
+  // Improve the getLanguageTemplate function to provide better defaults for common languages
   const getLanguageTemplate = (lang: string) => {
-    // Try to get language template from problem data first
+    // First check if we have language-specific starter code from problem data
     if (problem?.languageOptions) {
-      const option = problem.languageOptions.find((opt: LanguageOption) => opt.name === lang);
-      if (option && option.preloadCode) {
+      const option = problem.languageOptions.find((opt: LanguageOption) => 
+        String(opt.languageId) === String(lang) || opt.name === lang
+      );
+      if (option && option.preloadCode && option.preloadCode.trim()) {
         return option.preloadCode;
       }
     }
+
+    // Determine which language we're dealing with
+    const langName = getFullLanguageName(lang).toLowerCase();
     
     // Fallback to default templates
-    switch (lang) {
-      case "JavaScript":
-        return `function twoSum(nums, target) {
-  // Your solution here
-}`;
-      case "Python":
-        return `class Solution:
-    def twoSum(self, nums: List[int], target: int) -> List[int]:
-        # Your solution here
-        pass`;
-      case "Java":
-        return `class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        // Your solution here
-        return new int[]{};
+    if (langName.includes("java")) {
+      return `import java.util.*;
+
+public class Solution {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        
+        // Read input
+        String line = sc.nextLine();
+        
+        // Solve the problem
+        
+        // Print output
+        System.out.println("Your answer here");
+        
+        sc.close();
     }
 }`;
-      case "C++":
-        return `class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        // Your solution here
+    } 
+    else if (langName.includes("python")) {
+      return `def solve(input_str):
+    lines = input_str.strip().split('\\n')
+    
+    # Read input
+    
+    # Solve the problem
+    
+    # Return output
+    return "Your answer here"
+
+# Read input from stdin
+input_str = ""
+try:
+    while True:
+        line = input()
+        input_str += line + "\\n"
+except EOFError:
+    pass
+
+# Print output
+print(solve(input_str))`;
     }
-};`;
-      default:
-        return `// Write your solution in ${lang}`;
+    else if (langName.includes("c++") || langName.includes("cpp")) {
+      return `#include <iostream>
+#include <vector>
+#include <string>
+using namespace std;
+
+int main() {
+    // Read input
+    
+    // Solve the problem
+    
+    // Print output
+    cout << "Your answer here" << endl;
+    
+    return 0;
+}`;
+    }
+    else if (langName.includes("javascript") || langName.includes("node")) {
+      return `function solve(input) {
+    const lines = input.trim().split('\\n');
+    
+    // Read input
+    
+    // Solve the problem
+    
+    // Return output
+    return "Your answer here";
+}
+
+// Read input
+const input = require('fs').readFileSync(0, 'utf-8');
+console.log(solve(input));`;
+    }
+    else {
+      // Generic template
+      return `// Write your solution for ${langName || lang} here\n\n// Read input\n\n// Solve the problem\n\n// Print output`;
     }
   };
 
-  // Helper to get the full language name with version for a given languageId or name
   function getFullLanguageName(languageIdOrName: string): string {
     // Direct mapping for common Judge0 language IDs to ensure consistent naming
     const directMappings: Record<string, string> = {
@@ -691,33 +723,13 @@ public:
 
 
 
-
-  // Helper function to validate code before execution
-  const validateCode = (code: string) => {
-    const trimmedCode = code.trim();
-    
-    // Check if code is empty
-    if (!trimmedCode) {
-      return {
-        valid: false,
-        error: "Code cannot be empty. Please write some code before running."
-      };
-    }
-    
-    // Check if code only contains comments
-    const commentOnlyRegex = /^(\s*(\/\/.*|\/\*[\s\S]*?\*\/|#.*)\s*)*$/;
-    if (commentOnlyRegex.test(trimmedCode)) {
-      return {
-        valid: false,
-        error: "Your code only contains comments. Please add actual code to run."
-      };
-    }
-    
-    return { valid: true };
-  };
   
   // Run code - tests only sample test cases
   const runCode = async () => {
+    // Save code to localStorage
+    if (problemId && language) {
+      localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+    }
   
     // First save the current code
    
@@ -749,11 +761,15 @@ public:
       memoryPercentile: null
     };
     
- 
+    // Track if we should save to backend
+    let shouldSave = false;
     
     try {
-      // Validate code
-      const validation = validateCode(code);
+      // Validate that code is not empty
+      const validation = {
+        valid: !!code.trim(),
+        error: code.trim() ? null : "Code cannot be empty"
+      };
       if (!validation.valid) {
         setResults({
           success: false,
@@ -794,7 +810,7 @@ public:
       // Prepare sample test cases
       const testCases = (problem?.sampleTestCases || []).map(tc => ({
         input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
-        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
+        expectedOutput: typeof tc.output === "string" ? tc.output : JSON.stringify(tc.output),
       }));
       
       
@@ -935,7 +951,6 @@ public:
   };
 
   const loadSnippet = (selectedSnippet: {name: string, code: string, language: string}) => {
-    //console.log(`[DEBUG] Loading snippet: ${selectedSnippet.name}`);
     setCode(selectedSnippet.code);
     setLanguage(selectedSnippet.language);
   };
@@ -957,21 +972,14 @@ public:
     }
   }
 
-  // Modify the effect that loads problem data to use initialData if available
   useEffect(() => {
-    // Skip this effect if we're changing due to memoizedInitialData change
-   
-
-    // If we already have problem data from initialData, skip fetching
-    
-    // Only fetch if we don't have initialData
-    console.log('[CLIENT] Fetching problem data client-side');
-    
-    // Fetch problem data from API
+    if (hasFetched.current) return; // Guard against double-fetch
+    hasFetched.current = true;
+    // Fetch problem data from GraphQL API
     const fetchProblem = async () => {
-      setIsLoading(true);
-      setIsLanguageLoading(true);
-      setIsCodeLoading(true);
+      setIsLoading(true); // Set loading to true when starting fetch
+      setIsLanguageLoading(true); // Set language loading to true
+      setIsCodeLoading(true); // Set code loading to true
       
       // Reset tabs state when loading a new problem
       setActiveTab("description");
@@ -979,28 +987,175 @@ public:
       setAcceptedSubmission(null);
       
       try {
-        const response = await fetch(`/api/problem/${problemId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch problem data');
-        }
-        const data = await response.json();
+        // Fetch problem data using GraphQL
+        const data = await fetchProblemData(problemId);
         setProblem(data);
         
-        // Set available languages from the problem data
-        if (data?.languageOptions && Array.isArray(data.languageOptions)) {
-          setAvailableLanguages(data.languageOptions);
-          
-         
-          
-          setIsLanguageLoading(false);
+        // Check if there's a previous accepted submission
+        if (session?.user?.id) {
+          try {
+            const submissionRes = await fetch(`/api/problem/${problemId}/accepted-submission`);
+            const submissionData = await submissionRes.json();
+            // Use hideAcceptedTab from backend
+            if (submissionData.hasAcceptedSubmission && !submissionData.hideAcceptedTab) {
+              const sub = submissionData.submission;
+              setAcceptedSubmission({
+                code: sub.code,
+                language: sub.language,
+                runtime: sub.runtime || "0 ms",
+                runtimePercentile: sub.runtimePercentile || "100.00%",
+                memory: sub.memory || "18.79 MB",
+                memoryPercentile: sub.memoryPercentile || "63.06%",
+                testsPassed: sub.testcasesPassed,
+                totalTests: sub.totalTestcases,
+                timestamp: sub.submittedAt
+              });
+              // Do not auto-show the Accepted tab after reload
+            }
+          } catch (error) {
+            console.error("Error loading accepted submission:", error);
+          }
         }
         
-        // Additional fetch logic...
+        // Fetch available languages for this problem using GraphQL
+        const languageData = await fetchProblemLanguages(problemId);
+        
+        if (languageData && Array.isArray(languageData) && languageData.length > 0) {
+          // Format language options to match expected structure
+          const formattedLanguageOptions = languageData.map((lang) => ({
+            id: lang.id,
+            languageId: lang.language, // Use the language ID (which is the Judge0 ID)
+            name: lang.name || lang.language, // Use the Judge0 name or fallback to ID
+            preloadCode: lang.preloadCode || '',
+            solution: lang.solution || ''
+          }));
+          
+          setAvailableLanguages(formattedLanguageOptions);
+          
+          // Improved cross-device persisted language logic with better logging
+          async function getInitialLanguage() {
+            let languageToUse = null;
+            console.log(`[LANG-INIT] Starting language initialization for problem=${problemId}`);
+            
+            // If logged in, try backend first (handles cross-device consistency)
+            if (session?.user?.id) {
+              try {
+                console.log(`[LANG-INIT] Fetching last language from backend API`);
+                const res = await fetch(`/api/problem/${problemId}/last-language`);
+                if (res.ok) {
+                  const backend = await res.json();
+                  const lastLanguage = backend.lastLanguage;
+                  console.log(`[LANG-INIT] Backend returned lastLanguage=`, lastLanguage);
+                  
+                  if (lastLanguage) {
+                    // Find matching language in available options - ensure we use languageId for consistency
+                    const matchedLang = formattedLanguageOptions.find(
+                      (l) => String(l.languageId) === String(lastLanguage) || l.name === lastLanguage
+                    );
+                    
+                    if (matchedLang) {
+                      console.log(`[LANG-INIT] Found matching language from backend:`, matchedLang.languageId);
+                      languageToUse = String(matchedLang.languageId); // Always use ID for consistency
+                    } else {
+                      console.log(`[LANG-INIT] Backend language not found in available options, using default`);
+                      // If no matching language found, use the first available one
+                      const defaultLang = formattedLanguageOptions[0];
+                      languageToUse = String(defaultLang.languageId);
+                    }
+                  } else {
+                    console.log(`[LANG-INIT] Backend returned no last language preference`);
+                  }
+                } else {
+                  console.log(`[LANG-INIT] Backend API call failed with status ${res.status}`);
+                }
+              } catch (e) { 
+                console.error("[LANG-INIT] Error getting language from backend:", e);
+              }
+            } else {
+              console.log(`[LANG-INIT] User not logged in, skipping backend language check`);
+            }
+            
+            // If no language from backend, try localStorage
+            if (!languageToUse) {
+              try {
+                const lastLangKey = `nexacademy_last_language_${problemId}`;
+                const lastLanguage = localStorage.getItem(lastLangKey);
+                console.log(`[LANG-INIT] Checking localStorage, found:`, lastLanguage);
+                
+                if (lastLanguage) {
+                  // Find matching language
+                  const matchedLang = formattedLanguageOptions.find(
+                    (l) => String(l.languageId) === String(lastLanguage) || l.name === lastLanguage
+                  );
+                  
+                  if (matchedLang) {
+                    console.log(`[LANG-INIT] Found matching language from localStorage:`, matchedLang.languageId);
+                    languageToUse = String(matchedLang.languageId); // Always use ID for consistency
+                  } else {
+                    console.log(`[LANG-INIT] localStorage language not found in available options, using default`);
+                    // If no matching language found, use the first available one
+                    const defaultLang = formattedLanguageOptions[0];
+                    languageToUse = String(defaultLang.languageId);
+                  }
+                } else {
+                  console.log(`[LANG-INIT] No language found in localStorage`);
+                }
+              } catch (e) {
+                console.error("[LANG-INIT] Error reading from localStorage:", e);
+              }
+            }
+            
+            // If we still don't have a language, use the first available one as default
+            if (!languageToUse && formattedLanguageOptions.length > 0) {
+              const defaultLang = formattedLanguageOptions[0];
+              languageToUse = String(defaultLang.languageId);
+              console.log(`[LANG-INIT] No language preference found, using default language:`, defaultLang.languageId);
+            }
+            
+            // Set language state if we found one
+            if (languageToUse) {
+              console.log(`[LANG-INIT] Setting initial language to:`, languageToUse);
+              setLanguage(languageToUse);
+              // Save this back to localStorage for future use
+              try {
+                localStorage.setItem(`nexacademy_last_language_${problemId}`, languageToUse);
+              } catch (e) {}
+            } else {
+              console.error("[LANG-INIT] Failed to find any suitable language!");
+              setIsCodeLoading(false);
+            }
+          }
+          
+          // Call getInitialLanguage and then indicate language setup is complete
+          getInitialLanguage().then(() => {
+            // Language selection is complete
+            setIsLanguageLoading(false);
+            
+            // The rest will be handled by the useEffect that watches [language]
+            // which will automatically load the code for the selected language
+          }).catch(error => {
+            console.error('[LANG-INIT] Error initializing language:', error);
+            setIsLanguageLoading(false);
+            setIsCodeLoading(false);
+          });
+          
+        } // End of language options setup
       } catch (error) {
         console.error('Error fetching problem:', error);
-        // Fallback logic...
-      } finally {
+        // Provide a minimal fallback
+        setProblem({
+          id: problemId,
+          title: "Problem information unavailable",
+          description: "There was an error loading this problem. Please try again later.",
+          difficulty: "MEDIUM",
+          sampleTestCases: [],
+          languageOptions: []
+        });
         setIsLoading(false);
+        setIsLanguageLoading(false);
+        setIsCodeLoading(false);
+      } finally {
+        setIsLoading(false); // Set loading to false when fetch completes
       }
     };
 
@@ -1012,14 +1167,29 @@ public:
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [memoizedInitialData, problemId]);
+  }, [problemId, session?.user?.id]);
 
-  
+  // Track whether we've completed initial load
+  const initialLoadCompleteRef = useRef(false);
+  const loadedRef = useRef(false);
+  const lastSavedCodeRef = useRef<string>("");
+  const lastSaveTimeRef = useRef<number>(0);
+  const prevProblemIdRef = useRef<string | null>(null);
+  const prevLanguageRef = useRef<string | null>(null);
 
- 
+  // Add this near the top of your component
+  const codeRef = useRef(code);
+  useEffect(() => {
+    codeRef.current = code;
+  }, [code]);
 
 
-
+  // 1. Save to localStorage on every keystroke
+  useEffect(() => {
+    if (problemId && language) {
+      localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+    }
+  }, [code, problemId, language]);
 
  
 
@@ -1149,8 +1319,22 @@ public:
     );
   }
 
+  // Update language display when judge0Languages load
+  useEffect(() => {
+    if (judge0Languages && judge0Languages.length > 0 && language) {
+      // Force a re-render without changing the language value
+      // This helps update any components that depend on judge0Languages to resolve names
+      setLanguage(prevLang => prevLang);
+    }
+  }, [judge0Languages, language]);
+
   // Update the submitCode function to handle testcases sequentially and stop on first failure
   const submitCode = async () => {
+    // Save code to localStorage
+    if (problemId && language) {
+      localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+    }
+
     setTestTabValue("result");
     setIsSubmitting(true)
     setSubmitResults(null)
@@ -1173,8 +1357,11 @@ public:
     let shouldSave = false;
     
     try {
-      // Validate code
-      const validation = validateCode(code);
+      // Validate that code is not empty
+      const validation = {
+        valid: !!code.trim(),
+        error: code.trim() ? null : "Code cannot be empty"
+      };
       if (!validation.valid) {
         setResults({
           success: false,
@@ -1224,13 +1411,13 @@ public:
       // Prepare all test cases (sample and hidden)
       const sampleTestCases = (problem?.sampleTestCases || []).map(tc => ({
         input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
-        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
+        expectedOutput: typeof tc.output === "string" ? tc.output : JSON.stringify(tc.output),
         type: "sample"
       }))
       
       const hiddenTestCases = (problem?.hiddenTestCases || []).map(tc => ({
         input: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
-        expectedOutput: typeof tc.expectedOutput === "string" ? tc.expectedOutput : JSON.stringify(tc.expectedOutput),
+        expectedOutput: typeof tc.output === "string" ? tc.output : JSON.stringify(tc.output),
         type: "hidden"
       }))
       
@@ -1500,7 +1687,28 @@ public:
     return langName.split(' ')[0];
   }
 
- 
+  // Add this effect after availableLanguages and problemId are loaded
+  useEffect(() => {
+    if (!problemId || !availableLanguages.length) return;
+
+    availableLanguages.forEach(lang => {
+      const fullLang = lang.name;
+      const idKey = `nexacademy_code_${problemId}_${lang.languageId}`;
+      const nameKey = `nexacademy_code_${problemId}_${lang.name}`;
+      const newKey = `nexacademy_code_${problemId}_${fullLang}`;
+
+      // If code exists under the old ID key and not under the new key, migrate it
+      if (localStorage.getItem(idKey) && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(idKey) as string);
+        localStorage.removeItem(idKey);
+      }
+      // If code exists under the old name key and not under the new key, migrate it
+      if (localStorage.getItem(nameKey) && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(nameKey) as string);
+        localStorage.removeItem(nameKey);
+      }
+    });
+  }, [problemId, availableLanguages]);
 
   // Replace the old getEditorLanguageName function with a robust getEditorMode function
   function getEditorMode(languageName: string): string {
@@ -1613,6 +1821,32 @@ public:
     return map[base] || 'javascript';
   }
 
+  // Save code before page unload - optimized to avoid duplicates
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (initialLoadCompleteRef.current && problemId && language && code) {
+        // Use synchronous localStorage save for beforeunload
+        try {
+          localStorage.setItem(`nexacademy_code_${problemId}_${language}`, code);
+        } catch (e) {}
+        
+        // For backend, we'll use sendBeacon for more reliable background saves
+        if (session?.user?.id && !inFlightRequestsRef.current.saveCode) {
+          try {
+            const fullLanguageName = getFullLanguageName(language);
+            const blob = new Blob(
+              [JSON.stringify({ code, language: fullLanguageName })], 
+              { type: 'application/json' }
+            );
+            navigator.sendBeacon(`/api/problem/${problemId}/save-code`, blob);
+          } catch (e) {}
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [code, problemId, language, session?.user?.id]);
   
   // Listen for fullscreen change events
   useEffect(() => {
@@ -1626,82 +1860,91 @@ public:
     };
   }, []);
 
-  // Add a special effect specifically to handle code editor stuck in loading state
-  useEffect(() => {
-    // If after 5 seconds the code editor is still loading, force it to stop loading
-    const timeoutId = setTimeout(() => {
-      if (isCodeLoading) {
-        console.log('[DEBUG] Forcing code editor out of loading state after timeout');
+  // Update the language selection handler to load preloadCode
+  const handleLanguageSelect = (langId: string) => {
+    // Set language state
+    setLanguage(String(langId));
+    
+    // Find Judge0 language object to update selectedJudge0Lang
+    const judge0Lang = judge0Languages?.find(l => String(l.id) === String(langId));
+    setSelectedJudge0Lang(judge0Lang || null);
+    
+    // Close the dropdown
+    setLanguageDropdownOpen(false);
+    
+    // Find and load preload code for the selected language
+    if (availableLanguages?.length) {
+      setIsCodeLoading(true);
+      try {
+        const selectedLang = availableLanguages.find(
+          l => String(l.languageId) === String(langId)
+        );
+        
+        if (selectedLang && selectedLang.preloadCode && selectedLang.preloadCode.trim()) {
+          console.log('[LANG-CHANGE] Loading preload code for language', langId);
+          setCode(selectedLang.preloadCode);
+        } else {
+          console.log('[LANG-CHANGE] No preload code found, clearing editor');
+          setCode('');
+        }
+      } catch (error) {
+        console.error('[LANG-CHANGE] Error loading preload code:', error);
+        setCode('');
+      } finally {
         setIsCodeLoading(false);
       }
-    }, 5000);
+    }
     
-    return () => clearTimeout(timeoutId);
-  }, [isCodeLoading]);
+    // Save preference to localStorage
+    try {
+      localStorage.setItem(`nexacademy_last_language_${problemId}`, String(langId));
+    } catch (e) {
+      console.error('[LANG-CHANGE] Error saving language preference:', e);
+    }
+  };
 
-  // Effect to initialize language from judge0Languages if available from initialData
+  // Also, when the page loads or language changes (e.g. on initial load), sync selectedJudge0Lang
   useEffect(() => {
-    if (initialData?.judge0Languages && initialData.judge0Languages.length > 0 && 
-        initialData.problem?.languageOptions && initialData.problem.languageOptions.length > 0) {
-      console.log('[SSR] Initializing language from server-provided judge0Languages');
+    if (language && judge0Languages?.length) {
+      const judge0Lang = judge0Languages.find(l => String(l.id) === String(language));
+      setSelectedJudge0Lang(judge0Lang || null);
+    }
+  }, [language, judge0Languages]);
+
+  // Add this useEffect after the other useEffect hooks but before the runCode function
+
+  // Load code for selected language
+  useEffect(() => {
+    if (!language || isLanguageLoading || !availableLanguages || availableLanguages.length === 0) {
+      return;
+    }
+    
+    console.log('[CODE-INIT] Loading initial code for language:', language);
+    setIsCodeLoading(true);
+    
+    try {
+      // Find the language option with matching ID
+      const selectedLang = availableLanguages.find(
+        l => String(l.languageId) === String(language)
+      );
       
-      // Get the first available language from the problem's languageOptions
-      const firstLang = initialData.problem.languageOptions[0];
-      if (firstLang?.languageId) {
-        // Set the language state using the languageId
-        setLanguage(String(firstLang.languageId));
-        console.log(`[SSR] Set initial language to ${firstLang.languageId}`);
+      if (selectedLang && selectedLang.preloadCode && selectedLang.preloadCode.trim()) {
+        console.log('[CODE-INIT] Found preload code for language', language);
+        // Set the initial code from the preloadCode
+        setCode(selectedLang.preloadCode);
+      } else {
+        console.log('[CODE-INIT] No preload code found, leaving editor empty');
+        // Leave the editor empty
+        setCode('');
       }
+    } catch (error) {
+      console.error('[CODE-INIT] Error loading initial code:', error);
+      setCode('');
+    } finally {
+      setIsCodeLoading(false);
     }
-  }, [initialData]);
+  }, [language, availableLanguages, isLanguageLoading]);
 
-  // Effect to initialize language and available languages from server data
-  useEffect(() => {
-    if (initialData?.problem?.languageOptions && initialData.problem.languageOptions.length > 0) {
-      console.log('[SSR] Setting available languages from server data');
-      // Set available languages from initialData
-      setAvailableLanguages(initialData.problem.languageOptions);
-      
-      // Initialize language if needed
-      if (!language && initialData.problem.languageOptions[0]?.languageId) {
-        console.log('[SSR] Setting initial language from first available option');
-        const firstLang = initialData.problem.languageOptions[0];
-        setLanguage(String(firstLang.languageId));
-      }
-      
-      // Set language loading to false since we have the data
-      setIsLanguageLoading(false);
-    }
-  }, [initialData, language]);
-
-  // Update the direct loading effect
-  useEffect(() => {
-    // Only attempt to load languages if they're not already loaded
-    if (!judge0Languages?.length && !isLanguageLoading) {
-      console.log("[DEBUG] Directly loading judge0Languages via fetchJudge0Languages");
-      setIsLanguageLoading(true);
-      
-      // Use the server-side function directly
-      fetchJudge0Languages()
-        .then(languages => {
-          // Set the languages directly
-          const judge0LanguagesData = languages || [];
-          console.log(`[DEBUG] Loaded ${judge0LanguagesData.length} languages directly`);
-          
-          // Update the state with the fetched languages
-          setDirectlyLoadedLanguages(judge0LanguagesData);
-        })
-        .catch(error => {
-          console.error("[ERROR] Failed to load judge0Languages directly:", error);
-        })
-        .finally(() => {
-          setIsLanguageLoading(false);
-        });
-    }
-  }, [judge0Languages, isLanguageLoading]);
-
-  
-  // Add this between the GraphQL useEffect and the return statement
   return (
     <div className="main-container">
       {/* Add Expandable Problem Sidebar with higher z-index */}
@@ -1989,7 +2232,6 @@ public:
                     <BarChart2 className="h-4 w-4" />
                     <span className="text-sm font-medium">Submissions</span>
                   </TabsTrigger>
-                  
                  
                   {/* Dynamic Accepted Tab or Submission Details Tab */}
                   {showSubmissionTab && selectedSubmission && (
@@ -2573,21 +2815,6 @@ public:
                 </div>
               ) : null}
             </TabsContent>
-            
-            {/* New Study Group Tab Content */}
-            <TabsContent value="studygroup" className="p-0 left-panel-content panel-scrollable">
-              {activeTab === 'studygroup' && problem && session?.user && (
-                <StudyGroup 
-                  problemId={problemId}
-                  problemTitle={problem.title || "Coding Problem"}
-                  currentUser={{
-                    id: session.user.id || "user1",
-                    name: session.user.name || "Current User",
-                    avatar: session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || "User")}&background=5E35B1&color=fff`
-                  }}
-                />
-              )}
-            </TabsContent>
           </Tabs>
         </div>
 
@@ -2709,23 +2936,45 @@ public:
               {isLanguageLoading ? (
                 <div className="h-7 w-24 bg-muted/40 animate-pulse rounded-md"></div>
               ) : (
-                <DropdownMenu open={languageDropdownOpen} onOpenChange={setLanguageDropdownOpen}>
+                <DropdownMenu
+                  open={languageDropdownOpen}
+                  onOpenChange={setLanguageDropdownOpen}
+                >
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2 text-sm h-8 px-3">
-                      {displayedLanguageName}
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2 text-sm h-8 px-3"
+                    >
+                      {selectedJudge0Lang?.name || displayedLanguageName || `Language ${language}`}
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground">
                         <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="language-dropdown">
+                  <DropdownMenuContent
+                    align="end"
+                    className="language-dropdown"
+                  >
                     <div className="language-dropdown-header">
                       <h3>Select Language</h3>
                     </div>
                     
                     <div className="language-search">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground">
-                        <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-muted-foreground"
+                      >
+                        <path
+                          d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       <input 
                         placeholder="Search languages..." 
@@ -2735,8 +2984,11 @@ public:
                     </div>
                     
                     {/* No results message */}
-                    {languageFilter && !availableLanguages.some(lang => 
-                      lang.name.toLowerCase().includes(languageFilter.toLowerCase())
+                    {languageFilter &&
+                      !availableLanguages.some((lang) =>
+                        lang.name
+                          .toLowerCase()
+                          .includes(languageFilter.toLowerCase())
                     ) && (
                       <div className="p-4 text-center text-muted-foreground text-sm">
                         No languages match "{languageFilter}"
@@ -2744,48 +2996,103 @@ public:
                     )}
                     
                     {/* Popular Languages Section */}
-                    {(!languageFilter || availableLanguages.some(lang => {
-                      const matchesFilter = !languageFilter || 
-                        lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
-                        judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
-                      
-                      const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
-                      
-                      return ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                    {(!languageFilter ||
+                      availableLanguages.some((lang) => {
+                        const matchesFilter =
+                          !languageFilter ||
+                          lang.name
+                            .toLowerCase()
+                            .includes(languageFilter.toLowerCase()) ||
+                          judge0Languages
+                            .find(
+                              (j) => String(j.id) === String(lang.languageId)
+                            )
+                            ?.name?.toLowerCase()
+                            .includes(languageFilter.toLowerCase());
+
+                        const langName =
+                          judge0Languages.find(
+                            (j) => String(j.id) === String(lang.languageId)
+                          )?.name || lang.name;
+
+                        return (
+                          [
+                            "JavaScript",
+                            "Python",
+                            "Java",
+                            "C++",
+                            "C#",
+                            "TypeScript",
+                          ].some((popularLang) =>
                         langName.startsWith(popularLang)
-                      ) && matchesFilter;
+                          ) && matchesFilter
+                        );
                     })) && (
                       <div className="language-section">
                         <div className="language-section-title">Popular</div>
                         <div className="language-grid">
                           {availableLanguages
-                            .filter(lang => {
-                              const matchesFilter = !languageFilter || 
-                                lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
-                                judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
-                              
-                              const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
-                              
-                              return ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                            .filter((lang) => {
+                              const matchesFilter =
+                                !languageFilter ||
+                                lang.name
+                                  .toLowerCase()
+                                  .includes(languageFilter.toLowerCase()) ||
+                                judge0Languages
+                                  .find(
+                                    (j) =>
+                                      String(j.id) === String(lang.languageId)
+                                  )
+                                  ?.name?.toLowerCase()
+                                  .includes(languageFilter.toLowerCase());
+
+                              const langName =
+                                judge0Languages.find(
+                                  (j) =>
+                                    String(j.id) === String(lang.languageId)
+                                )?.name || lang.name;
+
+                              return (
+                                [
+                                  "JavaScript",
+                                  "Python",
+                                  "Java",
+                                  "C++",
+                                  "C#",
+                                  "TypeScript",
+                                ].some((popularLang) =>
                                 langName.startsWith(popularLang)
-                              ) && matchesFilter;
+                                ) && matchesFilter
+                              );
                             })
                             .sort((a, b) => {
-                              const aName = judge0Languages.find(j => String(j.id) === String(a.languageId))?.name || a.name;
-                              const bName = judge0Languages.find(j => String(j.id) === String(b.languageId))?.name || b.name;
+                              const aName =
+                                judge0Languages.find(
+                                  (j) => String(j.id) === String(a.languageId)
+                                )?.name || a.name;
+                              const bName =
+                                judge0Languages.find(
+                                  (j) => String(j.id) === String(b.languageId)
+                                )?.name || b.name;
                               return aName.localeCompare(bName);
                             })
-                            .map(lang => {
+                            .map((lang) => {
                               const langId = String(lang.languageId);
                               
                               // Get language name - try judge0Languages first, then fallback to common names
                               let resolvedName = ""; // Initialize with empty string
                               if (judge0Languages?.length) {
-                                const judge0Lang = judge0Languages.find((l) => String(l.id) === langId);
-                                resolvedName = judge0Lang?.name || lang.name || langId;
+                                const judge0Lang = judge0Languages.find(
+                                  (l) => String(l.id) === langId
+                                );
+                                resolvedName =
+                                  judge0Lang?.name || lang.name || langId;
                               } else {
                                 // Try common language names as fallback
-                                resolvedName = COMMON_LANGUAGE_NAMES[langId] || lang.name || `Language ${langId}`;
+                                resolvedName =
+                                  COMMON_LANGUAGE_NAMES[langId] ||
+                                  lang.name ||
+                                  `Language ${langId}`;
                               }
                               
                               // Check if this language is active
@@ -2794,8 +3101,10 @@ public:
                               return (
                                 <div
                                   key={lang.id}
-                                  className={`language-item ${isActive ? 'active' : ''}`}
-                                  onClick={() => setLanguage(langId)}
+                                  className={`language-item ${
+                                    isActive ? "active" : ""
+                                  }`}
+                                  onClick={() => handleLanguageSelect(langId)}
                                 >
                                   <span className="language-icon">
                                     {getLanguageIcon(resolvedName)}
@@ -2805,63 +3114,107 @@ public:
                                   </span>
                                 </div>
                               );
-                            })
-                          }
+                            })}
                         </div>
                       </div>
                     )}
                     
                     {/* Systems Section */}
-                    {(!languageFilter || availableLanguages.some(lang => {
-                      const matchesFilter = !languageFilter || 
-                        lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
-                        judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
-                      
-                      const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
-                      
-                      return ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                    {(!languageFilter ||
+                      availableLanguages.some((lang) => {
+                        const matchesFilter =
+                          !languageFilter ||
+                          lang.name
+                            .toLowerCase()
+                            .includes(languageFilter.toLowerCase()) ||
+                          judge0Languages
+                            .find(
+                              (j) => String(j.id) === String(lang.languageId)
+                            )
+                            ?.name?.toLowerCase()
+                            .includes(languageFilter.toLowerCase());
+
+                        const langName =
+                          judge0Languages.find(
+                            (j) => String(j.id) === String(lang.languageId)
+                          )?.name || lang.name;
+
+                        return (
+                          ["C ", "Rust", "Go", "Assembly"].some(
+                            (sysLang) =>
                         langName.startsWith(sysLang) || 
-                        (sysLang === 'C ' && langName === 'C')
-                      ) && 
-                      !langName.includes('C++') && 
-                      !langName.includes('C#') &&
-                      matchesFilter;
+                              (sysLang === "C " && langName === "C")
+                          ) &&
+                          !langName.includes("C++") &&
+                          !langName.includes("C#") &&
+                          matchesFilter
+                        );
                     })) && (
                       <div className="language-section">
-                        <div className="language-section-title">Systems & Low-level</div>
+                        <div className="language-section-title">
+                          Systems & Low-level
+                        </div>
                         <div className="language-grid">
                           {availableLanguages
-                            .filter(lang => {
-                              const matchesFilter = !languageFilter || 
-                                lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
-                                judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
-                              
-                              const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
-                              
-                              return ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                            .filter((lang) => {
+                              const matchesFilter =
+                                !languageFilter ||
+                                lang.name
+                                  .toLowerCase()
+                                  .includes(languageFilter.toLowerCase()) ||
+                                judge0Languages
+                                  .find(
+                                    (j) =>
+                                      String(j.id) === String(lang.languageId)
+                                  )
+                                  ?.name?.toLowerCase()
+                                  .includes(languageFilter.toLowerCase());
+
+                              const langName =
+                                judge0Languages.find(
+                                  (j) =>
+                                    String(j.id) === String(lang.languageId)
+                                )?.name || lang.name;
+
+                              return (
+                                ["C ", "Rust", "Go", "Assembly"].some(
+                                  (sysLang) =>
                                 langName.startsWith(sysLang) || 
-                                (sysLang === 'C ' && langName === 'C')
-                              ) && 
-                              !langName.includes('C++') && 
-                              !langName.includes('C#') &&
-                              matchesFilter;
+                                    (sysLang === "C " && langName === "C")
+                                ) &&
+                                !langName.includes("C++") &&
+                                !langName.includes("C#") &&
+                                matchesFilter
+                              );
                             })
                             .sort((a, b) => {
-                              const aName = judge0Languages.find(j => String(j.id) === String(a.languageId))?.name || a.name;
-                              const bName = judge0Languages.find(j => String(j.id) === String(b.languageId))?.name || b.name;
+                              const aName =
+                                judge0Languages.find(
+                                  (j) => String(j.id) === String(a.languageId)
+                                )?.name || a.name;
+                              const bName =
+                                judge0Languages.find(
+                                  (j) => String(j.id) === String(b.languageId)
+                                )?.name || b.name;
                               return aName.localeCompare(bName);
                             })
-                            .map(lang => {
+                            .map((lang) => {
                               const langId = String(lang.languageId);
                               
                               // Get language name - try judge0Languages first, then fallback to common names
                               let resolvedName = ""; // Initialize with empty string
                               if (judge0Languages?.length) {
-                                const judge0Lang = judge0Languages.find((l) => String(l.id) === langId);
-                                resolvedName = judge0Lang?.name || lang.name || langId;
+                                const judge0Lang = judge0Languages.find(
+                                  (l) => String(l.id) === langId
+                                );
+                                resolvedName =
+                                  judge0Lang?.name || lang.name || langId;
                               } else {
                                 // Try common language names as fallback
-                                resolvedName = COMMON_LANGUAGE_NAMES[langId] || lang.name || `Language ${langId}`;
+                                resolvedName =
+                                  COMMON_LANGUAGE_NAMES[langId] ||
+                                  lang.name ||
+                                  `Language ${langId}`;
                               }
                               
                               // Check if this language is active
@@ -2870,8 +3223,10 @@ public:
                               return (
                                 <div
                                   key={lang.id}
-                                  className={`language-item ${isActive ? 'active' : ''}`}
-                                  onClick={() => setLanguage(langId)}
+                                  className={`language-item ${
+                                    isActive ? "active" : ""
+                                  }`}
+                                  onClick={() => handleLanguageSelect(langId)}
                                 >
                                   <span className="language-icon">
                                     {getLanguageIcon(resolvedName)}
@@ -2881,73 +3236,129 @@ public:
                                   </span>
                                 </div>
                               );
-                            })
-                          }
+                            })}
                         </div>
                       </div>
                     )}
                     
                     {/* Other Languages Section */}
-                    {(!languageFilter || availableLanguages.some(lang => {
-                      const matchesFilter = !languageFilter || 
-                        lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
-                        judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
-                      
-                      const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
-                      
-                      const isPopular = ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                    {(!languageFilter ||
+                      availableLanguages.some((lang) => {
+                        const matchesFilter =
+                          !languageFilter ||
+                          lang.name
+                            .toLowerCase()
+                            .includes(languageFilter.toLowerCase()) ||
+                          judge0Languages
+                            .find(
+                              (j) => String(j.id) === String(lang.languageId)
+                            )
+                            ?.name?.toLowerCase()
+                            .includes(languageFilter.toLowerCase());
+
+                        const langName =
+                          judge0Languages.find(
+                            (j) => String(j.id) === String(lang.languageId)
+                          )?.name || lang.name;
+
+                        const isPopular = [
+                          "JavaScript",
+                          "Python",
+                          "Java",
+                          "C++",
+                          "C#",
+                          "TypeScript",
+                        ].some((popularLang) =>
                         langName.startsWith(popularLang)
                       );
                       
-                      const isSystem = ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                        const isSystem =
+                          ["C ", "Rust", "Go", "Assembly"].some(
+                            (sysLang) =>
                         langName.startsWith(sysLang) || 
-                        (sysLang === 'C ' && langName === 'C')
+                              (sysLang === "C " && langName === "C")
                       ) && 
-                      !langName.includes('C++') && 
-                      !langName.includes('C#');
+                          !langName.includes("C++") &&
+                          !langName.includes("C#");
                       
                       return !isPopular && !isSystem && matchesFilter;
                     })) && (
                       <div className="language-section">
-                        <div className="language-section-title">Other Languages</div>
+                        <div className="language-section-title">
+                          Other Languages
+                        </div>
                         <div className="language-grid">
                           {availableLanguages
-                            .filter(lang => {
-                              const matchesFilter = !languageFilter || 
-                                lang.name.toLowerCase().includes(languageFilter.toLowerCase()) ||
-                                judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name?.toLowerCase().includes(languageFilter.toLowerCase());
-                              
-                              const langName = judge0Languages.find(j => String(j.id) === String(lang.languageId))?.name || lang.name;
-                              
-                              const isPopular = ['JavaScript', 'Python', 'Java', 'C++', 'C#', 'TypeScript'].some(popularLang => 
+                            .filter((lang) => {
+                              const matchesFilter =
+                                !languageFilter ||
+                                lang.name
+                                  .toLowerCase()
+                                  .includes(languageFilter.toLowerCase()) ||
+                                judge0Languages
+                                  .find(
+                                    (j) =>
+                                      String(j.id) === String(lang.languageId)
+                                  )
+                                  ?.name?.toLowerCase()
+                                  .includes(languageFilter.toLowerCase());
+
+                              const langName =
+                                judge0Languages.find(
+                                  (j) =>
+                                    String(j.id) === String(lang.languageId)
+                                )?.name || lang.name;
+
+                              const isPopular = [
+                                "JavaScript",
+                                "Python",
+                                "Java",
+                                "C++",
+                                "C#",
+                                "TypeScript",
+                              ].some((popularLang) =>
                                 langName.startsWith(popularLang)
                               );
                               
-                              const isSystem = ['C ', 'Rust', 'Go', 'Assembly'].some(sysLang => 
+                              const isSystem =
+                                ["C ", "Rust", "Go", "Assembly"].some(
+                                  (sysLang) =>
                                 langName.startsWith(sysLang) || 
-                                (sysLang === 'C ' && langName === 'C')
+                                    (sysLang === "C " && langName === "C")
                               ) && 
-                              !langName.includes('C++') && 
-                              !langName.includes('C#');
+                                !langName.includes("C++") &&
+                                !langName.includes("C#");
                               
                               return !isPopular && !isSystem && matchesFilter;
                             })
                             .sort((a, b) => {
-                              const aName = judge0Languages.find(j => String(j.id) === String(a.languageId))?.name || a.name;
-                              const bName = judge0Languages.find(j => String(j.id) === String(b.languageId))?.name || b.name;
+                              const aName =
+                                judge0Languages.find(
+                                  (j) => String(j.id) === String(a.languageId)
+                                )?.name || a.name;
+                              const bName =
+                                judge0Languages.find(
+                                  (j) => String(j.id) === String(b.languageId)
+                                )?.name || b.name;
                               return aName.localeCompare(bName);
                             })
-                            .map(lang => {
+                            .map((lang) => {
                               const langId = String(lang.languageId);
                               
                               // Get language name - try judge0Languages first, then fallback to common names
                               let resolvedName = ""; // Initialize with empty string
                               if (judge0Languages?.length) {
-                                const judge0Lang = judge0Languages.find((l) => String(l.id) === langId);
-                                resolvedName = judge0Lang?.name || lang.name || langId;
+                                const judge0Lang = judge0Languages.find(
+                                  (l) => String(l.id) === langId
+                                );
+                                resolvedName =
+                                  judge0Lang?.name || lang.name || langId;
                               } else {
                                 // Try common language names as fallback
-                                resolvedName = COMMON_LANGUAGE_NAMES[langId] || lang.name || `Language ${langId}`;
+                                resolvedName =
+                                  COMMON_LANGUAGE_NAMES[langId] ||
+                                  lang.name ||
+                                  `Language ${langId}`;
                               }
                               
                               // Check if this language is active
@@ -2956,8 +3367,10 @@ public:
                               return (
                                 <div
                                   key={lang.id}
-                                  className={`language-item ${isActive ? 'active' : ''}`}
-                                  onClick={() => setLanguage(langId)}
+                                  className={`language-item ${
+                                    isActive ? "active" : ""
+                                  }`}
+                                  onClick={() => handleLanguageSelect(langId)}
                                 >
                                   <span className="language-icon">
                                     {getLanguageIcon(resolvedName)}
@@ -2967,8 +3380,7 @@ public:
                                   </span>
                                 </div>
                               );
-                            })
-                          }
+                            })}
                         </div>
                       </div>
                     )}
@@ -3014,7 +3426,7 @@ public:
                 position: 'relative'
               }}
             >
-              {(!problem?.languageOptions?.length || !language || isCodeLoading) ? (
+                {isCodeLoading ? (
                 <div className="flex items-center justify-center h-full bg-muted/20 dark:bg-gray-800/20">
                   <div className="flex flex-col items-center gap-4">
                     <div className="h-8 w-8 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
@@ -3371,9 +3783,6 @@ public:
           Premium Active
         </div>
       )}
-
-      {/* Add Toaster component for notifications */}
-      <Toaster />
     </div>
   )
 }

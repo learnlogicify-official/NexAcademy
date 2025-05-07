@@ -701,6 +701,107 @@ export const questionResolvers = {
           judge0Languages: []
         };
       }
+    },
+
+    // Add new resolver for problemDetail - fetches coding question details
+    problemDetail: async (_: any, { id }: { id: string }, context: Context) => {
+      try {
+        validateAuth(context);
+        
+        // Get coding question from the database with its language options
+        const codingQuestion = await prisma.codingQuestion.findFirst({
+          where: { 
+            questionId: id 
+          },
+          include: {
+            languageOptions: true,
+            testCases: true,
+            tags: true,
+            question: {
+              select: {
+                id: true,
+                name: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            }
+          }
+        });
+        
+        if (!codingQuestion) {
+          return null;
+        }
+        
+        // Prepare sample test cases (isSample is true) and hidden test cases
+        const sampleTestCases = codingQuestion.testCases.filter(tc => tc.isSample);
+        const hiddenTestCases = codingQuestion.testCases.filter(tc => !tc.isSample);
+        
+        // Format the response
+        return {
+          id: codingQuestion.questionId,
+          title: codingQuestion.question.name,
+          difficulty: codingQuestion.difficulty,
+          tags: codingQuestion.tags,
+          description: codingQuestion.questionText,
+          sampleTestCases,
+          hiddenTestCases,
+          languageOptions: codingQuestion.languageOptions,
+          starterCode: codingQuestion.languageOptions[0]?.preloadCode || null,
+          solution: codingQuestion.languageOptions[0]?.solution || null
+        };
+      } catch (error) {
+        console.error('Error in problemDetail resolver:', error);
+        return null;
+      }
+    },
+    
+    // Add new resolver for problemLanguages - fetches enabled languages for a problem
+    problemLanguages: async (_: any, { id }: { id: string }, context: Context) => {
+      try {
+        validateAuth(context);
+        
+        // Get language options for a specific coding question
+        const codingQuestion = await prisma.codingQuestion.findFirst({
+          where: { 
+            questionId: id 
+          },
+          include: {
+            languageOptions: true
+          }
+        });
+        
+        if (!codingQuestion) {
+          return [];
+        }
+        
+        // Get Judge0 languages to enhance the response
+        const judge0Languages = await fetchJudge0Languages();
+        
+        // Enhance language options with Judge0 language names
+        const enhancedLanguageOptions = codingQuestion.languageOptions.map(option => {
+          // Try to find a matching Judge0 language
+          const matchingJudge0Lang = judge0Languages.find(
+            (l: any) => String(l.id) === String(option.language)
+          );
+          
+          // Create a new object with all existing properties plus the name field
+          return {
+            id: option.id,
+            language: option.language,
+            preloadCode: option.preloadCode || "",
+            solution: option.solution || "",
+            createdAt: option.createdAt,
+            updatedAt: option.updatedAt,
+            // Add the name property explicitly
+            name: matchingJudge0Lang?.name || option.language
+          };
+        });
+        
+        return enhancedLanguageOptions;
+      } catch (error) {
+        console.error('Error in problemLanguages resolver:', error);
+        return [];
+      }
     }
   },
   

@@ -256,7 +256,7 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
                             variant="ghost" 
                             size="icon" 
                             className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            onClick={() => copyToClipboard(formatValue(tc.expectedOutput), 'expected', idx)}
+                            onClick={() => copyToClipboard(formatValue(tc.output), 'expected', idx)}
                           >
                             {copiedExpected === idx ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                           </Button>
@@ -269,10 +269,10 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
             </div>
                   <div className="relative">
                     <textarea
-                      value={formatValue(tc.expectedOutput)}
+                      value={formatValue(tc.output)}
                 readOnly
                       className="w-full p-3 border rounded-md bg-white dark:bg-gray-900 font-mono text-sm shadow-sm"
-                      rows={Math.min(4, Math.max(2, formatValue(tc.expectedOutput).split('\n').length))}
+                      rows={Math.min(4, Math.max(2, formatValue(tc.output).split('\n').length))}
               />
             </div>
           </div>

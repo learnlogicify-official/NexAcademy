@@ -191,7 +191,7 @@ export function ProblemDescription({
                         <span className="text-gray-600 dark:text-gray-400 font-medium">Output:</span>
                       </div>
                       <div className="p-3 overflow-auto test-case-content">
-                        <pre className="whitespace-pre-wrap font-mono text-sm">{testCase.expectedOutput}</pre>
+                        <pre className="whitespace-pre-wrap font-mono text-sm">{testCase.output}</pre>
                       </div>
                     </div>
                   </div>
