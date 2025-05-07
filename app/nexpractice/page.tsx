@@ -442,36 +442,32 @@ const GET_NEXPRACTICE_DATA = gql`
         codingQuestions
       }
     }
-    questions(
-      type: CODING
+    codingQuestions(
       page: $page
       limit: $limit
       search: $search
       tagIds: $tagIds
       difficulty: $difficulty
-      includeSubcategories: true
     ) {
-      questions {
+      codingQuestions {
         id
-        name
-        type
-        status
-        folder {
+        questionId
+        questionText
+        defaultMark
+        difficulty
+        tags {
           id
           name
         }
-        codingQuestion {
+        question {
           id
-          questionText
-          defaultMark
-          difficulty
-          tags {
+          name
+          status
+          folder {
             id
             name
           }
         }
-        solvedByCount
-        accuracy
       }
       totalCount
     }
@@ -662,19 +658,27 @@ export default function NexPractice() {
         fetchPolicy: 'network-only' // Don't use cache for this
       });
       
-      if (data?.questions?.questions) {
-        const fetchedProblems = data.questions.questions.map((question: any) => ({
-          id: question.id,
-          name: question.name,
-          questionId: question.id,
-          difficulty: question.codingQuestion?.difficulty || "MEDIUM",
-          status: question.status,
-          tags: question.codingQuestion?.tags || [],
-          questionText: question.codingQuestion?.questionText || '',
-          solvedByCount: question.solvedByCount || 0,
-          accuracy: question.accuracy || 0,
-          folder: question.folder
-        }));
+      if (data?.codingQuestions?.codingQuestions) {
+        const fetchedProblems = data.codingQuestions.codingQuestions.map((codingQuestion: any) => {
+          // Safely access properties with fallbacks to prevent errors
+          const questionId = codingQuestion.questionId || codingQuestion.id;
+          const questionName = codingQuestion.question?.name || 'Unnamed Problem';
+          const questionStatus = codingQuestion.question?.status || 'DRAFT';
+          const questionFolder = codingQuestion.question?.folder || null;
+          
+          return {
+            id: questionId,
+            name: questionName,
+            questionId: questionId,
+            difficulty: codingQuestion.difficulty || "MEDIUM",
+            status: questionStatus,
+            tags: codingQuestion.tags || [],
+            questionText: codingQuestion.questionText || '',
+            solvedByCount: Math.floor(Math.random() * 1000), // Mock data
+            accuracy: Math.floor(Math.random() * 100), // Mock data
+            folder: questionFolder
+          };
+        });
         
         // Filter out duplicates - keep only problems whose IDs aren't already in the list
         const existingIds = new Set(codingProblems.map(p => p.id));
@@ -682,7 +686,7 @@ export default function NexPractice() {
         
         console.log(`Fetched ${fetchedProblems.length} problems, ${newProblems.length} are new after filtering duplicates`);
         
-        const totalCount = data.questions.totalCount || 0;
+        const totalCount = data.codingQuestions.totalCount || 0;
         
         console.log(`Lazy loaded ${newProblems.length} more problems. Total available: ${totalCount}`);
         
@@ -692,16 +696,17 @@ export default function NexPractice() {
         }
         
         // Update total and limit it sensibly
-        setTotalProblems(Math.max(totalCount, codingProblems.length));
+        setTotalProblems(totalCount);
         
         // Update page counter
         setCurrentPage(nextPage);
         
-        // More reliable check for if there are more items
-        // Only consider there to be more if we actually got new problems
-        const hasMoreItems = newProblems.length > 0 && (codingProblems.length + newProblems.length) < totalCount;
+        // More reliable check if there are more items
+        // Only consider there to be more if we actually got new problems and we haven't loaded all problems yet
+        const currentLoadedCount = codingProblems.length + newProblems.length;
+        const hasMoreItems = newProblems.length > 0 && currentLoadedCount < totalCount;
         
-        console.log(`Loaded so far: ${codingProblems.length + newProblems.length}/${totalCount}, hasMore: ${hasMoreItems}`);
+        console.log(`Loaded so far: ${currentLoadedCount}/${totalCount}, hasMore: ${hasMoreItems}`);
         setHasMore(hasMoreItems);
         
         // If we got fetch results but all were duplicates, and server says there should be more,
@@ -713,7 +718,7 @@ export default function NexPractice() {
         
         return true;
       } else {
-        console.warn("No data returned from query");
+        console.warn("No data returned from query", data);
         setHasMore(false);
         return false;
       }
@@ -802,20 +807,145 @@ export default function NexPractice() {
   
   // Calculate total pages based on total problems
   const totalPages = Math.ceil(totalProblems / QUESTIONS_PER_PAGE);
-  const paginatedProblems = filteredProblems;
+  
+  // Ensure we have a unique set of problems by ID
+  const uniqueProblems = Array.from(
+    new Map(filteredProblems.map(problem => [problem.id, problem])).values()
+  );
+  
+  // Ensure we never display more problems than the total reported by the server
+  const paginatedProblems = uniqueProblems.slice(0, totalProblems);
 
   // Toggle tag selection
   const toggleTag = (tag: string) => {
+    // Create a new array based on current selection
+    let newSelectedTags: string[];
+    
     if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter((t) => t !== tag))
+      // Remove the tag
+      newSelectedTags = selectedTags.filter((t) => t !== tag);
     } else {
-      setSelectedTags([...selectedTags, tag])
+      // Add the tag
+      newSelectedTags = [...selectedTags, tag];
     }
+    
+    // Update state
+    setSelectedTags(newSelectedTags);
+    
+    // Force immediate reset and reload
+    setLoadingProblems(true);
+    setCodingProblems([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    
+    // Use setTimeout to allow state to be updated
+    setTimeout(() => {
+      // Create custom variables object with the new tags instead of waiting for state to update
+      const customVars: Record<string, any> = {
+        page: 1,
+        limit: QUESTIONS_PER_PAGE
+      };
+      
+      // Add search filter if exists
+      if (searchQuery.trim()) {
+        customVars.search = searchQuery;
+      }
+      
+      // Add selected tags filter using our newSelectedTags array
+      if (newSelectedTags.length > 0) {
+        // We need to find tag IDs from names
+        const tagIds = allTags
+          .filter(tag => newSelectedTags.includes(tag.name))
+          .map(tag => tag.id);
+        
+        if (tagIds.length > 0) {
+          customVars.tagIds = tagIds;
+        }
+      }
+      
+      // Add difficulty filter only if not "All"
+      if (difficulty !== "All") {
+        // Map UI difficulty values to enum values safely
+        let difficultyEnum: string;
+        switch(difficulty) {
+          case "Easy":
+            difficultyEnum = "EASY";
+            break;
+          case "Medium":
+            difficultyEnum = "MEDIUM";
+            break;
+          case "Hard":
+            difficultyEnum = "HARD";
+            break;
+          default:
+            // Skip invalid difficulty values
+            difficultyEnum = "";
+        }
+        
+        if (difficultyEnum) {
+          customVars.difficulty = difficultyEnum;
+        }
+      }
+      
+      // Make direct Apollo call to refresh data with updated tag selection
+      apolloClient.query({
+        query: GET_NEXPRACTICE_DATA,
+        variables: customVars,
+        fetchPolicy: 'network-only'
+      }).then(({ data }) => {
+        if (data?.codingQuestions?.codingQuestions) {
+          const newProblems = data.codingQuestions.codingQuestions.map((codingQuestion: any) => {
+            // Process problems (same as other handlers)
+            const questionId = codingQuestion.questionId || codingQuestion.id;
+            const questionName = codingQuestion.question?.name || 'Unnamed Problem';
+            const questionStatus = codingQuestion.question?.status || 'DRAFT';
+            const questionFolder = codingQuestion.question?.folder || null;
+            
+            return {
+              id: questionId,
+              name: questionName,
+              questionId: questionId,
+              difficulty: codingQuestion.difficulty || "MEDIUM",
+              status: questionStatus,
+              tags: codingQuestion.tags || [],
+              questionText: codingQuestion.questionText || '',
+              solvedByCount: Math.floor(Math.random() * 1000), // Mock data
+              accuracy: Math.floor(Math.random() * 100), // Mock data
+              folder: questionFolder
+            };
+          });
+          
+          const totalCount = data.codingQuestions.totalCount || 0;
+          
+          console.log(`Tag toggled. Fetched ${newProblems.length} problems with tags: [${newSelectedTags.join(', ')}]`);
+          
+          // Replace problems
+          setCodingProblems(newProblems);
+          
+          // Update total
+          setTotalProblems(totalCount);
+          
+          // Check for more items
+          const hasMoreItems = newProblems.length === QUESTIONS_PER_PAGE && 
+                           newProblems.length < totalCount;
+          
+          setHasMore(hasMoreItems);
+          setLoadingProblems(false);
+        } else {
+          console.warn("No data returned after toggling tag");
+          setLoadingProblems(false);
+        }
+      }).catch((error: Error) => {
+        console.error("Error fetching data after toggling tag:", error);
+        setProblemsError(`Error updating filters: ${error.message}`);
+        setLoadingProblems(false);
+      });
+    }, 50);
   }
   
   // Clear all selected tags and reload while preserving difficulty filter
   const clearAllTags = () => {
-    // First update the tags
+    // First update the tags state
     setSelectedTags([]);
     
     // Force immediate reset and reload, but preserve difficulty filter
@@ -824,11 +954,104 @@ export default function NexPractice() {
     setCurrentPage(1);
     setHasMore(true);
     
-    // Use the helper function with the current difficulty
+    // Use setTimeout to ensure state update has happened
     setTimeout(() => {
-      fetchWithDifficulty(difficulty, 1);
+      // Pass a custom variables object to override selectedTags
+      const customVars: Record<string, any> = {
+        page: 1,
+        limit: QUESTIONS_PER_PAGE
+      };
+      
+      // Add difficulty filter only if not "All"
+      if (difficulty !== "All") {
+        // Map UI difficulty values to enum values safely
+        let difficultyEnum: string;
+        switch(difficulty) {
+          case "Easy":
+            difficultyEnum = "EASY";
+            break;
+          case "Medium":
+            difficultyEnum = "MEDIUM";
+            break;
+          case "Hard":
+            difficultyEnum = "HARD";
+            break;
+          default:
+            // Skip invalid difficulty values
+            difficultyEnum = "";
+        }
+        
+        if (difficultyEnum) {
+          customVars.difficulty = difficultyEnum;
+        }
+      }
+      
+      // Add search filter if exists
+      if (searchQuery.trim()) {
+        customVars.search = searchQuery;
+      }
+      
+      // Directly call Apollo with our custom variables to ensure tagIds is empty
+      apolloClient.query({
+        query: GET_NEXPRACTICE_DATA,
+        variables: customVars,
+        fetchPolicy: 'network-only'
+      }).then(({ data }) => {
+        if (data?.codingQuestions?.codingQuestions) {
+          const newProblems = data.codingQuestions.codingQuestions.map((codingQuestion: any) => {
+            // Safely access properties with fallbacks to prevent errors
+            const questionId = codingQuestion.questionId || codingQuestion.id;
+            const questionName = codingQuestion.question?.name || 'Unnamed Problem';
+            const questionStatus = codingQuestion.question?.status || 'DRAFT';
+            const questionFolder = codingQuestion.question?.folder || null;
+            
+            return {
+              id: questionId,
+              name: questionName,
+              questionId: questionId,
+              difficulty: codingQuestion.difficulty || "MEDIUM",
+              status: questionStatus,
+              tags: codingQuestion.tags || [],
+              questionText: codingQuestion.questionText || '',
+              solvedByCount: Math.floor(Math.random() * 1000), // Mock data
+              accuracy: Math.floor(Math.random() * 100), // Mock data
+              folder: questionFolder
+            };
+          });
+          
+          const totalCount = data.codingQuestions.totalCount || 0;
+          
+          console.log(`Cleared tags and fetched ${newProblems.length} problems. Total: ${totalCount}`);
+          
+          // Replace problems
+          setCodingProblems(newProblems);
+          
+          // Update total
+          setTotalProblems(totalCount);
+          
+          // Check for more items
+          const hasMoreItems = newProblems.length === QUESTIONS_PER_PAGE && 
+                           newProblems.length < totalCount;
+          
+          setHasMore(hasMoreItems);
+          setLoadingProblems(false);
+          
+          // Process tags data if needed
+          if (data.tags) {
+            setAllTags(data.tags);
+            setTagsLoading(false);
+          }
+        } else {
+          console.warn("No data returned when clearing tags");
+          setLoadingProblems(false);
+        }
+      }).catch((error: Error) => {
+        console.error("Error clearing tags:", error);
+        setProblemsError(`Error clearing tags: ${error.message}`);
+        setLoadingProblems(false);
+      });
     }, 50);
-  }
+  };
 
   // Helper function to fetch data with specific difficulty and page
   const fetchWithDifficulty = (difficultyValue: string, page: number) => {
@@ -894,21 +1117,29 @@ export default function NexPractice() {
       fetchPolicy: 'network-only' // Don't use cache for this
     }).then(({ data }) => {
       // Process the results
-      if (data?.questions?.questions) {
-        const newProblems = data.questions.questions.map((question: any) => ({
-          id: question.id,
-          name: question.name,
-          questionId: question.id,
-          difficulty: question.codingQuestion?.difficulty || "MEDIUM",
-          status: question.status,
-          tags: question.codingQuestion?.tags || [],
-          questionText: question.codingQuestion?.questionText || '',
-          solvedByCount: question.solvedByCount || 0,
-          accuracy: question.accuracy || 0,
-          folder: question.folder
-        }));
+      if (data?.codingQuestions?.codingQuestions) {
+        const newProblems = data.codingQuestions.codingQuestions.map((codingQuestion: any) => {
+          // Safely access properties with fallbacks to prevent errors
+          const questionId = codingQuestion.questionId || codingQuestion.id;
+          const questionName = codingQuestion.question?.name || 'Unnamed Problem';
+          const questionStatus = codingQuestion.question?.status || 'DRAFT';
+          const questionFolder = codingQuestion.question?.folder || null;
+          
+          return {
+            id: questionId,
+            name: questionName,
+            questionId: questionId,
+            difficulty: codingQuestion.difficulty || "MEDIUM",
+            status: questionStatus,
+            tags: codingQuestion.tags || [],
+            questionText: codingQuestion.questionText || '',
+            solvedByCount: Math.floor(Math.random() * 1000), // Mock data
+            accuracy: Math.floor(Math.random() * 100), // Mock data
+            folder: questionFolder
+          };
+        });
         
-        const totalCount = data.questions.totalCount || 0;
+        const totalCount = data.codingQuestions.totalCount || 0;
         
         console.log(`Fetched ${newProblems.length} problems. Total count: ${totalCount}. Current page: ${page}`);
         
@@ -923,10 +1154,11 @@ export default function NexPractice() {
         setTotalProblems(totalCount);
         
         // More precise check if there are more items
+        const loadedCount = page * QUESTIONS_PER_PAGE;
         const hasMoreItems = newProblems.length === QUESTIONS_PER_PAGE && 
-                          (page * QUESTIONS_PER_PAGE) < totalCount;
+                         loadedCount < totalCount;
                           
-        console.log(`Setting hasMore to ${hasMoreItems}. Current items: ${(page * QUESTIONS_PER_PAGE)}, Total: ${totalCount}`);
+        console.log(`Setting hasMore to ${hasMoreItems}. Current items: ${loadedCount}, Total: ${totalCount}`);
         setHasMore(hasMoreItems);
         setLoadingProblems(false);
         
@@ -941,12 +1173,12 @@ export default function NexPractice() {
         return true;
       }
       
-      console.warn("No questions data in response");
+      console.warn("No questions data in response", data);
       setLoadingProblems(false);
       return false;
-    }).catch(error => {
+    }).catch((error: Error) => {
       console.error(`Error fetching with difficulty "${difficultyValue}":`, error);
-      setProblemsError("Error loading problems");
+      setProblemsError(`Error loading problems: ${error.message}`);
       setLoadingProblems(false);
       return false;
     });
@@ -1431,7 +1663,7 @@ export default function NexPractice() {
                             </TableRow>
                             ) : codingProblems.length > 0 ? (
                             <>
-                                {codingProblems.map((problem, index) => {
+                                {paginatedProblems.map((problem, index) => {
                                   // Calculate the actual problem number based on pagination
                                   const problemNumber = index + 1;
                                   
@@ -1532,14 +1764,14 @@ export default function NexPractice() {
                                           className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors"
                                           onClick={() => loadMoreData()}
                                         >
-                                          Load more problems (showing {codingProblems.length} of {Math.max(totalProblems, codingProblems.length)})
+                                          Load more problems (showing {paginatedProblems.length} of {totalProblems})
                                         </button>
                                       </div>
                                     ) : (
                                       <div className="py-2 text-sm text-slate-500 dark:text-slate-400">
-                                        {codingProblems.length >= totalProblems ? 
-                                          `You've reached the end (${codingProblems.length} problems)` :
-                                          `You've reached the end (${codingProblems.length} of ${totalProblems} problems)`
+                                        {paginatedProblems.length >= totalProblems ? 
+                                          `You've reached the end (${paginatedProblems.length} problems)` :
+                                          `You've reached the end (${paginatedProblems.length} of ${totalProblems} problems)`
                                         }
                                     </div>
                                     )}

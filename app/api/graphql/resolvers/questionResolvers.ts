@@ -444,6 +444,96 @@ export const questionResolvers = {
       }
     },
 
+    // Get coding questions directly from the coding question table
+    codingQuestions: async (_: any, args: any, context: Context) => {
+      try {
+        validateAuth(context);
+        
+        const { 
+          page = 1, 
+          limit = 20,
+          search,
+          tagIds = [],
+          difficulty
+        } = args;
+
+        console.log('GraphQL codingQuestions query with args:', { 
+          page, limit, search, tagIds: tagIds?.length || 0, difficulty 
+        });
+
+        // Build where conditions
+        const where: any = {};
+        
+        // Apply difficulty filter
+        if (difficulty) {
+          where.difficulty = difficulty;
+        }
+        
+        // Apply tag filter
+        if (tagIds && tagIds.length > 0) {
+          where.tags = {
+            some: {
+              id: {
+                in: tagIds
+              }
+            }
+          };
+        }
+        
+        // Apply search filter
+        if (search) {
+          where.OR = [
+            { questionText: { contains: search, mode: "insensitive" } },
+            { question: { name: { contains: search, mode: "insensitive" } } }
+          ];
+        }
+        
+        try {
+          // Get total count first
+          const totalCount = await prisma.codingQuestion.count({ where });
+          
+          // Fetch coding questions with their related data
+          const codingQuestions = await prisma.codingQuestion.findMany({
+            where,
+            include: {
+              question: {
+                select: {
+                  id: true,
+                  name: true,
+                  status: true,
+                  folder: true
+                }
+              },
+              languageOptions: true,
+              testCases: true,
+              tags: true
+            },
+            orderBy: { createdAt: 'desc' },
+            distinct: ['questionId'], // Ensure uniqueness by questionId
+            skip: (page - 1) * limit,
+            take: limit
+          });
+          
+          console.log(`Found ${codingQuestions.length} coding questions out of ${totalCount} total`);
+          
+          // Return the results in the expected format
+          return {
+            codingQuestions,
+            totalCount
+          };
+        } catch (prismaError: any) {
+          console.error('Prisma error in codingQuestions resolver:', prismaError);
+          throw new Error(`Database error: ${prismaError.message}`);
+        }
+      } catch (error) {
+        console.error('Error in codingQuestions resolver:', error);
+        return {
+          codingQuestions: [],
+          totalCount: 0
+        };
+      }
+    },
+
     // Get question statistics without fetching all questions
     questionStats: async (_: any, args: any, context: Context) => {
       validateAuth(context);

@@ -75,6 +75,7 @@ export const questionTypeDefs = gql`
     languageOptions: [LanguageOption!]!
     testCases: [TestCase!]!
     tags: [Tag!]!
+    question: Question
   }
 
   type MCQOption {
@@ -209,6 +210,11 @@ export const questionTypeDefs = gql`
     codingCount: Int!
   }
 
+  type CodingQuestionsResponse {
+    codingQuestions: [CodingQuestion!]!
+    totalCount: Int!
+  }
+
   extend type Query {
     questions(
       type: QuestionType
@@ -221,6 +227,14 @@ export const questionTypeDefs = gql`
       tagIds: [ID!]
       difficulty: QuestionDifficulty
     ): QuestionsResponse!
+    
+    codingQuestions(
+      page: Int
+      limit: Int
+      search: String
+      tagIds: [ID!]
+      difficulty: QuestionDifficulty
+    ): CodingQuestionsResponse!
     
     question(id: ID!): Question
     
