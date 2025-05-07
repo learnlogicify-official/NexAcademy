@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { QuestionStatus, QuestionType } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
 import { Session } from "next-auth";
+import { Prisma } from "@prisma/client";
 
 // Cache for Judge0 languages to avoid duplicate API calls
 let cachedJudge0Languages: any[] | null = null;
@@ -1049,115 +1050,126 @@ export const questionResolvers = {
     // Bulk import coding questions
     bulkImportCodingQuestions: async (_: any, { questions }: { questions: any[] }, context: Context) => {
       const user = validateAuth(context);
-      const importedQuestions: any[] = [];
+      let importedQuestions: any[] = [];
       
-      // Start a transaction to ensure all questions are created or none
-      const result = await prisma.$transaction(async (prisma) => {
-        console.log(`Starting bulk import of ${questions.length} coding questions`);
-        
-        for (const input of questions) {
-          try {
-            const { name, type, status, folderId, codingQuestion } = input;
-            
-            if (type !== "CODING" || !codingQuestion) {
-              console.warn("Skipping non-coding question in bulk import");
-              continue;
-            }
-            
-            // Create the base question
-            const question = await prisma.question.create({
-              data: {
-                name,
-                type: type as QuestionType,
-                status: status as QuestionStatus,
-                folderId,
-                creatorId: user.id || "system",
-                creatorName: user.name || "System",
-                lastModifiedBy: user.id || "system",
-                lastModifiedByName: user.name || "System",
-              },
-            });
-            
-            // Extract coding question data
-            const { 
-              questionText, 
-              defaultMark, 
-              difficulty, 
-              isAllOrNothing, 
-              defaultLanguage,
-              languageOptions,
-              testCases,
-              tagIds
-            } = codingQuestion;
-            
-            // Create coding question
-            const createdCodingQuestion = await prisma.codingQuestion.create({
-              data: {
-                questionId: question.id,
-                questionText,
-                defaultMark,
-                difficulty,
-                isAllOrNothing,
+      console.log(`Starting bulk import of ${questions.length} coding questions`);
+      
+      try {
+        // Use interactive transaction with proper options
+        const result = await prisma.$transaction(async (tx) => {
+          const created = [];
+          
+          for (const input of questions) {
+            try {
+              const { name, type, status, folderId, codingQuestion } = input;
+              
+              if (type !== "CODING" || !codingQuestion) {
+                console.warn("Skipping non-coding question in bulk import");
+                continue;
+              }
+              
+              // Extract coding question data
+              const { 
+                questionText, 
+                defaultMark, 
+                difficulty, 
+                isAllOrNothing, 
                 defaultLanguage,
-              },
-            });
-            
-            // Create language options
-            for (const option of languageOptions) {
-              await prisma.languageOption.create({
+                languageOptions,
+                testCases,
+                tagIds
+              } = codingQuestion;
+              
+              // Create the base question
+              const question = await tx.question.create({
                 data: {
-                  codingQuestionId: createdCodingQuestion.id,
-                  language: option.language,
-                  preloadCode: option.preloadCode || "",
-                  solution: option.solution,
+                  name,
+                  type: type as QuestionType,
+                  status: status as QuestionStatus,
+                  folderId,
+                  creatorId: user.id || "system",
+                  creatorName: user.name || "System",
+                  lastModifiedBy: user.id || "system",
+                  lastModifiedByName: user.name || "System",
                 },
               });
-            }
-            
-            // Create test cases
-            for (const testCase of testCases) {
-              await prisma.testCase.create({
+              
+              // Prepare language options and test cases for creation in a single operation
+              const languageOptionsData = languageOptions.map((option: { language: string; preloadCode?: string; solution: string }) => ({
+                language: option.language,
+                preloadCode: option.preloadCode || "",
+                solution: option.solution,
+              }));
+              
+              const testCasesData = testCases.map((testCase: { input: string; output: string; isSample: boolean; isHidden: boolean; showOnFailure: boolean; gradePercentage: number }) => ({
+                input: testCase.input,
+                output: testCase.output,
+                isSample: testCase.isSample,
+                isHidden: testCase.isHidden,
+                showOnFailure: testCase.showOnFailure,
+                gradePercentage: testCase.gradePercentage,
+              }));
+              
+              // Create coding question with nested create for related data
+              const createdCodingQuestion = await tx.codingQuestion.create({
                 data: {
-                  codingQuestionId: createdCodingQuestion.id,
-                  input: testCase.input,
-                  output: testCase.output,
-                  isSample: testCase.isSample,
-                  isHidden: testCase.isHidden,
-                  showOnFailure: testCase.showOnFailure,
-                  gradePercentage: testCase.gradePercentage,
-                },
-              });
-            }
-            
-            // Associate tags if provided
-            if (tagIds && tagIds.length > 0) {
-              // Connect tags to coding question using the existing schema
-              await prisma.codingQuestion.update({
-                where: { id: createdCodingQuestion.id },
-                data: {
-                  tags: {
-                    connect: tagIds.map((id: string) => ({ id }))
+                  questionId: question.id,
+                  questionText,
+                  defaultMark,
+                  difficulty,
+                  isAllOrNothing,
+                  defaultLanguage,
+                  // Create language options in a single operation
+                  languageOptions: {
+                    createMany: {
+                      data: languageOptionsData
+                    }
+                  },
+                  // Create test cases in a single operation
+                  testCases: {
+                    createMany: {
+                      data: testCasesData
+                    }
                   }
-                }
+                },
               });
+              
+              // Associate tags if provided (do this separately since it can't be part of createMany)
+              if (tagIds && tagIds.length > 0) {
+                await tx.codingQuestion.update({
+                  where: { id: createdCodingQuestion.id },
+                  data: {
+                    tags: {
+                      connect: tagIds.map((id: string) => ({ id }))
+                    }
+                  }
+                });
+              }
+              
+              created.push(question);
+              console.log(`Imported question: ${name}`);
+            } catch (error) {
+              console.error(`Error importing question:`, error);
+              throw error; // This will roll back the transaction
             }
-            
-            // Add the new question to the list
-            importedQuestions.push(question);
-            console.log(`Imported question: ${name}`);
-          } catch (error) {
-            console.error(`Error importing question:`, error);
-            throw error; // This will roll back the transaction
           }
-        }
+          
+          return created;
+        }, {
+          maxWait: 10000, // Maximum time to wait to acquire initial lock
+          timeout: 30000, // Transaction timeout
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted // Less restrictive isolation level
+        });
         
-        return importedQuestions;
-      });
-      
-      console.log(`Successfully imported ${result.length} coding questions`);
+        importedQuestions = result;
+        console.log(`Successfully imported ${importedQuestions.length} coding questions`);
+      } catch (error) {
+        console.error('Bulk import transaction failed:', error);
+        throw error;
+      }
       
       // Return the list of created questions with their full data
-      return Promise.all(result.map(async (question) => {
+      return Promise.all(importedQuestions.map(async (question) => {
         return prisma.question.findUnique({
           where: { id: question.id },
           include: {

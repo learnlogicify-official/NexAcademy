@@ -35,6 +35,12 @@ import { useJudge0Languages } from '../../../components/hooks/useJudge0Languages
 // Add questionService import
 import { questionService } from "@/lib/services/questionService";
 
+// Add a console log to verify questionService is loaded properly
+console.log("Question service loaded:", {
+  hasQuestionService: !!questionService,
+  methods: Object.keys(questionService)
+});
+
 interface QuestionFormData {
   id: string;
   name: string;
@@ -1467,7 +1473,7 @@ export default function AdminQuestionsPage() {
     }
   };
 
-  // Also update handleBulkUpload to ensure test case outputs are strings
+  // Updated handleBulkUpload function with enhanced network debugging
   const handleBulkUpload = async () => {
     if (!bulkFolderId) {
       toast({
@@ -1480,16 +1486,45 @@ export default function AdminQuestionsPage() {
 
     setImportLoading(true);
     setImportError(null);
-    let successCount = 0;
-    let failCount = 0;
+    
+    console.log("%c=== BULK IMPORT DEBUG START ===", "background: #742a9d; color: white; padding: 5px; font-size: 16px");
+    console.log(`Starting bulk import process with ${importedQuestions.length} questions`);
+    console.log(`Selected folder ID: ${bulkFolderId}`);
+    console.log(`Selected status: ${bulkStatus}`);
+    console.log(`Selected default language: ${selectedDefaultLanguage}`);
+    console.log(`Available languages: ${languages ? languages.length : 0} languages`);
+    
+    // Set up a performance marker for timing the import process
+    console.time("BulkImport");
+    
+    // Create a function to monitor network requests
+    const originalFetch = window.fetch;
+    const requests = [];
+    
+    // Override fetch to monitor all network requests during the import process
+    window.fetch = function(input, init) {
+      const url = typeof input === 'string' ? input : input.url;
+      console.log(`%cNetwork Request: ${url}`, "color: blue");
+      
+      // Track the request
+      requests.push({
+        url,
+        method: init?.method || 'GET',
+        time: new Date().toISOString()
+      });
+      
+      return originalFetch.apply(this, arguments);
+    };
 
     // Helper function to convert any language value to our supported format
     const mapLanguageToSupported = (lang: string): string => {
+      console.log(`Mapping language "${lang}" to supported format`);
+      
       if (!lang) {
-        return (
-          selectedDefaultLanguage ||
-          (languages && languages.length > 0 ? String(languages[0].id) : "")
-        );
+        const fallback = selectedDefaultLanguage || 
+          (languages && languages.length > 0 ? String(languages[0].id) : "");
+        console.log(`No language provided, using fallback: ${fallback}`);
+        return fallback;
       }
 
       // If it's already a valid language ID from Judge0
@@ -1497,6 +1532,7 @@ export default function AdminQuestionsPage() {
         languages &&
         languages.some((l: any) => String(l.id) === lang)
       ) {
+        console.log(`Language "${lang}" is already a valid Judge0 ID`);
         return lang;
       }
 
@@ -1505,78 +1541,128 @@ export default function AdminQuestionsPage() {
         (l: any) => l.name.toLowerCase().includes(lang.toLowerCase())
       );
       if (matchingLang) {
+        console.log(`Mapped "${lang}" to Judge0 language ID: ${matchingLang.id}`);
         return String(matchingLang.id);
       }
 
       // If no match, return the first language as default
-      return languages && languages.length > 0
+      const defaultLang = languages && languages.length > 0
         ? String(languages[0].id)
         : selectedDefaultLanguage || "";
+      console.log(`No match found for "${lang}", using default: ${defaultLang}`);
+      return defaultLang;
     };
 
     try {
-      for (const q of importedQuestions) {
-        try {
-          // Map the default language to a supported one
-          const questionDefaultLanguage = mapLanguageToSupported(
-            q.defaultLanguage || selectedDefaultLanguage
-          );
+      // Prepare all questions in the format needed for bulk import
+      console.log("Preparing questions for bulk import...");
+      const questionsForBulkImport = importedQuestions.map((q, index) => {
+        console.log(`\nProcessing question ${index + 1}/${importedQuestions.length}: "${q.name}"`);
+        
+        // Map the default language to a supported one
+        const questionDefaultLanguage = mapLanguageToSupported(
+          q.defaultLanguage || selectedDefaultLanguage
+        );
+        console.log(`Default language for question: ${questionDefaultLanguage}`);
           
-          // Ensure all the language IDs in languageOptions are valid
-          const validLanguageOptions = q.languageOptions
-            .filter((lang: any) => lang && lang.language && String(lang.language).trim() !== "")
-            .map((lang: any) => ({
-              ...lang,
-              // Ensure language is a valid Judge0 language ID
-              language: String(lang.language).trim(),
-              solution: lang.solution || "",
-              preloadCode: lang.preloadCode || "",
-            }));
+        // Ensure all the language IDs in languageOptions are valid
+        console.log(`Original language options: ${q.languageOptions.length}`);
+        const validLanguageOptions = q.languageOptions
+          .filter((lang: any) => lang && lang.language && String(lang.language).trim() !== "")
+          .map((lang: any) => ({
+            language: String(lang.language).trim(),
+            solution: lang.solution || "",
+            preloadCode: lang.preloadCode || "",
+          }));
+        
+        console.log(`Valid language options: ${validLanguageOptions.length}`);
+        if (validLanguageOptions.length > 0) {
+          console.log("First language option:", validLanguageOptions[0]);
+        }
+        
+        console.log(`Test cases: ${q.testCases ? q.testCases.length : 0}`);
           
-          // Create consistent form data that matches the schema
-          const formData = {
-            name: q.name,
-            type: "CODING",
-            status: bulkStatus, // Use the selected status from form
-            folderId: bulkFolderId, // Use the selected folder from form
+        // Create consistent form data that matches the GraphQL schema
+        const questionData = {
+          name: q.name,
+          type: "CODING",
+          status: bulkStatus, // Use the selected status from form
+          folderId: bulkFolderId, // Use the selected folder from form
+          codingQuestion: {
             questionText: q.questionText,
             difficulty: q.difficulty,
             defaultMark: q.defaultMark,
-            defaultLanguage: questionDefaultLanguage, // Set default language here too
-            codingQuestion: {
-              // Always include ALL languages from Judge0 API
-              languageOptions: validLanguageOptions,
-              testCases: q.testCases.map((tc: any) => ({
-                input: String(tc.input),
-                output: String(tc.output),
-                isHidden: !!tc.isHidden,
-                isSample: !!tc.isSample,
-                showOnFailure: !!tc.showOnFailure,
-                // add other fields as needed
-              })),
-              isAllOrNothing: q.allOrNothingGrading,
-              defaultLanguage: questionDefaultLanguage, // Use the question's default language
-            },
-          };
-
+            isAllOrNothing: q.allOrNothingGrading || false,
+            defaultLanguage: questionDefaultLanguage,
+            languageOptions: validLanguageOptions,
+            testCases: q.testCases.map((tc: any) => ({
+              input: String(tc.input),
+              output: String(tc.output),
+              isSample: !!tc.isSample,
+              isHidden: !!tc.isHidden,
+              showOnFailure: !!tc.showOnFailure,
+              gradePercentage: tc.gradePercentage || 0
+            }))
+          }
+        };
         
+        console.log(`Question ${index + 1} prepared successfully`);
+        
+        return questionData;
+      });
 
-          const response = await axios.post("/api/questions", formData);
-          successCount++;
-        } catch (err) {
-          console.error("Error importing question:", err);
-          failCount++;
-        }
+      console.log(`\nPrepared ${questionsForBulkImport.length} questions for bulk import`);
+      console.log("First question sample:", JSON.stringify(questionsForBulkImport[0]).substring(0, 200) + "...");
+      
+      // Double check that questionService.bulkImportCodingQuestions exists
+      if (typeof questionService.bulkImportCodingQuestions !== 'function') {
+        console.error("ERROR: questionService.bulkImportCodingQuestions is not a function!");
+        console.log("Available questionService methods:", Object.keys(questionService));
+        throw new Error("bulkImportCodingQuestions method not found in questionService");
       }
-    } catch (err) {
-      console.error("Bulk import error:", err);
-    } finally {
-      setImportLoading(false);
+
+      // Use the questionService.bulkImportCodingQuestions to import all questions in one call
+      console.log(`\nCalling bulkImportCodingQuestions with ${questionsForBulkImport.length} questions...`);
+      const result = await questionService.bulkImportCodingQuestions(questionsForBulkImport);
+      
+      console.log("Bulk import result:", result);
+      console.log(`Successfully imported ${result ? result.length : 0} questions`);
+      
+      // Log network activity summary
+      console.log("%cNetwork Activity Summary:", "color: blue; font-weight: bold");
+      console.table(requests);
+      
+      console.timeEnd("BulkImport");
+      console.log("%c=== BULK IMPORT DEBUG END ===", "background: #742a9d; color: white; padding: 5px; font-size: 16px");
+
       toast({
         title: "Import Complete",
-        description: `${successCount} questions imported, ${failCount} failed.`,
-        variant: failCount === 0 ? "default" : "destructive",
+        description: `${result ? result.length : 0} questions imported successfully.`,
+        variant: "default"
       });
+      
+    } catch (err) {
+      console.error("Bulk import error:", err);
+      
+      // Log network activity on error
+      console.log("%cNetwork Activity on Error:", "color: red; font-weight: bold");
+      console.table(requests);
+      
+      console.timeEnd("BulkImport");
+      console.log("%c=== BULK IMPORT DEBUG END (WITH ERROR) ===", "background: #742a9d; color: white; padding: 5px; font-size: 16px");
+      
+      setImportError("Failed to import questions. See console for details.");
+      
+      toast({
+        title: "Import Failed",
+        description: "Failed to import questions. See console for details.",
+        variant: "destructive",
+      });
+    } finally {
+      // Restore the original fetch function
+      window.fetch = originalFetch;
+      
+      setImportLoading(false);
       setIsImportModalOpen(false);
       setImportedQuestions([]);
       fetchQuestions();

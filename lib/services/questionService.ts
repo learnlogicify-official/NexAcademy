@@ -423,11 +423,38 @@ export const questionService = {
 
   // Bulk import multiple coding questions
   bulkImportCodingQuestions: async (questions: any[]) => {
-    console.log(`Bulk importing ${questions.length} coding questions`);
-    const { data } = await apolloClient.mutate({
-      mutation: BULK_IMPORT_CODING_QUESTIONS,
-      variables: { questions },
-    });
-    return data.bulkImportCodingQuestions;
+    console.log(`%cBulk importing ${questions.length} coding questions via GraphQL`, "color: green; font-weight: bold");
+    
+    // Log the GraphQL mutation being used
+    console.log("Using GraphQL mutation:", BULK_IMPORT_CODING_QUESTIONS.loc?.source?.body);
+    
+    // Log the first question (truncated for readability)
+    if (questions.length > 0) {
+      const firstQuestion = questions[0];
+      console.log("First question:", {
+        name: firstQuestion.name,
+        type: firstQuestion.type,
+        status: firstQuestion.status,
+        folderId: firstQuestion.folderId,
+        codingQuestion: {
+          defaultLanguage: firstQuestion.codingQuestion?.defaultLanguage,
+          languageOptionsCount: firstQuestion.codingQuestion?.languageOptions?.length,
+          testCasesCount: firstQuestion.codingQuestion?.testCases?.length
+        }
+      });
+    }
+    
+    try {
+      const { data } = await apolloClient.mutate({
+        mutation: BULK_IMPORT_CODING_QUESTIONS,
+        variables: { questions },
+      });
+      
+      console.log(`%cBulk import successful: Imported ${data?.bulkImportCodingQuestions?.length || 0} questions`, "color: green");
+      return data.bulkImportCodingQuestions;
+    } catch (error) {
+      console.error("Error in bulkImportCodingQuestions:", error);
+      throw error;
+    }
   },
 }; 
