@@ -185,11 +185,11 @@ const dailyChallenge = {
 function TagLoader() {
   return (
     <div className="w-full">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <div 
             key={i} 
-            className="h-7 rounded-full bg-slate-200/70 dark:bg-slate-800/50 animate-pulse"
+            className="h-6 rounded-full bg-slate-200/70 dark:bg-slate-800/50 animate-pulse"
             style={{ width: `${Math.floor(Math.random() * 60) + 60}px` }}
           />
         ))}
@@ -239,13 +239,13 @@ function ProgressPathAnimation() {
   }, []);
   
   return (
-    <div className="relative w-full h-20 mb-6">
+    <div className="relative w-full h-12 mb-3">
       {/* Progress path background */}
-      <div className="absolute inset-0 h-3 top-1/2 -translate-y-1/2 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+      <div className="absolute inset-0 h-2 top-1/2 -translate-y-1/2 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
       
       {/* Animated progress fill */}
       <motion.div 
-        className="absolute h-3 top-1/2 -translate-y-1/2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"
+        className="absolute h-2 top-1/2 -translate-y-1/2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"
         initial={{ width: "0%" }}
         animate={{ width: `${progress}%` }}
         transition={{ duration: 0.5 }}
@@ -255,7 +255,7 @@ function ProgressPathAnimation() {
       {[10, 25, 40, 55, 70, 85].map((milestone, index) => (
         <motion.div 
           key={index}
-          className={`absolute top-1/2 -translate-y-1/2 -ml-3 h-6 w-6 rounded-full flex items-center justify-center ${
+          className={`absolute top-1/2 -translate-y-1/2 -ml-2 h-4 w-4 rounded-full flex items-center justify-center ${
             progress >= milestone 
               ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
               : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
@@ -268,12 +268,10 @@ function ProgressPathAnimation() {
           }}
           transition={{ duration: 0.3 }}
         >
-          <span className="text-xs font-medium">{index + 1}</span>
+          <span className="text-[10px] font-medium">{index + 1}</span>
           
-          {/* Tooltip */}
-          <div className={`absolute bottom-full mb-2 px-2 py-1 text-xs font-medium rounded bg-slate-800 text-white whitespace-nowrap transform -translate-x-1/2 ${
-            progress >= milestone ? "opacity-100" : "opacity-0"
-          } transition-opacity duration-300`}>
+          {/* Tooltip - shown only on hover to save space */}
+          <div className={`absolute bottom-full mb-2 px-2 py-1 text-xs font-medium rounded bg-slate-800 text-white whitespace-nowrap transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
             {index === 0 ? "First Steps" :
              index === 1 ? "Building Basics" :
              index === 2 ? "Getting Comfortable" :
@@ -286,13 +284,13 @@ function ProgressPathAnimation() {
       
       {/* Moving element along path */}
       <motion.div 
-        className="absolute top-1/2 -translate-y-1/2 -ml-5 h-10 w-10"
+        className="absolute top-1/2 -translate-y-1/2 -ml-3 h-6 w-6"
         style={{ left: `${progress}%` }}
       >
         <div className="w-full h-full relative">
           <div className="absolute inset-0 bg-indigo-400 dark:bg-indigo-600 rounded-full opacity-20 animate-ping"></div>
           <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center border-2 border-indigo-500 dark:border-indigo-400">
-            <Code className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <Code className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
           </div>
         </div>
       </motion.div>
@@ -491,12 +489,12 @@ interface StatCardProps {
 }
 
 const StatCard = ({ label, value, bgColor, textColor, borderColor, icon }: StatCardProps) => (
-  <div className={`p-3 rounded-lg bg-gradient-to-br ${bgColor} border ${borderColor} shadow-sm transform transition-transform duration-200 hover:scale-105 hover:shadow-md`}>
-    <div className="flex items-center justify-between mb-1">
-      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</span>
+  <div className={`p-2 rounded-lg bg-gradient-to-br ${bgColor} border ${borderColor} shadow-sm transform transition-transform duration-200 hover:scale-105 hover:shadow-md`}>
+    <div className="flex items-center justify-between mb-0.5">
+      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">{label}</span>
       {icon}
     </div>
-    <div className={`text-xl font-bold ${textColor}`}>
+    <div className={`text-base font-bold ${textColor}`}>
       {value}
     </div>
   </div>
@@ -1005,8 +1003,8 @@ export default function NexPractice() {
         
         {/* Main content with refined scrolling */}
         <main className="flex-1 overflow-y-auto p-0">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 space-y-6 py-6">
-            {/* Unique, standout hero section with distinctive visual identity */}
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 space-y-4 py-4">
+            {/* Unique, standout hero section with distinctive visual identity - Made more compact */}
             <div className="relative overflow-hidden rounded-xl">
               {/* Abstract background pattern for uniqueness */}
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/90 via-purple-50/80 to-pink-50/70 dark:from-indigo-950/90 dark:via-purple-950/80 dark:to-pink-950/70">
@@ -1031,68 +1029,68 @@ export default function NexPractice() {
                 <div className="absolute top-[40%] right-[20%] w-16 h-16 rounded-full bg-gradient-to-br from-indigo-200/20 to-blue-300/20 dark:from-indigo-500/10 dark:to-blue-600/10 blur-xl"></div>
                 </div>
 
-              <div className="relative px-6 py-10 md:py-12">
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-                  <div className="space-y-5 max-w-xl">
-                    <div className="flex items-center gap-4">
+              <div className="relative px-4 py-6 md:py-8">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+                  <div className="space-y-3 max-w-xl">
+                    <div className="flex items-center gap-3">
                       {/* Unique logo with code brackets and 3D effect */}
-                      <div className="relative flex items-center justify-center w-14 h-14">
+                      <div className="relative flex items-center justify-center w-10 h-10">
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-xl transform rotate-3 opacity-80"></div>
                         <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-500 rounded-xl transform -rotate-3 opacity-80"></div>
-                        <div className="relative z-10 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-lg shadow-inner">
-                          <Code className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                </div>
+                        <div className="relative z-10 flex items-center justify-center w-9 h-9 bg-white dark:bg-slate-800 rounded-lg shadow-inner">
+                          <Code className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
                       </div>
                       
                       {/* Distinctive typography with gradient line */}
                       <div>
-                        <h1 className="text-3xl md:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-indigo-300 dark:via-purple-300 dark:to-pink-300">
+                        <h1 className="text-2xl md:text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-indigo-300 dark:via-purple-300 dark:to-pink-300">
                           NexPractice
                         </h1>
-                        <div className="h-1 w-24 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full mt-1"></div>
+                        <div className="h-1 w-16 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full mt-0.5"></div>
                       </div>
                     </div>
                     
-                    <p className="text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
-                      Master coding through structured practice in our <span className="font-semibold text-indigo-700 dark:text-indigo-300">uniquely personalized</span> learning environment. Solve, track, and excel with NexAcademy's exclusive approach.
-                      </p>
+                    <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed">
+                      Master coding through structured practice in our <span className="font-semibold text-indigo-700 dark:text-indigo-300">uniquely personalized</span> learning environment.
+                    </p>
                     
                     {/* Distinctive call-to-action buttons */}
-                    <div className="flex flex-wrap gap-4 mt-6">
-                      <Button className="relative group overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-700 text-white gap-2 shadow-md border-0 px-6 py-6">
+                    <div className="flex flex-wrap gap-3 mt-3">
+                      <Button className="relative group overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-700 text-white gap-2 shadow-md border-0 px-4 py-4 h-9">
                         <div className="absolute inset-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.3),transparent_55%)]"></div>
                         <div className="relative flex items-center">
-                          <Zap className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-12" />
+                          <Zap className="w-4 h-4 mr-1 transition-transform duration-300 group-hover:rotate-12" />
                           <span className="font-medium">Daily Challenge</span>
                         </div>
-                        </Button>
+                      </Button>
                       
-                        <Button
-                          variant="outline"
-                        className="relative overflow-hidden border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 gap-2 shadow-sm px-6 py-6 group"
-                          onClick={getRandomProblem}
-                        >
+                      <Button
+                        variant="outline"
+                        className="relative overflow-hidden border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 gap-2 shadow-sm px-4 py-4 h-9 group"
+                        onClick={getRandomProblem}
+                      >
                         <div className="absolute inset-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.1),transparent_65%)] dark:bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.2),transparent_65%)]"></div>
                         <div className="relative flex items-center">
-                          <Shuffle className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-180" />
+                          <Shuffle className="w-4 h-4 mr-1 transition-transform duration-300 group-hover:rotate-180" />
                           <span className="font-medium">Random Problem</span>
                         </div>
-                        </Button>
-              </div>
-              </div>
+                      </Button>
+                    </div>
+                  </div>
 
-                  {/* Unique stats visualization with 3D-like cards */}
-                  <div className="relative grid grid-cols-2 gap-3 p-3 bg-white/70 dark:bg-slate-900/60 rounded-xl backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-xl">
+                  {/* Unique stats visualization with 3D-like cards - made more compact */}
+                  <div className="relative grid grid-cols-2 gap-2 p-2 bg-white/70 dark:bg-slate-900/60 rounded-xl backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-xl">
                     {/* Decorative elements */}
-                    <div className="absolute -top-3 -left-3 w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full border-2 border-indigo-200 dark:border-indigo-700"></div>
-                    <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-purple-100 dark:bg-purple-900/50 rounded-full border-2 border-purple-200 dark:border-purple-700"></div>
+                    <div className="absolute -top-2 -left-2 w-4 h-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-full border-2 border-indigo-200 dark:border-indigo-700"></div>
+                    <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-purple-100 dark:bg-purple-900/50 rounded-full border-2 border-purple-200 dark:border-purple-700"></div>
                     
                     <div className="col-span-2 flex justify-between items-center mb-1">
-                      <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400">Your Progress</h3>
-                      <span className="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full font-medium">
+                      <h3 className="text-xs font-medium text-slate-600 dark:text-slate-400">Your Progress</h3>
+                      <span className="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full font-medium">
                         Top 5%
                       </span>
-                </div>
+                    </div>
                     
                     <StatCard 
                       label="Solved" 
@@ -1100,7 +1098,7 @@ export default function NexPractice() {
                       bgColor="from-indigo-50/90 to-indigo-100/80 dark:from-indigo-900/30 dark:to-indigo-800/30" 
                       textColor="text-indigo-700 dark:text-indigo-300"
                       borderColor="border-indigo-200 dark:border-indigo-700/50"
-                      icon={<CheckCircle className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                      icon={<CheckCircle className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />}
                     />
                     
                     <StatCard 
@@ -1109,7 +1107,7 @@ export default function NexPractice() {
                       bgColor="from-purple-50/90 to-purple-100/80 dark:from-purple-900/30 dark:to-purple-800/30" 
                       textColor="text-purple-700 dark:text-purple-300"
                       borderColor="border-purple-200 dark:border-purple-700/50"
-                      icon={<Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />}
+                      icon={<Zap className="w-3 h-3 text-purple-500 dark:text-purple-400" />}
                     />
                     
                     <StatCard 
@@ -1118,7 +1116,7 @@ export default function NexPractice() {
                       bgColor="from-blue-50/90 to-blue-100/80 dark:from-blue-900/30 dark:to-blue-800/30" 
                       textColor="text-blue-700 dark:text-blue-300"
                       borderColor="border-blue-200 dark:border-blue-700/50"
-                      icon={<Clock className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
+                      icon={<Clock className="w-3 h-3 text-blue-500 dark:text-blue-400" />}
                     />
                     
                     <StatCard 
@@ -1127,49 +1125,54 @@ export default function NexPractice() {
                       bgColor="from-amber-50/90 to-amber-100/80 dark:from-amber-900/30 dark:to-amber-800/30" 
                       textColor="text-amber-700 dark:text-amber-300"
                       borderColor="border-amber-200 dark:border-amber-700/50"
-                      icon={<Trophy className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
+                      icon={<Trophy className="w-3 h-3 text-amber-500 dark:text-amber-400" />}
                     />
+                  </div>
                 </div>
               </div>
-                </div>
-              </div>
+            </div>
 
-            {/* New: Learning Progress Path Animation */}
+            {/* Learning Progress Path Animation - Made more compact */}
             <Card className="border-none rounded-xl shadow-md overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-900/40 dark:to-slate-800/40 backdrop-blur-sm pb-3">
-                <CardTitle className="text-xl flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                  <BookOpenCheck className="w-5 h-5" /> Your Learning Path
-                </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">
-                  Track your progress through coding challenges
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <ProgressPathAnimation />
-                
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                  <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/20 p-4 border border-indigo-100 dark:border-indigo-800/50">
-                    <div className="text-xs text-indigo-600 dark:text-indigo-400 mb-1">Current Level</div>
-                    <div className="text-xl font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
-                      <Star className="w-4 h-4 text-indigo-500" /> Intermediate
-                </div>
-                </div>
-                  
-                  <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-100 dark:border-purple-800/50">
-                    <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">Next Milestone</div>
-                    <div className="text-xl font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500" /> 75 Problems
+              <div className="flex flex-col sm:flex-row">
+                <CardHeader className="bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-900/40 dark:to-slate-800/40 backdrop-blur-sm py-3 px-4 sm:w-64 sm:min-w-64">
+                  <CardTitle className="text-base flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                    <BookOpenCheck className="w-4 h-4" /> Your Learning Path
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                    Track your progress through coding challenges
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 flex-1">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    <div className="w-full sm:w-1/2">
+                      <ProgressPathAnimation />
+                    </div>
+                    <div className="w-full sm:w-1/2 grid grid-cols-3 gap-2">
+                      <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/20 p-2 border border-indigo-100 dark:border-indigo-800/50">
+                        <div className="text-xs text-indigo-600 dark:text-indigo-400">Level</div>
+                        <div className="text-sm font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-1">
+                          <Star className="w-3 h-3 text-indigo-500" /> Intermediate
+                        </div>
+                      </div>
+                      
+                      <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-2 border border-purple-100 dark:border-purple-800/50">
+                        <div className="text-xs text-purple-600 dark:text-purple-400">Next Goal</div>
+                        <div className="text-sm font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-purple-500" /> 75 Problems
+                        </div>
+                      </div>
+                      
+                      <div className="rounded-lg bg-pink-50 dark:bg-pink-900/20 p-2 border border-pink-100 dark:border-pink-800/50">
+                        <div className="text-xs text-pink-600 dark:text-pink-400">Focus</div>
+                        <div className="text-sm font-semibold text-pink-800 dark:text-pink-300 flex items-center gap-1">
+                          <BarChart2 className="w-3 h-3 text-pink-500" /> DP
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
               </div>
-              </div>
-                  
-                  <div className="rounded-lg bg-pink-50 dark:bg-pink-900/20 p-4 border border-pink-100 dark:border-pink-800/50 col-span-2 md:col-span-1">
-                    <div className="text-xs text-pink-600 dark:text-pink-400 mb-1">Recommended Focus</div>
-                    <div className="text-xl font-semibold text-pink-800 dark:text-pink-300 flex items-center gap-2">
-                      <BarChart2 className="w-4 h-4 text-pink-500" /> Dynamic Programming
-              </div>
-        </div>
-                </div>
-              </CardContent>
             </Card>
 
             {/* Main content layout - improved spacing and proportions */}
@@ -1178,72 +1181,72 @@ export default function NexPractice() {
               <div className="flex-1 space-y-6 lg:max-w-[calc(100%-320px)]">
                 {/* Search and filter section - more refined appearance */}
                 <Card className="border-none rounded-xl shadow-md overflow-hidden">
-                  <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-950/40 dark:to-purple-950/40 backdrop-blur-sm">
-                    <CardTitle className="text-xl flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                      <Filter className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> 
+                  <CardHeader className="pb-2 pt-3 px-4 bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-950/40 dark:to-purple-950/40 backdrop-blur-sm">
+                    <CardTitle className="text-lg flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                      <Filter className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> 
                       <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">Problem Filters</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-5 p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-900/50">
-                    <div className="flex flex-col sm:flex-row gap-4">
+                  <CardContent className="space-y-4 p-4 bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-900/50">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                        <Search className="absolute left-3 top-2 h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                         <Input
                           type="search"
                           placeholder="Search problems..."
-                          className="pl-9 border-indigo-200 dark:border-indigo-800/50 bg-white/80 dark:bg-slate-900/50 focus-visible:ring-indigo-500 shadow-sm"
+                          className="pl-9 h-9 border-indigo-200 dark:border-indigo-800/50 bg-white/80 dark:bg-slate-900/50 focus-visible:ring-indigo-500 shadow-sm"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                  </div>
+                      </div>
                       <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                  <Button 
-                          variant={difficulty === "All" ? "default" : "outline"}
-                          onClick={() => setDifficultyAndReload("All")}
-                          className="flex-1 sm:flex-none bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all"
+                        <Button 
+                            variant={difficulty === "All" ? "default" : "outline"}
+                            onClick={() => setDifficultyAndReload("All")}
+                            className="flex-1 sm:flex-none h-9 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all"
                         >
                           All
-                  </Button>
-                      <Button 
-                          variant={difficulty === "Easy" ? "default" : "outline"}
-                          onClick={() => setDifficultyAndReload("Easy")}
-                          className={`flex-1 sm:flex-none transition-all hover:shadow-md ${
-                            difficulty === "Easy" ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white border-0" : "text-green-600 dark:text-green-400 border-green-200 dark:border-green-900/50 hover:border-green-400 hover:text-green-700"
-                          }`}
+                        </Button>
+                        <Button 
+                            variant={difficulty === "Easy" ? "default" : "outline"}
+                            onClick={() => setDifficultyAndReload("Easy")}
+                            className={`flex-1 sm:flex-none h-9 transition-all hover:shadow-md ${
+                              difficulty === "Easy" ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white border-0" : "text-green-600 dark:text-green-400 border-green-200 dark:border-green-900/50 hover:border-green-400 hover:text-green-700"
+                            }`}
                         >
                           Easy
-                      </Button>
-                      <Button
-                          variant={difficulty === "Medium" ? "default" : "outline"}
-                          onClick={() => setDifficultyAndReload("Medium")}
-                          className={`flex-1 sm:flex-none transition-all hover:shadow-md ${
-                            difficulty === "Medium" ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-white border-0" : "text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50 hover:border-amber-400 hover:text-amber-700"
-                          }`}
+                        </Button>
+                        <Button
+                            variant={difficulty === "Medium" ? "default" : "outline"}
+                            onClick={() => setDifficultyAndReload("Medium")}
+                            className={`flex-1 sm:flex-none h-9 transition-all hover:shadow-md ${
+                              difficulty === "Medium" ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-white border-0" : "text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50 hover:border-amber-400 hover:text-amber-700"
+                            }`}
                         >
                           Medium
-                      </Button>
+                        </Button>
                         <Button 
-                          variant={difficulty === "Hard" ? "default" : "outline"}
-                          onClick={() => setDifficultyAndReload("Hard")}
-                          className={`flex-1 sm:flex-none transition-all hover:shadow-md ${
-                            difficulty === "Hard" ? "bg-gradient-to-r from-red-400 to-rose-500 text-white border-0" : "text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 hover:border-red-400 hover:text-red-700"
-                          }`}
+                            variant={difficulty === "Hard" ? "default" : "outline"}
+                            onClick={() => setDifficultyAndReload("Hard")}
+                            className={`flex-1 sm:flex-none h-9 transition-all hover:shadow-md ${
+                              difficulty === "Hard" ? "bg-gradient-to-r from-red-400 to-rose-500 text-white border-0" : "text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 hover:border-red-400 hover:text-red-700"
+                            }`}
                         >
                           Hard
                         </Button>
                       </div>
                     </div>
-                    
-                    <div className="pt-2">
-                      <div className="flex items-center justify-between mb-3">
+
+                    <div className="pt-0">
+                      <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-medium flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400">
-                        <Tag className="w-4 h-4" /> Tags
+                        <Tag className="w-3.5 h-3.5" /> Tags
                       </h3>
                         <div className="flex items-center gap-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-7 px-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                            className="h-6 px-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                             onClick={() => setExpandedTags(!expandedTags)}
                           >
                             {expandedTags ? (
@@ -1261,7 +1264,7 @@ export default function NexPractice() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-7 px-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                            className="h-6 px-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                             onClick={() => setShowAllTags(!showAllTags)}
                           >
                             {showHideAllTagsButtonText}
@@ -1274,7 +1277,7 @@ export default function NexPractice() {
                         <div className="absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br from-indigo-200/20 to-purple-300/10 dark:from-indigo-500/5 dark:to-purple-600/5 rounded-full blur-xl"></div>
                         <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-purple-200/20 to-pink-300/10 dark:from-purple-500/5 dark:to-pink-600/5 rounded-full blur-lg"></div>
                         
-                        <div className={`flex flex-wrap gap-2 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-300 dark:scrollbar-thumb-indigo-700 scrollbar-track-transparent p-3 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-indigo-100 dark:border-indigo-900/50 shadow-inner relative transition-all duration-300 ${expandedTags ? 'max-h-[180px]' : 'max-h-[72px]'}`}>
+                        <div className={`flex flex-wrap gap-1.5 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-300 dark:scrollbar-thumb-indigo-700 scrollbar-track-transparent p-2 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-indigo-100 dark:border-indigo-900/50 shadow-inner relative transition-all duration-300 ${expandedTags ? 'max-h-[180px]' : 'max-h-[64px]'}`}>
                         {tagsLoading ? (
                           <TagLoader />
                         ) : tagsError ? (
@@ -1285,13 +1288,13 @@ export default function NexPractice() {
                               {[...allTags]
                                 // Sort by frequency or popularity
                                 .sort((a, b) => (b._count?.codingQuestions || 0) - (a._count?.codingQuestions || 0))
-                                // Show only first 8 tags when collapsed
-                                .slice(0, expandedTags ? undefined : 8)
+                                // Show only first 10 tags when collapsed
+                                .slice(0, expandedTags ? undefined : 10)
                                 .map((tag) => (
                             <Badge
                               key={tag.id}
                                 variant={selectedTags.includes(tag.name) ? "default" : "outline"}
-                                  className={`cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-300 flex items-center gap-1 whitespace-nowrap select-none ${
+                                  className={`cursor-pointer py-0.5 h-6 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-300 flex items-center gap-1 whitespace-nowrap select-none ${
                                     selectedTags.includes(tag.name) 
                                       ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white dark:from-indigo-600 dark:to-purple-600 dark:text-white hover:shadow-md transform hover:-translate-y-0.5" 
                                       : "hover:border-indigo-300 dark:hover:border-indigo-700 group"
@@ -1299,7 +1302,7 @@ export default function NexPractice() {
                                 onClick={() => toggleTag(tag.name)}
                               >
                                 {tag.name}
-                                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold transition-colors ${
+                                  <span className={`ml-1 px-1.5 py-0 rounded-full text-[10px] font-semibold transition-colors ${
                                     selectedTags.includes(tag.name)
                                       ? "bg-white/20 text-white"
                                       : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800"
@@ -1310,13 +1313,13 @@ export default function NexPractice() {
                             ))}
                               
                               {/* "More tags" indicator badge when collapsed */}
-                              {!expandedTags && allTags.length > 8 && (
+                              {!expandedTags && allTags.length > 10 && (
                                 <Badge
                                   variant="outline"
                                   onClick={() => setExpandedTags(true)}
-                                  className="cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+                                  className="cursor-pointer h-6 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
                                 >
-                                  +{allTags.length - 8} more tags...
+                                  +{allTags.length - 10} more...
                                 </Badge>
                     )}
                   </>
@@ -1326,10 +1329,10 @@ export default function NexPractice() {
                       
                       {/* Applied filters section */}
                       {selectedTags.length > 0 && (
-                        <div className="mt-3 flex flex-wrap items-center gap-2 p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30">
-                          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Applied Filters:</span>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30">
+                          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Applied:</span>
                           {selectedTags.map(tag => (
-                            <div key={tag} className="flex items-center bg-white dark:bg-slate-800 px-2 py-1 rounded-md text-xs border border-indigo-200 dark:border-indigo-800">
+                            <div key={tag} className="flex items-center bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md text-xs border border-indigo-200 dark:border-indigo-800">
                               {tag}
                               <Button 
                                 size="icon" 
@@ -1344,7 +1347,7 @@ export default function NexPractice() {
                           <Button 
                             size="sm" 
                             variant="ghost" 
-                            className="text-xs h-6 px-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                            className="text-xs h-5 px-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
