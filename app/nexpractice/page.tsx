@@ -33,6 +33,7 @@ import {
   RotateCw,
   BrainCircuit,
   Sparkles,
+  X,
 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -183,12 +184,16 @@ const dailyChallenge = {
 // Modern spinner loader component
 function TagLoader() {
   return (
-    <div className="flex items-center gap-2 py-2 px-4 bg-muted/40 rounded-lg animate-pulse">
-      <svg className="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      <span className="text-indigo-700 dark:text-indigo-200 font-medium text-sm">Loading tags...</span>
+    <div className="w-full">
+      <div className="flex flex-wrap gap-2">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <div 
+            key={i} 
+            className="h-7 rounded-full bg-slate-200/70 dark:bg-slate-800/50 animate-pulse"
+            style={{ width: `${Math.floor(Math.random() * 60) + 60}px` }}
+          />
+        ))}
+      </div>
         </div>
   )
 }
@@ -196,12 +201,23 @@ function TagLoader() {
 // Modern spinner loader for problems
 function ProblemLoader() {
   return (
-    <div className="flex items-center gap-2 py-2 px-4 bg-muted/40 rounded-lg animate-pulse">
-      <svg className="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      <span className="text-indigo-700 dark:text-indigo-200 font-medium text-sm">Loading problems...</span>
+    <div className="w-full space-y-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center w-full animate-pulse">
+          <div className="h-8 w-8 rounded-full bg-slate-200/70 dark:bg-slate-800/50 mr-3" />
+          <div className="flex-1">
+            <div className="h-5 bg-slate-200/70 dark:bg-slate-800/50 rounded-md mb-2" style={{ width: `${Math.floor(Math.random() * 40) + 50}%` }} />
+            <div className="flex gap-2">
+              <div className="h-4 bg-slate-200/70 dark:bg-slate-800/50 rounded-full" style={{ width: `${Math.floor(Math.random() * 40) + 30}px` }} />
+              <div className="h-4 bg-slate-200/70 dark:bg-slate-800/50 rounded-full" style={{ width: `${Math.floor(Math.random() * 40) + 30}px` }} />
+            </div>
+          </div>
+          <div className="flex gap-2 items-center">
+            <div className="h-5 w-16 bg-slate-200/70 dark:bg-slate-800/50 rounded-md" />
+            <div className="h-5 w-12 bg-slate-200/70 dark:bg-slate-800/50 rounded-md" />
+          </div>
+        </div>
+      ))}
                 </div>
   )
 }
@@ -508,6 +524,8 @@ export default function NexPractice() {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const tableRef = useRef<HTMLDivElement>(null);
+  // Add this state for expanded/collapsed tags
+  const [expandedTags, setExpandedTags] = useState(false)
 
   // Prevent hydration errors
   useEffect(() => {
@@ -534,9 +552,66 @@ export default function NexPractice() {
     setIsDataLoading(true);
     
     try {
-      // Prepare variables for GraphQL query
+      // Use our consistent helper function to fetch the data
+      const success = await fetchWithDifficulty(difficulty, currentPage);
+      // Additional logic can go here if needed
+    } catch (error: any) {
+      console.error('Error in fetchData:', error);
+      setTagsError("Failed to load tags");
+      setProblemsError(`Error loading data: ${error.message}`);
+      setHasMore(false);
+    } finally {
+      setIsDataLoading(false);
+      setTagsLoading(false);
+        setLoadingProblems(false);
+    }
+  };
+
+  // Set difficulty with proper data reload
+  const setDifficultyAndReload = (value: string) => {
+    // If switching to "All" from another difficulty, ensure we handle it properly
+    const isChangingToAll = value === "All" && difficulty !== "All";
+    
+    // Update the difficulty state
+    setDifficulty(value);
+    
+    // Always trigger a reload when changing difficulty, especially for "All"
+    setLoadingProblems(true);
+    setCodingProblems([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    
+    // Use a direct GraphQL query approach similar to clearAllTags to ensure proper filtering
+    setTimeout(() => {
+      fetchWithDifficulty(value, 1);
+    }, 50); // Small delay to ensure state updates have propagated
+  }
+
+  // Add this button text to the empty Show All/Show Popular button
+  const showHideAllTagsButtonText = showAllTags ? "Show Popular" : "Show All";
+
+  // Function to load more data - replace existing implementation
+  const loadMoreData = useCallback(async () => {
+    if (isDataLoading || !hasMore) {
+      console.log(`Skipping loadMoreData. isDataLoading=${isDataLoading}, hasMore=${hasMore}`);
+      return;
+    }
+    
+    // Set loading indicator for the next page
+    console.log(`Starting loadMoreData, current page: ${currentPage}, total: ${totalProblems}, loaded: ${codingProblems.length}`);
+    setIsDataLoading(true);
+    
+    try {
+      // Use a timeout to ensure the loading state is properly set
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Load the next page using our helper function
+      const nextPage = currentPage + 1;
+      console.log(`Loading page ${nextPage}`);
+      
+      // Prepare variables for GraphQL query based on selected filters
       const variables: any = {
-        page: currentPage,
+        page: nextPage,
         limit: QUESTIONS_PER_PAGE
       };
       
@@ -545,31 +620,7 @@ export default function NexPractice() {
         variables.search = searchQuery;
       }
       
-      // Add difficulty filter if not "All"
-      if (difficulty !== "All") {
-        // Map UI difficulty values to enum values safely
-        let difficultyValue: string;
-        switch(difficulty) {
-          case "Easy":
-            difficultyValue = "EASY";
-            break;
-          case "Medium":
-            difficultyValue = "MEDIUM";
-            break;
-          case "Hard":
-            difficultyValue = "HARD";
-            break;
-          default:
-            // Skip invalid difficulty values
-            difficultyValue = "";
-        }
-        
-        if (difficultyValue) {
-          variables.difficulty = difficultyValue;
-        }
-      }
-      
-      // Add tag filter if selected
+      // Add selected tags filter
       if (selectedTags.length > 0) {
         // We need to find tag IDs from names
         const tagIds = allTags
@@ -581,8 +632,31 @@ export default function NexPractice() {
         }
       }
       
-      console.log("%c GraphQL Query Variables:", "background: #4B0082; color: white; padding: 4px;", JSON.stringify(variables, null, 2));
-      console.log("%c GraphQL Query:", "background: #4B0082; color: white; padding: 4px;", GET_NEXPRACTICE_DATA.loc?.source?.body);
+      // Add difficulty filter only if not "All"
+      if (difficulty !== "All") {
+        // Map UI difficulty values to enum values safely
+        let difficultyEnum: string;
+        switch(difficulty) {
+          case "Easy":
+            difficultyEnum = "EASY";
+            break;
+          case "Medium":
+            difficultyEnum = "MEDIUM";
+            break;
+          case "Hard":
+            difficultyEnum = "HARD";
+            break;
+          default:
+            // Skip invalid difficulty values
+            difficultyEnum = "";
+        }
+        
+        if (difficultyEnum) {
+          variables.difficulty = difficultyEnum;
+        }
+      }
+      
+      console.log(`Fetching more data with variables:`, JSON.stringify(variables, null, 2));
       
       const { data } = await apolloClient.query({
         query: GET_NEXPRACTICE_DATA,
@@ -590,24 +664,8 @@ export default function NexPractice() {
         fetchPolicy: 'network-only' // Don't use cache for this
       });
       
-      // Validate data received
-      if (!data) {
-        console.error("GraphQL query returned no data");
-        setTagsError("Failed to load data from server");
-        setProblemsError("Failed to load data from server");
-        return;
-      }
-      
-      // Process tags data (only on first load)
-      if (data.tags && currentPage === 1) {
-        setAllTags(data.tags);
-        setTagsLoading(false);
-      }
-      
-      // Process questions data
-      if (data.questions && data.questions.questions) {
-        // Format the coding problems for the UI
-        const formattedProblems = data.questions.questions.map((question: any) => ({
+      if (data?.questions?.questions) {
+        const fetchedProblems = data.questions.questions.map((question: any) => ({
           id: question.id,
           name: question.name,
           questionId: question.id,
@@ -620,84 +678,97 @@ export default function NexPractice() {
           folder: question.folder
         }));
         
-        // Append new problems to existing problems instead of replacing them
-        if (currentPage === 1) {
-          setCodingProblems(formattedProblems);
-        } else {
-          setCodingProblems(prev => [...prev, ...formattedProblems]);
+        // Filter out duplicates - keep only problems whose IDs aren't already in the list
+        const existingIds = new Set(codingProblems.map(p => p.id));
+        const newProblems = fetchedProblems.filter((problem: any) => !existingIds.has(problem.id));
+        
+        console.log(`Fetched ${fetchedProblems.length} problems, ${newProblems.length} are new after filtering duplicates`);
+        
+        const totalCount = data.questions.totalCount || 0;
+        
+        console.log(`Lazy loaded ${newProblems.length} more problems. Total available: ${totalCount}`);
+        
+        // Add the new problems to the existing ones
+        if (newProblems.length > 0) {
+          setCodingProblems(prev => [...prev, ...newProblems]);
         }
         
-        setTotalProblems(data.questions.totalCount || 0);
-        setLoadingProblems(false);
+        // Update total and limit it sensibly
+        setTotalProblems(Math.max(totalCount, codingProblems.length));
         
-        // Check if we've reached the end of the data
-        if (formattedProblems.length < QUESTIONS_PER_PAGE || 
-            codingProblems.length + formattedProblems.length >= data.questions.totalCount) {
-          setHasMore(false);
-        } else {
-          setHasMore(true);
+        // Update page counter
+        setCurrentPage(nextPage);
+        
+        // More reliable check for if there are more items
+        // Only consider there to be more if we actually got new problems
+        const hasMoreItems = newProblems.length > 0 && (codingProblems.length + newProblems.length) < totalCount;
+        
+        console.log(`Loaded so far: ${codingProblems.length + newProblems.length}/${totalCount}, hasMore: ${hasMoreItems}`);
+        setHasMore(hasMoreItems);
+        
+        // If we got fetch results but all were duplicates, and server says there should be more,
+        // try loading the next page automatically
+        if (fetchedProblems.length > 0 && newProblems.length === 0 && totalCount > codingProblems.length) {
+          console.log("Got only duplicates but more data should exist - trying next page automatically");
+          setTimeout(() => loadMoreData(), 500);
         }
+        
+        return true;
       } else {
-        console.warn("No questions data returned from GraphQL");
-        setProblemsError("No questions data available");
+        console.warn("No data returned from query");
         setHasMore(false);
+        return false;
       }
-      
-    } catch (error: any) {
-      console.error("%c GraphQL Error Details:", "background: #FF0000; color: white; padding: 4px;", error);
-      
-      // Extract detailed error info if available
-      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        console.error("GraphQL Errors:", error.graphQLErrors);
-      }
-      
-      if (error.networkError) {
-        console.error("Network Error:", error.networkError);
-        if (error.networkError.result && error.networkError.result.errors) {
-          console.error("Network Error Details:", error.networkError.result.errors);
-        }
-      }
-      
-      setTagsError("Failed to load tags");
-      setProblemsError(`Error loading data: ${error.message}`);
-      setHasMore(false);
+    } catch (error) {
+      console.error("Error loading more data:", error);
+      setProblemsError("Failed to load more problems");
+      return false;
     } finally {
       setIsDataLoading(false);
-      setTagsLoading(false);
-        setLoadingProblems(false);
+      setLoadingProblems(false);
     }
-  };
-
-  // Function to load more data
-  const loadMoreData = useCallback(async () => {
-    if (isDataLoading || !hasMore) return;
-    
-    // Load the next page
-    setCurrentPage(prev => prev + 1);
-  }, [isDataLoading, hasMore]);
+  }, [isDataLoading, hasMore, currentPage, difficulty, searchQuery, selectedTags, allTags, codingProblems]);
 
   // Setup intersection observer for infinite scrolling
   useEffect(() => {
     if (!mounted) return;
     
+    console.log("Setting up intersection observer. hasMore:", hasMore, "isDataLoading:", isDataLoading);
+    
+    const observerOptions = {
+      root: null, // use viewport as root
+      rootMargin: '0px 0px 500px 0px', // trigger much earlier, when 500px from bottom
+      threshold: 0.01 // trigger when just 1% of element is visible
+    };
+    
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
+        console.log("Intersection observer triggered. isIntersecting:", entry.isIntersecting, 
+                    "isDataLoading:", isDataLoading, "hasMore:", hasMore);
+        
         if (entry.isIntersecting && !isDataLoading && hasMore) {
+          console.log("Loading more data. Current page:", currentPage);
           loadMoreData();
         }
       },
-      { threshold: 0.5 }
+      observerOptions
     );
     
     // Observe the loading trigger element
     const loaderElement = document.getElementById('loading-trigger');
-    if (loaderElement) observer.observe(loaderElement);
+    if (loaderElement) {
+      console.log("Observing loading trigger element");
+      observer.observe(loaderElement);
+    } else {
+      console.warn("Loading trigger element not found!");
+    }
     
     return () => {
       if (loaderElement) observer.unobserve(loaderElement);
+      observer.disconnect();
     };
-  }, [mounted, isDataLoading, hasMore, loadMoreData]);
+  }, [mounted, isDataLoading, hasMore, loadMoreData, currentPage]);
 
   // Initial data load
   useEffect(() => {
@@ -709,6 +780,8 @@ export default function NexPractice() {
   // Reset to first page when filters/search change
   useEffect(() => {
     if (mounted && (searchQuery || difficulty !== "All" || selectedTags.length > 0)) {
+      // Show loading state
+      setLoadingProblems(true);
       // Reset problem list and start over
       setCodingProblems([]);
       setCurrentPage(1);
@@ -740,6 +813,145 @@ export default function NexPractice() {
     } else {
       setSelectedTags([...selectedTags, tag])
     }
+  }
+  
+  // Clear all selected tags and reload while preserving difficulty filter
+  const clearAllTags = () => {
+    // First update the tags
+    setSelectedTags([]);
+    
+    // Force immediate reset and reload, but preserve difficulty filter
+    setLoadingProblems(true);
+    setCodingProblems([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    
+    // Use the helper function with the current difficulty
+    setTimeout(() => {
+      fetchWithDifficulty(difficulty, 1);
+    }, 50);
+  }
+
+  // Helper function to fetch data with specific difficulty and page
+  const fetchWithDifficulty = (difficultyValue: string, page: number) => {
+    console.log(`Starting fetchWithDifficulty: difficulty=${difficultyValue}, page=${page}, selected tags: ${selectedTags.length}`);
+    
+    // Prepare variables for GraphQL query based on selected filters
+    const variables: any = {
+      page: page,
+      limit: QUESTIONS_PER_PAGE
+    };
+    
+    // Add search filter if exists
+    if (searchQuery.trim()) {
+      variables.search = searchQuery;
+    }
+    
+    // Add selected tags filter
+    if (selectedTags.length > 0) {
+      // We need to find tag IDs from names
+      const tagIds = allTags
+        .filter(tag => selectedTags.includes(tag.name))
+        .map(tag => tag.id);
+      
+      if (tagIds.length > 0) {
+        variables.tagIds = tagIds;
+      }
+    }
+    
+    // Add difficulty filter only if not "All"
+    if (difficultyValue !== "All") {
+      // Map UI difficulty values to enum values safely
+      let difficultyEnum: string;
+      switch(difficultyValue) {
+        case "Easy":
+          difficultyEnum = "EASY";
+          break;
+        case "Medium":
+          difficultyEnum = "MEDIUM";
+          break;
+        case "Hard":
+          difficultyEnum = "HARD";
+          break;
+        default:
+          // Skip invalid difficulty values
+          difficultyEnum = "";
+      }
+      
+      if (difficultyEnum) {
+        variables.difficulty = difficultyEnum;
+      }
+    } else {
+      // When "All" is selected, log that we're intentionally not using a difficulty filter
+      console.log("'All' difficulty selected - not applying any difficulty filter");
+    }
+    
+    // Log the query for debugging
+    console.log(`Fetching page ${page} with difficulty "${difficultyValue}":`, JSON.stringify(variables, null, 2));
+    
+    // Explicitly call Apollo client for reliable data fetching
+    return apolloClient.query({
+      query: GET_NEXPRACTICE_DATA,
+      variables,
+      fetchPolicy: 'network-only' // Don't use cache for this
+    }).then(({ data }) => {
+      // Process the results
+      if (data?.questions?.questions) {
+        const newProblems = data.questions.questions.map((question: any) => ({
+          id: question.id,
+          name: question.name,
+          questionId: question.id,
+          difficulty: question.codingQuestion?.difficulty || "MEDIUM",
+          status: question.status,
+          tags: question.codingQuestion?.tags || [],
+          questionText: question.codingQuestion?.questionText || '',
+          solvedByCount: question.solvedByCount || 0,
+          accuracy: question.accuracy || 0,
+          folder: question.folder
+        }));
+        
+        const totalCount = data.questions.totalCount || 0;
+        
+        console.log(`Fetched ${newProblems.length} problems. Total count: ${totalCount}. Current page: ${page}`);
+        
+        // If we're on page 1, replace problems, otherwise append
+        if (page === 1) {
+          setCodingProblems(newProblems);
+        } else {
+          setCodingProblems(prev => [...prev, ...newProblems]);
+        }
+        
+        // Update total and check if we have more
+        setTotalProblems(totalCount);
+        
+        // More precise check if there are more items
+        const hasMoreItems = newProblems.length === QUESTIONS_PER_PAGE && 
+                          (page * QUESTIONS_PER_PAGE) < totalCount;
+                          
+        console.log(`Setting hasMore to ${hasMoreItems}. Current items: ${(page * QUESTIONS_PER_PAGE)}, Total: ${totalCount}`);
+        setHasMore(hasMoreItems);
+        setLoadingProblems(false);
+        
+        // Also process tags data if page 1
+        if (page === 1 && data.tags) {
+          console.log("Setting allTags from data");
+          setAllTags(data.tags);
+          setTagsLoading(false);
+        }
+        
+        // Return true if we successfully loaded data
+        return true;
+      }
+      
+      console.warn("No questions data in response");
+      setLoadingProblems(false);
+      return false;
+    }).catch(error => {
+      console.error(`Error fetching with difficulty "${difficultyValue}":`, error);
+      setProblemsError("Error loading problems");
+      setLoadingProblems(false);
+      return false;
+    });
   }
 
   // Get a random problem
@@ -803,7 +1015,7 @@ export default function NexPractice() {
                     <defs>
                       <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
                         <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
-                      </pattern>
+                    </pattern>
                       <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
                         <rect width="80" height="80" fill="url(#smallGrid)" />
                         <path d="M 80 0 L 0 0 0 80" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.5" />
@@ -812,12 +1024,12 @@ export default function NexPractice() {
                     <rect width="100%" height="100%" fill="url(#grid)" />
                   </svg>
                 </div>
-                
+
                 {/* Decorative elements */}
                 <div className="absolute top-[10%] left-[5%] w-24 h-24 rounded-full bg-gradient-to-br from-blue-200/20 to-purple-300/20 dark:from-blue-500/10 dark:to-purple-600/10 blur-2xl"></div>
                 <div className="absolute bottom-[15%] right-[10%] w-32 h-32 rounded-full bg-gradient-to-br from-pink-200/20 to-purple-300/20 dark:from-pink-500/10 dark:to-purple-600/10 blur-2xl"></div>
                 <div className="absolute top-[40%] right-[20%] w-16 h-16 rounded-full bg-gradient-to-br from-indigo-200/20 to-blue-300/20 dark:from-indigo-500/10 dark:to-blue-600/10 blur-xl"></div>
-              </div>
+                </div>
 
               <div className="relative px-6 py-10 md:py-12">
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
@@ -829,7 +1041,7 @@ export default function NexPractice() {
                         <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-500 rounded-xl transform -rotate-3 opacity-80"></div>
                         <div className="relative z-10 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-lg shadow-inner">
                           <Code className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                        </div>
+                </div>
                       </div>
                       
                       {/* Distinctive typography with gradient line */}
@@ -843,7 +1055,7 @@ export default function NexPractice() {
                     
                     <p className="text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
                       Master coding through structured practice in our <span className="font-semibold text-indigo-700 dark:text-indigo-300">uniquely personalized</span> learning environment. Solve, track, and excel with NexAcademy's exclusive approach.
-                    </p>
+                      </p>
                     
                     {/* Distinctive call-to-action buttons */}
                     <div className="flex flex-wrap gap-4 mt-6">
@@ -853,21 +1065,21 @@ export default function NexPractice() {
                           <Zap className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-12" />
                           <span className="font-medium">Daily Challenge</span>
                         </div>
-                      </Button>
+                        </Button>
                       
-                      <Button
-                        variant="outline"
+                        <Button
+                          variant="outline"
                         className="relative overflow-hidden border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 gap-2 shadow-sm px-6 py-6 group"
-                        onClick={getRandomProblem}
-                      >
+                          onClick={getRandomProblem}
+                        >
                         <div className="absolute inset-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.1),transparent_65%)] dark:bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.2),transparent_65%)]"></div>
                         <div className="relative flex items-center">
                           <Shuffle className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-180" />
                           <span className="font-medium">Random Problem</span>
                         </div>
-                      </Button>
-                    </div>
-                  </div>
+                        </Button>
+              </div>
+              </div>
 
                   {/* Unique stats visualization with 3D-like cards */}
                   <div className="relative grid grid-cols-2 gap-3 p-3 bg-white/70 dark:bg-slate-900/60 rounded-xl backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-xl">
@@ -880,7 +1092,7 @@ export default function NexPractice() {
                       <span className="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full font-medium">
                         Top 5%
                       </span>
-                    </div>
+                </div>
                     
                     <StatCard 
                       label="Solved" 
@@ -917,10 +1129,10 @@ export default function NexPractice() {
                       borderColor="border-amber-200 dark:border-amber-700/50"
                       icon={<Trophy className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
                     />
-                  </div>
                 </div>
               </div>
-            </div>
+                </div>
+              </div>
 
             {/* New: Learning Progress Path Animation */}
             <Card className="border-none rounded-xl shadow-md overflow-hidden">
@@ -940,22 +1152,22 @@ export default function NexPractice() {
                     <div className="text-xs text-indigo-600 dark:text-indigo-400 mb-1">Current Level</div>
                     <div className="text-xl font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
                       <Star className="w-4 h-4 text-indigo-500" /> Intermediate
-                    </div>
-                  </div>
+                </div>
+                </div>
                   
                   <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4 border border-purple-100 dark:border-purple-800/50">
                     <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">Next Milestone</div>
                     <div className="text-xl font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500" /> 75 Problems
-                    </div>
-                  </div>
+              </div>
+              </div>
                   
                   <div className="rounded-lg bg-pink-50 dark:bg-pink-900/20 p-4 border border-pink-100 dark:border-pink-800/50 col-span-2 md:col-span-1">
                     <div className="text-xs text-pink-600 dark:text-pink-400 mb-1">Recommended Focus</div>
                     <div className="text-xl font-semibold text-pink-800 dark:text-pink-300 flex items-center gap-2">
                       <BarChart2 className="w-4 h-4 text-pink-500" /> Dynamic Programming
-                    </div>
-                  </div>
+              </div>
+        </div>
                 </div>
               </CardContent>
             </Card>
@@ -966,54 +1178,55 @@ export default function NexPractice() {
               <div className="flex-1 space-y-6 lg:max-w-[calc(100%-320px)]">
                 {/* Search and filter section - more refined appearance */}
                 <Card className="border-none rounded-xl shadow-md overflow-hidden">
-                  <CardHeader className="pb-3 bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-900/40 dark:to-slate-800/40 backdrop-blur-sm">
+                  <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-950/40 dark:to-purple-950/40 backdrop-blur-sm">
                     <CardTitle className="text-xl flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                      <Filter className="w-5 h-5" /> Problem Filters
+                      <Filter className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> 
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">Problem Filters</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-5 p-6">
+                  <CardContent className="space-y-5 p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-900/50">
                     <div className="flex flex-col sm:flex-row gap-4">
                       <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                         <Input
                           type="search"
                           placeholder="Search problems..."
-                          className="pl-9 border-muted-foreground/20 bg-background/50"
+                          className="pl-9 border-indigo-200 dark:border-indigo-800/50 bg-white/80 dark:bg-slate-900/50 focus-visible:ring-indigo-500 shadow-sm"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
+                  </div>
+                      <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                  <Button 
                           variant={difficulty === "All" ? "default" : "outline"}
-                          onClick={() => setDifficulty("All")}
-                          className="flex-1 sm:flex-none bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
+                          onClick={() => setDifficultyAndReload("All")}
+                          className="flex-1 sm:flex-none bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all"
                         >
                           All
-                        </Button>
-                        <Button 
+                  </Button>
+                      <Button 
                           variant={difficulty === "Easy" ? "default" : "outline"}
-                          onClick={() => setDifficulty("Easy")}
-                          className={`flex-1 sm:flex-none ${
-                            difficulty === "Easy" ? "bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/50 dark:to-green-800/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800" : "text-green-600 border-green-200 dark:border-green-900/50"
+                          onClick={() => setDifficultyAndReload("Easy")}
+                          className={`flex-1 sm:flex-none transition-all hover:shadow-md ${
+                            difficulty === "Easy" ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white border-0" : "text-green-600 dark:text-green-400 border-green-200 dark:border-green-900/50 hover:border-green-400 hover:text-green-700"
                           }`}
                         >
                           Easy
-                        </Button>
-                        <Button
+                      </Button>
+                      <Button
                           variant={difficulty === "Medium" ? "default" : "outline"}
-                          onClick={() => setDifficulty("Medium")}
-                          className={`flex-1 sm:flex-none ${
-                            difficulty === "Medium" ? "bg-gradient-to-r from-yellow-100 to-yellow-50 dark:from-yellow-900/50 dark:to-yellow-800/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800" : "text-yellow-600 border-yellow-200 dark:border-yellow-900/50"
+                          onClick={() => setDifficultyAndReload("Medium")}
+                          className={`flex-1 sm:flex-none transition-all hover:shadow-md ${
+                            difficulty === "Medium" ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-white border-0" : "text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50 hover:border-amber-400 hover:text-amber-700"
                           }`}
                         >
                           Medium
-                        </Button>
+                      </Button>
                         <Button 
                           variant={difficulty === "Hard" ? "default" : "outline"}
-                          onClick={() => setDifficulty("Hard")}
-                          className={`flex-1 sm:flex-none ${
-                            difficulty === "Hard" ? "bg-gradient-to-r from-red-100 to-red-50 dark:from-red-900/50 dark:to-red-800/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800" : "text-red-600 border-red-200 dark:border-red-900/50"
+                          onClick={() => setDifficultyAndReload("Hard")}
+                          className={`flex-1 sm:flex-none transition-all hover:shadow-md ${
+                            difficulty === "Hard" ? "bg-gradient-to-r from-red-400 to-rose-500 text-white border-0" : "text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 hover:border-red-400 hover:text-red-700"
                           }`}
                         >
                           Hard
@@ -1021,40 +1234,132 @@ export default function NexPractice() {
                       </div>
                     </div>
                     
-                    <div>
-                      <h3 className="text-sm font-medium mb-3 flex items-center gap-1 text-slate-700 dark:text-slate-300">
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400">
                         <Tag className="w-4 h-4" /> Tags
                       </h3>
-                      <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                            onClick={() => setExpandedTags(!expandedTags)}
+                          >
+                            {expandedTags ? (
+                              <>
+                                <ChevronUp className="h-3 w-3 mr-1" />
+                                Collapse
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3 w-3 mr-1" />
+                                Show More
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                            onClick={() => setShowAllTags(!showAllTags)}
+                          >
+                            {showHideAllTagsButtonText}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="relative">
+                        {/* Decorative elements */}
+                        <div className="absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br from-indigo-200/20 to-purple-300/10 dark:from-indigo-500/5 dark:to-purple-600/5 rounded-full blur-xl"></div>
+                        <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-purple-200/20 to-pink-300/10 dark:from-purple-500/5 dark:to-pink-600/5 rounded-full blur-lg"></div>
+                        
+                        <div className={`flex flex-wrap gap-2 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-300 dark:scrollbar-thumb-indigo-700 scrollbar-track-transparent p-3 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-indigo-100 dark:border-indigo-900/50 shadow-inner relative transition-all duration-300 ${expandedTags ? 'max-h-[180px]' : 'max-h-[72px]'}`}>
                         {tagsLoading ? (
                           <TagLoader />
                         ) : tagsError ? (
                           <div className="text-red-500">{tagsError}</div>
                         ) : (
                           <>
-                            {allTags.map((tag) => (
-                              <Badge
-                                key={tag.id}
+                              {/* Show only popular or most used tags when collapsed */}
+                              {[...allTags]
+                                // Sort by frequency or popularity
+                                .sort((a, b) => (b._count?.codingQuestions || 0) - (a._count?.codingQuestions || 0))
+                                // Show only first 8 tags when collapsed
+                                .slice(0, expandedTags ? undefined : 8)
+                                .map((tag) => (
+                            <Badge
+                              key={tag.id}
                                 variant={selectedTags.includes(tag.name) ? "default" : "outline"}
-                                className={`cursor-pointer hover:bg-muted transition-colors flex items-center gap-1 whitespace-nowrap ${
-                                  selectedTags.includes(tag.name) 
-                                    ? "bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 text-indigo-800 dark:text-indigo-200" 
-                                    : "hover:border-indigo-300 dark:hover:border-indigo-700"
+                                  className={`cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-300 flex items-center gap-1 whitespace-nowrap select-none ${
+                                    selectedTags.includes(tag.name) 
+                                      ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white dark:from-indigo-600 dark:to-purple-600 dark:text-white hover:shadow-md transform hover:-translate-y-0.5" 
+                                      : "hover:border-indigo-300 dark:hover:border-indigo-700 group"
                                 }`}
                                 onClick={() => toggleTag(tag.name)}
                               >
                                 {tag.name}
-                                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-indigo-200/70 dark:bg-indigo-800/50 text-xs font-semibold text-indigo-700 dark:text-indigo-200">
+                                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold transition-colors ${
+                                    selectedTags.includes(tag.name)
+                                      ? "bg-white/20 text-white"
+                                      : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800"
+                                  }`}>
                                   {tag._count?.codingQuestions ?? 0}
-                                </span>
-                              </Badge>
+                              </span>
+                            </Badge>
                             ))}
-                          </>
-                        )}
+                              
+                              {/* "More tags" indicator badge when collapsed */}
+                              {!expandedTags && allTags.length > 8 && (
+                                <Badge
+                                  variant="outline"
+                                  onClick={() => setExpandedTags(true)}
+                                  className="cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+                                >
+                                  +{allTags.length - 8} more tags...
+                                </Badge>
+                    )}
+                  </>
+                )}
                       </div>
+                      </div>
+                      
+                      {/* Applied filters section */}
+                      {selectedTags.length > 0 && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2 p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30">
+                          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Applied Filters:</span>
+                          {selectedTags.map(tag => (
+                            <div key={tag} className="flex items-center bg-white dark:bg-slate-800 px-2 py-1 rounded-md text-xs border border-indigo-200 dark:border-indigo-800">
+                              {tag}
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-4 w-4 ml-1 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                                onClick={() => toggleTag(tag)}
+                              >
+                                <X className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="text-xs h-6 px-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Force immediate clear
+                              setSelectedTags([]);
+                              clearAllTags();
+                            }}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+              </CardContent>
+            </Card>
 
                 {/* Problem list with improved aesthetics */}
                 <Card className="border-none rounded-xl shadow-md overflow-hidden">
@@ -1079,25 +1384,25 @@ export default function NexPractice() {
                           </TabsTrigger>
                         </TabsList>
                       </Tabs>
-                    </div>
+                </div>
                   </CardHeader>
                   
                   <CardContent className="p-0">
                     <div className="rounded-b-xl overflow-hidden bg-card" ref={tableRef}>
                       <div className="overflow-x-auto">
-                        <Table>
+                      <Table>
                           <TableHeader className="bg-slate-50/80 dark:bg-slate-900/40 backdrop-blur-sm">
                             <TableRow className="hover:bg-muted/20 border-b border-slate-200/50 dark:border-slate-800/50">
                               <TableHead className="w-[60%] py-4">
                                 <div className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
                                   Problem <ArrowUpDown className="w-3 h-3 ml-1 opacity-70" />
-                                </div>
-                              </TableHead>
+                  </div>
+                            </TableHead>
                               <TableHead className="w-[15%]">
                                 <div className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
                                   Difficulty
-                                </div>
-                              </TableHead>
+                </div>
+                            </TableHead>
                               <TableHead className="w-[15%] text-center hidden md:table-cell">
                                 <div className="flex items-center justify-center gap-1 font-medium text-slate-700 dark:text-slate-300">
                                   Solved By
@@ -1108,73 +1413,73 @@ export default function NexPractice() {
                                   Accuracy
                                 </div>
                               </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loadingProblems ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                <ProblemLoader />
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {loadingProblems && codingProblems.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                  <ProblemLoader />
-                                </TableCell>
-                              </TableRow>
-                            ) : problemsError ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center text-red-500">{problemsError}</TableCell>
-                              </TableRow>
+                          ) : problemsError ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center text-red-500">{problemsError}</TableCell>
+                            </TableRow>
                             ) : codingProblems.length > 0 ? (
-                              <>
+                            <>
                                 {codingProblems.map((problem, index) => {
                                   // Calculate the actual problem number based on pagination
                                   const problemNumber = index + 1;
                                   
-                                  return (
-                                    <TableRow 
-                                      key={problem.id}
+                            return (
+                              <TableRow 
+                                    key={`${problem.id}-${index}`}
                                       className={`hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors border-b border-slate-200/40 dark:border-slate-800/40`}
-                                    >
+                                  >
                                       <TableCell className="py-4">
-                                        <div>
+                                      <div>
                                           <div className="flex items-center gap-3">
                                             <span className="flex items-center justify-center min-w-[28px] h-7 bg-indigo-50 dark:bg-indigo-900/30 rounded-full text-indigo-700 dark:text-indigo-300 text-sm font-medium">
                                               {problemNumber}
                                             </span>
                                             <div className="flex-1 min-w-0">
-                                              {problem.questionId ? (
-                                                <Link
-                                                  href={`/nexpractice/problem/${problem.questionId}`}
+                                          {problem.questionId ? (
+                                            <Link
+                                              href={`/nexpractice/problem/${problem.questionId}`}
                                                   className="font-medium text-indigo-700 dark:text-indigo-300 hover:underline line-clamp-1"
-                                                >
-                                                  {problem.question?.name || problem.name}
-                                                </Link>
-                                              ) : (
-                                                <span className="text-red-500 flex items-center gap-1" title="Missing questionId">
-                                                  ⚠️ {problem.question?.name || problem.name}
-                                                </span>
-                                              )}
+                                            >
+                                              {problem.question?.name || problem.name}
+                                            </Link>
+                                          ) : (
+                                            <span className="text-red-500 flex items-center gap-1" title="Missing questionId">
+                                              ⚠️ {problem.question?.name || problem.name}
+                                            </span>
+                                    )}
                                               
                                               <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
                                                 {problem.tags?.slice(0, 3).map((tag: any, idx: number) => (
-                                                  <Badge 
-                                                    key={tag.id || idx}
-                                                    variant="outline"
+                                      <Badge 
+                                            key={tag.id || idx}
+                                        variant="outline"
                                                     className="mr-1.5 px-1.5 py-0 text-[10px] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                                                  >
-                                                    {tag.name}
-                                                  </Badge>
-                                                ))}
+                                          >
+                                        {tag.name}
+                                      </Badge>
+                                    ))}
                                                 {problem.tags && problem.tags.length > 3 && (
-                                                  <Badge 
-                                                    variant="outline"
+                                            <Badge 
+                                              variant="outline"
                                                     className="px-1.5 py-0 text-[10px] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                                                  >
+                                            >
                                                     +{problem.tags.length - 3}
-                                                  </Badge>
-                                                )}
+                                            </Badge>
+                                    )}
                                               </div>
                                             </div>
                                           </div>
-                                        </div>
-                                      </TableCell>
+                                  </div>
+                                </TableCell>
                                       <TableCell>
                                         <Badge
                                           className={
@@ -1192,19 +1497,19 @@ export default function NexPractice() {
                                       </TableCell>
                                       <TableCell className="hidden md:table-cell text-center">
                                         <span className="inline-flex items-center justify-center font-medium text-slate-700 dark:text-slate-300">
-                                          {problem.solvedByCount ?? 0}
+                                      {problem.solvedByCount ?? 0}
                                         </span>
-                                      </TableCell>
-                                      <TableCell className="text-center">
+                                </TableCell>
+                                    <TableCell className="text-center">
                                         <div className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 text-sm font-medium">
-                                          {problem.accuracy != null ? `${problem.accuracy}%` : "—"}
+                                      {problem.accuracy != null ? `${problem.accuracy}%` : "—"}
                                         </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
+                                </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                                 {/* Loading indicator */}
-                                <TableRow id="loading-trigger">
+                                <TableRow id="loading-trigger" className="h-24">
                                   <TableCell colSpan={5} className="p-4 text-center">
                                     {isDataLoading ? (
                                       <div className="flex justify-center items-center py-4">
@@ -1219,30 +1524,38 @@ export default function NexPractice() {
                                         </div>
                                       </div>
                                     ) : hasMore ? (
-                                      <div className="py-2 text-sm text-slate-500 dark:text-slate-400">
-                                        Scroll for more problems
+                                      <div className="py-4 text-sm text-slate-500 dark:text-slate-400">
+                                        <button 
+                                          className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors"
+                                          onClick={() => loadMoreData()}
+                                        >
+                                          Load more problems (showing {codingProblems.length} of {Math.max(totalProblems, codingProblems.length)})
+                                        </button>
                                       </div>
                                     ) : (
                                       <div className="py-2 text-sm text-slate-500 dark:text-slate-400">
-                                        You've reached the end
-                                      </div>
+                                        {codingProblems.length >= totalProblems ? 
+                                          `You've reached the end (${codingProblems.length} problems)` :
+                                          `You've reached the end (${codingProblems.length} of ${totalProblems} problems)`
+                                        }
+                                    </div>
                                     )}
-                                  </TableCell>
-                                </TableRow>
-                              </>
-                            ) : (
-                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                    <Search className="w-8 h-8 mb-2 opacity-30" />
-                                    <p>No problems match your filters.</p>
-                                    <p className="text-sm">Try adjusting your search criteria.</p>
-                                  </div>
                                 </TableCell>
                               </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
+                            </>
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                  <Search className="w-8 h-8 mb-2 opacity-30" />
+                                  <p>No problems match your filters.</p>
+                                  <p className="text-sm">Try adjusting your search criteria.</p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                       </div>
                     </div>
                   </CardContent>
@@ -1323,28 +1636,28 @@ export default function NexPractice() {
                       <div className="bg-gradient-to-br from-green-50 to-green-100/80 dark:from-green-950/20 dark:to-green-900/30 p-3 rounded-lg text-center border border-green-200/70 dark:border-green-900/30 shadow-sm">
                         <div className="text-2xl font-bold text-green-700 dark:text-green-400">
                           {performanceStats.easyCompleted}
-                        </div>
+                    </div>
                         <div className="text-xs text-green-600 dark:text-green-500">Easy</div>
-                      </div>
+                    </div>
                       <div className="bg-gradient-to-br from-yellow-50 to-yellow-100/80 dark:from-yellow-950/20 dark:to-yellow-900/30 p-3 rounded-lg text-center border border-yellow-200/70 dark:border-yellow-900/30 shadow-sm">
                         <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">
                           {performanceStats.mediumCompleted}
-                        </div>
+                    </div>
                         <div className="text-xs text-yellow-600 dark:text-yellow-500">Medium</div>
                       </div>
                       <div className="bg-gradient-to-br from-red-50 to-red-100/80 dark:from-red-950/20 dark:to-red-900/30 p-3 rounded-lg text-center border border-red-200/70 dark:border-red-900/30 shadow-sm">
                         <div className="text-2xl font-bold text-red-700 dark:text-red-400">
                           {performanceStats.hardCompleted}
-                        </div>
+                    </div>
                         <div className="text-xs text-red-600 dark:text-red-500">Hard</div>
-                      </div>
+                  </div>
                       <div className="bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/20 dark:to-blue-900/30 p-3 rounded-lg text-center border border-blue-200/70 dark:border-blue-900/30 shadow-sm">
                         <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
                           {performanceStats.averageTime}
-                        </div>
+                  </div>
                         <div className="text-xs text-blue-600 dark:text-blue-500">Avg. Time</div>
                       </div>
-                    </div>
+            </div>
 
                     <div className="pt-1">
                       <h3 className="text-sm font-medium mb-3 flex items-center gap-1 text-slate-700 dark:text-slate-300">
@@ -1354,7 +1667,7 @@ export default function NexPractice() {
                         <div>
                           <div className="text-lg font-medium text-amber-800 dark:text-amber-300">#{performanceStats.ranking}</div>
                           <div className="text-xs text-amber-700/80 dark:text-amber-400/80">of {performanceStats.totalStudents} students</div>
-                        </div>
+                </div>
                         <div className="h-12 w-12 rounded-full bg-gradient-to-br from-amber-200 to-amber-300 dark:from-amber-800/30 dark:to-amber-700/40 flex items-center justify-center shadow-sm">
                           <Trophy className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                         </div>
@@ -1368,48 +1681,48 @@ export default function NexPractice() {
                       </h3>
                       <div className="space-y-2.5">
                         <div className="flex justify-between items-center p-2.5 rounded-lg bg-gradient-to-r from-green-50 to-green-100/70 dark:from-green-950/20 dark:to-green-900/30 border border-green-200/70 dark:border-green-900/30 shadow-sm">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
                             <span className="text-sm text-green-800 dark:text-green-300">Solve 5 easy problems</span>
-                          </div>
+                      </div>
                           <Badge variant="outline" className="bg-green-200/50 dark:bg-green-900/50 border-green-300/50 dark:border-green-700/50 text-green-800 dark:text-green-300">
-                            5/5
-                          </Badge>
-                        </div>
+                          5/5
+                      </Badge>
+                    </div>
                         <div className="flex justify-between items-center p-2.5 rounded-lg bg-gradient-to-r from-green-50 to-green-100/70 dark:from-green-950/20 dark:to-green-900/30 border border-green-200/70 dark:border-green-900/30 shadow-sm">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
                             <span className="text-sm text-green-800 dark:text-green-300">Solve 3 medium problems</span>
-                          </div>
+                </div>
                           <Badge variant="outline" className="bg-green-200/50 dark:bg-green-900/50 border-green-300/50 dark:border-green-700/50 text-green-800 dark:text-green-300">
-                            3/3
-                          </Badge>
-                        </div>
+                          3/3
+                        </Badge>
+                      </div>
                         <div className="flex justify-between items-center p-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800/50 shadow-sm">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <div className="w-4 h-4 rounded-full border-2 border-slate-400 dark:border-slate-600" />
                             <span className="text-sm text-slate-700 dark:text-slate-300">Solve 1 hard problem</span>
-                          </div>
+                        </div>
                           <Badge variant="outline" className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300">
                             0/1
                           </Badge>
-                        </div>
+                      </div>
                         <div className="flex justify-between items-center p-2.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100/70 dark:from-blue-950/20 dark:to-blue-900/30 border border-blue-200/70 dark:border-blue-900/30 shadow-sm">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <div className="w-4 h-4 rounded-full border-2 border-blue-500 dark:border-blue-600" />
                             <span className="text-sm text-blue-800 dark:text-blue-300">Complete 7 day streak</span>
-                          </div>
-                          <Badge variant="outline" className="bg-blue-100/50 dark:bg-blue-900/50 border-blue-300/50 dark:border-blue-700/50 text-blue-800 dark:text-blue-300">
-                            5/7
-                          </Badge>
                         </div>
+                          <Badge variant="outline" className="bg-blue-100/50 dark:bg-blue-900/50 border-blue-300/50 dark:border-blue-700/50 text-blue-800 dark:text-blue-300">
+                          5/7
+                        </Badge>
+                      </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
+        </div>
+      </div>
         </main>
       </div>
     </div>
