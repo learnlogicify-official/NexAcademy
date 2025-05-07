@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +15,9 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { useJudge0Languages } from '../hooks/useJudge0Languages';
+import { useJudge0Languages, Judge0Language } from '../hooks/useJudge0Languages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface EditCodingQuestionModalProps {
   isOpen: boolean;
@@ -72,25 +74,92 @@ export function EditCodingQuestionModal({
   // SelectTrigger modern style
   const selectTriggerClass = "rounded-xl shadow-sm border border-primary/20 focus:ring-2 focus:ring-primary/40 bg-gradient-to-br from-background/80 to-muted/40 px-4 py-2 text-base font-medium transition-all duration-200 hover:border-primary/40 focus:border-primary/60";
 
-  // Get correct programming language for code editor
-  const getEditorLanguage = (langId: string): string => {
-    // Convert to lowercase for case-insensitive matching
-    const lowercaseLangId = langId.toLowerCase();
-    
-    // Map our language IDs to editor-supported language modes
-    switch(lowercaseLangId) {
-      case 'python': return 'python';
-      case 'javascript': return 'javascript';
-      case 'java': return 'java';
-      case 'cpp': return 'cpp';
-      case 'csharp': return 'csharp';
-      case 'php': return 'php';
-      case 'ruby': return 'ruby';
-      case 'swift': return 'swift';
-      case 'go': return 'go';
-      case 'rust': return 'rust';
-      default: return 'plaintext';
+  // Get correct programming language for code editor using Judge0 API data
+  function getEditorLanguage(langId: string, languages: Judge0Language[]): string {
+    const lang = languages.find(l => String(l.id) === String(langId));
+    if (!lang) return 'plaintext';
+
+    // Use extension if available
+    if (lang.extensions && lang.extensions.length > 0) {
+      const ext = lang.extensions[0];
+      if (ext === '.py') return 'python';
+      if (ext === '.js') return 'javascript';
+      if (ext === '.cpp') return 'cpp';
+      if (ext === '.java') return 'java';
+      if (ext === '.cs') return 'csharp';
+      if (ext === '.php') return 'php';
+      if (ext === '.go') return 'go';
+      if (ext === '.rs') return 'rust';
+      if (ext === '.swift') return 'swift';
+      if (ext === '.ts') return 'typescript';
+      if (ext === '.rb') return 'ruby';
+      if (ext === '.c') return 'c';
+      if (ext === '.m') return 'objective-c';
+      if (ext === '.kt') return 'kotlin';
+      if (ext === '.r') return 'r';
+      if (ext === '.scala') return 'scala';
+      if (ext === '.sql') return 'sql';
+      if (ext === '.sh') return 'bash';
+      // ...add more as needed
     }
+
+    // Fallback: use name
+    const name = lang.name.toLowerCase();
+    if (name.includes('python')) return 'python';
+    if (name.includes('javascript')) return 'javascript';
+    if (name.includes('typescript')) return 'typescript';
+    if (name.includes('java') && !name.includes('javascript')) return 'java';
+    if (name.includes('c++') || name.includes('cpp')) return 'cpp';
+    if (name.includes('c#') || name.includes('csharp')) return 'csharp';
+    if (name.includes('php')) return 'php';
+    if (name.includes('go')) return 'go';
+    if (name.includes('rust')) return 'rust';
+    if (name.includes('swift')) return 'swift';
+    if (name.includes('ruby')) return 'ruby';
+    if (name.includes('objective-c')) return 'objective-c';
+    if (name.includes('kotlin')) return 'kotlin';
+    if (name.includes('perl')) return 'perl';
+    if (name.includes('r ')) return 'r';
+    if (name.includes('scala')) return 'scala';
+    if (name.includes('sql')) return 'sql';
+    if (name.includes('bash') || name.includes('shell')) return 'bash';
+    // ...add more as needed
+
+    return 'plaintext';
+    }
+
+  // Get proper language name from ID
+  const getLanguageName = (langId: string) => {
+    const language = languages.find(l => String(l.id) === langId);
+    if (language && language.name) {
+      return language.name; // This will now include the version from GraphQL
+    }
+    
+    // Try to handle numeric Judge0 IDs with hardcoded fallbacks in case the API data isn't loaded yet
+    if (!isNaN(Number(langId))) {
+      const id = Number(langId);
+      switch(id) {
+        case 4: return "Node.js";
+        case 10: return "Python 2";
+        case 11: return "Python 3";
+        case 26: return "Python 3.6";
+        case 29: return "Java";
+        case 54: return "C++";
+        case 55: return "Java";
+        case 56: return "PHP";
+        case 59: return "C";
+        case 60: return "C++";
+        case 71: return "Python 3.8";
+        case 87: return "Ruby";
+        case 88: return "Rust";
+        case 95: return "Go";
+        case 106: return "C#";
+        case 107: return "Swift";
+      }
+    }
+    
+    // Default fallback to ID
+    return langId;
   };
 
   // Initialize form data from provided initial data
@@ -237,10 +306,6 @@ export function EditCodingQuestionModal({
     // Set the first language as default and active
     setDefaultLanguage(allLangIds[0] || '');
     setActiveLanguageTab(allLangIds[0] || '');
-  };
-
-  const getLanguageName = (langId: string) => {
-    return languages.find(l => String(l.id) === langId)?.name || langId;
   };
 
   const getLanguageOption = (langId: string) => {
@@ -496,23 +561,9 @@ export function EditCodingQuestionModal({
               >
             <RichTextEditor
               value={formData.questionText}
-              onChange={(value) => setFormData(prev => ({ ...prev, questionText: value }))}
+              onChange={(value: string) => setFormData(prev => ({ ...prev, questionText: value }))}
               placeholder="Enter question text/description..."
                   className="min-h-[200px]"
-                  editorProps={{
-                    menubar: true,
-                    plugins: [
-                      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor',
-                      'searchreplace', 'visualblocks', 'code',
-                      'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-                    ],
-                    toolbar:
-                      'undo redo | formatselect | bold italic backcolor | \
-                      alignleft aligncenter alignright alignjustify | \
-                      bullist numlist outdent indent | removeformat | help',
-                    z_index: 99999,
-                  }}
-                  onInit={(editor) => { editorRef.current = editor; }}
             />
           </div>
             </div>
@@ -588,6 +639,116 @@ export function EditCodingQuestionModal({
             </div>
 
             {/* Languages section - already styled */}
+            <div className="mt-8 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-md p-5">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
+                  <Code className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <div className="text-lg font-semibold tracking-wide text-foreground/90">Programming Languages</div>
+                  <p className="text-sm text-muted-foreground">Select languages available for this question</p>
+                </div>
+                <div className="ml-auto">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleAddAllLanguages}
+                    disabled={loading || languages.length === 0}
+                    className="h-9 text-xs"
+                  >
+                    {loading ? (
+                      <>Loading languages...</>
+                    ) : (
+                      <>
+                        <Plus className="h-3.5 w-3.5 mr-1.5" />
+                        Add All Languages
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Show selected languages as chips */}
+              {selectedLanguages.length > 0 ? (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selectedLanguages.map(langId => (
+                    <div 
+                      key={langId}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium",
+                        langId === defaultLanguage 
+                          ? "bg-primary/10 text-primary border border-primary/20" 
+                          : "bg-muted border border-muted-foreground/10"
+                      )}
+                    >
+                      {getLanguageName(langId)}
+                      
+                      <div className="flex items-center gap-1">
+                        {langId === defaultLanguage && (
+                          <div className="text-[10px] py-0 h-4 border border-primary/20 rounded px-1 text-primary/80">default</div>
+                        )}
+                        <X 
+                          className="h-3.5 w-3.5 cursor-pointer opacity-70 hover:opacity-100" 
+                          onClick={() => handleLanguageSelect(langId)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-center items-center h-20 border border-dashed rounded-md text-muted-foreground">
+                  No languages selected. Click "Add All Languages" or select individual languages below.
+                </div>
+              )}
+              
+              {/* Language selection and default language setting */}
+              <div className="flex flex-col space-y-4">
+                {!loading && languages.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {languages.slice(0, 12).map(lang => (
+                      <div
+                        key={lang.id}
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors",
+                          selectedLanguages.includes(String(lang.id))
+                            ? "bg-primary/5 text-primary" 
+                            : "hover:bg-muted"
+                        )}
+                        onClick={() => handleLanguageSelect(String(lang.id))}
+                      >
+                        <span className="truncate mr-2">{lang.name}</span>
+                        {selectedLanguages.includes(String(lang.id)) ? (
+                          <CheckCheck className="h-4 w-4 flex-shrink-0" />
+                        ) : (
+                          <Plus className="h-4 w-4 flex-shrink-0 opacity-50" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {selectedLanguages.length > 0 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <Label className="text-sm font-medium">Default Language:</Label>
+                    <Select
+                      value={defaultLanguage}
+                      onValueChange={handleSetDefaultLanguage}
+                      disabled={selectedLanguages.length === 0}
+                    >
+                      <SelectTrigger className="w-[240px] h-8">
+                        <SelectValue placeholder="Select default language" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedLanguages.map(langId => (
+                          <SelectItem key={langId} value={langId}>
+                            {getLanguageName(langId)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Test cases section styling */}
             <div className="mt-8 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-md p-5 ">

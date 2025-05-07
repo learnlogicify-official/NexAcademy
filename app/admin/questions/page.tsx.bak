@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -369,177 +369,79 @@ export default function AdminQuestionsPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [selectedDefaultLanguage, setSelectedDefaultLanguage] = useState<string>("");
+  // Remove the useJudge0Languages hook since we're fetching directly
+  // const { languages, loading, error } = useJudge0Languages();
+  
+  // Replace fallback languages with direct API fetching
+  // const [displayLanguages, setDisplayLanguages] = useState<any[]>([]);
+  // const [languagesLoading, setLanguagesLoading] = useState(true);
+  // const [languagesError, setLanguagesError] = useState<string | null>(null);
+  
+  // Fetch languages from Judge0 API directly
+  // useEffect(() => {
+  //   const fetchLanguages = async () => {
+  //     setLanguagesLoading(true);
+  //     try {
+  //       // Use your self-hosted Judge0 API
+  //       const response = await fetch('/api/judge0');
+  //       const data = await response.json();
+        
+  //       if (data.success && Array.isArray(data.data)) {
+  //         // Filter out any empty language IDs
+  //         console.log(data);
+  //         const validLanguages = data.data.filter((lang: any) => 
+  //           lang && lang.id && String(lang.id).trim() !== ""
+  //         );
+        
+  //         setDisplayLanguages(validLanguages);
+        
+  //         // Set default language if available
+  //         if (validLanguages.length > 0 && !selectedDefaultLanguage) {
+  //           setSelectedDefaultLanguage(String(validLanguages[0].id));
+  //         }
+        
+  //         setLanguagesError(null);
+  //       } else {
+  //         console.error('Failed to load Judge0 languages:', data);
+  //         setLanguagesError('Failed to load languages');
+  //       }
+  //     } catch (err) {
+  //       console.error('Error fetching Judge0 languages:', err);
+  //       setLanguagesError('Error connecting to Judge0 API');
+  //     } finally {
+  //       setLanguagesLoading(false);
+  //     }
+  //   };
+        
+  //   fetchLanguages();
+  // }, [selectedDefaultLanguage]);
+
   // Use the useJudge0Languages hook instead
-  const { languages: hookLanguages, loading: languagesLoading, error: languagesError } = useJudge0Languages();
-  
-  // Add a state for directly fetched Judge0 languages as a fallback
-  const [directLanguages, setDirectLanguages] = useState<any[]>([]);
-  const [isDirectFetching, setIsDirectFetching] = useState(false);
-  
-  // Create a derived state that combines languages from hook and direct fetch
-  const languages = useMemo(() => {
-    // Use hook languages if available
-    if (hookLanguages && hookLanguages.length > 0) {
-      return hookLanguages;
-    }
-    // Fall back to directly fetched languages
-    if (directLanguages.length > 0) {
-      return directLanguages;
-    }
-    // Return an empty array if neither is available
-    return [];
-  }, [hookLanguages, directLanguages]);
-  
-  // Add an effect to fetch languages directly if the hook fails
-  useEffect(() => {
-    // Only fetch directly if:
-    // 1. Hook languages are empty
-    // 2. We're not already fetching
-    // 3. We haven't attempted direct fetch before
-    if ((!hookLanguages || hookLanguages.length === 0) && !isDirectFetching && directLanguages.length === 0) {
-      const fetchLanguagesDirectly = async () => {
-        setIsDirectFetching(true);
-        try {
-          console.log('Fetching Judge0 languages directly');
-          const response = await fetch('/api/judge0');
-          const data = await response.json();
-          
-          if (data.success && Array.isArray(data.data)) {
-            console.log(`Fetched ${data.data.length} languages directly from Judge0 API`);
-            setDirectLanguages(data.data);
-          } else {
-            console.error('Failed to fetch languages directly', data);
-            // Add fallback languages if the API fails
-            setDirectLanguages([
-              { id: 71, name: "Python 3.8.1" },
-              { id: 63, name: "JavaScript (Node.js 12.14.0)" },
-              { id: 62, name: "Java (OpenJDK 13.0.1)" },
-              { id: 54, name: "C++ (GCC 9.2.0)" },
-              { id: 51, name: "C# (Mono 6.6.0.161)" },
-              { id: 68, name: "PHP (7.4.1)" },
-              { id: 60, name: "Go (1.13.5)" },
-              { id: 73, name: "Rust (1.40.0)" }
-            ]);
-          }
-        } catch (err) {
-          console.error('Error directly fetching Judge0 languages:', err);
-          // Set fallback languages
-          setDirectLanguages([
-            { id: 71, name: "Python 3.8.1" },
-            { id: 63, name: "JavaScript (Node.js 12.14.0)" },
-            { id: 62, name: "Java (OpenJDK 13.0.1)" },
-            { id: 54, name: "C++ (GCC 9.2.0)" },
-            { id: 51, name: "C# (Mono 6.6.0.161)" },
-            { id: 68, name: "PHP (7.4.1)" },
-            { id: 60, name: "Go (1.13.5)" },
-            { id: 73, name: "Rust (1.40.0)" }
-          ]);
-        } finally {
-          setIsDirectFetching(false);
-        }
-      };
-      
-      fetchLanguagesDirectly();
-    }
-  }, [hookLanguages, isDirectFetching, directLanguages.length]);
+  const { languages, loading: languagesLoading, error: languagesError } = useJudge0Languages();
 
-  // In the state declarations, add a new state to track if folders have been loaded
+  // Folders loaded state
   const [foldersLoaded, setFoldersLoaded] = useState(false);
+  // Add a loading state for folders
+  const [foldersLoading, setFoldersLoading] = useState(false);
 
-  // Add a new state to track if stats have been loaded
-  const [statsLoaded, setStatsLoaded] = useState(false);
-
-
-  // Add a function to fetch stats separately
-  const fetchStats = async (queryParams: any) => {
-    try {
-      // Make a lightweight GraphQL query for just the stats data
-      const statsResult = await questionService.getQuestionStats(queryParams);
-      
-      if (statsResult?.stats) {
-        const typeCount = statsResult.stats;
-        
-        // Calculate folder stats from the current page only
-        const byFolder = filteredQuestions.reduce((acc: Record<string, number>, q: Question) => {
-          const folderName = q.folder?.name || 'Uncategorized';
-          acc[folderName] = (acc[folderName] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        const newStats: Stats = {
-          total: statsResult.total || filteredQuestions.length,
-          published: typeCount.READY,
-          draft: typeCount.DRAFT,
-          multipleChoice: typeCount.MCQ,
-          coding: typeCount.CODING,
-          byFolder: byFolder,
-          ready: typeCount.READY
-        };
-        
-        setStats(newStats);
-      }
-      
-      // Mark stats as loaded
-      setStatsLoaded(true);
-      return true;
-    } catch (error) {
-      console.error('Error fetching question stats:', error);
-      // Return false to indicate failure
-      return false;
-    }
-  };
-
-  // Add a new useEffect specifically for initial folder loading
+  // Only fetch folders when the Folders tab is selected for the first time
   useEffect(() => {
-    // Fetch folders only once when the component mounts
-    fetchFolders();
-  }, []); // Empty dependency array means this runs only once on mount
+    if (activeTab === 'folders') {
+      if (!foldersLoaded) {
+        setFoldersLoading(true);
+        fetchFolders().finally(() => setFoldersLoading(false));
+        setFoldersLoaded(true);
+      }
+    } else {
+      // Reset foldersLoaded so that folders are re-fetched if user leaves and returns to the tab
+      setFoldersLoaded(false);
+    }
+  }, [activeTab, foldersLoaded]);
 
-  // Modify the existing useEffect to only fetch questions, not folders
+  // Fetch questions when filters or currentPage change
   useEffect(() => {
     fetchQuestions(filters, currentPage);
   }, [filters, currentPage]);
-
-  // Add a new function to handle tab changes
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    
-    // Only fetch folders when the folders tab is clicked and folders haven't been loaded yet
-    if (value === 'folders' && !foldersLoaded) {
-      fetchFolders().then(() => {
-        setFoldersLoaded(true);
-      });
-    }
-    
-    // Only fetch stats when the stats tab is clicked and stats haven't been loaded yet
-    if (value === 'stats' && !statsLoaded) {
-      // Use same query params as in fetchQuestions
-      const queryParams: any = {
-        page: currentPage,
-        limit: QUESTIONS_PER_PAGE
-      };
-      
-      if (filters.search) queryParams.search = filters.search;
-      
-      if (filters.subcategory !== 'all') {
-        queryParams.folderId = filters.subcategory;
-      } else if (filters.category !== 'all') {
-        queryParams.folderId = filters.category;
-      } else if (selectedFolder) {
-        queryParams.folderId = selectedFolder;
-      }
-      
-      if (filters.type !== 'all') queryParams.type = filters.type;
-      if (filters.status !== 'all') queryParams.status = filters.status;
-      if (filters.includeSubcategories) queryParams.includeSubcategories = true;
-      
-      fetchStats(queryParams).then((success) => {
-        if (success) {
-          setStatsLoaded(true);
-        }
-      });
-    }
-  };
 
   const fetchQuestions = async (currentFilters?: FilterState, page: number = 1) => {
     try {
@@ -583,18 +485,62 @@ export default function AdminQuestionsPage() {
       setTotalPages(Math.ceil(result.totalCount / QUESTIONS_PER_PAGE));
       setTotalQuestions(result.totalCount);
       
-      // Set pagination state
+      // Get the stats metadata without fetching all questions
+      // This assumes the GraphQL response includes counts for types and statuses
+      // If the API doesn't provide these counts, we would need to add them to the GraphQL schema
+      let typeCount = {
+        MCQ: 0,
+        CODING: 0,
+        READY: 0,
+        DRAFT: 0
+      };
+      
+      // Use the totalCount from the main query
+      const totalCount = result.totalCount;
+      
+      // For the first page or when filters change, request stat data
+      if (page === 1 || Object.keys(filters).some(k => filters[k as keyof FilterState] !== 'all')) {
+        try {
+          // Make a lightweight GraphQL query for just the stats data
+          const statsResult = await questionService.getQuestionStats(queryParams);
+          if (statsResult?.stats) {
+            typeCount = statsResult.stats;
+          }
+        } catch (statError) {
+          // Fall back to calculating from current page if stats query fails
+          console.error('Error fetching question stats:', statError);
+          typeCount = result.questions.reduce((acc: { MCQ: number; CODING: number; READY: number; DRAFT: number }, q: Question) => {
+            if (q.type === 'MCQ') acc.MCQ++;
+            if (q.type === 'CODING') acc.CODING++;
+            if (q.status === 'READY') acc.READY++;
+            if (q.status === 'DRAFT') acc.DRAFT++;
+            return acc;
+          }, { MCQ: 0, CODING: 0, READY: 0, DRAFT: 0 });
+        }
+      }
+      
+      // Calculate folder stats from the current page only
+      const byFolder = result.questions.reduce((acc: Record<string, number>, q: Question) => {
+        const folderName = q.folder?.name || 'Uncategorized';
+        acc[folderName] = (acc[folderName] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const newStats: Stats = {
+        total: totalCount,
+        published: typeCount.READY,
+        draft: typeCount.DRAFT,
+        multipleChoice: typeCount.MCQ,
+        coding: typeCount.CODING,
+        byFolder: byFolder,
+        ready: typeCount.READY
+      };
+      
+      setStats(newStats);
       setPagination({
         total: result.totalCount,
         current: page
       });
-      
-      // If we're on the stats tab and stats aren't loaded yet, fetch them now
-      if (activeTab === 'stats' && !statsLoaded) {
-        fetchStats(queryParams);
-      }
-      
-      return result;
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
@@ -602,7 +548,6 @@ export default function AdminQuestionsPage() {
         description: "Failed to fetch questions",
         variant: "destructive",
       });
-      return null;
     } finally {
       setIsLoading(false);
     }
@@ -642,9 +587,6 @@ export default function AdminQuestionsPage() {
       // Update both state variables
       setFolders(folders);
       setTopLevelFolders(topLevel);
-      
-      // Return the folders for potential chaining
-      return folders;
     } catch (error) {
       console.error("Error fetching folders:", error);
       toast({
@@ -652,8 +594,6 @@ export default function AdminQuestionsPage() {
         description: "Failed to fetch folders",
         variant: "destructive",
       });
-      // Return empty array to allow chaining
-      return [];
     }
   };
 
@@ -1201,13 +1141,12 @@ export default function AdminQuestionsPage() {
     setFilters(pendingFilters);
     // Always reset to page 1 when applying new filters
     setCurrentPage(1);
-    // Mark stats as not loaded so they get refreshed if user goes to stats tab
-    setStatsLoaded(false);
     // Explicitly fetch questions with the new filters and page 1
     fetchQuestions(pendingFilters, 1);
   };
 
   const clearFilters = () => {
+   
     const defaultFilters = {
       search: "",
       category: "all",
@@ -1221,8 +1160,6 @@ export default function AdminQuestionsPage() {
     setActiveFilters([]);
     // Reset to page 1
     setCurrentPage(1);
-    // Mark stats as not loaded so they get refreshed if user goes to stats tab
-    setStatsLoaded(false);
     // Explicitly fetch with default filters and page 1
     fetchQuestions(defaultFilters, 1);
   };
@@ -1770,32 +1707,19 @@ export default function AdminQuestionsPage() {
   const getFolderNameById = (folderId?: string): string | undefined => {
     if (!folderId) return undefined;
     
-    // First check in top-level folders
-    const folder = topLevelFolders.find(f => f.id === folderId);
+    const folder = folders.find(f => f.id === folderId);
     if (folder) return folder.name;
     
-    // If not found, check in subfolders of top-level folders
-    for (const parentFolder of topLevelFolders) {
+    // Check in subfolders
+    for (const parentFolder of folders) {
       if (parentFolder.subfolders) {
         const subfolder = parentFolder.subfolders.find(s => s.id === folderId);
-        if (subfolder) {
-          // Return the subfolder name prefixed with its parent name for clarity
-          return `${parentFolder.name} > ${subfolder.name}`;
-        }
+        if (subfolder) return subfolder.name;
       }
     }
     
     return undefined;
   };
-
-  // Add an effect to set a default language when languages are loaded
-  useEffect(() => {
-    // If we have languages but no default language is set yet, set the first language as default
-    if (languages.length > 0 && !selectedDefaultLanguage) {
-      console.log('Setting default language to first available language:', languages[0].id);
-      setSelectedDefaultLanguage(String(languages[0].id));
-    }
-  }, [languages, selectedDefaultLanguage]);
 
   return (
     <div className="container mx-auto py-6 bg-background">
@@ -2228,7 +2152,6 @@ export default function AdminQuestionsPage() {
                                 <SelectValue placeholder="Default programming language" />
                               </SelectTrigger>
                               <SelectContent>
-                                
                                 {languages && languages.length > 0 ? (
                                   languages
                                     .filter((lang: any) => lang && lang.id && String(lang.id).trim() !== "")
@@ -2500,7 +2423,7 @@ export default function AdminQuestionsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="questions" className="space-y-4" onValueChange={handleTabChange}>
+      <Tabs defaultValue="questions" className="space-y-4">
         <TabsList>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="folders">Folders</TabsTrigger>
@@ -2537,24 +2460,18 @@ export default function AdminQuestionsPage() {
                   <SelectTrigger className="w-[300px]">
                     <SelectValue placeholder="Select Category/Subcategory">
                       {pendingFilters.subcategory !== 'all' 
-                        ? (() => {
-                            // Find parent folder first
-                            const parentFolder = topLevelFolders.find(f => f.id === pendingFilters.category);
-                            // Then find subfolder
-                            const subfolder = parentFolder?.subfolders?.find(s => s.id === pendingFilters.subcategory);
-                            return parentFolder && subfolder 
-                              ? `${parentFolder.name} > ${subfolder.name}` 
-                              : 'Unknown Category';
-                          })()
+                        ? `${folders.find(f => f.id === pendingFilters.category)?.name || ''} > ${
+                            folders.find(f => f.id === pendingFilters.category)
+                              ?.subfolders.find(s => s.id === pendingFilters.subcategory)?.name || ''
+                          }`
                         : pendingFilters.category === 'all'
                           ? 'All Categories'
-                          : topLevelFolders.find(f => f.id === pendingFilters.category)?.name || 'All Categories'
-                      }
+                          : folders.find(f => f.id === pendingFilters.category)?.name || 'All Categories'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {topLevelFolders.map((folder) => (
+                    {folders.map((folder) => (
                       <div key={folder.id}>
                         <SelectItem value={folder.id}>
                           📁 {folder.name}
@@ -2816,143 +2733,156 @@ export default function AdminQuestionsPage() {
           )}
         </TabsContent>
 
+        </TabsContent>
+
         <TabsContent value="folders">
           {/* Folders Section - Improved UI */}
           <div className="bg-card rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Folder Management</h2>
-              <Dialog open={isCreateFolderModalOpen} onOpenChange={setIsCreateFolderModalOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                  Create Folder
-                </Button>
-                </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Folder</DialogTitle>
-                    <DialogDescription>
-                      Enter a name for your new folder
-                    </DialogDescription>
-          </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="folderName" className="text-right">
-                        Folder Name
-                      </Label>
-              <Input
-                id="folderName"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                        className="col-span-3"
-                        placeholder="e.g. JavaScript Basics"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-                    <Button
-                      type="submit"
-                      onClick={handleCreateFolder}
-                      disabled={!newFolderName.trim()}
-                    >
-              Create Folder
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-            </div>
-
-      {/* Create Subfolder Modal */}
-      <Dialog open={isCreateSubfolderModalOpen} onOpenChange={setIsCreateSubfolderModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Subfolder</DialogTitle>
-                  <DialogDescription>
-                    Enter a name for your new subfolder in {folders.find(f => f.id === selectedFolderForSubfolder)?.name || 'the selected folder'}
-                  </DialogDescription>
-          </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="subfolderName" className="text-right">
-                      Subfolder Name
-                    </Label>
-              <Input
-                id="subfolderName"
-                value={newSubfolderName}
-                onChange={(e) => setNewSubfolderName(e.target.value)}
-                      className="col-span-3"
-                      placeholder="e.g. Loops and Arrays"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-                  <Button
-                    type="submit"
-                    onClick={handleCreateSubfolder}
-                    disabled={!newSubfolderName.trim() || !selectedFolderForSubfolder}
-                  >
-              Create Subfolder
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Folder Modal */}
-      <Dialog open={isEditFolderModalOpen} onOpenChange={setIsEditFolderModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Folder</DialogTitle>
-                  <DialogDescription>
-                    Update the name of this folder
-                  </DialogDescription>
-          </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="updatedFolderName" className="text-right">
-                      Folder Name
-                    </Label>
-              <Input
-                      id="updatedFolderName"
-                value={updatedFolderName}
-                onChange={(e) => setUpdatedFolderName(e.target.value)}
-                      className="col-span-3"
-                      placeholder={editingFolder?.name}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-                  <Button
-                    type="submit"
-                    onClick={handleUpdateFolder}
-                    disabled={!updatedFolderName.trim()}
-                  >
-              Update Folder
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-            {/* Folder List */}
-            <div className="grid gap-4">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-              ) : folderTreeForPicker.length === 0 ? (
-                <div className="text-center py-10 bg-accent/20 rounded-lg">
-                  <FolderIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No folders yet</h3>
-                  <p className="text-muted-foreground mb-4">Create your first folder to organize your questions</p>
-                  <Button onClick={() => setIsCreateFolderModalOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Folder
-                  </Button>
+            {foldersLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-3 text-primary text-lg">Loading folders...</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold">Folder Management</h2>
+                  <Dialog open={isCreateFolderModalOpen} onOpenChange={setIsCreateFolderModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Folder
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create New Folder</DialogTitle>
+                        <DialogDescription>
+                          Enter a name for your new folder
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="folderName" className="text-right">
+                            Folder Name
+                          </Label>
+                          <Input
+                            id="folderName"
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            className="col-span-3"
+                            placeholder="e.g. JavaScript Basics"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          type="submit"
+                          onClick={handleCreateFolder}
+                          disabled={!newFolderName.trim()}
+                        >
+                          Create Folder
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-              ) : (
-                // Only show top-level folders in the main list
-                topLevelFolders.map((folder) => (
-                  <div key={folder.id} className="border rounded-lg overflow-hidden transition-all">
-                    <div 
+
+                {/* Create Subfolder Modal */}
+                <Dialog open={isCreateSubfolderModalOpen} onOpenChange={setIsCreateSubfolderModalOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Subfolder</DialogTitle>
+                      <DialogDescription>
+                        Enter a name for your new subfolder in {folders.find(f => f.id === selectedFolderForSubfolder)?.name || 'the selected folder'}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="subfolderName" className="text-right">
+                          Subfolder Name
+                        </Label>
+                        <Input
+                          id="subfolderName"
+                          value={newSubfolderName}
+                          onChange={(e) => setNewSubfolderName(e.target.value)}
+                          className="col-span-3"
+                          placeholder="e.g. Loops and Arrays"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="submit"
+                        onClick={handleCreateSubfolder}
+                        disabled={!newSubfolderName.trim() || !selectedFolderForSubfolder}
+                      >
+                        Create Subfolder
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Edit Folder Modal */}
+                <Dialog open={isEditFolderModalOpen} onOpenChange={setIsEditFolderModalOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+          {/* Edit Folder Modal */}
+          <Dialog open={isEditFolderModalOpen} onOpenChange={setIsEditFolderModalOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Folder</DialogTitle>
+                        <DialogDescription>
+                          Update the name of this folder
+                        </DialogDescription>
+              </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="updatedFolderName" className="text-right">
+                          Folder Name
+                        </Label>
+                  <Input
+                          id="updatedFolderName"
+                    value={updatedFolderName}
+                    onChange={(e) => setUpdatedFolderName(e.target.value)}
+                          className="col-span-3"
+                          placeholder={editingFolder?.name}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                      <Button
+                        type="submit"
+                        onClick={handleUpdateFolder}
+                        disabled={!updatedFolderName.trim()}
+                      >
+                  Update Folder
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+                {/* Folder List */}
+                <div className="grid gap-4">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+                  ) : folderTreeForPicker.length === 0 ? (
+                    <div className="text-center py-10 bg-accent/20 rounded-lg">
+                      <FolderIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No folders yet</h3>
+                      <p className="text-muted-foreground mb-4">Create your first folder to organize your questions</p>
+                      <Button onClick={() => setIsCreateFolderModalOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create First Folder
+                      </Button>
+                    </div>
+                  ) : (
+                    // Only show top-level folders in the main list
+                    topLevelFolders.map((folder) => (
+                      <div key={folder.id} className="border rounded-lg overflow-hidden transition-all">
+                        <div 
                       className={`flex items-center justify-between p-4 cursor-pointer bg-card hover:bg-accent/10 ${expandedFolders.has(folder.id) ? 'border-b' : ''}`}
                       onClick={() => {
                         setExpandedFolders(prev => {
@@ -3071,6 +3001,8 @@ export default function AdminQuestionsPage() {
               )}
             </div>
           </div>
+        </TabsContent>
+
         </TabsContent>
 
         <TabsContent value="stats">

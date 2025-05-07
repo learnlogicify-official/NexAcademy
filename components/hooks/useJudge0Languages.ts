@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { questionService } from '@/lib/services/questionService';
 
 export interface Judge0Language {
   id: number;
@@ -32,21 +33,31 @@ export function useJudge0Languages(initialLanguages: Judge0Language[] = []) {
 
     let isMounted = true;
     setLoading(true);
-    
-    console.log('[JUDGE0] Fetching languages');
     setHasFetched(true);
-    
-    fetch('/api/judge0')
-      .then(res => res.json())
-      .then(data => {
+
+    // Use GraphQL API to fetch languages with names and versions
+    questionService.getEditorData()
+      .then(editorData => {
         if (isMounted) {
-          if (data.success && Array.isArray(data.data)) {
-            setLanguages(data.data);
-            console.log(`[JUDGE0] Loaded ${data.data.length} languages`);
+          if (editorData && Array.isArray(editorData.judge0Languages)) {
+            // Enhanced logging to debug duplicate languages
+            const languagesCount = editorData.judge0Languages.length;
+            console.log(`[JUDGE0] Fetched ${languagesCount} languages from GraphQL`);
+            
+            // Check for any languages with is_archived flag
+            const archivedCount = editorData.judge0Languages.filter((l: any) => l.is_archived === true).length;
+            if (archivedCount > 0) {
+              console.log(`[JUDGE0] Warning: ${archivedCount} archived languages found`);
+            }
+            
+            // Log a sample of the first few languages to verify format
+            console.log('[JUDGE0] Sample languages:', editorData.judge0Languages.slice(0, 3));
+            
+            setLanguages(editorData.judge0Languages);
             setError(null);
           } else {
             setError('Failed to load languages');
-            console.error('[JUDGE0] Failed to load languages');
+            console.error('[JUDGE0] Failed to load languages from GraphQL');
           }
         }
       })

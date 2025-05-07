@@ -150,6 +150,7 @@ model Question {
   versions           QuestionVersion[]
   sections           SectionQuestion[]
   userProblemSettings UserProblemSettings[]
+  tags               Tag[]             @relation("QuestionTags")
 
   @@index([folderId])
   @@index([creatorId])
@@ -322,6 +323,7 @@ model Tag {
   updatedAt       DateTime         @updatedAt
   assessments     AssessmentTag[]
   codingQuestions CodingQuestion[] @relation("CodingQuestionTags")
+  questions       Question[]       @relation("QuestionTags")
 }
 
 model AssessmentTag {

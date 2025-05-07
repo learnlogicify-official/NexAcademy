@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
 
 function OnboardingRedirect() {
   const { data: session, status } = useSession();
@@ -29,6 +30,16 @@ function OnboardingRedirect() {
   return null;
 }
 
+const client = new ApolloClient({
+  uri: '/api/graphql',
+  cache: new InMemoryCache(),
+  defaultOptions: {
+    watchQuery: {
+      fetchPolicy: 'cache-and-network',
+    },
+  },
+});
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
@@ -38,7 +49,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <NotistackProvider>
-            {children}
+            <ApolloProvider client={client}>
+              {children}
+            </ApolloProvider>
             <ReactQueryDevtools initialIsOpen={false} />
           </NotistackProvider>
         </QueryClientProvider>

@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Code, ChevronRight, ChevronDown, Folder, FolderOpen, Copy, CheckCheck, 
-  Search, X, Globe, Cpu, Binary, Smartphone, ListFilter, FileCode, FileEdit, Type, BarChart, Hash, CheckCircle, Terminal, FileText, Loader2 } from "lucide-react";
-import { AlertCircle, XCircle } from "lucide-react";
+  Search, X, Globe, Cpu, Binary, Smartphone, ListFilter, FileCode, FileEdit, Type, BarChart, Hash, CheckCircle, Terminal, FileText } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import React from "react";
 import { Switch } from "@/components/ui/switch";
+import { AlertCircle, XCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,7 +51,6 @@ import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEEditor } from 'tinymce';
 import { TagInput, TagObj } from '@/components/ui/tag-input';
 import { questionService } from "@/lib/services/questionService";
-import { useJudge0Languages } from '@/components/hooks/useJudge0Languages';
 
 interface Folder {
   id: string;
@@ -370,17 +369,6 @@ export function CodingQuestionFormModal({
     tags: initialData?.tags?.map((t: any) => typeof t === 'string' ? { id: t, name: t } : t) || [],
   });
 
-  // Add a ref for the editor
-  const editorRef = useRef<any>(null);
-  
-  // State for languages and tags
-  const [availableLanguages, setAvailableLanguages] = useState<any[]>([]);
-  const [availableTags, setAvailableTags] = useState<any[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(false);
-  
-  // Use the useJudge0Languages hook to get languages directly
-  const { languages: hookLanguages, loading: isLoadingLanguages } = useJudge0Languages();
-  
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [activeLanguageTab, setActiveLanguageTab] = useState<string>("");
   const [allOrNothingGrading, setAllOrNothingGrading] = useState(false);
@@ -393,6 +381,9 @@ export function CodingQuestionFormModal({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Add a ref for the editor
+  const editorRef = useRef<any>(null);
   
   // Add state for dark/light mode
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -455,120 +446,6 @@ export function CodingQuestionFormModal({
       contentArea.style.color = isDarkMode ? '#e2e8f0' : '#1e293b';
     }
   }, [isDarkMode]);
-  
-  // Effect to initialize languages from the hook
-  useEffect(() => {
-    if (hookLanguages && hookLanguages.length > 0) {
-      console.log(`Setting ${hookLanguages.length} languages from hook`);
-      setAvailableLanguages(hookLanguages);
-    }
-  }, [hookLanguages]);
-
-  // Update the fetchEditorData function to better handle languages
-  const fetchEditorData = async () => {
-    setIsLoadingData(true);
-    try {
-      console.log('Fetching editor data...');
-      const editorData = await questionService.getEditorData();
-      
-      console.log('Editor data received:', {
-        hasJudge0Languages: !!editorData?.judge0Languages,
-        judge0LanguagesLength: editorData?.judge0Languages?.length || 0,
-        sampleLanguages: editorData?.judge0Languages?.slice(0, 3).map((l: any) => ({id: l.id, name: l.name})),
-        hasTagsData: !!editorData?.tags,
-        tagsLength: editorData?.tags?.length || 0
-      });
-      
-      if (editorData?.judge0Languages && Array.isArray(editorData.judge0Languages) && editorData.judge0Languages.length > 0) {
-        const filteredLangs = editorData.judge0Languages.filter((lang: any) => 
-          lang && lang.id && String(lang.id).trim() !== ""
-        );
-        console.log(`Found ${filteredLangs.length} valid Judge0 languages`);
-        setAvailableLanguages(filteredLangs);
-      } else if (hookLanguages && hookLanguages.length > 0) {
-        // Fallback to hook languages if available
-        console.log(`Using ${hookLanguages.length} languages from hook`);
-        setAvailableLanguages(hookLanguages);
-      } else {
-        console.warn('No Judge0 languages found in editor data or hook, using fallback languages');
-        // Provide fallback languages if the API doesn't return any
-        const fallbackLanguages = [
-          { id: "71", name: "Python 3.8" },
-          { id: "63", name: "JavaScript (Node.js)" },
-          { id: "62", name: "Java" },
-          { id: "54", name: "C++" },
-          { id: "51", name: "C#" },
-          { id: "68", name: "PHP" },
-          { id: "60", name: "Go" },
-          { id: "73", name: "Rust" }
-        ];
-        setAvailableLanguages(fallbackLanguages);
-      }
-      
-      if (editorData?.tags && Array.isArray(editorData.tags)) {
-        setAvailableTags(editorData.tags);
-      }
-    } catch (err) {
-      console.error('Error fetching editor data:', err);
-      // Use hook languages as fallback if available
-      if (hookLanguages && hookLanguages.length > 0) {
-        console.log(`Using ${hookLanguages.length} languages from hook after fetch error`);
-        setAvailableLanguages(hookLanguages);
-      } else {
-        // Provide fallback languages if both API and hook fail
-        const fallbackLanguages = [
-          { id: "71", name: "Python 3.8" },
-          { id: "63", name: "JavaScript (Node.js)" },
-          { id: "62", name: "Java" },
-          { id: "54", name: "C++" },
-          { id: "51", name: "C#" },
-          { id: "68", name: "PHP" },
-          { id: "60", name: "Go" },
-          { id: "73", name: "Rust" }
-        ];
-        setAvailableLanguages(fallbackLanguages);
-        
-        toast({
-          title: "Warning",
-          description: "Using default languages - couldn't load from server",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
-  // Initialize data when the modal opens
-  useEffect(() => {
-    if (isOpen) {
-      console.log("Modal opened - fetching data");
-      fetchEditorData();
-      if (hookLanguages && hookLanguages.length > 0) {
-        console.log(`Setting ${hookLanguages.length} languages from hook in isOpen effect`);
-        setAvailableLanguages(hookLanguages);
-      }
-    }
-  }, [isOpen, hookLanguages]);
-
-  // Add this debug function to help diagnose issues
-  const debugLanguageState = () => {
-    console.log('Language State Debug:', {
-      availableLanguagesCount: availableLanguages.length,
-      firstFewAvailableLanguages: availableLanguages.slice(0, 3),
-      selectedLanguagesCount: selectedLanguages.length,
-      firstFewSelectedLanguages: selectedLanguages.slice(0, 3),
-      hookLanguagesCount: hookLanguages?.length || 0,
-      defaultLanguage,
-      activeLanguageTab,
-      isLoadingLanguages
-    });
-  };
-
-  // Call debugLanguageState whenever relevant data changes
-  useEffect(() => {
-    debugLanguageState();
-  }, [availableLanguages, selectedLanguages, defaultLanguage, hookLanguages, isLoadingLanguages]);
 
   // Focus TinyMCE editor when modal opens
   useEffect(() => {
@@ -633,7 +510,11 @@ export function CodingQuestionFormModal({
 
   // Use useEffect to initialize the form data when initialData changes
   useEffect(() => {
+   
+    
     if (initialData) {
+     
+      
       // Extract tags from either initialData or initialData.codingQuestion
       let tags: TagObj[] = [];
       
@@ -716,6 +597,8 @@ export function CodingQuestionFormModal({
       
       // Set test cases
       if (initialData.testCases && Array.isArray(initialData.testCases)) {
+        
+       
         setFormData(prevData => ({
           ...prevData,
           testCases: initialData.testCases.map((tc: any) => {
@@ -758,6 +641,8 @@ export function CodingQuestionFormModal({
           })
         }));
       } else if (initialData.codingQuestion?.testCases && Array.isArray(initialData.codingQuestion.testCases)) {
+        
+        
         setFormData(prevData => ({
           ...prevData,
           testCases: initialData.codingQuestion.testCases.map((tc: any) => {
@@ -815,7 +700,7 @@ export function CodingQuestionFormModal({
       }
       
       // Log the final form state
-      debugLanguageState();
+      
     }
   }, [initialData]);
 
@@ -823,7 +708,7 @@ export function CodingQuestionFormModal({
     e.preventDefault();
     
     try {
-    setIsSubmitting(true);
+      setIsSubmitting(true);
       
       // Validate the data structure
       const validationErrors = validateDataStructure(formData);
@@ -836,7 +721,7 @@ export function CodingQuestionFormModal({
               <ul className="list-disc pl-4 space-y-1">
                 {validationErrors.map((error, i) => (
                   <li key={i}>{error}</li>
-              ))}
+                ))}
               </ul>
             </div>
           ),
@@ -1087,6 +972,127 @@ export function CodingQuestionFormModal({
       }
     }
   };
+
+  // Replace separate state with combined data
+  const [availableLanguages, setAvailableLanguages] = useState<any[]>([]);
+  const [isLoadingEditorData, setIsLoadingEditorData] = useState(false);
+
+  // Fetch combined data for the component (Judge0 languages and tags)
+  useEffect(() => {
+    const fetchEditorData = async () => {
+      if (!isOpen) return;
+      
+      try {
+        setIsLoadingEditorData(true);
+        
+        // Use the combined GraphQL query to fetch both languages and tags at once
+        const editorData = await questionService.getQuestionEditorData();
+        
+        // Set languages
+        if (editorData.judge0Languages && Array.isArray(editorData.judge0Languages)) {
+          setAvailableLanguages(editorData.judge0Languages.filter((lang: any) => 
+            lang && lang.id && String(lang.id).trim() !== ""
+          ));
+        }
+        
+        // Update tags if needed (this is optional - depends on your form implementation)
+        if (editorData.tags && Array.isArray(editorData.tags) && !initialData) {
+          // Only set tags if we're creating a new question and don't have initial data
+          setFormData(prev => ({
+            ...prev,
+            tags: editorData.tags.map((tag: any) => ({
+              id: tag.id,
+              name: tag.name
+            }))
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching editor data:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load languages and tags. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingEditorData(false);
+      }
+    };
+    
+    fetchEditorData();
+  }, [isOpen, toast, initialData]);
+
+  // Remove the old fetch functions
+  // Delete this section:
+  /* 
+  useEffect(() => {
+    const fetchLanguages = async () => {
+      try {
+        const response = await fetch('/api/judge0');
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.data)) {
+          setAvailableLanguages(data.data.filter((lang: any) => 
+            lang && lang.id && String(lang.id).trim() !== ""
+          ));
+        }
+      } catch (err) {
+        console.error('Error fetching Judge0 languages:', err);
+      }
+    };
+    
+    fetchLanguages();
+  }, []);
+  */
+
+  // Update the getLanguageName function to use availableLanguages
+  const getLanguageName = (langId: string) => {
+    try {
+      // Try to find the language in available languages by matching the ID
+      const lang = availableLanguages.find(l => String(l.id) === langId);
+      if (lang && lang.name) {
+        return lang.name;
+      }
+      
+      // If no match, just return the ID
+      return langId;
+    } catch (error) {
+      console.error('Error getting language name:', error);
+      return langId;
+    }
+  };
+
+  // Update the references to language names in the useEffect that loads initialData
+  useEffect(() => {
+    if (initialData) {
+      // Set language options
+      if (initialData.languageOptions && Array.isArray(initialData.languageOptions)) {
+        const filteredLangOptions = initialData.languageOptions.filter(
+          (lang: any) => lang.language && String(lang.language).trim() !== ""
+        );
+        setFormData(prevData => ({
+          ...prevData,
+          languageOptions: filteredLangOptions.map((lang: any) => ({
+            id: lang.id || `lang-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            language: lang.language,
+            solution: lang.solution || '',
+            preloadCode: lang.preloadCode || ''
+          }))
+        }));
+        // Set selected languages (filtered)
+        const langs = filteredLangOptions.map((lang: any) => lang.language);
+        setSelectedLanguages(langs);
+        // Set default language
+        const defaultLang = initialData.defaultLanguage && langs.includes(initialData.defaultLanguage)
+          ? initialData.defaultLanguage
+          : (langs.length > 0 ? langs[0] : "");
+        setDefaultLanguage(defaultLang);
+        // Set active language tab
+        if (langs.length > 0) {
+          setActiveLanguageTab(langs[0]);
+        }
+      }
+    }
+  }, [initialData]);
 
   const getLanguageOption = (langId: string) => {
     // Find the exact language option
@@ -1696,71 +1702,7 @@ export function CodingQuestionFormModal({
 
   // Add tag state handler
   const handleTagsChange = (tags: TagObj[]) => {
-    console.log('handleTagsChange called with:', tags);
-    setFormData(prev => {
-      const newFormData = { ...prev, tags };
-      console.log('New formData.tags:', newFormData.tags);
-      return newFormData;
-    });
-  };
-
-  // Add this near the top after other useEffect declarations, around line 1003:
-  useEffect(() => {
-    if (availableTags && availableTags.length > 0) {
-      console.log('availableTags structure:', {
-        length: availableTags.length,
-        firstFew: availableTags.slice(0, 3),
-        mappedType: availableTags.map(tag => ({ id: tag.id, name: tag.name })).slice(0, 3)
-      });
-    }
-  }, [availableTags]);
-
-  // Update the getLanguageName function to use availableLanguages
-  const getLanguageName = (langId: string) => {
-    try {
-      if (!langId) return 'Select language';
-      
-      // Try to find the language in available languages by matching the ID
-      const lang = availableLanguages.find((l: any) => String(l.id) === String(langId));
-      if (lang && lang.name) {
-        return lang.name;
-      }
-      
-      // Also try to find in hookLanguages as a backup
-      if (hookLanguages && hookLanguages.length > 0) {
-        const hookLang = hookLanguages.find((l: any) => String(l.id) === String(langId));
-        if (hookLang && hookLang.name) {
-          return hookLang.name;
-        }
-      }
-      
-      // If no match in available languages, try common mappings
-      const commonNames: Record<string, string> = {
-        "71": "Python 3",
-        "63": "JavaScript (Node.js)",
-        "62": "Java",
-        "54": "C++",
-        "51": "C#",
-        "68": "PHP",
-        "60": "Go",
-        "73": "Rust"
-      };
-      
-      if (commonNames[langId]) {
-        return commonNames[langId];
-      }
-      
-      // If no match, just return the ID
-      console.log(`Language name not found for ID: ${langId}`, {
-        availableLanguages: availableLanguages.length > 0 ? 
-          availableLanguages.slice(0, 5).map((l: any) => ({id: l.id, name: l.name})) : 
-          'None available'
-      });
-      return `Language ID: ${langId}`;
-    } catch (error) {
-      console.error('Error getting language name:', error);
-      return `Language ID: ${langId}`;
-    }
+    setFormData(prev => ({ ...prev, tags }));
   };
 
   return (
@@ -1797,18 +1739,35 @@ export function CodingQuestionFormModal({
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-white drop-shadow-md flex items-center gap-2 transform transition-all">
                 {initialData ? "Update Coding Question" : "Create New Coding Question"}
-                <span className="inline-block animate-pulse bg-green-400 w-2 h-2 rounded-full ml-2"></span>
+                {isLoadingEditorData ? (
+                  <span className="inline-block animate-spin bg-white w-2 h-2 rounded-full ml-2"></span>
+                ) : (
+                  <span className="inline-block animate-pulse bg-green-400 w-2 h-2 rounded-full ml-2"></span>
+                )}
               </h2>
               <DialogDescription className="text-white/90 mt-1 text-base font-normal max-w-3xl">
-                {initialData 
-                  ? "Update your coding question with the necessary information, language options, and test cases."
-                  : "Create a new coding question by providing details, setting up programming languages, and adding test cases."}
+                {isLoadingEditorData 
+                  ? "Loading languages and tags..."
+                  : initialData 
+                    ? "Update your coding question with the necessary information, language options, and test cases."
+                    : "Create a new coding question by providing details, setting up programming languages, and adding test cases."
+                }
               </DialogDescription>
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background/80 to-transparent z-10"></div>
         </div>
         {/* End Enhanced Modern Header */}
+
+        {isLoadingEditorData && (
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-card rounded-lg p-6 shadow-lg flex flex-col items-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+              <p className="text-foreground">Loading languages and tags...</p>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(95vh-170px)] overflow-y-auto pr-2 pb-4 relative px-8 pt-6">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5">
@@ -1905,8 +1864,7 @@ export function CodingQuestionFormModal({
               )}
             </div>
             {/* Tag Input as its own column */}
-            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 flex flex-col justify-between relative" style={{ zIndex: 100 }}>
-              {/* Remove the debug log useEffect that's causing the linter error */}
+            <div className="space-y-2 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-sm p-5 flex flex-col justify-between">
               <TagInput
                 value={formData.tags}
                 onChange={handleTagsChange}
@@ -1923,8 +1881,6 @@ export function CodingQuestionFormModal({
                 }
                 placeholder="Add tag..."
                 allowCreation={true}
-                availableTags={availableTags.map(tag => ({ id: tag.id, name: tag.name }))}
-                isLoading={isLoadingData}
               />
               <div className="text-xs text-muted-foreground mt-2">
                 Tags help categorize questions and make them searchable. You can create new tags by typing and pressing Enter.
@@ -2056,7 +2012,7 @@ export function CodingQuestionFormModal({
                 <div className="flex items-center gap-2">
                   <Hash className="h-4 w-4 text-primary/80" />
                   Default Mark
-          </div>
+                </div>
               </Label>
               <Input
                 id="defaultMark"
@@ -2106,7 +2062,7 @@ export function CodingQuestionFormModal({
                 <Select
                   value={defaultLanguage}
                   onValueChange={handleSetDefaultLanguage}
-                  disabled={availableLanguages.length === 0}
+                  disabled={selectedLanguages.length === 0}
                 >
                   <SelectTrigger
                     className={cn(
@@ -2114,24 +2070,22 @@ export function CodingQuestionFormModal({
                       formErrors.defaultLanguage ? "border-destructive" : ""
                     )}
                   >
-                    <SelectValue placeholder="Select default">
-                      {defaultLanguage && getLanguageName(defaultLanguage)}
-                    </SelectValue>
+                    <SelectValue placeholder="Select default" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableLanguages.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">
-                        No languages available
-                      </div>
-                    ) : (
-                      availableLanguages
-                        .filter(lang => lang && String(lang.id).trim() !== "")
-                        .map((lang) => (
-                          <SelectItem key={lang.id} value={String(lang.id)}>
-                            {lang.name}
-                          </SelectItem>
-                        ))
-                    )}
+                    {selectedLanguages.length > 0 &&
+                      selectedLanguages
+                        .filter(langId => langId && String(langId).trim() !== "")
+                        .map((langId) => {
+                          const lang = availableLanguages.find(
+                            (l) => String(l.id) === langId
+                          );
+                          return (
+                            <SelectItem key={langId} value={langId}>
+                              {lang?.name || langId}
+                            </SelectItem>
+                          );
+                        })}
                   </SelectContent>
                 </Select>
               </div>
@@ -2175,65 +2129,45 @@ export function CodingQuestionFormModal({
                   </div>
 
                   <div className="max-h-[350px] overflow-y-auto pr-2">
-                    {isLoadingData ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                        <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                        <p className="text-sm">Loading languages...</p>
-                      </div>
-                    ) : availableLanguages.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                        <AlertCircle className="h-8 w-8 mb-2" />
-                        <p className="text-sm">No languages available</p>
-                        <Button
-                          variant="outline" 
-                          size="sm"
-                          className="mt-4"
-                          onClick={fetchEditorData}
-                        >
-                          Retry
-                        </Button>
-                      </div>
-                    ) : (
-                      /* Filter languages based on search term */
-                      <div className="space-y-1">
-                        {availableLanguages
-                          .filter(
-                            (lang) =>
-                              searchTerm.trim() === "" ||
-                              lang.name
-                                .toLowerCase()
-                                .includes(searchTerm.toLowerCase())
-                          )
-                          .map((lang) => (
-                            <div
-                              key={lang.id}
-                              className={cn(
-                                "flex items-center justify-between px-3 py-2 cursor-pointer rounded-md transition-colors",
-                                selectedLanguages.includes(String(lang.id))
-                                  ? "bg-primary/10 text-primary shadow-sm"
-                                  : "hover:bg-accent"
-                              )}
-                              onClick={() =>
-                                handleLanguageSelect(String(lang.id))
-                              }
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <Code className="h-4 w-4 opacity-80" />
-                                <span className="truncate font-medium text-sm">
-                                  {lang.name}
-                                </span>
-                              </div>
-                              <div className="flex items-center">
-                                {selectedLanguages.includes(String(lang.id)) ? (
-                                  <CheckCheck className="h-4 w-4 text-primary" />
-                                ) : (
-                                  <Plus className="h-4 w-4 opacity-60" />
-                                )}
-                              </div>
+                    {/* Filter languages based on search term */}
+                    <div className="space-y-1">
+                      {availableLanguages
+                        .filter(
+                          (lang) =>
+                            searchTerm.trim() === "" ||
+                            lang.name
+                              .toLowerCase()
+                              .includes(searchTerm.toLowerCase())
+                        )
+                        .map((lang) => (
+                          <div
+                            key={lang.id}
+                            className={cn(
+                              "flex items-center justify-between px-3 py-2 cursor-pointer rounded-md transition-colors",
+                              selectedLanguages.includes(String(lang.id))
+                                ? "bg-primary/10 text-primary shadow-sm"
+                                : "hover:bg-accent"
+                            )}
+                            onClick={() =>
+                              handleLanguageSelect(String(lang.id))
+                            }
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <Code className="h-4 w-4 opacity-80" />
+                              <span className="truncate font-medium text-sm">
+                                {lang.name}
+                              </span>
                             </div>
-                          ))}
-                      </div>
-                    )}
+                            <div className="flex items-center">
+                              {selectedLanguages.includes(String(lang.id)) ? (
+                                <CheckCheck className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Plus className="h-4 w-4 opacity-60" />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 </div>
 
@@ -2538,44 +2472,44 @@ export function CodingQuestionFormModal({
                           .filter(langId => langId && String(langId).trim() !== "")
                           .map((langId) => {
                             const lang = availableLanguages.find(
-                            (l) => String(l.id) === langId
-                          );
-                          const isDefault = langId === defaultLanguage;
-                          return (
-                            <SelectItem
-                              key={langId}
+                              (l) => String(l.id) === langId
+                            );
+                            const isDefault = langId === defaultLanguage;
+                            return (
+                              <SelectItem
+                                key={langId}
                                 value={String(langId)}
-                              className={cn(
-                                "flex items-center cursor-pointer rounded-md pl-2 pr-8 py-1.5 relative transition-colors",
-                                activeLanguageTab === langId
-                                  ? "bg-primary/10"
-                                  : "hover:bg-accent",
-                                isDefault &&
-                                  "border-l-2 border-primary pl-[7px]"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 w-full">
-                                <Code
-                                  className={cn(
-                                    "h-3.5 w-3.5",
-                                    isDefault
-                                      ? "text-primary"
-                                      : "text-muted-foreground"
-                                  )}
-                                />
-                                <span>{lang?.name || langId}</span>
-                                {isDefault && (
-                                  <Badge
-                                    variant="outline"
-                                    className="ml-auto text-[10px] bg-primary/10 text-primary"
-                                  >
-                                    default
-                                  </Badge>
+                                className={cn(
+                                  "flex items-center cursor-pointer rounded-md pl-2 pr-8 py-1.5 relative transition-colors",
+                                  activeLanguageTab === langId
+                                    ? "bg-primary/10"
+                                    : "hover:bg-accent",
+                                  isDefault &&
+                                    "border-l-2 border-primary pl-[7px]"
                                 )}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  <Code
+                                    className={cn(
+                                      "h-3.5 w-3.5",
+                                      isDefault
+                                        ? "text-primary"
+                                        : "text-muted-foreground"
+                                    )}
+                                  />
+                                  <span>{lang?.name || langId}</span>
+                                  {isDefault && (
+                                    <Badge
+                                      variant="outline"
+                                      className="ml-auto text-[10px] bg-primary/10 text-primary"
+                                    >
+                                      default
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
                       </div>
                       <div className="p-1 border-t bg-muted/30 flex">
                         <Button

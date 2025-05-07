@@ -12,7 +12,12 @@ import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 
 interface QuestionRowProps {
-  question: Question;
+  question: Question & {
+    folder?: {
+      id: string;
+      name: string;
+    };
+  };
   onSelect: (id: string) => void;
   isSelected: boolean;
   onPreview: (question: Question) => void;
@@ -51,15 +56,50 @@ export function QuestionRow({
   const displayQuestion = expandedQuestion || question;
 
   // Format date to be more readable
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      // Check if the dateString is a millisecond timestamp (string of numbers)
+      if (typeof dateString === 'string' && /^\d+$/.test(dateString)) {
+        // Convert millisecond timestamp to number and create Date
+        const timestamp = parseInt(dateString, 10);
+        const date = new Date(timestamp);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.log("Invalid millisecond timestamp:", dateString);
+          return 'Invalid date';
+        }
+        
+        return new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(date);
+      }
+      
+      // Regular date handling for other formats
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.log("Invalid date string:", dateString);
+        return 'Invalid date';
+      }
+      
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return 'Invalid date';
+    }
   };
 
   return (
@@ -107,7 +147,7 @@ export function QuestionRow({
             <div className="flex flex-col">
               <span className="font-medium text-foreground">{question.name}</span>
               <span className="text-xs text-muted-foreground truncate max-w-md">
-                {question.folderId ? question.folderId : 'Uncategorized'}
+                {question.folder?.name || (question.folderId ? 'Unknown folder' : 'Uncategorized')}
               </span>
             </div>
           </div>
@@ -147,7 +187,7 @@ export function QuestionRow({
         <TableCell className="text-muted-foreground">
           <div className="flex items-center gap-1.5 text-sm">
             <CalendarDays className="h-3.5 w-3.5 text-muted-foreground/70" />
-            {formatDate(question.updatedAt)}
+            {question.updatedAt ? formatDate(question.updatedAt) : 'N/A'}
           </div>
         </TableCell>
         <TableCell className="text-muted-foreground text-sm">
