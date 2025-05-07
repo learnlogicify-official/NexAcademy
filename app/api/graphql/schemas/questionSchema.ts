@@ -34,6 +34,11 @@ export const questionTypeDefs = gql`
     description: String
     createdAt: String!
     updatedAt: String!
+    _count: TagCount
+  }
+
+  type TagCount {
+    codingQuestions: Int!
   }
 
   type TestCase {
@@ -113,6 +118,8 @@ export const questionTypeDefs = gql`
     tags: [Tag!]
     codingQuestion: CodingQuestion
     mCQQuestion: MCQQuestion
+    solvedByCount: Int
+    accuracy: Float
   }
 
   input TestCaseInput {
@@ -212,6 +219,7 @@ export const questionTypeDefs = gql`
       limit: Int
       includeSubcategories: Boolean
       tagIds: [ID!]
+      difficulty: QuestionDifficulty
     ): QuestionsResponse!
     
     question(id: ID!): Question

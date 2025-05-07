@@ -183,142 +183,197 @@ export const questionResolvers = {
   Query: {
     // Get questions with pagination and filtering
     questions: async (_: any, args: any, context: Context) => {
-      validateAuth(context);
-      
-      const { 
-        type, 
-        status, 
-        folderId, 
-        search, 
-        page = 1, 
-        limit = 10,
-        includeSubcategories = false,
-        tagIds = []
-      } = args;
-
-      const where: any = {};
-
-      // Apply type filter
-      if (type) {
-        where.type = type === "MULTIPLE_CHOICE" ? "MCQ" : type;
-      }
-
-      // Apply status filter
-      if (status) {
-        const normalizedStatus = status.toUpperCase();
-        if (["DRAFT", "READY"].includes(normalizedStatus)) {
-          where.status = normalizedStatus;
-        }
-      }
-
-      // Apply tag filter
-      if (tagIds && tagIds.length > 0) {
-        where.OR = where.OR || [];
+      try {
+        validateAuth(context);
         
-        where.OR.push({
-          codingQuestion: {
-            tags: {
-              some: {
-                id: {
-                  in: tagIds
+        const { 
+          type, 
+          status, 
+          folderId, 
+          search, 
+          page = 1, 
+          limit = 10,
+          includeSubcategories = false,
+          tagIds = [],
+          difficulty
+        } = args;
+
+        console.log('GraphQL questions query with args:', { 
+          type, status, folderId, search, page, limit, includeSubcategories, 
+          tagIds: tagIds?.length || 0, 
+          difficulty 
+        });
+
+        const where: any = {};
+
+        // Apply type filter
+        if (type) {
+          where.type = type === "MULTIPLE_CHOICE" ? "MCQ" : type;
+        }
+
+        // Apply status filter
+        if (status) {
+          const normalizedStatus = status.toUpperCase();
+          if (["DRAFT", "READY"].includes(normalizedStatus)) {
+            where.status = normalizedStatus;
+          }
+        }
+
+        // Apply difficulty filter
+        if (difficulty) {
+          // Make sure we're handling nested OR conditions correctly
+          if (where.OR) {
+            // Add difficulty filter to each OR condition that has codingQuestion
+            where.OR = where.OR.map((condition: any) => {
+              if (condition.codingQuestion) {
+                return {
+                  ...condition,
+                  codingQuestion: {
+                    ...condition.codingQuestion,
+                    difficulty: difficulty
+                  }
+                };
+              }
+              return condition;
+            });
+
+            // Also add a direct condition for cases without tags
+            where.OR.push({
+              codingQuestion: {
+                difficulty: difficulty
+              }
+            });
+          } else {
+            // If no OR conditions yet, just add the difficulty directly
+            where.codingQuestion = {
+              ...where.codingQuestion,
+              difficulty: difficulty
+            };
+          }
+        }
+
+        // Apply tag filter
+        if (tagIds && tagIds.length > 0) {
+          where.OR = where.OR || [];
+          
+          where.OR.push({
+            codingQuestion: {
+              tags: {
+                some: {
+                  id: {
+                    in: tagIds
+                  }
                 }
               }
             }
-          }
-        });
-      }
+          });
+        }
 
-      // Apply folder filter with subcategories support
-      if (folderId && folderId !== 'all') {
-        if (includeSubcategories) {
-          try {
-            // Get the main folder and its subfolders
-            const folder = await prisma.folder.findUnique({
-              where: { id: folderId },
-              include: { 
-                subfolders: true,
-                questions: true
+        // Apply folder filter with subcategories support
+        if (folderId && folderId !== 'all') {
+          if (includeSubcategories) {
+            try {
+              // Get the main folder and its subfolders
+              const folder = await prisma.folder.findUnique({
+                where: { id: folderId },
+                include: { 
+                  subfolders: true,
+                  questions: true
+                }
+              });
+
+              if (folder) {
+                // Create a list of folder IDs including the main folder and all subfolders
+                const folderIds = [folderId];
+                if (folder.subfolders && folder.subfolders.length > 0) {
+                  folder.subfolders.forEach(subfolder => {
+                    folderIds.push(subfolder.id);
+                  });
+                }
+
+                // Use IN operator to match any of these folders
+                where.folderId = { in: folderIds };
+              } else {
+                where.folderId = folderId;
               }
-            });
-
-            if (folder) {
-              // Create a list of folder IDs including the main folder and all subfolders
-              const folderIds = [folderId];
-              if (folder.subfolders && folder.subfolders.length > 0) {
-                folder.subfolders.forEach(subfolder => {
-                  folderIds.push(subfolder.id);
-                });
-              }
-
-              // Use IN operator to match any of these folders
-              where.folderId = { in: folderIds };
-            } else {
+            } catch (error) {
+              console.error('Error fetching folder with subfolders:', error);
               where.folderId = folderId;
             }
-          } catch (error) {
-            console.error('Error fetching folder with subfolders:', error);
+          } else {
             where.folderId = folderId;
           }
-        } else {
-          where.folderId = folderId;
         }
-      }
 
-      // Apply search filter
-      if (search) {
-        where.OR = where.OR || [];
-        
-        where.OR.push(
-          { name: { contains: search, mode: "insensitive" } },
-          { mCQQuestion: { questionText: { contains: search, mode: "insensitive" } } },
-          { codingQuestion: { questionText: { contains: search, mode: "insensitive" } } }
-        );
-      }
+        // Apply search filter
+        if (search) {
+          where.OR = where.OR || [];
+          
+          where.OR.push(
+            { name: { contains: search, mode: "insensitive" } },
+            { mCQQuestion: { questionText: { contains: search, mode: "insensitive" } } },
+            { codingQuestion: { questionText: { contains: search, mode: "insensitive" } } }
+          );
+        }
 
-      // Get total count for pagination
-      const totalCount = await prisma.question.count({ where });
+        // Get total count for pagination
+        const totalCount = await prisma.question.count({ where });
 
-      // Get questions with pagination
-      const questions = await prisma.question.findMany({
-        where,
-        include: {
-          folder: true,
-          mCQQuestion: {
-            include: {
-              options: true
+        // Get questions with pagination
+        const questions = await prisma.question.findMany({
+          where,
+          include: {
+            folder: true,
+            mCQQuestion: {
+              include: {
+                options: true
+              }
+            },
+            codingQuestion: {
+              include: {
+                languageOptions: true,
+                testCases: true,
+                tags: true
+              }
             }
           },
-          codingQuestion: {
-            include: {
-              languageOptions: true,
-              testCases: true,
-              tags: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip: (page - 1) * limit,
-        take: limit
-      });
+          orderBy: {
+            createdAt: 'desc'
+          },
+          skip: (page - 1) * limit,
+          take: limit
+        });
 
-      // Process questions to add tags at the top level
-      const processedQuestions = questions.map(question => {
-        // Extract tags from codingQuestion if they exist
-        const tags = question.codingQuestion?.tags || [];
-        
-        // Return a new object with tags added at the top level
+        // Process questions to add tags at the top level
+        const processedQuestions = questions.map(question => {
+          // Extract tags from codingQuestion if they exist
+          const tags = question.codingQuestion?.tags || [];
+          
+          // Add mock solvedByCount and accuracy fields for now
+          // These should be replaced with actual data when available
+          const solvedByCount = Math.floor(Math.random() * 1000); // Mock data
+          const accuracy = Math.floor(Math.random() * 100); // Mock data
+          
+          // Return a new object with tags added at the top level
+          return {
+            ...question,
+            tags,
+            solvedByCount,
+            accuracy
+          };
+        });
+
         return {
-          ...question,
-          tags
+          questions: processedQuestions,
+          totalCount
         };
-      });
-
-      return {
-        questions: processedQuestions,
-        totalCount
-      };
+      } catch (error) {
+        console.error('Error in questions resolver:', error);
+        return {
+          questions: [],
+          totalCount: 0
+        };
+      }
     },
 
     // Get a single question by ID
@@ -368,7 +423,13 @@ export const questionResolvers = {
     tags: async (_: any, __: any, context: Context) => {
       validateAuth(context);
       
-      return prisma.tag.findMany();
+      return prisma.tag.findMany({
+        include: {
+          _count: {
+            select: { codingQuestions: true }
+          }
+        }
+      });
     },
 
     // Get Judge0 languages

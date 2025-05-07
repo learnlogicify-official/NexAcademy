@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,6 +41,8 @@ import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { useTheme } from "next-themes"
 import Link from "next/link"
+import { apolloClient } from "@/lib/apollo-client"
+import { gql } from "@apollo/client"
 
 // Create our own useMobile hook since the imported one has an issue
 function useMobile() {
@@ -197,6 +199,52 @@ function ProblemLoader() {
   )
 }
 
+// Define GraphQL query to fetch both tags and coding questions
+const GET_NEXPRACTICE_DATA = gql`
+  query GetNexpracticeData($page: Int = 1, $limit: Int = 20, $search: String, $difficulty: QuestionDifficulty, $tagIds: [ID!]) {
+    tags {
+      id
+      name
+      _count {
+        codingQuestions
+      }
+    }
+    questions(
+      type: CODING
+      page: $page
+      limit: $limit
+      search: $search
+      tagIds: $tagIds
+      difficulty: $difficulty
+      includeSubcategories: true
+    ) {
+      questions {
+        id
+        name
+        type
+        status
+        folder {
+          id
+          name
+        }
+        codingQuestion {
+          id
+          questionText
+          defaultMark
+          difficulty
+          tags {
+            id
+            name
+          }
+        }
+        solvedByCount
+        accuracy
+      }
+      totalCount
+    }
+  }
+`;
+
 // Main NexPractice component
 export default function NexPractice() {
   const [mounted, setMounted] = useState(false)
@@ -216,70 +264,231 @@ export default function NexPractice() {
   const QUESTIONS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProblems, setTotalProblems] = useState(0);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Prevent hydration errors
   useEffect(() => {
     setMounted(true)
-    // Fetch tags from API
-    fetch("/api/tags?all=true")
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch tags")
-        return res.json()
-      })
-      .then(data => {
-        setAllTags(data.tags || [])
-        setTagsLoading(false)
-      })
-      .catch(err => {
-        setTagsError("Could not load tags")
-        setTagsLoading(false)
-      })
   }, [])
 
-  useEffect(() => {
-    setLoadingProblems(true);
-    fetch(`/api/questions/coding?page=${currentPage}&pageSize=${QUESTIONS_PER_PAGE}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch coding problems');
-        return res.json();
-      })
-      .then(data => {
-        setCodingProblems(data.codingQuestions || []);
-        setTotalProblems(data.total || 0);
-        setLoadingProblems(false);
-      })
-      .catch(err => {
-        setProblemsError('Could not load coding problems');
-        setLoadingProblems(false);
-      });
-  }, [currentPage]);
+  // Function to format difficulty for display
+  const formatDifficulty = (difficulty: string) => {
+    if (!difficulty) return "Medium";
+    
+    // Convert ENUM values to title case
+    if (difficulty === "EASY") return "Easy";
+    if (difficulty === "MEDIUM") return "Medium";
+    if (difficulty === "HARD") return "Hard";
+    if (difficulty === "VERY_HARD") return "Very Hard";
+    if (difficulty === "EXTREME") return "Extreme";
+    
+    // If it's already formatted, return as is
+    return difficulty;
+  }
 
+  // New function to fetch data using GraphQL
+  const fetchData = async () => {
+    setIsDataLoading(true);
+    
+    try {
+      // Prepare variables for GraphQL query
+      const variables: any = {
+        page: currentPage,
+        limit: QUESTIONS_PER_PAGE
+      };
+      
+      // Add search filter if exists
+      if (searchQuery.trim()) {
+        variables.search = searchQuery;
+      }
+      
+      // Add difficulty filter if not "All"
+      if (difficulty !== "All") {
+        // Map UI difficulty values to enum values safely
+        let difficultyValue: string;
+        switch(difficulty) {
+          case "Easy":
+            difficultyValue = "EASY";
+            break;
+          case "Medium":
+            difficultyValue = "MEDIUM";
+            break;
+          case "Hard":
+            difficultyValue = "HARD";
+            break;
+          default:
+            // Skip invalid difficulty values
+            difficultyValue = "";
+        }
+        
+        if (difficultyValue) {
+          variables.difficulty = difficultyValue;
+        }
+      }
+      
+      // Add tag filter if selected
+      if (selectedTags.length > 0) {
+        // We need to find tag IDs from names
+        const tagIds = allTags
+          .filter(tag => selectedTags.includes(tag.name))
+          .map(tag => tag.id);
+        
+        if (tagIds.length > 0) {
+          variables.tagIds = tagIds;
+        }
+      }
+      
+      console.log("%c GraphQL Query Variables:", "background: #4B0082; color: white; padding: 4px;", JSON.stringify(variables, null, 2));
+      console.log("%c GraphQL Query:", "background: #4B0082; color: white; padding: 4px;", GET_NEXPRACTICE_DATA.loc?.source?.body);
+      
+      const { data } = await apolloClient.query({
+        query: GET_NEXPRACTICE_DATA,
+        variables,
+        fetchPolicy: 'network-only' // Don't use cache for this
+      });
+      
+      // Validate data received
+      if (!data) {
+        console.error("GraphQL query returned no data");
+        setTagsError("Failed to load data from server");
+        setProblemsError("Failed to load data from server");
+        return;
+      }
+      
+      // Process tags data (only on first load)
+      if (data.tags && currentPage === 1) {
+        setAllTags(data.tags);
+        setTagsLoading(false);
+      }
+      
+      // Process questions data
+      if (data.questions && data.questions.questions) {
+        // Format the coding problems for the UI
+        const formattedProblems = data.questions.questions.map((question: any) => ({
+          id: question.id,
+          name: question.name,
+          questionId: question.id,
+          difficulty: question.codingQuestion?.difficulty || "MEDIUM",
+          status: question.status,
+          tags: question.codingQuestion?.tags || [],
+          questionText: question.codingQuestion?.questionText || '',
+          solvedByCount: question.solvedByCount || 0,
+          accuracy: question.accuracy || 0,
+          folder: question.folder
+        }));
+        
+        // Append new problems to existing problems instead of replacing them
+        if (currentPage === 1) {
+          setCodingProblems(formattedProblems);
+        } else {
+          setCodingProblems(prev => [...prev, ...formattedProblems]);
+        }
+        
+        setTotalProblems(data.questions.totalCount || 0);
+        setLoadingProblems(false);
+        
+        // Check if we've reached the end of the data
+        if (formattedProblems.length < QUESTIONS_PER_PAGE || 
+            codingProblems.length + formattedProblems.length >= data.questions.totalCount) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
+        }
+      } else {
+        console.warn("No questions data returned from GraphQL");
+        setProblemsError("No questions data available");
+        setHasMore(false);
+      }
+      
+    } catch (error: any) {
+      console.error("%c GraphQL Error Details:", "background: #FF0000; color: white; padding: 4px;", error);
+      
+      // Extract detailed error info if available
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        console.error("GraphQL Errors:", error.graphQLErrors);
+      }
+      
+      if (error.networkError) {
+        console.error("Network Error:", error.networkError);
+        if (error.networkError.result && error.networkError.result.errors) {
+          console.error("Network Error Details:", error.networkError.result.errors);
+        }
+      }
+      
+      setTagsError("Failed to load tags");
+      setProblemsError(`Error loading data: ${error.message}`);
+      setHasMore(false);
+    } finally {
+      setIsDataLoading(false);
+      setTagsLoading(false);
+      setLoadingProblems(false);
+    }
+  };
+
+  // Function to load more data
+  const loadMoreData = useCallback(async () => {
+    if (isDataLoading || !hasMore) return;
+    
+    // Load the next page
+    setCurrentPage(prev => prev + 1);
+  }, [isDataLoading, hasMore]);
+
+  // Setup intersection observer for infinite scrolling
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && !isDataLoading && hasMore) {
+          loadMoreData();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    
+    // Observe the loading trigger element
+    const loaderElement = document.getElementById('loading-trigger');
+    if (loaderElement) observer.observe(loaderElement);
+    
+    return () => {
+      if (loaderElement) observer.unobserve(loaderElement);
+    };
+  }, [mounted, isDataLoading, hasMore, loadMoreData]);
+
+  // Initial data load
+  useEffect(() => {
+    if (mounted) {
+      fetchData();
+    }
+  }, [mounted]);
+  
   // Reset to first page when filters/search change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, difficulty, selectedTags]);
+    if (mounted && (searchQuery || difficulty !== "All" || selectedTags.length > 0)) {
+      // Reset problem list and start over
+      setCodingProblems([]);
+      setCurrentPage(1);
+      setHasMore(true);
+      fetchData();
+    }
+  }, [mounted, searchQuery, difficulty, selectedTags]);
+  
+  // Second effect that only responds to currentPage changes for infinite scroll
+  useEffect(() => {
+    if (mounted && currentPage > 1) {
+      fetchData();
+    }
+  }, [mounted, currentPage]);
 
   if (!mounted) return null
 
-  // Filter problems based on selected criteria
-  const filteredProblems = codingProblems.filter((problem) => {
-    // Use question?.name or fallback to name
-    const title = problem.question?.name || problem.name || "";
-    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Filter by difficulty
-    const matchesDifficulty = difficulty === "All" || problem.difficulty === difficulty;
-
-    // Filter by tags
-    const matchesTags =
-      selectedTags.length === 0 ||
-      selectedTags.every((tag) => (problem.tags || []).some((t: any) => t.name === tag));
-
-    // You can add tab filtering logic here if you have status, etc.
-
-    return matchesSearch && matchesDifficulty && matchesTags;
-  });
-
+  // Filter problems based on selected criteria - no longer needed since GraphQL handles filtering
+  const filteredProblems = codingProblems;
+  
+  // Calculate total pages based on total problems
   const totalPages = Math.ceil(totalProblems / QUESTIONS_PER_PAGE);
   const paginatedProblems = filteredProblems;
 
@@ -544,56 +753,19 @@ export default function NexPractice() {
                   </CardHeader>
                   
                   <CardContent className="p-6">
-                    {/* Pagination controls above the table */}
-                    {totalPages > 1 && (
-                      <div className="flex justify-center items-center gap-2 flex-wrap mb-4">
-                  <Button
-                          variant="outline"
-                    size="sm"
-                          disabled={currentPage === 1}
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  >
-                          Previous
-                  </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                            key={page}
-                            variant={page === currentPage ? "default" : "outline"}
-                    size="sm"
-                            className={
-                              page === currentPage
-                                ? "font-bold border-indigo-500 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200"
-                                : ""
-                            }
-                            aria-current={page === currentPage ? "page" : undefined}
-                            onClick={() => setCurrentPage(page)}
-                          >
-                            {page}
-                  </Button>
-                        ))}
-                  <Button
-                          variant="outline"
-                    size="sm"
-                          disabled={currentPage === totalPages}
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        >
-                          Next
-                  </Button>
-                </div>
-              )}
-                    <div className="rounded-md border border-muted-foreground/10 overflow-hidden bg-card">
+                    <div className="rounded-md border border-muted-foreground/10 overflow-hidden bg-card" ref={tableRef}>
                       <Table>
                         <TableHeader className="bg-muted/50">
                           <TableRow className="hover:bg-muted/50 border-b border-muted-foreground/20">
                             <TableHead className="w-[40%]">
                               <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
                                 Problem <ArrowUpDown className="w-3 h-3" />
-                  </div>
+                              </div>
                             </TableHead>
                             <TableHead>
                               <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
                                 Difficulty <ArrowUpDown className="w-3 h-3" />
-                </div>
+                              </div>
                             </TableHead>
                             <TableHead className="hidden md:table-cell">Tags</TableHead>
                             <TableHead className="hidden sm:table-cell text-center">Solved By</TableHead>
@@ -601,7 +773,7 @@ export default function NexPractice() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {loadingProblems ? (
+                          {loadingProblems && codingProblems.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={5} className="h-24 text-center">
                                 <ProblemLoader />
@@ -611,11 +783,14 @@ export default function NexPractice() {
                             <TableRow>
                               <TableCell colSpan={5} className="h-24 text-center text-red-500">{problemsError}</TableCell>
                             </TableRow>
-                          ) : filteredProblems.length > 0 ? (
+                          ) : codingProblems.length > 0 ? (
                             <>
-                              {paginatedProblems.map((problem, index) => {
-                            return (
-                              <TableRow 
+                              {codingProblems.map((problem, index) => {
+                                // Calculate the actual problem number based on pagination
+                                const problemNumber = index + 1;
+                                
+                                return (
+                                  <TableRow 
                                     key={problem.id}
                                     className={`hover:bg-muted/30 transition-colors ${
                                       index % 2 === 0 ? "bg-muted/10" : ""
@@ -624,7 +799,7 @@ export default function NexPractice() {
                                     <TableCell className="font-medium">
                                       <div>
                                         <div className="flex items-center gap-2">
-                                          <span className="text-primary font-semibold">{index + 1}.</span>
+                                          <span className="text-primary font-semibold">{problemNumber}.</span>
                                           {problem.questionId ? (
                                             <Link
                                               href={`/nexpractice/problem/${problem.questionId}`}
@@ -636,100 +811,85 @@ export default function NexPractice() {
                                             <span className="text-red-500 flex items-center gap-1" title="Missing questionId">
                                               ⚠️ {problem.question?.name || problem.name}
                                             </span>
-                                    )}
-                                  </div>
+                                          )}
+                                        </div>
                                         <div className="text-xs text-muted-foreground md:hidden mt-1">
                                           {(problem.questionText || problem.description || '').substring(0, 60)}...
-                                  </div>
-                                  </div>
-                                </TableCell>
+                                        </div>
+                                      </div>
+                                    </TableCell>
                                     <TableCell>
                                       <Badge
                                         className={
-                                          problem.difficulty === "Easy"
+                                          problem.difficulty === "Easy" || problem.difficulty === "EASY"
                                             ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                            : problem.difficulty === "Medium"
+                                            : problem.difficulty === "Medium" || problem.difficulty === "MEDIUM"
                                               ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                                              : problem.difficulty === "Hard"
+                                              : problem.difficulty === "Hard" || problem.difficulty === "HARD"
                                                 ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                                                 : ""
                                         }
                                       >
-                                        {problem.difficulty}
+                                        {formatDifficulty(problem.difficulty)}
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                  <div className="flex flex-wrap gap-1">
+                                      <div className="flex flex-wrap gap-1">
                                         {problem.tags?.slice(0, 2).map((tag: any, idx: number) => (
-                                      <Badge 
+                                          <Badge 
                                             key={tag.id || idx}
-                                        variant="outline"
+                                            variant="outline"
                                             className="flex items-center gap-1 bg-muted/30 hover:bg-muted transition-colors"
                                           >
                                             <Tag className="w-3 h-3" />
-                                        {tag.name}
-                                      </Badge>
-                                    ))}
+                                            {tag.name}
+                                          </Badge>
+                                        ))}
                                         {problem.tags && problem.tags.length > 2 && (
-                                            <Badge 
-                                              variant="outline"
+                                          <Badge 
+                                            variant="outline"
                                             className="flex items-center gap-1 bg-muted/30 hover:bg-muted transition-colors"
-                                            >
+                                          >
                                             +{problem.tags.length - 2}
-                                            </Badge>
-                                    )}
-                                  </div>
-                                </TableCell>
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </TableCell>
                                     <TableCell className="hidden sm:table-cell text-center">
                                       {problem.solvedByCount ?? 0}
-                                </TableCell>
+                                    </TableCell>
                                     <TableCell className="text-center">
                                       {problem.accuracy != null ? `${problem.accuracy}%` : "—"}
-                                </TableCell>
+                                    </TableCell>
                                   </TableRow>
                                 );
                               })}
-                              {totalPages > 1 && (
-                                <TableRow>
-                                  <TableCell colSpan={5} className="py-3">
-                                    <div className="flex justify-center items-center gap-2 flex-wrap">
-                                  <Button 
-                                        variant="outline"
-                                    size="sm" 
-                                        disabled={currentPage === 1}
-                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                      >
-                                        Previous
-                                      </Button>
-                                      {/* Numbered page buttons */}
-                                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                        <Button
-                                          key={page}
-                                          variant={page === currentPage ? "default" : "outline"}
-                                          size="sm"
-                                          className={
-                                            page === currentPage
-                                              ? "font-bold border-indigo-500 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200"
-                                              : ""
-                                          }
-                                          aria-current={page === currentPage ? "page" : undefined}
-                                          onClick={() => setCurrentPage(page)}
-                                        >
-                                          {page}
-                                        </Button>
-                                      ))}
-                                      <Button
-                                    variant="outline"
-                                        size="sm"
-                                        disabled={currentPage === totalPages}
-                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                      >
-                                        Next
-                                  </Button>
+                              {/* Loading indicator */}
+                              <TableRow id="loading-trigger">
+                                <TableCell colSpan={5} className="p-4 text-center">
+                                  {isDataLoading ? (
+                                    <div className="flex justify-center items-center py-4">
+                                      <div className="flex items-center gap-2">
+                                        <div className="animate-spin h-5 w-5 text-indigo-500">
+                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                          </svg>
+                                        </div>
+                                        <span className="text-indigo-700 dark:text-indigo-300 text-sm">Loading more problems...</span>
+                                      </div>
                                     </div>
+                                  ) : hasMore ? (
+                                    <div className="py-2 text-sm text-muted-foreground">
+                                      Scroll for more problems
+                                    </div>
+                                  ) : (
+                                    <div className="py-2 text-sm text-muted-foreground">
+                                      No more problems to load
+                                    </div>
+                                  )}
                                 </TableCell>
                               </TableRow>
-                              )}
                             </>
                           ) : (
                             <TableRow>
@@ -778,7 +938,7 @@ export default function NexPractice() {
                                 : "";
                         return (
                           <Badge className={badgeClass}>
-                            {dailyChallenge.difficulty}
+                            {formatDifficulty(dailyChallenge.difficulty)}
                           </Badge>
                         );
                       })()}
