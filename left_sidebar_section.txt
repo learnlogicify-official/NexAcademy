@@ -1,0 +1,16 @@
+              <div className="flex flex-1 overflow-hidden">
+                <div className="w-10 border-border border-r flex flex-col items-center py-2 flex-shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                    <FileCode className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                    <CheckSquare className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                    <Info className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <Tabs 
+                    value={testTabValue} 
+                    onValueChange={(value) => {

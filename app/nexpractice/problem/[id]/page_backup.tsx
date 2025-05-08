@@ -2465,144 +2465,6 @@ console.log(solve(input));`;
               padding-right: 12px;
             }
           }
-          
-          /* Test panel styles for dark theme compatibility */
-          .test-panel {
-            border-color: var(--border);
-          }
-          
-          .test-panel .test-panel-content {
-            color: var(--foreground);
-          }
-          
-          /* Style test case items to match theme */
-          .test-case-item {
-            border-color: var(--border);
-            background-color: var(--background);
-          }
-          
-          .dark .test-case-item,
-          [data-theme="dark"] .test-case-item,
-          [data-theme="dracula"] .test-case-item {
-            border-color: var(--border);
-            background-color: hsl(var(--muted));
-          }
-          
-          /* Ensure input/output blocks match theme */
-          .test-input, .test-output, .expected-output {
-            background-color: var(--background);
-            border-color: var(--border);
-          }
-          
-          .dark .test-input, 
-          .dark .test-output, 
-          .dark .expected-output,
-          [data-theme="dark"] .test-input, 
-          [data-theme="dark"] .test-output, 
-          [data-theme="dark"] .expected-output,
-          [data-theme="dracula"] .test-input, 
-          [data-theme="dracula"] .test-output, 
-          [data-theme="dracula"] .expected-output {
-            background-color: hsl(var(--muted));
-            color: var(--foreground);
-            border-color: var(--border);
-          }
-          
-          /* Fix TabsList background in dark themes */
-          .test-panel .TabsList {
-            background-color: transparent;
-          }
-          
-          /* Fix textarea colors in test cases */
-          .test-panel textarea {
-            background-color: var(--background);
-            color: var(--foreground);
-            border-color: var(--border);
-          }
-          
-          /* Fix TabsTrigger colors */
-          .test-panel .TabsTrigger {
-            color: var(--foreground);
-          }
-          
-          .test-panel .TabsTrigger[data-state="active"] {
-            background-color: var(--background);
-            color: var(--foreground);
-          }
-          
-          /* Test case verdict styles for dark theme */
-          .dark .bg-green-50,
-          [data-theme="dark"] .bg-green-50,
-          [data-theme="dracula"] .bg-green-50 {
-            background-color: rgba(34, 197, 94, 0.1);
-          }
-          
-          .dark .bg-red-50,
-          [data-theme="dark"] .bg-red-50,
-          [data-theme="dracula"] .bg-red-50 {
-            background-color: rgba(239, 68, 68, 0.1);
-          }
-          
-          .dark .bg-amber-50,
-          [data-theme="dark"] .bg-amber-50,
-          [data-theme="dracula"] .bg-amber-50 {
-            background-color: rgba(245, 158, 11, 0.1);
-          }
-          
-          .dark .bg-blue-50,
-          [data-theme="dark"] .bg-blue-50,
-          [data-theme="dracula"] .bg-blue-50 {
-            background-color: rgba(59, 130, 246, 0.1);
-          }
-          
-          .dark .bg-gray-50,
-          [data-theme="dark"] .bg-gray-50,
-          [data-theme="dracula"] .bg-gray-50 {
-            background-color: rgba(107, 114, 128, 0.1);
-          }
-          
-          /* Fix TabsList in test cases */
-          .test-panel .bg-gray-100.dark\:bg-gray-800 {
-            background-color: var(--muted);
-          }
-          
-          /* Fix results panel in dark themes */
-          .result-panel {
-            background-color: var(--background);
-            color: var(--foreground);
-          }
-          
-          .result-panel .result-verdict {
-            border-color: var(--border);
-          }
-          
-          .result-panel pre {
-            background-color: var(--muted);
-            color: var(--foreground);
-            border-color: var(--border);
-          }
-          
-          /* Match the console output colors to the theme */
-          .result-panel .console-output {
-            background-color: var(--muted);
-            color: var(--foreground);
-            border-color: var(--border);
-          }
-          
-          /* Fix error messages in dark theme */
-          .result-panel .error-message {
-            background-color: rgba(239, 68, 68, 0.1);
-            color: rgb(239, 68, 68);
-            border-color: rgba(239, 68, 68, 0.2);
-          }
-          
-          .dark .result-panel .error-message,
-          [data-theme="dark"] .result-panel .error-message,
-          [data-theme="dracula"] .result-panel .error-message {
-            background-color: rgba(239, 68, 68, 0.2);
-            color: rgb(248, 113, 113);
-            border-color: rgba(239, 68, 68, 0.3);
-          }
         `}</style>
 
         {/* Right Section */}
@@ -4123,7 +3985,7 @@ console.log(solve(input));`;
 
             {/* Test Cases Panel */}
             <div 
-              className={`test-panel border-t flex flex-col bg-background text-foreground${isTestPanelExpanded ? ' test-panel-expanded' : ''}`}
+              className={`test-panel border-t flex flex-col${isTestPanelExpanded ? ' test-panel-expanded' : ''}`}
               style={{ 
                 height: isTestPanelExpanded ? '100%' : `${bottomPanelHeight}%`,
                 position: isTestPanelExpanded ? 'absolute' : 'relative',
@@ -4140,7 +4002,17 @@ console.log(solve(input));`;
               }}
             >
               <div className="flex flex-1 overflow-hidden">
-                
+                <div className="w-10 border-border border-r flex flex-col items-center py-2 flex-shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                    <FileCode className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                    <CheckSquare className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                    <Info className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="flex-1 overflow-hidden">
                   <Tabs 
                     value={testTabValue} 
@@ -4151,21 +4023,21 @@ console.log(solve(input));`;
                     }} 
                     defaultValue="testcase" 
                     className="w-full h-full flex flex-col">
-                    <div className="border-border border-b flex-shrink-0 bg-background">
+                    <div className="border-border border-b flex-shrink-0">
                       <div className="flex items-center justify-between">
-                        <TabsList className="px-4 bg-transparent">
-                          <TabsTrigger value="testcase" className="text-sm data-[state=active]:bg-background data-[state=active]:text-foreground">
+                        <TabsList className="px-4">
+                          <TabsTrigger value="testcase" className="text-sm">
                             <CheckSquare className="h-4 w-4 mr-1" />
                             Testcase
                           </TabsTrigger>
-                          <TabsTrigger value="result" className="text-sm data-[state=active]:bg-background data-[state=active]:text-foreground">
+                          <TabsTrigger value="result" className="text-sm">
                             Test Result
                           </TabsTrigger>
                         </TabsList>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="test-panel-expand-btn mr-2 text-muted-foreground hover:text-foreground"
+                          className="test-panel-expand-btn mr-2"
                           onClick={() => setIsTestPanelExpanded(!isTestPanelExpanded)}
                           title={isTestPanelExpanded ? "Collapse Test Panel" : "Expand Test Panel"}
                         >
@@ -4173,7 +4045,7 @@ console.log(solve(input));`;
                         </Button>
                       </div>
                     </div>
-                    <TabsContent value="testcase" className="flex-1 p-4 test-panel-content panel-scrollable bg-background">
+                    <TabsContent value="testcase" className="flex-1 p-4 test-panel-content panel-scrollable">
                       {isLoading ? (
                         <div className="flex items-center justify-center h-40">
                           <div className="flex flex-col items-center gap-4">
@@ -4185,7 +4057,7 @@ console.log(solve(input));`;
                         <TestCases sampleTestCases={problem?.sampleTestCases} judgeResults={results?.judgeResults} loading={isRunning} />
                       )}
                     </TabsContent>
-                    <TabsContent value="result" className="flex-1 p-4 test-panel-content panel-scrollable bg-background">
+                    <TabsContent value="result" className="flex-1 p-4 test-panel-content panel-scrollable">
                       <ResultPanel results={results} />
                     </TabsContent>
                   </Tabs>

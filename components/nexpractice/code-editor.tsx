@@ -365,6 +365,83 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
         ".cm-line.error-highlighted": {
           backgroundColor: "rgba(255, 0, 0, 0.15) !important",
         },
+        // Syntax highlighting token colors
+        ".cm-keyword": { 
+          color: isDark ? "#569CD6" : "#0000ff" 
+        },
+        ".cm-operator": { 
+          color: isDark ? "#D4D4D4" : "#000000"
+        },
+        ".cm-variable-2": { 
+          color: isDark ? "#9CDCFE" : "#001080"
+        },
+        ".cm-variable": { 
+          color: isDark ? "#9CDCFE" : "#001080" 
+        },
+        ".cm-property": {
+          color: isDark ? "#9CDCFE" : "#001080"
+        },
+        ".cm-string": { 
+          color: isDark ? "#CE9178" : "#a31515" 
+        },
+        ".cm-string-2": {
+          color: isDark ? "#CE9178" : "#a31515"
+        },
+        ".cm-number": { 
+          color: isDark ? "#B5CEA8" : "#098658" 
+        },
+        ".cm-atom": { 
+          color: isDark ? "#569CD6" : "#0000ff" 
+        },
+        ".cm-comment": { 
+          color: isDark ? "#6A9955" : "#008000" 
+        },
+        ".cm-tag": {
+          color: isDark ? "#569CD6" : "#800000"
+        },
+        ".cm-attribute": {
+          color: isDark ? "#9CDCFE" : "#ff0000"
+        },
+        ".cm-type": { 
+          color: isDark ? "#4EC9B0" : "#267f99" 
+        },
+        ".cm-def": { 
+          color: isDark ? "#DCDCAA" : "#795E26" 
+        },
+        ".cm-meta": { 
+          color: isDark ? "#D4D4D4" : "#000000" 
+        },
+        ".cm-punctuation": {
+          color: isDark ? "#D4D4D4" : "#000000"
+        },
+      };
+    };
+
+    // Get Dracula theme styling
+    const getDraculaTheme = () => {
+      // Start with the VS Code dark theme for UI elements
+      const baseTheme = getVSCodeTheme(true);
+      
+      // Add dracula-specific syntax highlighting
+      return {
+        ...baseTheme,
+        // Dracula syntax highlighting token colors
+        ".cm-keyword": { color: "#ff79c6" },
+        ".cm-operator": { color: "#f8f8f2" },
+        ".cm-variable-2": { color: "#bd93f9" },
+        ".cm-variable": { color: "#f8f8f2" },
+        ".cm-property": { color: "#8be9fd" },
+        ".cm-string": { color: "#f1fa8c" },
+        ".cm-string-2": { color: "#f1fa8c" },
+        ".cm-number": { color: "#bd93f9" },
+        ".cm-atom": { color: "#bd93f9" },
+        ".cm-comment": { color: "#6272a4" },
+        ".cm-tag": { color: "#ff79c6" },
+        ".cm-attribute": { color: "#50fa7b" },
+        ".cm-type": { color: "#8be9fd" },
+        ".cm-def": { color: "#50fa7b" },
+        ".cm-meta": { color: "#f8f8f2" },
+        ".cm-punctuation": { color: "#f8f8f2" },
       };
     };
 
@@ -447,7 +524,7 @@ export function CodeEditor({ code, setCode, language, preloadCode, initialShowSe
             fontFamily: "'JetBrains Mono', monospace",
           },
           ...(actualTheme === "dracula" 
-            ? getVSCodeTheme(true) // Use dark theme settings for Dracula
+            ? getDraculaTheme()
             : getVSCodeTheme(isDarkTheme))
         }),
         EditorView.editable.of(!readOnly),
