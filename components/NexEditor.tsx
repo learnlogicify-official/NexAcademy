@@ -136,7 +136,7 @@ export function NexEditor({
         editorInstance.layout();
       }
     });
-    resizeObserver.observe(editorContainerRef.current);
+      resizeObserver.observe(editorContainerRef.current);
     return () => resizeObserver.disconnect();
   }, [editorInstance]);
   
@@ -534,7 +534,7 @@ export function NexEditor({
               // Call the onEditorMount callback if provided
               if (onEditorMount) {
                 onEditorMount(editor, monaco);
-              }
+          }
         }}
         loading={
           <div style={{
