@@ -1,7 +1,6 @@
 "use client"
 
-import React, { Fragment } from "react"
-import { useState, useRef, useEffect } from "react"
+import React, { Fragment, useState, useRef, useEffect, useCallback } from "react"
 import {
   ChevronLeft,
   ChevronRight,
@@ -36,7 +35,24 @@ import {
   ChevronDown,
   Search,
   User,
-  LogOut
+  LogOut,
+  AlertTriangle,
+  XCircle,
+  Info,
+  Cpu,
+  Loader2,
+  Percent,
+  Lock,
+  CheckCircle2,
+  AlignLeft,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Minimize,
+  Copy,
+  ClipboardCopy,
+  Sparkle,
+  ArrowLeft
 } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -53,6 +69,13 @@ import type { editor } from "monaco-editor"
 import type { Monaco } from "@monaco-editor/react"
 import { useSession } from "next-auth/react"
 import { useProfilePic } from "@/components/ProfilePicContext"
+import { useMutation, useQuery } from '@apollo/client';
+import { RUN_CODE, SUBMIT_CODE } from './graphql/codeExecution';
+import { getLanguageId } from './utils/getLanguageId';
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner"
+import confetti from 'canvas-confetti'
+import { HiddenTestcasesTab } from "./components/HiddenTestcasesTab";
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -439,7 +462,18 @@ const parseLanguageName = (fullName: string) => {
 };
 
 export default function ProblemClientPage({ codingQuestion, defaultLanguage, preloadCode }: ProblemClientPageProps) {
-  const [language, setLanguage] = useState(defaultLanguage || "71") // Default to Python 3.8.1 if not specified
+  // Initialize language correctly based on defaultLanguage
+  const processDefaultLanguage = (lang: string): string => {
+    if (lang === "Java") return "62"; // Java ID
+    return lang || "71"; // Default to Python 3.8.1 if not specified
+  };
+  
+  const [language, setLanguage] = useState(processDefaultLanguage(defaultLanguage))
+  // Add debug log after initialization
+  useEffect(() => {
+    console.log("Initial language state:", language);
+    console.log("Default language prop:", defaultLanguage);
+  }, [language, defaultLanguage]);
   const isMobile = useIsMobile()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { theme: appTheme, setTheme: setAppTheme } = useTheme()
@@ -956,25 +990,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       margin: 0.15rem;
       border: 1px solid ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.2)'};
       transition: all 0.15s ease;
-    }
- 
-    /* More compact problem description test cases */
-    .test-case-card + .test-case-card {
-      margin-top: 0.75rem !important;
-    }
-
-    .test-case-card .px-4.py-3 {
-      padding: 0.65rem 0.85rem !important;
-    }
-
-    .test-case-card .grid.grid-cols-1.md\\:grid-cols-2.gap-4 {
-      gap: 0.75rem !important;
-      padding: 0.85rem !important;
-    }
-
-    /* Test case headers */
-    .test-case-card h3 {
-      font-size: 0.95rem !important;
     }
   `;
 
@@ -1604,8 +1619,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLeftPanelExpanded, setIsLeftPanelExpanded] = useState(false);
+  const [isResultsPanelFullscreen, setIsResultsPanelFullscreen] = useState(false);
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const previousLeftWidthRef = useRef(50);
+  const previousEditorHeightRef = useRef(70);
 
   // Get user session and profile picture
   const { data: session } = useSession();
@@ -1648,6 +1665,21 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     }
   };
 
+  // Toggle the results panel to fullscreen mode
+  const toggleResultsPanelFullscreen = () => {
+    if (!isResultsPanelFullscreen) {
+      // Save the current editor height before going fullscreen
+      previousEditorHeightRef.current = editorHeight;
+      // Make results panel take up the full right panel
+      setEditorHeight(0);
+      setIsResultsPanelFullscreen(true);
+    } else {
+      // Restore previous editor height
+      setEditorHeight(previousEditorHeightRef.current);
+      setIsResultsPanelFullscreen(false);
+    }
+  };
+
   // Listen for fullscreen change events
   useEffect(() => {
     const handleChange = () => {
@@ -1667,6 +1699,495 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     };
   }, []);
 
+  const [results, setResults] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("sample");
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [executionMessage, setExecutionMessage] = useState<string>("");
+  const [executionStatus, setExecutionStatus] = useState<"success" | "error" | "warning" | "info" | null>(null);
+  const [loadingPhrase, setLoadingPhrase] = useState<string>("");
+  const [showEvaluatingSkeletons, setShowEvaluatingSkeletons] = useState<boolean>(false);
+  const [skeletonTab, setSkeletonTab] = useState<"sample" | "hidden" | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
+  const [sampleTestResults, setSampleTestResults] = useState<any[]>([]);
+  const [hiddenTestResults, setHiddenTestResults] = useState<any[]>([]);
+  const [sampleExecutionStatus, setSampleExecutionStatus] = useState<"success" | "error" | "warning" | "info" | null>(null);
+  const [hiddenExecutionStatus, setHiddenExecutionStatus] = useState<"success" | "error" | "warning" | "info" | null>(null);
+  
+  // New state variables for testcase progress tracking
+  const [totalHiddenTestcases, setTotalHiddenTestcases] = useState<number>(0);
+  const [completedHiddenTestcases, setCompletedHiddenTestcases] = useState<number>(0);
+  const [passedHiddenTestcases, setPassedHiddenTestcases] = useState<number>(0);
+  const [executingHiddenTestcases, setExecutingHiddenTestcases] = useState<boolean>(false);
+  const [hiddenTestcasesFailed, setHiddenTestcasesFailed] = useState<boolean>(false);
+  const [skippedHiddenTestcases, setSkippedHiddenTestcases] = useState<number>(0);
+  const [showCelebration, setShowCelebration] = useState<boolean>(false);
+  
+  // Replace Gen Z loading phrases with compilation stages
+  const compilationStages = [
+    "Analyzing your code...",
+    "Compiling...",
+    "Optimizing...",
+    "Preparing test cases...",
+    "Running tests...",
+    "Processing results...",
+    "Finalizing evaluation..."
+  ];
+
+  // Add the GraphQL mutations
+  const [runCodeMutation] = useMutation(RUN_CODE);
+  const [submitCodeMutation] = useMutation(SUBMIT_CODE);
+
+  // Add the runCode and submitCode functions
+  const runCode = async () => {
+    try {
+      // Make results panel fullscreen when running code
+      if (!isResultsPanelFullscreen) {
+        toggleResultsPanelFullscreen();
+      }
+      
+      setIsRunning(true);
+      setExecutionMessage("Running code...");
+      setExecutionStatus("info");
+      setSampleExecutionStatus("info");
+      setActiveTab("sample");
+      setShowEvaluatingSkeletons(true);
+      setSkeletonTab("sample"); // Only show skeletons in sample tab
+      
+      // Set a static loading phrase instead of cycling through stages
+      setLoadingPhrase("Executing the code...");
+      
+      console.log("Selected language:", language);
+      console.log("Language name from JUDGE0_LANGUAGES:", JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]);
+      const langId = getLanguageId(language);
+      console.log("Language ID for execution:", langId);
+
+      const response = await runCodeMutation({
+        variables: {
+          input: {
+            sourceCode: code,
+            languageId: langId,
+            problemId: codingQuestion.questionId
+          }
+        }
+      });
+
+      // Delay hiding the skeleton to ensure smooth transition
+      setTimeout(() => {
+        // Clear the loading animation
+        setLoadingPhrase("");
+        setLoadingProgress(0);
+        setShowEvaluatingSkeletons(false);
+        setSkeletonTab(null);
+        setIsRunning(false);
+
+        if (response.data?.runCode) {
+          const { success, message, results, allTestsPassed } = response.data.runCode;
+          
+          // Store results only in sample tab results
+          setResults(results || []);
+          setSampleTestResults(results || []);
+          
+          // Determine correct status based on test results
+          let newStatus: "success" | "error" | "warning" | "info" = "error";
+          if (success) {
+            if (allTestsPassed) {
+              newStatus = "success";
+            } else {
+              // Check if at least one test case passed
+              const hasPassingTests = results && results.some((r: any) => r.isCorrect);
+              newStatus = hasPassingTests ? "warning" : "error";
+            }
+          }
+          
+          setExecutionMessage(message || (success ? "Code executed successfully" : "Execution failed"));
+          setExecutionStatus(newStatus);
+          setSampleExecutionStatus(newStatus);
+        } else {
+          setExecutionMessage("Failed to run code. Please try again.");
+          setExecutionStatus("error");
+          setSampleExecutionStatus("error");
+        }
+      }, 800); // Add small delay for smoother transition
+    } catch (error: any) {
+      console.error("Error running code:", error);
+      setExecutionMessage(`Error: ${error.message}`);
+      setExecutionStatus("error");
+      setSampleExecutionStatus("error");
+      setLoadingPhrase("");
+      setLoadingProgress(0);
+      setShowEvaluatingSkeletons(false);
+      setSkeletonTab(null);
+      setIsRunning(false);
+    }
+  };
+
+  // Update the submitCode function to also check for partially passing tests correctly
+  const submitCode = async () => {
+    try {
+      // Make results panel fullscreen when submitting code
+      if (!isResultsPanelFullscreen) {
+        toggleResultsPanelFullscreen();
+      }
+      
+      setIsSubmitting(true);
+      setExecutionMessage("Submitting solution...");
+      setExecutionStatus("info");
+      setHiddenExecutionStatus("info");
+      setActiveTab("hidden"); // Make sure we switch to the hidden testcases tab
+      
+      // Just show the executing state without any count information yet
+      setExecutingHiddenTestcases(true);
+      setShowCelebration(false);
+      setHiddenTestResults([]);
+      
+      // Reset all counter variables to ensure the UI shows 0/total at the beginning
+      setCompletedHiddenTestcases(0);
+      setPassedHiddenTestcases(0);
+      setHiddenTestcasesFailed(false);
+      setSkippedHiddenTestcases(0);
+      
+      // Set a static loading phrase
+      setLoadingPhrase("Executing the code...");
+      
+      console.log("Selected language for submission:", language);
+      console.log("Language name from JUDGE0_LANGUAGES:", JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]);
+      const langId = getLanguageId(language);
+      console.log("Language ID for submission:", langId);
+
+      // Request to execute all testcases in parallel
+      const response = await submitCodeMutation({
+        variables: {
+          input: {
+            sourceCode: code,
+            languageId: langId,
+            problemId: codingQuestion.questionId,
+            executeInParallel: true // Signal the server to use parallel execution
+          }
+        }
+      });
+
+      if (response.data?.submitCode) {
+        const { success, message, results, allTestsPassed, totalTests } = response.data.submitCode;
+        
+        // Log the results for debugging
+        console.log("API Response results:", results);
+        console.log("Skipped test cases:", results.filter((r: any) => 
+          r.isSkipped || r.verdict === "Skipped" || (r.status && r.status.description === "Skipped")
+        ));
+        console.log("Failed test cases:", results.filter((r: any) => 
+          !r.isCorrect && 
+          !r.isSkipped && 
+          r.verdict !== "Skipped" && 
+          (!r.status || r.status.description !== "Skipped")
+        ));
+        
+        // Now that we have the response, set the total number of testcases
+        setTotalHiddenTestcases(totalTests || results?.length || 0);
+        
+        if (success && results && results.length > 0) {
+          // Simulation for UI purposes only - the server has already executed all testcases in parallel
+          const processTestcases = async () => {
+            let passedCount = 0;
+            const processedResults = [];
+            
+            // Count and store passing testcases first
+            const passingTestcases = results.filter((r: any) => r.isCorrect);
+            const skippedTestcases = results.filter((r: any) => 
+              r.isSkipped || r.verdict === "Skipped" || (r.status && r.status.description === "Skipped")
+            );
+            // Update each test case with explicit isSkipped flag if it's missing
+            const processedSkippedTestcases = skippedTestcases.map((r: any) => ({
+              ...r,
+              isSkipped: true
+            }));
+            
+            const failingTestcases = results.filter((r: any) => 
+              !r.isCorrect && 
+              !r.isSkipped && 
+              r.verdict !== "Skipped" && 
+              (!r.status || r.status.description !== "Skipped")
+            );
+            
+            passedCount = passingTestcases.length;
+            const hasFailures = failingTestcases.length > 0;
+            
+            // Determine which test cases were processed vs. skipped
+            const processedIds = new Set([
+              ...passingTestcases.map((r: any) => r.id),
+              ...failingTestcases.map((r: any) => r.id)
+            ]);
+            
+            // Create additional skipped test case placeholders if we're missing some
+            const manuallySkippedTestcases = totalTests > (processedIds.size + processedSkippedTestcases.length) ? 
+              Array.from({ length: totalTests - (processedIds.size + processedSkippedTestcases.length) }).map((_, idx) => ({
+                id: `skipped-${idx}`,
+                input: "",
+                expectedOutput: "",
+                actualOutput: null,
+                stderr: null,
+                compileOutput: null,
+                status: { id: 0, description: "Skipped" },
+                verdict: "Skipped",
+                isCorrect: false,
+                isSkipped: true,
+                executionTime: null,
+                memoryUsed: null
+              })) : [];
+            
+            // If there are failures, show the first failing test case first
+            if (hasFailures) {
+              // Show just the first failing test case with a slight delay for visual feedback
+              await new Promise(resolve => setTimeout(resolve, 150));
+              
+              const failedResult = failingTestcases[0];
+              processedResults.push(failedResult);
+              
+              // Update progress counters
+              setCompletedHiddenTestcases(1);
+              setHiddenTestcasesFailed(true);
+              
+              // Update the UI with the failed result 
+              setHiddenTestResults([...processedResults]);
+              
+              // Then show passing test cases
+              for (let i = 0; i < passingTestcases.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const result = passingTestcases[i];
+                processedResults.push(result);
+                
+                // Update progress counters
+                setCompletedHiddenTestcases(i + 2); // +2 because we already showed 1 failing test
+                setPassedHiddenTestcases(i + 1);
+                
+                // Update the UI with the current results
+                setHiddenTestResults([...processedResults]);
+              }
+              
+              // Finally add any remaining failing test cases (without detailed info)
+              if (failingTestcases.length > 1) {
+                for (let i = 1; i < failingTestcases.length; i++) {
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  
+                  const failedResult = { 
+                    ...failingTestcases[i],
+                    // Hide detailed output for secondary failures
+                    actualOutput: "Hidden (Multiple failures detected)",
+                    stderr: null,
+                    compileOutput: null
+                  };
+                  processedResults.push(failedResult);
+                  
+                  // Update progress counters
+                  setCompletedHiddenTestcases(passingTestcases.length + i + 1);
+                  
+                  // Update the UI
+                  setHiddenTestResults([...processedResults]);
+                }
+              }
+              
+              // Add any skipped test cases
+              if (processedSkippedTestcases.length > 0 || manuallySkippedTestcases.length > 0) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Add API-marked skipped tests first
+                if (processedSkippedTestcases.length > 0) {
+                  processedResults.push(...processedSkippedTestcases);
+                }
+                
+                // Then add any manually created placeholders
+                if (manuallySkippedTestcases.length > 0) {
+                  processedResults.push(...manuallySkippedTestcases);
+                }
+                
+                setCompletedHiddenTestcases(processedResults.length);
+                setSkippedHiddenTestcases(processedSkippedTestcases.length + manuallySkippedTestcases.length);
+                setHiddenTestResults([...processedResults]);
+              }
+              
+              // Show the failure message
+              const newStatus: "success" | "error" | "warning" | "info" = passedCount > 0 ? "warning" : "error";
+              const skippedCount = processedSkippedTestcases.length + manuallySkippedTestcases.length;
+              const failedCount = failingTestcases.length;
+              
+              let statusMessage = `Execution stopped after first failure. ${passedCount}/${totalTests} passed.`;
+              if (failedCount > 0) statusMessage += ` ${failedCount} failed.`;
+              if (skippedCount > 0) statusMessage += ` ${skippedCount} skipped.`;
+              
+              setExecutionMessage(statusMessage);
+              setExecutionStatus(newStatus);
+              setHiddenExecutionStatus(newStatus);
+            } else {
+              // All tests passed
+              // Show all passing test cases
+              for (let i = 0; i < passingTestcases.length; i++) {
+                // Simulate a slight delay for visual feedback
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const result = passingTestcases[i];
+                processedResults.push(result);
+                
+                // Update progress counters
+                setCompletedHiddenTestcases(i + 1);
+                setPassedHiddenTestcases(i + 1);
+                
+                // Update the UI with the current results
+                setHiddenTestResults([...processedResults]);
+              }
+              
+              setExecutionMessage(`All ${totalTests} test cases passed!`);
+              setExecutionStatus("success");
+              setHiddenExecutionStatus("success");
+              setShowCelebration(true);
+              // Trigger confetti celebration
+              triggerConfettiCelebration();
+            }
+            
+            // All testcases complete
+            setExecutingHiddenTestcases(false);
+            setIsSubmitting(false);
+          };
+          
+          // Start processing testcases
+          processTestcases();
+        } else {
+          setExecutingHiddenTestcases(false);
+          setIsSubmitting(false);
+          setExecutionMessage(message || "Failed to submit code.");
+          setExecutionStatus("error");
+          setHiddenExecutionStatus("error");
+        }
+      } else {
+        setExecutingHiddenTestcases(false);
+        setIsSubmitting(false);
+        setExecutionMessage("Failed to submit code. Please try again.");
+        setExecutionStatus("error");
+        setHiddenExecutionStatus("error");
+      }
+    } catch (error: any) {
+      console.error("Error submitting code:", error);
+      setExecutingHiddenTestcases(false);
+      setIsSubmitting(false);
+      setExecutionMessage(`Error: ${error.message}`);
+      setExecutionStatus("error");
+      setHiddenExecutionStatus("error");
+      setLoadingPhrase("");
+      setLoadingProgress(0);
+      setShowEvaluatingSkeletons(false);
+      setSkeletonTab(null);
+    }
+  };
+  
+  const triggerConfettiCelebration = () => {
+    // Ultra-premium color scheme with metallic/luxury colors
+    const luxuryColors = ['#FFD700', '#E0BF00', '#B8860B', '#DAA520', '#9370DB', '#FFFFFF'];
+    const accentColors = ['#4B0082', '#9932CC', '#8A2BE2', '#FF1493', '#00BFFF'];
+    
+    // Custom shapes setup (more premium)
+    const shapes = ['square', 'circle'];
+    
+    // Phase 1: Initial golden shower from top (sparse but elegant)
+    const createGoldenShower = () => {
+      confetti({
+        particleCount: 35,
+        angle: 90,
+        spread: 100,
+        origin: { x: 0.5, y: 0 },
+        colors: luxuryColors,
+        shapes: ['square'],
+        gravity: 0.65,
+        scalar: 1.5,
+        drift: 0.5,
+        ticks: 200,
+        flat: true,
+        zIndex: 200,
+        disableForReducedMotion: true
+      });
+    };
+    
+    // Phase 2: Elegant side bursts for dimension
+    const createSideBursts = () => {
+      // Left side
+      confetti({
+        particleCount: 10,
+        angle: 60,
+        spread: 25,
+        origin: { x: 0, y: 0.5 },
+        colors: accentColors,
+        shapes,
+        gravity: 0.4,
+        scalar: 1.3,
+        ticks: 400
+      });
+      
+      // Right side
+      confetti({
+        particleCount: 10,
+        angle: 120,
+        spread: 25,
+        origin: { x: 1, y: 0.5 },
+        colors: accentColors,
+        shapes,
+        gravity: 0.4,
+        scalar: 1.3,
+        ticks: 400
+      });
+    };
+    
+    // Phase 3: Continuous gentle rain with fewer but higher quality particles
+    const createGentleRain = () => {
+      const duration = 2500;
+      const animationEnd = Date.now() + duration;
+      
+      const rainInterval = setInterval(() => {
+        const timeLeft = animationEnd - Date.now();
+        
+        if (timeLeft <= 0) {
+          clearInterval(rainInterval);
+          return;
+        }
+        
+        // Calculate decreasing particle count as animation progresses
+        const particleCount = 3;
+        
+        confetti({
+          particleCount,
+          angle: 90,
+          spread: 70,
+          origin: { x: Math.random(), y: 0 },
+          colors: [...luxuryColors, ...accentColors],
+          shapes,
+          gravity: 0.6,
+          scalar: 1.4,
+          drift: 0.2,
+          ticks: 500
+        });
+      }, 300); // Release particles every 300ms for a more exclusive feel
+    };
+    
+    // Execute all phases with elegant timing
+    createGoldenShower();
+    
+    setTimeout(() => {
+      createSideBursts();
+    }, 200);
+    
+    setTimeout(() => {
+      createGentleRain();
+    }, 500);
+  };
+
+  // Add helper function to parse language ID
+  const parseLanguageId = (languageName: string): number => {
+    // Find the language ID from JUDGE0_LANGUAGES
+    const entry = Object.entries(JUDGE0_LANGUAGES).find(([_, name]) => 
+      name === languageName || name.includes(languageName)
+    );
+    
+    return entry ? parseInt(entry[0], 10) : 71; // Default to Python 3 (ID 71) if not found
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
       {/* Expandable Coding Questions Sidebar */}
@@ -1676,7 +2197,120 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         onClose={() => setSidebarOpen(false)}
       />
       {/* Add the style tag with our custom styles */}
-      <style dangerouslySetInnerHTML={{ __html: questionTextStyles + gridPatternCSS }} />
+      <style dangerouslySetInnerHTML={{ __html: questionTextStyles + gridPatternCSS + `
+        @keyframes gradient-x {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .animate-gradient-x {
+          background-size: 200% 100%;
+          animation: gradient-x 3s linear infinite;
+        }
+        
+        @keyframes gradient-slow {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .animate-gradient-slow {
+          background-size: 200% auto;
+          animation: gradient-slow 4s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-opacity {
+          0%, 100% {
+            opacity: 0.8;
+          }
+          50% {
+            opacity: 0.4;
+          }
+        }
+        .animate-pulse-opacity {
+          animation: pulse-opacity 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Glass card effects */
+        .glass-card {
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        }
+        .dark .glass-card {
+          background: rgba(15, 23, 42, 0.7);
+          border: 1px solid rgba(30, 41, 59, 0.2);
+        }
+        
+        /* Problem description card styles */
+        .content-card {
+          position: relative;
+          border-radius: 12px;
+          overflow: hidden;
+          transition: all 0.3s ease;
+        }
+        .content-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.1);
+        }
+        .content-card-gradient {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8));
+          border: 1px solid rgba(224, 231, 255, 0.7);
+          border-radius: 12px;
+        }
+        .dark .content-card-gradient {
+          background: linear-gradient(to bottom right, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.7));
+          border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+        .content-card-inner {
+          position: relative;
+          z-index: 10;
+          padding: 1.25rem;
+        }
+        
+        /* Tag pill style */
+        .tag-pill {
+          display: inline-flex;
+          padding: 0.15rem 0.5rem;
+          font-size: 0.65rem;
+          font-weight: 500;
+          border-radius: 0.375rem;
+          background: linear-gradient(to bottom right, rgba(224, 231, 255, 0.6), rgba(224, 231, 255, 0.3));
+          color: rgb(67, 56, 202);
+          border: 1px solid rgba(224, 231, 255, 0.7);
+        }
+        .dark .tag-pill {
+          background: linear-gradient(to bottom right, rgba(49, 46, 129, 0.3), rgba(49, 46, 129, 0.1));
+          color: rgb(165, 180, 252);
+          border: 1px solid rgba(67, 56, 202, 0.3);
+        }
+        
+        /* Test case card styles */
+        .test-case-card {
+          border-radius: 0.75rem;
+          overflow: hidden;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          background-color: white;
+        }
+        .dark .test-case-card {
+          background-color: rgb(15, 23, 42);
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        }
+      `}} />
       {/* Header with NexPractice theming */}
       <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-100 dark:border-indigo-900/50 bg-white dark:bg-slate-900 shadow-sm md:px-6 md:py-3">
         {/* Left section: Logo and sidebar toggle */}
@@ -1716,29 +2350,62 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
         {/* Middle section with run and submit buttons */}
         <div className="hidden md:flex flex-1 items-center justify-center gap-3 mx-4">
-            <div className="flex items-center gap-1 px-2 py-1 border border-indigo-100 dark:border-indigo-900/50 rounded-md text-sm bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors mr-2">
-              <ChevronLeft className="h-4 w-4 text-indigo-500" />
-              <span className="hidden sm:inline text-slate-700 dark:text-slate-300">Problem</span>
-              <span className="text-indigo-700 dark:text-indigo-300 font-medium">{problemNumber}</span>
-              <ChevronRight className="h-4 w-4 text-indigo-500" />
-            </div>
-
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-3">
           <Button
             size="sm"
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1"
+            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 min-w-28 relative overflow-hidden"
+            onClick={runCode}
+            disabled={isRunning}
           >
+            {isRunning ? (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
+                <div className="relative z-10 flex items-center space-x-1">
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+                  </span>
+                  <span className="text-sm font-medium text-white animate-pulse">
+                    {loadingPhrase || "Processing..."}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
             <Play className="h-4 w-4" />
             Run Code
+              </>
+            )}
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors gap-1"
+            className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors gap-1 min-w-28 relative overflow-hidden"
+            onClick={submitCode}
+            disabled={isSubmitting}
           >
-            <Send className="h-4 w-4" />
+            {isSubmitting ? (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-100 via-purple-100 to-indigo-100 dark:from-indigo-900/30 dark:via-purple-900/30 dark:to-indigo-900/30 animate-gradient-x"></div>
+                <div className="relative z-10 flex items-center space-x-1">
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                  <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300 animate-pulse truncate max-w-24">
+                    Submitting...
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-1" />
             Submit
+              </>
+            )}
           </Button>
+          </div>
         </div>
 
         {/* Right section */}
@@ -1915,18 +2582,39 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             <Button
               variant="outline"
               size="sm"
-              className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white border-none shadow-sm"
+              className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white border-none shadow-sm relative overflow-hidden min-w-20"
+              onClick={runCode}
+              disabled={isRunning}
             >
+              {isRunning ? (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
+                  <div className="relative z-10 flex items-center space-x-1">
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+                    </span>
+                    <span className="text-xs font-medium text-white animate-pulse truncate max-w-24">
+                      {loadingPhrase || "Processing..."}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
               <Play className="h-4 w-4 mr-1" />
               Run
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+              onClick={submitCode}
+              disabled={isSubmitting}
             >
               <Send className="h-4 w-4 mr-1" />
-              Submit
+              {isSubmitting ? "Submitting..." : "Submit"}
             </Button>
           </div>
         </div>
@@ -1943,9 +2631,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         >
           <div className="p-4 md:p-5">
             {/* Problem header with gradient card - make it more compact */}
-            <Card className="mb-4 border-none overflow-hidden shadow-lg relative group">
+            <Card className="mb-4 border-none overflow-hidden shadow-lg relative group glass-card">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl opacity-20 blur-sm group-hover:opacity-40 transition duration-300"></div>
-              <div className="relative bg-white dark:bg-slate-900 rounded-xl p-0.5 overflow-hidden">
+              <div className="relative bg-white/80 dark:bg-slate-900/80 rounded-xl p-0.5 overflow-hidden backdrop-blur-sm">
                 <div className="absolute inset-0 bg-grid-pattern opacity-[0.03]"></div>
               <div className="relative">
                 {/* Background pattern and gradients */}
@@ -1981,7 +2669,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       <div className="flex-1 space-y-1">
                         {/* Problem title with gradient text - smaller font size */}
                         <div className="relative">
-                          <h2 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300 pb-0.5">
+                          <h2 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300 pb-0.5 bg-[length:200%_auto] animate-gradient-slow">
                         {problemTitle}
                       </h2>
                           <div className="h-0.5 w-12 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"></div>
@@ -2002,7 +2690,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                           
                           <div className="h-3 w-0.5 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                           
-                          {/* Tags - updated style without icons */}
+                          {/* Tags - updated style with tag-pill class */}
                           <div className="flex flex-wrap gap-1">
                             <div className="tag-pill">Array</div>
                             <div className="tag-pill">Hash Table</div>
@@ -2038,7 +2726,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </div>
             </Card>
 
-            {/* Problem content tabs */}
+            {/* Problem content tabs with new gradient background */}
             <Tabs defaultValue="description" className="mb-6">
               <TabsList className="grid grid-cols-3 bg-gradient-to-r from-indigo-50/80 via-purple-50/80 to-indigo-50/80 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-indigo-900/20 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-indigo-100/80 dark:border-indigo-900/30 shadow-sm">
                 <TabsTrigger
@@ -2074,7 +2762,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </TabsList>
               
               <TabsContent value="description" className="mt-4 space-y-6 focus-visible:outline-none focus-visible:ring-0">
-                {/* Problem description card */}
+                {/* Problem description with content-card styling */}
                 <div className="content-card">
                   <div className="content-card-gradient"></div>
                   <div className="content-card-inner relative">
@@ -2082,18 +2770,17 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     <div className="absolute -top-5 -right-5 w-40 h-40 bg-gradient-to-br from-indigo-100/30 to-purple-100/20 dark:from-indigo-700/10 dark:to-purple-700/5 rounded-full blur-3xl opacity-70"></div>
                     <div className="absolute -bottom-5 -left-5 w-40 h-40 bg-gradient-to-tr from-blue-100/20 to-indigo-100/20 dark:from-blue-700/5 dark:to-indigo-700/10 rounded-full blur-3xl opacity-60"></div>
                     
-                    {/* Remove problem tags section */}
-                    
+                    {/* Problem description content with improved typography */}
                     <div className="relative z-10 problem-description">
                       <div 
-                        className="description-content text-slate-700 dark:text-slate-300" 
+                        className="description-content prose prose-indigo dark:prose-invert max-w-none text-slate-700 dark:text-slate-300" 
                         dangerouslySetInnerHTML={{ __html: description }} 
                       />
                     </div>
                   </div>
                 </div>
                 
-                {/* Example test cases */}
+                {/* Example test cases with test-case-card styling */}
                 {examples.map((tc: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
                   <div key={tc.id} className="test-case-card relative group transition-all duration-300 hover:shadow-md">
                     {/* Top color stripe */}
@@ -2259,7 +2946,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               flexShrink: 1,
               minHeight: 0,
               maxHeight: isMobile ? "100%" : `${editorHeight}%`,
-              height: isMobile ? "100%" : undefined
+              height: isMobile ? "100%" : undefined,
+              transition: "all 0.3s ease-in-out" // Add smooth transition
             }}
           >
             <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-indigo-900/50 flex-shrink-0">
@@ -2331,12 +3019,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             const showDivider = index > 0 && index % 6 === 0 && index !== array.length - 1;
                             
                             return (
-                              <>
+                              <Fragment key={`lang-${langId}`}>
                                 {showDivider && (
-                                  <div key={`divider-${index}`} className="col-span-3 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent my-2.5"></div>
+                                  <div className="col-span-3 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent my-2.5"></div>
                                 )}
                                 <div
-                                  key={langId}
                                   className={`language-item group h-14 rounded-lg px-3 transition-all duration-200 hover:shadow-md border ${
                                     isSelected 
                                       ? 'border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/70 dark:bg-indigo-900/20' 
@@ -2369,7 +3056,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                     )}
                                   </div>
                                 </div>
-                              </>
+                              </Fragment>
                             );
                           })}
               </div>
@@ -2600,7 +3287,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               flexShrink: 1,
               minHeight: 0,
               maxHeight: isMobile ? "100%" : `${100 - editorHeight}%`,
-              height: isMobile ? "100%" : undefined
+              height: isMobile ? "100%" : undefined,
+              transition: "all 0.3s ease-in-out" // Add smooth transition
             }}
           >
             <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-indigo-900/50">
@@ -2610,8 +3298,18 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </div>
               
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-500 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300">
-                  <Settings className="h-4 w-4" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-500 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+                  onClick={toggleResultsPanelFullscreen}
+                  aria-label={isResultsPanelFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                >
+                  {isResultsPanelFullscreen ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -2622,7 +3320,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-purple-50/30 dark:bg-purple-900/10 rounded-full blur-3xl -z-0"></div>
               
               {/* Tabs for Results Panel */}
-              <Tabs defaultValue="sample" className="w-full p-4 relative z-10">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-4 relative z-10">
                 <TabsList className="bg-slate-100 dark:bg-slate-800/70 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex">
                   <TabsTrigger
                     value="sample"
@@ -2658,17 +3356,286 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 
                 {/* Sample Testcases Tab */}
                 <TabsContent value="sample" className="focus-visible:outline-none focus-visible:ring-0">
-                  {examples.length > 0 ? (
+                  {showEvaluatingSkeletons && skeletonTab === "sample" ? (
+                    <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-300">
+                      {/* Summary skeleton */}
+                      <div className="flex items-center justify-between mb-2">
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="h-6 w-28 rounded-full" />
+                      </div>
+                      
+                      {/* Test cases skeletons */}
+                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                        {/* Header skeleton */}
+                        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/70 dark:to-slate-800/50 flex justify-between">
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-6 w-6 rounded-full" />
+                            <Skeleton className="h-5 w-24" />
+                          </div>
+                          <Skeleton className="h-6 w-20 rounded-full" />
+                        </div>
+                        
+                        {/* Content skeleton */}
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Input skeleton */}
+                          <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                            <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50">
+                              <Skeleton className="h-4 w-16" />
+                            </div>
+                            <div className="p-3 space-y-2">
+                              <Skeleton className="h-4 w-full" />
+                              <Skeleton className="h-4 w-3/4" />
+                              <Skeleton className="h-4 w-1/2" />
+                            </div>
+                          </div>
+                          
+                          {/* Expected Output skeleton */}
+                          <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                            <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50">
+                              <Skeleton className="h-4 w-36" />
+                            </div>
+                            <div className="p-3 space-y-2">
+                              <Skeleton className="h-4 w-full" />
+                              <Skeleton className="h-4 w-2/3" />
+                              <Skeleton className="h-4 w-1/4" />
+                            </div>
+                          </div>
+                          
+                          {/* Your Output skeleton - professional loading style */}
+                          <div className="rounded-lg overflow-hidden md:col-span-2 border border-indigo-200 dark:border-indigo-900/30 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-indigo-50/50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-indigo-900/20 animate-gradient-x"></div>
+                            <div className="px-3 py-1.5 border-b border-indigo-200 dark:border-indigo-900/30 bg-slate-50 dark:bg-slate-800/60 relative z-10 flex justify-between items-center">
+                              <div className="flex items-center space-x-2">
+                                <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse-opacity"></div>
+                                <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                                  Executing the code...
+                                </span>
+                              </div>
+                            </div>
+                            <div className="relative z-10">
+                              <div className="p-3 space-y-2">
+                                <Skeleton className="h-5 w-full bg-indigo-100/70 dark:bg-indigo-900/30" />
+                                <Skeleton className="h-5 w-4/5 bg-indigo-100/70 dark:bg-indigo-900/30" />
+                                <Skeleton className="h-5 w-2/3 bg-indigo-100/70 dark:bg-indigo-900/30" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Footer skeleton */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : sampleTestResults.length > 0 && activeTab === "sample" ? (
+                    <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-500">
+                      {/* Summary badge */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-slate-700 dark:text-slate-300">
+                          <span className="font-medium">{sampleTestResults.length}</span> sample test cases evaluated
+                        </div>
+                        {sampleExecutionStatus && (
+                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium shadow-sm
+                            ${sampleExecutionStatus === 'success' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200/70 dark:border-green-900/30 text-green-700 dark:text-green-400' : 
+                            sampleExecutionStatus === 'warning' ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/70 dark:border-amber-900/30 text-amber-700 dark:text-amber-400' :
+                            'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200/70 dark:border-red-900/30 text-red-700 dark:text-red-400'}`}>
+                            {sampleExecutionStatus === 'success' ? (
+                              <><Check className="h-3 w-3 mr-1.5" />All Sample Testcases Passed</>
+                            ) : sampleExecutionStatus === 'warning' ? (
+                              <><AlertTriangle className="h-3 w-3 mr-1.5" />Partially Passed</>
+                            ) : (
+                              <><XCircle className="h-3 w-3 mr-1.5" />No Sample Testcases Passed</>
+                            )}
+                        </div>
+                        )}
+                    </div>
+                    
+                      {/* Nested tabs for multiple test cases */}
+                      <Tabs defaultValue={`sample-testcase-0`} className="w-full">
+                        <TabsList className="bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex flex-wrap">
+                          {sampleTestResults.map((result, idx) => (
+                            <TabsTrigger
+                              key={`sample-trigger-${result.id || idx}`}
+                              value={`sample-testcase-${idx}`}
+                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                            >
+                              <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
+                                <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
+                              </div>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium
+                                  ${result.isCorrect 
+                                    ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                                    : 'bg-gradient-to-br from-red-500 to-rose-600'}`}>
+                                  {result.isCorrect ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                </div>
+                                <span className="hidden sm:inline font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test {idx + 1}</span>
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover:opacity-100 group-data-[state=active]:opacity-0 transition-opacity"></div>
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                        
+                        {sampleTestResults.map((result, idx) => (
+                          <TabsContent key={`sample-content-${result.id || idx}`} value={`sample-testcase-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
+                            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                              <div className={`px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between
+                                ${result.isCorrect 
+                                  ? 'bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10' 
+                                  : 'bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10'}`}>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium
+                                    ${result.isCorrect 
+                                      ? 'bg-green-500' 
+                                      : 'bg-red-500'}`}>
+                                    {idx + 1}
+                                  </div>
+                                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                                    {result.isCorrect ? 'Passed' : 'Failed'}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center">
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
+                                    ${result.isCorrect 
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                    {result.isCorrect ? (
+                                      <><Check className="h-3 w-3 mr-1" />Correct</>
+                                    ) : (
+                                      <><X className="h-3 w-3 mr-1" />Incorrect</>
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                    Input
+                                  </div>
+                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                    {formatTestCase(result.input)}
+                                  </div>
+                                </div>
+                                
+                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                    Expected Output
+                                  </div>
+                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                    {formatTestCase(result.expectedOutput)}
+                                  </div>
+                                </div>
+                                
+                                {/* Only show the Your Output section if there are no errors/warnings */}
+                                {!(result.stderr || result.compileOutput) && (
+                                  <div className={`rounded-lg overflow-hidden md:col-span-2 
+                                    ${result.isCorrect 
+                                      ? 'border border-green-200 dark:border-green-900/30' 
+                                      : 'border border-red-200 dark:border-red-900/30'}`}>
+                                    <div className={`px-3 py-1.5 border-b flex items-center
+                                      ${result.isCorrect 
+                                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-400' 
+                                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/30 text-red-800 dark:text-red-400'}`}>
+                                      {result.isCorrect ? (
+                                    <Check className="h-3 w-3 mr-1.5" />
+                                      ) : (
+                                        <X className="h-3 w-3 mr-1.5" />
+                                      )}
+                                    Your Output
+                                  </div>
+                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                      {formatTestCase(result.actualOutput)}
+                                  </div>
+                                </div>
+                                )}
+                                
+                                {/* Show error messages if there are any */}
+                                {(result.stderr || result.compileOutput) && (
+                                  <div className="rounded-lg overflow-hidden border border-amber-200 dark:border-amber-900/30 md:col-span-2">
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 border-b border-amber-200 dark:border-amber-900/30 text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center">
+                                      <AlertTriangle className="h-3 w-3 mr-1.5" />
+                                      Errors/Warnings
+                              </div>
+                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                      {result.compileOutput && (
+                                        <div className="mb-2">
+                                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Compile Output:</div>
+                                          <div className="text-red-600 dark:text-red-400 whitespace-pre-wrap">{result.compileOutput}</div>
+                            </div>
+                                      )}
+                                      {result.stderr && (
+                                        <div>
+                                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Standard Error:</div>
+                                          <div className="text-red-600 dark:text-red-400 whitespace-pre-wrap">{result.stderr}</div>
+                    </div>
+                                      )}
+              </div>
+            </div>
+                  )}
+                              </div>
+                              
+                              <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
+                                <div className="flex items-center">
+                                  <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1.5" />
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Execution Time: {result.executionTime || 'N/A'}</span>
+                        </div>
+                                <div className="flex items-center">
+                                  <Cpu className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1.5" />
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Memory Used: {result.memoryUsed || 'N/A'}</span>
+                      </div>
+                    </div>
+                      </div>
+                          </TabsContent>
+                        ))}
+                      </Tabs>
+                      
+                      {/* Performance summary */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-2">
+                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Execution Time</div>
+                          <div className="font-medium text-slate-700 dark:text-slate-300">
+                            {sampleTestResults[0]?.executionTime || 'N/A'}
+                          </div>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
+                          <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Test Cases</div>
+                          <div className="font-medium text-slate-700 dark:text-slate-300">
+                            {sampleTestResults.filter(r => r.isCorrect).length}/{sampleTestResults.length} Passed
+                          </div>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                        <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-2">
+                            <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Memory Usage</div>
+                          <div className="font-medium text-slate-700 dark:text-slate-300">
+                            {sampleTestResults[0]?.memoryUsed || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : examples.length > 0 ? (
                     <div className="space-y-4">
                       {/* Summary badge */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-sm text-slate-700 dark:text-slate-300">
                           <span className="font-medium">{examples.length}</span> sample test cases available
                         </div>
-                        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200/70 dark:border-green-900/30 text-green-700 dark:text-green-400 font-medium shadow-sm">
-                          <Check className="h-3 w-3 mr-1.5" />
-                          All Passed
-                        </div>
+                        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 font-medium">
+                          <Eye className="h-3 w-3 mr-1.5 opacity-70" />
+                          Run to evaluate
+                      </div>
                     </div>
                     
                       {/* Nested tabs for multiple test cases */}
@@ -2683,7 +3650,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
-                              </div>
+                  </div>
                               <div className="flex items-center justify-center gap-1.5">
                                 <div className="w-5 h-5 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-medium">
                                   {idx + 1}
@@ -2697,22 +3664,22 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         
                         {examples.map((tc: {id: string, input: string, output: string}, idx: number) => (
                           <TabsContent key={`content-${tc.id}`} value={`testcase-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                  <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
                               <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10 px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <div className="w-5 h-5 rounded-full flex items-center justify-center bg-indigo-500 text-white text-xs font-medium">
                                     {idx + 1}
                                   </div>
                                   <span className="font-medium text-slate-700 dark:text-slate-300">Sample Test Case {idx + 1}</span>
-                                </div>
-                                
+                    </div>
+                    
                                 <div className="flex items-center">
-                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 font-medium">
-                                    <Check className="h-3 w-3 mr-1" />
-                                    Passed
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 font-medium">
+                                    <Info className="h-3 w-3 mr-1" />
+                                    Not evaluated
                                   </span>
-                                </div>
-                              </div>
+                          </div>
+                        </div>
                               
                               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
@@ -2722,8 +3689,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                   <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
                                     {formatTestCase(tc.input)}
                                   </div>
-                                </div>
-                                
+                      </div>
+                      
                                 <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
                                   <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
                                     Expected Output
@@ -2732,27 +3699,42 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                     {formatTestCase(tc.output)}
                                   </div>
                                 </div>
-                                
-                                <div className="rounded-lg overflow-hidden border border-green-200 dark:border-green-900/30 md:col-span-2">
-                                  <div className="bg-green-50 dark:bg-green-900/20 px-3 py-1.5 border-b border-green-200 dark:border-green-900/30 text-xs font-medium text-green-800 dark:text-green-400 flex items-center">
-                                    <Check className="h-3 w-3 mr-1.5" />
-                                    Your Output
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(tc.output)}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
-                                <span className="text-xs text-slate-500 dark:text-slate-400">Execution Time: 12ms</span>
-                                <span className="text-xs text-slate-500 dark:text-slate-400">Memory Used: 8.2 MB</span>
-                              </div>
-                            </div>
+                      </div>
+                      
+                              {/* Remove the Run This Test button by eliminating this whole div */}
+                              {/* <div className="flex justify-center p-4 border-t border-slate-200 dark:border-slate-700/50">
+                                <Button 
+                                  size="sm"
+                                  className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 relative overflow-hidden min-w-32"
+                                  onClick={runCode}
+                                  disabled={isRunning}
+                                >
+                                  {isRunning ? (
+                                    <>
+                                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
+                                      <div className="relative z-10 flex items-center space-x-1">
+                                        <span className="flex h-2 w-2 relative">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+                                        </span>
+                                        <span className="text-xs font-medium text-white animate-pulse">
+                                          {loadingPhrase || "Processing..."}
+                                        </span>
+                          </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-3.5 w-3.5 mr-1" />
+                                      Run This Test
+                                    </>
+                                  )}
+                                </Button>
+                              </div> */}
+                        </div>
                           </TabsContent>
                         ))}
                       </Tabs>
-                    </div>
+                          </div>
                   ) : (
                     <div className="flex items-center justify-center py-16">
                       <div className="text-center">
@@ -2763,148 +3745,58 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-4">
                           Run your code to see results for sample test cases
                         </p>
-                        <Button className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white">
+                        <Button 
+                          className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white relative overflow-hidden min-w-40"
+                          onClick={runCode}
+                          disabled={isRunning}
+                        >
+                          {isRunning ? (
+                            <>
+                              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
+                              <div className="relative z-10 flex items-center space-x-1">
+                                <span className="flex h-2 w-2 relative">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+                                </span>
+                                <span className="text-sm font-medium text-white animate-pulse">
+                                  {loadingPhrase || "Processing..."}
+                                </span>
+                      </div>
+                            </>
+                          ) : (
+                            <>
                           <Play className="h-4 w-4 mr-2" />
                           Run Sample Tests
+                            </>
+                          )}
                     </Button>
-              </div>
-            </div>
+                    </div>
+                  </div>
                   )}
                 </TabsContent>
                 
                 {/* Hidden Testcases Tab */}
                 <TabsContent value="hidden" className="focus-visible:outline-none focus-visible:ring-0">
-                  <div className="flex flex-col items-center justify-center py-8 px-4">
-                    <div className="relative w-24 h-24 mb-4">
-                      <div className="absolute inset-0 rounded-full bg-indigo-100/50 dark:bg-indigo-900/20 animate-pulse"></div>
-                      <div className="absolute inset-4 rounded-full bg-gradient-to-br from-indigo-300 to-purple-400 dark:from-indigo-500 dark:to-purple-600 opacity-20 blur-xl animate-pulse delay-300"></div>
-                      
-                      {/* Decorative elements */}
-                      <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-green-400/30 dark:bg-green-500/20 animate-float"></div>
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400/30 dark:bg-amber-500/20 animate-float-delayed"></div>
-                      <div className="absolute top-1/2 left-1/4 w-2 h-2 rounded-full bg-pink-400/50 dark:bg-pink-500/30 animate-ping"></div>
-                      
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="relative">
-                          <BarChart2 className="h-10 w-10 text-indigo-500 dark:text-indigo-400 drop-shadow-lg" />
-                          <div className="absolute top-1 right-1 w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300">
-                      Hidden Testcases
-                    </h3>
-                    
-                    <div className="max-w-md text-center mb-6 space-y-3">
-                      <p className="text-slate-600 dark:text-slate-400">
-                        Hidden testcases help evaluate your solution for edge cases and performance constraints.
-                      </p>
-                      <div className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 font-medium">
-                        <Eye className="h-3 w-3 mr-1.5 opacity-70" />
-                        Not yet evaluated
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3 mb-6">
-                      <Button 
-                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white gap-2 shadow-md shadow-indigo-500/20 dark:shadow-indigo-900/20"
-                      >
-                        <Send className="h-4 w-4" />
-                        Submit & Evaluate
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        className="border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 gap-2"
-                      >
-                        <BrainCircuit className="h-4 w-4" />
-                        View Requirements
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-2xl">
-                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
-                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-2">
-                          <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Performance</div>
-                        <div className="font-medium text-slate-700 dark:text-slate-300">Not tested</div>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
-                        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
-                          <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Correctness</div>
-                        <div className="font-medium text-slate-700 dark:text-slate-300">Not verified</div>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-2">
-                          <Code className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Edge Cases</div>
-                        <div className="font-medium text-slate-700 dark:text-slate-300">Not analyzed</div>
-                      </div>
-                    </div>
-                    
-                    <p className="mt-8 text-xs text-slate-500 dark:text-slate-400 max-w-md text-center">
-                      Submit your solution to evaluate against hidden testcases and receive detailed analysis on performance and correctness.
-                    </p>
-                  </div>
+                  <HiddenTestcasesTab
+                    executingHiddenTestcases={executingHiddenTestcases}
+                    hiddenTestResults={hiddenTestResults}
+                    totalHiddenTestcases={totalHiddenTestcases}
+                    completedHiddenTestcases={completedHiddenTestcases}
+                    passedHiddenTestcases={passedHiddenTestcases}
+                    skippedHiddenTestcases={skippedHiddenTestcases}
+                    hiddenExecutionStatus={hiddenExecutionStatus}
+                    isRunning={isRunning}
+                    isSubmitting={isSubmitting}
+                    submitCode={submitCode}
+                  />
                 </TabsContent>
-                
-                {/* Custom Testcase Tab */}
-                <TabsContent value="custom" className="focus-visible:outline-none focus-visible:ring-0">
-                  <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/10 px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">
-                      <h3 className="font-semibold text-slate-700 dark:text-slate-300">Create Custom Test Case</h3>
-                    </div>
-                    
-                    <div className="p-4">
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Custom Input
-                        </label>
-                        <div className="relative">
-                          <textarea 
-                            className="w-full h-32 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/60 px-3 py-2 text-slate-700 dark:text-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter your custom test case input here..."
-                          ></textarea>
-                          <div className="absolute bottom-2 right-2">
-                            <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-                              <FileText className="h-3 w-3 mr-1" />
-                              Load Sample
-                            </Button>
-                          </div>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Format your input according to the problem statement. Use the same format as sample test cases.
-                        </p>
-                      </div>
-                      
-                      <div className="flex justify-center mb-4">
-                        <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">
-                          <Play className="h-4 w-4 mr-2" />
-                          Run Custom Test
-                        </Button>
-                      </div>
-                      
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-700/50 overflow-hidden bg-white dark:bg-slate-800/60">
-                        <div className="bg-slate-50 dark:bg-slate-800/80 p-3 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Output</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Execution Time: -- | Memory Used: --
-                          </div>
-                        </div>
-                        <div className="p-4 font-mono text-sm text-slate-700 dark:text-slate-300 min-h-[100px] flex items-center justify-center">
-                          <div className="text-center text-slate-500 dark:text-slate-400">
-                            <Sparkles className="h-5 w-5 mx-auto mb-2 opacity-50" />
-                            <p>Run your code with custom input to see results here</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+
+                {/* Confetti celebration overlay */}
+                {showCelebration && (
+                  <div className="fixed inset-0 pointer-events-none z-50">
+                    {/* This div is just a container for the confetti effect */}
                   </div>
-                </TabsContent>
+                )}
               </Tabs>
             </div>
           </div>

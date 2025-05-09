@@ -8,8 +8,8 @@ datasource db {
 }
 
 model User {
-  id                String       @id @default(cuid())
-  email             String       @unique
+  id                String                @id @default(cuid())
+  email             String                @unique
   password          String
   name              String?
   /// @enum {STUDENT|MANAGER|ADMIN|INSTRUCTOR|NON_EDITING_INSTRUCTOR}
@@ -18,26 +18,27 @@ model User {
   /// - ADMIN: Full system access
   /// - INSTRUCTOR: Can create and edit courses
   /// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
-  role              Role         @default(STUDENT)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  resetToken        String?      @unique
+  role              Role                  @default(STUDENT)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  resetToken        String?               @unique
   resetTokenExp     DateTime?
-  bio               String?      @db.VarChar(200)
-  hasOnboarded      Boolean      @default(false)
+  bio               String?               @db.VarChar(200)
+  hasOnboarded      Boolean               @default(false)
   preferredLanguage String?
   profilePic        String?
-  username          String?      @unique
+  username          String?               @unique
   bannerImage       String?
   assessments       Assessment[]
   attempts          Attempt[]
-  enrolledBy        Enrollment[] @relation("EnrolledByUser")
-  enrolledIn        Enrollment[] @relation("UserEnrollments")
+  enrolledBy        Enrollment[]          @relation("EnrolledByUser")
+  enrolledIn        Enrollment[]          @relation("UserEnrollments")
+  submissions       ProblemSubmission[]
   userCodeDrafts    UserCodeDraft[]
   problemSettings   UserProblemSettings[]
-  submissions       ProblemSubmission[]
 
   @@index([role])
+  @@index([role, createdAt])
 }
 
 model Category {
@@ -68,6 +69,8 @@ model Course {
   modules     Module[]
 
   @@index([categoryId])
+  @@index([categoryId, level])
+  @@index([categoryId, startDate])
 }
 
 model Module {
@@ -86,6 +89,7 @@ model Module {
   assessments        Assessment[] @relation("ModuleAssessments")
 
   @@index([courseId])
+  @@index([courseId, order])
 }
 
 model Video {
@@ -103,6 +107,7 @@ model Video {
   module       Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
+  @@index([moduleId, order])
 }
 
 model Submodule {
@@ -115,6 +120,7 @@ model Submodule {
   module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
+  @@index([moduleId, order])
 }
 
 model Folder {
@@ -132,28 +138,30 @@ model Folder {
 }
 
 model Question {
-  id                 String            @id @default(cuid())
-  name               String
-  type               QuestionType
-  status             QuestionStatus    @default(DRAFT)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  folderId           String
-  version            Int               @default(1)
-  creatorId          String            @default("system")
-  creatorName        String            @default("System")
-  lastModifiedBy     String            @default("system")
-  lastModifiedByName String            @default("System")
-  codingQuestion     CodingQuestion?
-  mCQQuestion        MCQQuestion?
-  folder             Folder            @relation(fields: [folderId], references: [id])
-  versions           QuestionVersion[]
-  sections           SectionQuestion[]
+  id                  String                @id @default(cuid())
+  name                String
+  type                QuestionType
+  status              QuestionStatus        @default(DRAFT)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  folderId            String
+  version             Int                   @default(1)
+  creatorId           String                @default("system")
+  creatorName         String                @default("System")
+  lastModifiedBy      String                @default("system")
+  lastModifiedByName  String                @default("System")
+  codingQuestion      CodingQuestion?
+  mCQQuestion         MCQQuestion?
+  folder              Folder                @relation(fields: [folderId], references: [id])
+  versions            QuestionVersion[]
+  sections            SectionQuestion[]
   userProblemSettings UserProblemSettings[]
-  tags               Tag[]             @relation("QuestionTags")
 
   @@index([folderId])
   @@index([creatorId])
+  @@index([folderId, status])
+  @@index([folderId, type])
+  @@index([type, status])
 }
 
 model QuestionVersion {
@@ -186,6 +194,8 @@ model MCQQuestion {
   difficulty      QuestionDifficulty @default(MEDIUM)
   options         MCQOption[]
   question        Question           @relation(fields: [questionId], references: [id])
+
+  @@index([questionId])
 }
 
 model MCQOption {
@@ -215,6 +225,9 @@ model CodingQuestion {
   languageOptions LanguageOption[]
   testCases       TestCase[]
   tags            Tag[]              @relation("CodingQuestionTags")
+
+  @@index([difficulty])
+  @@index([questionId])
 }
 
 model LanguageOption {
@@ -226,6 +239,9 @@ model LanguageOption {
   codingQuestionId String?
   language         String
   codingQuestion   CodingQuestion? @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([codingQuestionId])
+  @@index([language])
 }
 
 model TestCase {
@@ -254,6 +270,16 @@ model Attempt {
   answers      Json?
   assessment   Assessment @relation(fields: [assessmentId], references: [id])
   user         User       @relation(fields: [userId], references: [id])
+
+  @@index([assessmentId])
+  @@index([assessmentId, status])
+  @@index([endedAt])
+  @@index([startedAt])
+  @@index([status])
+  @@index([userId, assessmentId])
+  @@index([userId])
+  @@index([userId, startedAt])
+  @@index([userId, status])
 }
 
 model Assessment {
@@ -296,6 +322,10 @@ model Assessment {
 
   @@index([createdById])
   @@index([folderId])
+  @@index([folderId, status])
+  @@index([status, endDate])
+  @@index([status])
+  @@index([status, startDate])
 }
 
 model Section {
@@ -313,6 +343,7 @@ model Section {
   questions        SectionQuestion[]
 
   @@index([assessmentId])
+  @@index([assessmentId, order])
 }
 
 model Tag {
@@ -323,7 +354,8 @@ model Tag {
   updatedAt       DateTime         @updatedAt
   assessments     AssessmentTag[]
   codingQuestions CodingQuestion[] @relation("CodingQuestionTags")
-  questions       Question[]       @relation("QuestionTags")
+
+  @@index([name])
 }
 
 model AssessmentTag {
@@ -334,6 +366,9 @@ model AssessmentTag {
   tag          Tag        @relation(fields: [tagId], references: [id])
 
   @@id([assessmentId, tagId])
+  @@index([assessmentId])
+  @@index([assessmentId, tagId])
+  @@index([tagId])
 }
 
 model SectionQuestion {
@@ -350,6 +385,7 @@ model SectionQuestion {
   @@unique([sectionId, questionId])
   @@index([questionId])
   @@index([sectionId])
+  @@index([sectionId, order])
 }
 
 model Article {
@@ -367,6 +403,7 @@ model Article {
   module      Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
+  @@index([moduleId, order])
 }
 
 model Enrollment {
@@ -384,6 +421,9 @@ model Enrollment {
   @@index([courseId])
   @@index([userId])
   @@index([enrolledBy])
+  @@index([courseId, status])
+  @@index([enrolledAt])
+  @@index([userId, status])
 }
 
 model UserCodeDraft {
@@ -394,22 +434,57 @@ model UserCodeDraft {
   code      String
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
-
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, problemId, language])
+  @@index([language])
+  @@index([problemId])
+  @@index([userId])
+  @@index([userId, updatedAt])
 }
 
 model UserProblemSettings {
-  id                     String             @id @default(cuid())
-  userId                 String
-  problemId              String
-  lastLanguage           String
+  id                       String             @id @default(cuid())
+  userId                   String
+  problemId                String
+  lastLanguage             String
   lastAcceptedSubmissionId String?
-  user                   User               @relation(fields: [userId], references: [id])
-  problem                Question           @relation(fields: [problemId], references: [id])
-  lastAcceptedSubmission ProblemSubmission? @relation(fields: [lastAcceptedSubmissionId], references: [id])
+  hideAcceptedTab          Boolean?           @default(false)
+  lastAcceptedSubmission   ProblemSubmission? @relation(fields: [lastAcceptedSubmissionId], references: [id])
+  problem                  Question           @relation(fields: [problemId], references: [id])
+  user                     User               @relation(fields: [userId], references: [id])
+
   @@unique([userId, problemId])
+  @@index([lastAcceptedSubmissionId])
+  @@index([problemId])
+  @@index([userId])
+}
+
+model ProblemSubmission {
+  id                String                @id @default(cuid())
+  userId            String
+  problemId         String
+  language          String
+  code              String
+  submittedAt       DateTime              @default(now())
+  testcasesPassed   Int
+  totalTestcases    Int
+  allPassed         Boolean               @default(false)
+  runtime           String?
+  memory            String?
+  runtimePercentile String?
+  memoryPercentile  String?
+  user              User                  @relation(fields: [userId], references: [id])
+  userSettings      UserProblemSettings[]
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([allPassed])
+  @@index([problemId, allPassed])
+  @@index([submittedAt])
+  @@index([userId, allPassed])
+  @@index([userId, problemId])
+  @@index([userId, submittedAt])
 }
 
 /// Valid roles for users:
@@ -483,27 +558,4 @@ enum VideoStatus {
 enum ArticleStatus {
   DRAFT
   PUBLISHED
-}
-
-model ProblemSubmission {
-  id                String   @id @default(cuid())
-  userId            String
-  problemId         String
-  language          String
-  code              String   @db.Text
-  submittedAt       DateTime @default(now())
-  testcasesPassed   Int
-  totalTestcases    Int
-  allPassed         Boolean  @default(false)
-  runtime           String?  // e.g. "56 ms"
-  memory            String?  // e.g. "42.1 MB"
-  runtimePercentile String?  // e.g. "95%"
-  memoryPercentile  String?  // e.g. "87%"
-  
-  user              User     @relation(fields: [userId], references: [id])
-  userSettings      UserProblemSettings[]
-
-  @@index([userId])
-  @@index([problemId])
-  @@index([allPassed])
 }

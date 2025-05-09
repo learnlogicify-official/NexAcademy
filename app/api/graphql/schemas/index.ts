@@ -1,5 +1,6 @@
 import { gql } from '@apollo/client';
 import { questionTypeDefs } from './questionSchema';
+import { codeExecutionTypeDefs } from './codeExecutionSchema';
 
 // Define the base schema with Query and Mutation types
 const baseTypeDefs = gql`
@@ -16,4 +17,5 @@ const baseTypeDefs = gql`
 export const typeDefs = [
   baseTypeDefs,
   questionTypeDefs,
+  codeExecutionTypeDefs,
 ]; 

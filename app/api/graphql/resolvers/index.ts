@@ -1,11 +1,9 @@
 import { questionResolvers } from './questionResolvers';
+import { codeExecutionResolvers } from './codeExecutionResolvers';
+import { merge } from 'lodash';
 
-// Combine all resolvers
-export const resolvers = {
-  Query: {
-    ...questionResolvers.Query,
-  },
-  Mutation: {
-    ...questionResolvers.Mutation,
-  },
-}; 
+// Merge all resolvers
+export const resolvers = merge(
+  questionResolvers,
+  codeExecutionResolvers
+); 
