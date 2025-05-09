@@ -14,7 +14,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
   // Check cache first
   const now = Date.now();
   if (cachedJudge0Languages && now - cacheTimestamp < CACHE_DURATION) {
-    console.log('[Judge0] Using cached languages data');
+    
     return cachedJudge0Languages;
   }
 
@@ -34,9 +34,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
 
   // Cache miss - fetch from API
   try {
-    console.log('[Judge0] Fetching languages from API');
-    // Log the API URL for debugging
-    console.log(`[Judge0] API URL: ${process.env.JUDGE0_API_URL}/languages`);
+
     
     // Set up an AbortController with a timeout
     const controller = new AbortController();
@@ -56,7 +54,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
     if (!response.ok) {
       const text = await response.text();
       console.error(`Failed to fetch Judge0 languages: ${response.status} - ${text}`);
-      console.log('[Judge0] Using fallback language data');
+    
       
       // Update cache with fallback data
       cachedJudge0Languages = fallbackLanguages;
@@ -69,7 +67,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
       console.error('Judge0 API did not return JSON:', text);
-      console.log('[Judge0] Using fallback language data');
+ 
       
       // Update cache with fallback data
       cachedJudge0Languages = fallbackLanguages;
@@ -82,7 +80,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
     
     // Filter out archived languages
     const filtered = data.filter((lang: any) => lang.is_archived !== true);
-    console.log(`[Judge0] Fetched ${data.length} languages, ${filtered.length} active languages`);
+  
     
     // Format language name with version if available
     const formatted = filtered.map((lang: any) => {
@@ -101,7 +99,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
     
     // Deduplicate languages based on ID
     const deduplicated = [...new Map(formatted.map((lang: any) => [lang.id, lang])).values()];
-    console.log(`[Judge0] After deduplication: ${deduplicated.length} languages`);
+ 
     
     // Update cache
     cachedJudge0Languages = deduplicated;
@@ -110,7 +108,7 @@ const fetchJudge0Languages = async (): Promise<any[]> => {
     return deduplicated;
   } catch (error) {
     console.error('Error fetching Judge0 languages:', error);
-    console.log('[Judge0] Using fallback language data due to error');
+   
     
     // Update cache with fallback data
     cachedJudge0Languages = fallbackLanguages;
@@ -198,11 +196,7 @@ export const questionResolvers = {
           difficulty
         } = args;
 
-        console.log('GraphQL questions query with args:', { 
-          type, status, folderId, search, page, limit, includeSubcategories, 
-          tagIds: tagIds?.length || 0, 
-          difficulty 
-        });
+      
 
         const where: any = {};
 
@@ -457,9 +451,7 @@ export const questionResolvers = {
           difficulty
         } = args;
 
-        console.log('GraphQL codingQuestions query with args:', { 
-          page, limit, search, tagIds: tagIds?.length || 0, difficulty 
-        });
+       
 
         // Build where conditions
         const where: any = {};
@@ -514,7 +506,7 @@ export const questionResolvers = {
             take: limit
           });
           
-          console.log(`Found ${codingQuestions.length} coding questions out of ${totalCount} total`);
+       
           
           // Return the results in the expected format
           return {
@@ -1304,7 +1296,7 @@ export const questionResolvers = {
       const user = validateAuth(context);
       let importedQuestions: any[] = [];
       
-      console.log(`Starting bulk import of ${questions.length} coding questions`);
+  
       
       try {
         // Use interactive transaction with proper options
@@ -1399,7 +1391,7 @@ export const questionResolvers = {
               }
               
               created.push(question);
-              console.log(`Imported question: ${name}`);
+          
             } catch (error) {
               console.error(`Error importing question:`, error);
               throw error; // This will roll back the transaction
@@ -1414,7 +1406,7 @@ export const questionResolvers = {
         });
         
         importedQuestions = result;
-        console.log(`Successfully imported ${importedQuestions.length} coding questions`);
+       
       } catch (error) {
         console.error('Bulk import transaction failed:', error);
         throw error;

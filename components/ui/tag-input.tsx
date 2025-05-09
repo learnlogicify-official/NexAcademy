@@ -70,32 +70,13 @@ export const TagInput: React.FC<TagInputProps> = ({
 
   // Initialize tags from props or API
   useEffect(() => {
-    console.log('TagInput initialization:', { 
-      availableTagsDefined: availableTags !== undefined,
-      availableTagsLength: availableTags?.length || 0
-    });
+
     
     if (availableTags !== undefined) {
       // Use the provided availableTags even if empty
       setAllTags(availableTags);
-      console.log('Using provided availableTags:', availableTags);
-    } else {
-      // Only fetch from API if availableTags not provided
-      console.log('Fetching tags from API');
-      fetch('/api/tags')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) {
-            const tags = data.map((t: any) => ({ id: t.id, name: t.name }));
-            console.log('Got tags from API:', tags.length);
-            setAllTags(tags);
-          } else if (Array.isArray(data.tags)) {
-            const tags = data.tags.map((t: any) => ({ id: t.id, name: t.name }));
-            console.log('Got tags from API (nested):', tags.length);
-            setAllTags(tags);
-          }
-        });
-    }
+      
+    } 
   }, [availableTags]);
 
   // Update dropdown position function with improved calculation
@@ -122,7 +103,7 @@ export const TagInput: React.FC<TagInputProps> = ({
         top = rect.top + window.scrollY - estimatedHeight - 4;
       }
       
-      console.log('Positioning dropdown at:', { left, top, width });
+
       
       setDropdownPosition({
         top,
@@ -175,7 +156,7 @@ export const TagInput: React.FC<TagInputProps> = ({
         tag.name.toLowerCase().includes(q.toLowerCase()) &&
         !value.some(v => v.id === tag.id)
       );
-      console.log('Filtered tags from availableTags:', filteredTags.length);
+
       setFiltered(filteredTags);
       setShowDropdown(true);
       setLoading(false);
@@ -216,12 +197,7 @@ export const TagInput: React.FC<TagInputProps> = ({
 
   // Track input changes
   useEffect(() => {
-    console.log('Input changed:', {
-      input,
-      inputLength: input.length,
-      availableTagsLength: availableTags?.length || 0,
-      valueLength: value.length
-    });
+   
     
     if (input.trim()) {
       // Immediate filtering for better UX when availableTags is provided
@@ -331,11 +307,11 @@ export const TagInput: React.FC<TagInputProps> = ({
     
     // Check if tag is already selected to avoid duplicates
     if (value.some(v => v.id === tag.id)) {
-      console.log('Tag already selected, ignoring:', tag);
+      
       return;
     }
     
-    console.log('Adding tag to selection:', tag);
+
     
     // Create a new array with the added tag
     const newValue = [...value, tag];

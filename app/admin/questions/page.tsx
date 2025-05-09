@@ -35,11 +35,7 @@ import { useJudge0Languages } from '../../../components/hooks/useJudge0Languages
 // Add questionService import
 import { questionService } from "@/lib/services/questionService";
 
-// Add a console log to verify questionService is loaded properly
-console.log("Question service loaded:", {
-  hasQuestionService: !!questionService,
-  methods: Object.keys(questionService)
-});
+
 
 interface QuestionFormData {
   id: string;
@@ -406,12 +402,11 @@ export default function AdminQuestionsPage() {
       const fetchLanguagesDirectly = async () => {
         setIsDirectFetching(true);
         try {
-          console.log('Fetching Judge0 languages directly');
+      
           const response = await fetch('/api/judge0');
           const data = await response.json();
           
           if (data.success && Array.isArray(data.data)) {
-            console.log(`Fetched ${data.data.length} languages directly from Judge0 API`);
             setDirectLanguages(data.data);
           } else {
             console.error('Failed to fetch languages directly', data);
@@ -1487,12 +1482,7 @@ export default function AdminQuestionsPage() {
     setImportLoading(true);
     setImportError(null);
     
-    console.log("%c=== BULK IMPORT DEBUG START ===", "background: #742a9d; color: white; padding: 5px; font-size: 16px");
-    console.log(`Starting bulk import process with ${importedQuestions.length} questions`);
-    console.log(`Selected folder ID: ${bulkFolderId}`);
-    console.log(`Selected status: ${bulkStatus}`);
-    console.log(`Selected default language: ${selectedDefaultLanguage}`);
-    console.log(`Available languages: ${languages ? languages.length : 0} languages`);
+ 
     
     // Set up a performance marker for timing the import process
     console.time("BulkImport");
@@ -1504,7 +1494,7 @@ export default function AdminQuestionsPage() {
     // Override fetch to monitor all network requests during the import process
     window.fetch = function(input, init) {
       const url = typeof input === 'string' ? input : input.url;
-      console.log(`%cNetwork Request: ${url}`, "color: blue");
+      
       
       // Track the request
       requests.push({
@@ -1518,12 +1508,12 @@ export default function AdminQuestionsPage() {
 
     // Helper function to convert any language value to our supported format
     const mapLanguageToSupported = (lang: string): string => {
-      console.log(`Mapping language "${lang}" to supported format`);
+      
       
       if (!lang) {
         const fallback = selectedDefaultLanguage || 
           (languages && languages.length > 0 ? String(languages[0].id) : "");
-        console.log(`No language provided, using fallback: ${fallback}`);
+        
         return fallback;
       }
 
@@ -1532,7 +1522,7 @@ export default function AdminQuestionsPage() {
         languages &&
         languages.some((l: any) => String(l.id) === lang)
       ) {
-        console.log(`Language "${lang}" is already a valid Judge0 ID`);
+        
         return lang;
       }
 
@@ -1541,7 +1531,7 @@ export default function AdminQuestionsPage() {
         (l: any) => l.name.toLowerCase().includes(lang.toLowerCase())
       );
       if (matchingLang) {
-        console.log(`Mapped "${lang}" to Judge0 language ID: ${matchingLang.id}`);
+        
         return String(matchingLang.id);
       }
 
@@ -1549,24 +1539,23 @@ export default function AdminQuestionsPage() {
       const defaultLang = languages && languages.length > 0
         ? String(languages[0].id)
         : selectedDefaultLanguage || "";
-      console.log(`No match found for "${lang}", using default: ${defaultLang}`);
+      
       return defaultLang;
     };
 
     try {
       // Prepare all questions in the format needed for bulk import
-      console.log("Preparing questions for bulk import...");
+      
       const questionsForBulkImport = importedQuestions.map((q, index) => {
-        console.log(`\nProcessing question ${index + 1}/${importedQuestions.length}: "${q.name}"`);
+        
         
         // Map the default language to a supported one
         const questionDefaultLanguage = mapLanguageToSupported(
           q.defaultLanguage || selectedDefaultLanguage
         );
-        console.log(`Default language for question: ${questionDefaultLanguage}`);
+        
           
-        // Ensure all the language IDs in languageOptions are valid
-        console.log(`Original language options: ${q.languageOptions.length}`);
+       
         const validLanguageOptions = q.languageOptions
           .filter((lang: any) => lang && lang.language && String(lang.language).trim() !== "")
           .map((lang: any) => ({
@@ -1575,13 +1564,8 @@ export default function AdminQuestionsPage() {
             preloadCode: lang.preloadCode || "",
           }));
         
-        console.log(`Valid language options: ${validLanguageOptions.length}`);
-        if (validLanguageOptions.length > 0) {
-          console.log("First language option:", validLanguageOptions[0]);
-        }
-        
-        console.log(`Test cases: ${q.testCases ? q.testCases.length : 0}`);
-          
+       
+       
         // Create consistent form data that matches the GraphQL schema
         const questionData = {
           name: q.name,
@@ -1606,34 +1590,29 @@ export default function AdminQuestionsPage() {
           }
         };
         
-        console.log(`Question ${index + 1} prepared successfully`);
+       
         
         return questionData;
       });
 
-      console.log(`\nPrepared ${questionsForBulkImport.length} questions for bulk import`);
-      console.log("First question sample:", JSON.stringify(questionsForBulkImport[0]).substring(0, 200) + "...");
+    
       
       // Double check that questionService.bulkImportCodingQuestions exists
       if (typeof questionService.bulkImportCodingQuestions !== 'function') {
         console.error("ERROR: questionService.bulkImportCodingQuestions is not a function!");
-        console.log("Available questionService methods:", Object.keys(questionService));
+  
         throw new Error("bulkImportCodingQuestions method not found in questionService");
       }
 
       // Use the questionService.bulkImportCodingQuestions to import all questions in one call
-      console.log(`\nCalling bulkImportCodingQuestions with ${questionsForBulkImport.length} questions...`);
+     
       const result = await questionService.bulkImportCodingQuestions(questionsForBulkImport);
       
-      console.log("Bulk import result:", result);
-      console.log(`Successfully imported ${result ? result.length : 0} questions`);
-      
-      // Log network activity summary
-      console.log("%cNetwork Activity Summary:", "color: blue; font-weight: bold");
+     
       console.table(requests);
       
       console.timeEnd("BulkImport");
-      console.log("%c=== BULK IMPORT DEBUG END ===", "background: #742a9d; color: white; padding: 5px; font-size: 16px");
+   
 
       toast({
         title: "Import Complete",
@@ -1645,11 +1624,10 @@ export default function AdminQuestionsPage() {
       console.error("Bulk import error:", err);
       
       // Log network activity on error
-      console.log("%cNetwork Activity on Error:", "color: red; font-weight: bold");
+
       console.table(requests);
       
       console.timeEnd("BulkImport");
-      console.log("%c=== BULK IMPORT DEBUG END (WITH ERROR) ===", "background: #742a9d; color: white; padding: 5px; font-size: 16px");
       
       setImportError("Failed to import questions. See console for details.");
       

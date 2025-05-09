@@ -468,26 +468,19 @@ export function CodingQuestionFormModal({
   const fetchEditorData = async () => {
     setIsLoadingData(true);
     try {
-      console.log('Fetching editor data...');
+     
       const editorData = await questionService.getEditorData();
       
-      console.log('Editor data received:', {
-        hasJudge0Languages: !!editorData?.judge0Languages,
-        judge0LanguagesLength: editorData?.judge0Languages?.length || 0,
-        sampleLanguages: editorData?.judge0Languages?.slice(0, 3).map((l: any) => ({id: l.id, name: l.name})),
-        hasTagsData: !!editorData?.tags,
-        tagsLength: editorData?.tags?.length || 0
-      });
+
       
       if (editorData?.judge0Languages && Array.isArray(editorData.judge0Languages) && editorData.judge0Languages.length > 0) {
         const filteredLangs = editorData.judge0Languages.filter((lang: any) => 
           lang && lang.id && String(lang.id).trim() !== ""
         );
-        console.log(`Found ${filteredLangs.length} valid Judge0 languages`);
+       
         setAvailableLanguages(filteredLangs);
       } else if (hookLanguages && hookLanguages.length > 0) {
         // Fallback to hook languages if available
-        console.log(`Using ${hookLanguages.length} languages from hook`);
         setAvailableLanguages(hookLanguages);
       } else {
         console.warn('No Judge0 languages found in editor data or hook, using fallback languages');
@@ -542,34 +535,16 @@ export function CodingQuestionFormModal({
   // Initialize data when the modal opens
   useEffect(() => {
     if (isOpen) {
-      console.log("Modal opened - fetching data");
+     
       fetchEditorData();
       if (hookLanguages && hookLanguages.length > 0) {
-        console.log(`Setting ${hookLanguages.length} languages from hook in isOpen effect`);
         setAvailableLanguages(hookLanguages);
       }
     }
   }, [isOpen, hookLanguages]);
 
-  // Add this debug function to help diagnose issues
-  const debugLanguageState = () => {
-    console.log('Language State Debug:', {
-      availableLanguagesCount: availableLanguages.length,
-      firstFewAvailableLanguages: availableLanguages.slice(0, 3),
-      selectedLanguagesCount: selectedLanguages.length,
-      firstFewSelectedLanguages: selectedLanguages.slice(0, 3),
-      hookLanguagesCount: hookLanguages?.length || 0,
-      defaultLanguage,
-      activeLanguageTab,
-      isLoadingLanguages
-    });
-  };
-
-  // Call debugLanguageState whenever relevant data changes
-  useEffect(() => {
-    debugLanguageState();
-  }, [availableLanguages, selectedLanguages, defaultLanguage, hookLanguages, isLoadingLanguages]);
-
+  
+ 
   // Focus TinyMCE editor when modal opens
   useEffect(() => {
     if (isOpen && editorRef.current) {
@@ -607,7 +582,6 @@ export function CodingQuestionFormModal({
         case "55": return "java";      // Java
         case "56": return "php";       // PHP
       default: 
-          console.warn(`Unknown Judge0 language ID: ${langIdStr}, falling back to plaintext`);
           return "plaintext";
       }
     }
@@ -814,8 +788,7 @@ export function CodingQuestionFormModal({
         setDefaultLanguage(finalDefaultLang);
       }
       
-      // Log the final form state
-      debugLanguageState();
+      
     }
   }, [initialData]);
 

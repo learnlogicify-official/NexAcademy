@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Code, ChevronRight, ChevronDown, Terminal, X, FileEdit, Type, Folder, FileText, BarChart, Hash, CheckCircle, CheckCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { CodeEditor } from "@/components/ui/code-editor";
+import { NexEditor } from "@/components/NexEditor";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -77,56 +77,17 @@ export function EditCodingQuestionModal({
   // Get correct programming language for code editor using Judge0 API data
   function getEditorLanguage(langId: string, languages: Judge0Language[]): string {
     const lang = languages.find(l => String(l.id) === String(langId));
-    if (!lang) return 'plaintext';
+    if (!lang) return 'JavaScript';
 
-    // Use extension if available
-    if (lang.extensions && lang.extensions.length > 0) {
-      const ext = lang.extensions[0];
-      if (ext === '.py') return 'python';
-      if (ext === '.js') return 'javascript';
-      if (ext === '.cpp') return 'cpp';
-      if (ext === '.java') return 'java';
-      if (ext === '.cs') return 'csharp';
-      if (ext === '.php') return 'php';
-      if (ext === '.go') return 'go';
-      if (ext === '.rs') return 'rust';
-      if (ext === '.swift') return 'swift';
-      if (ext === '.ts') return 'typescript';
-      if (ext === '.rb') return 'ruby';
-      if (ext === '.c') return 'c';
-      if (ext === '.m') return 'objective-c';
-      if (ext === '.kt') return 'kotlin';
-      if (ext === '.r') return 'r';
-      if (ext === '.scala') return 'scala';
-      if (ext === '.sql') return 'sql';
-      if (ext === '.sh') return 'bash';
-      // ...add more as needed
-    }
-
-    // Fallback: use name
-    const name = lang.name.toLowerCase();
-    if (name.includes('python')) return 'python';
-    if (name.includes('javascript')) return 'javascript';
-    if (name.includes('typescript')) return 'typescript';
-    if (name.includes('java') && !name.includes('javascript')) return 'java';
-    if (name.includes('c++') || name.includes('cpp')) return 'cpp';
-    if (name.includes('c#') || name.includes('csharp')) return 'csharp';
-    if (name.includes('php')) return 'php';
-    if (name.includes('go')) return 'go';
-    if (name.includes('rust')) return 'rust';
-    if (name.includes('swift')) return 'swift';
-    if (name.includes('ruby')) return 'ruby';
-    if (name.includes('objective-c')) return 'objective-c';
-    if (name.includes('kotlin')) return 'kotlin';
-    if (name.includes('perl')) return 'perl';
-    if (name.includes('r ')) return 'r';
-    if (name.includes('scala')) return 'scala';
-    if (name.includes('sql')) return 'sql';
-    if (name.includes('bash') || name.includes('shell')) return 'bash';
-    // ...add more as needed
-
-    return 'plaintext';
-    }
+    // Map to language names that NexEditor expects
+    if (lang.name.includes('Python')) return 'Python';
+    if (lang.name.includes('JavaScript') || lang.name.includes('Node.js')) return 'JavaScript';
+    if (lang.name.includes('Java') && !lang.name.includes('JavaScript')) return 'Java';
+    if (lang.name.includes('C++')) return 'C++';
+    
+    // Default fallback for other languages
+    return 'JavaScript';
+  }
 
   // Get proper language name from ID
   const getLanguageName = (langId: string) => {
@@ -750,12 +711,102 @@ export function EditCodingQuestionModal({
               </div>
             </div>
 
+            {/* Add language-specific Tabs for solution and preload code */}
+            {selectedLanguages.length > 0 && (
+              <div className="mt-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-base font-semibold">Language-specific Settings</Label>
+                </div>
+                
+                <Tabs defaultValue={activeLanguageTab} onValueChange={setActiveLanguageTab} className="w-full">
+                  <TabsList className="grid grid-flow-col rounded-xl bg-muted p-1 overflow-auto">
+                    {selectedLanguages.map(langId => (
+                      <TabsTrigger
+                        key={langId}
+                        value={langId}
+                        className={`rounded-lg text-xs py-1.5 px-3 ${langId === defaultLanguage ? 'border border-primary/20' : ''}`}
+                      >
+                        {getLanguageName(langId)}
+                        {langId === defaultLanguage && (
+                          <span className="ml-1.5 text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            default
+                          </span>
+                        )}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  
+                  {selectedLanguages.map(langId => {
+                    const langOption = getLanguageOption(langId);
+                    
+                    return (
+                      <TabsContent key={langId} value={langId} className="pt-4">
+                        <div className="grid grid-cols-1 gap-6">
+                          {/* Solution Code */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-medium">Solution Code</Label>
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  type="button" 
+                                  variant="ghost" 
+                                  className="h-7 text-xs" 
+                                  onClick={() => {
+                                    // Set this language as default
+                                    handleSetDefaultLanguage(langId);
+                                  }}
+                                >
+                                  {langId === defaultLanguage ? "Default Language ✓" : "Set as Default"}
+                                </Button>
+                              </div>
+                            </div>
+                            <div 
+                              className="h-[300px] border rounded-xl shadow-sm overflow-hidden transition-all"
+                              style={{ position: "relative", zIndex: 0 }}
+                            >
+                              <NexEditor
+                                code={langOption?.solution || ""}
+                                onChange={(value) => updateLanguageOption(langId, 'solution', value)}
+                                language={getEditorLanguage(langId, languages)}
+                                theme={document.documentElement.classList.contains('dark') ? "vs-dark" : "light"}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Preload Code */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              Template/Preload Code (students will see this)
+                            </Label>
+                            <div 
+                              className="h-[200px] border rounded-xl shadow-sm overflow-hidden transition-all"
+                              style={{ position: "relative", zIndex: 0 }}
+                            >
+                              <NexEditor
+                                code={langOption?.preloadCode || ""}
+                                onChange={(value) => updateLanguageOption(langId, 'preloadCode', value)}
+                                language={getEditorLanguage(langId, languages)}
+                                theme={document.documentElement.classList.contains('dark') ? "vs-dark" : "light"}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              This is the code that will be pre-loaded in the editor when a student starts the problem.
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    );
+                  })}
+                </Tabs>
+              </div>
+            )}
+
             {/* Test cases section styling */}
             <div className="mt-8 bg-white/60 dark:bg-background/60 rounded-2xl border border-primary/10 shadow-md p-5 ">
               <div className="flex items-center gap-3 mb-6">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
                   <Terminal className="h-5 w-5 text-primary" />
-              </div>
+                </div>
                 <div>
                   <div className="text-lg font-semibold tracking-wide text-foreground/90">Test Cases</div>
                   <p className="text-sm text-muted-foreground">Define test cases to verify student solutions</p>

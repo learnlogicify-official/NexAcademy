@@ -5,6 +5,8 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { Copy, Check, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { MonacoEditor } from "@/components/ui/monaco-editor"
+import type { editor } from "monaco-editor"
 
 interface CodeEditorProps {
   language: string
@@ -13,15 +15,7 @@ interface CodeEditorProps {
 }
 
 export default function CodeEditor({ language, code, updateCode }: CodeEditorProps) {
-  const [lineNumbers, setLineNumbers] = useState<number[]>([])
   const [copied, setCopied] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    // Update line numbers when code changes
-    const lines = code.split("\n").length
-    setLineNumbers(Array.from({ length: lines }, (_, i) => i + 1))
-  }, [code])
 
   const getFileExtension = () => {
     switch (language) {
@@ -56,25 +50,19 @@ export default function CodeEditor({ language, code, updateCode }: CodeEditorPro
     document.body.removeChild(element)
   }
 
-  // Handle tab key in textarea
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab") {
-      e.preventDefault()
-      const start = textareaRef.current!.selectionStart
-      const end = textareaRef.current!.selectionEnd
-
-      // Insert 2 spaces for tab
-      const newText = code.substring(0, start) + "  " + code.substring(end)
-      updateCode(newText)
-
-      // Move cursor after the inserted tab
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.selectionStart = start + 2
-          textareaRef.current.selectionEnd = start + 2
-        }
-      }, 0)
-    }
+  // Monaco editor options
+  const editorOptions: editor.IStandaloneEditorConstructionOptions = {
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize: 14,
+    tabSize: 2,
+    automaticLayout: true,
+    wordWrap: "on",
+    renderLineHighlight: "all",
+    fontFamily: "Menlo, Monaco, 'Courier New', monospace",
+    cursorBlinking: "blink" as const,
+    useTabStops: true,
+    roundedSelection: true
   }
 
   return (
@@ -111,24 +99,13 @@ export default function CodeEditor({ language, code, updateCode }: CodeEditorPro
         </div>
       </div>
 
-      <div className="relative h-64 flex">
-        {/* Line numbers */}
-        <div className="py-4 px-2 bg-slate-900 text-slate-500 text-right select-none">
-          {lineNumbers.map((num) => (
-            <div key={num} className="h-6 text-xs">
-              {num}
-            </div>
-          ))}
-        </div>
-
-        {/* Code editor */}
-        <textarea
-          ref={textareaRef}
+      <div className="h-64">
+        <MonacoEditor
           value={code}
-          onChange={(e) => updateCode(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="w-full h-full p-4 font-mono text-sm bg-slate-900 text-slate-100 resize-none outline-none"
-          spellCheck="false"
+          onChange={updateCode}
+          language={language}
+          height="100%"
+          options={editorOptions}
         />
       </div>
     </div>
