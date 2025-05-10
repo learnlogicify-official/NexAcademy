@@ -158,150 +158,150 @@ export async function PUT(
   
   // Function to process the request with retry logic
   const processRequest = async (): Promise<NextResponse> => {
-    try {
-      const session = await getServerSession(authOptions);
-      if (!session?.user) {
-        return NextResponse.json(
-          { error: "Unauthorized" },
-          { status: 401 }
-        );
-      }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
       const { id: questionId } = params;
-      
-      if (!questionId) {
-        return NextResponse.json(
-          { error: 'Question ID is required' },
-          { status: 400 }
-        );
-      }
+    
+    if (!questionId) {
+      return NextResponse.json(
+        { error: 'Question ID is required' },
+        { status: 400 }
+      );
+    }
 
       console.time(`Update question ${questionId}`);
-      const body = await request.json();
-      
-      const {
-        name,
-        questionText,
-        type,
-        folderId,
-        status,
-        difficulty,
-        defaultMark,
-        isMultiple,
-        shuffleChoice,
-        generalFeedback,
-        choiceNumbering,
-        mCQQuestion,
-        codingQuestion,
-        allOrNothingGrading
-      } = body;
+    const body = await request.json();
+    
+    const {
+      name,
+      questionText,
+      type,
+      folderId,
+      status,
+      difficulty,
+      defaultMark,
+      isMultiple,
+      shuffleChoice,
+      generalFeedback,
+      choiceNumbering,
+      mCQQuestion,
+      codingQuestion,
+      allOrNothingGrading
+    } = body;
 
-      // Validate required fields
-      if (!name || !questionText || !type || !folderId || !status || !difficulty || !defaultMark) {
-        return NextResponse.json(
-          { error: 'Missing required fields' },
-          { status: 400 }
-        );
-      }
+    // Validate required fields
+    if (!name || !questionText || !type || !folderId || !status || !difficulty || !defaultMark) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
 
-      // Check if question exists
-      const existingQuestion = await prisma.question.findUnique({
-        where: { id: questionId },
-        include: {
-          mCQQuestion: {
-            include: {
-              options: true
-            }
-          },
-          codingQuestion: {
-            include: {
-              languageOptions: true,
+    // Check if question exists
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id: questionId },
+      include: {
+        mCQQuestion: {
+          include: {
+            options: true
+          }
+        },
+        codingQuestion: {
+          include: {
+            languageOptions: true,
               testCases: true,
               tags: true
-            }
           }
         }
-      });
-
-      if (!existingQuestion) {
-        return NextResponse.json(
-          { error: 'Question not found' },
-          { status: 404 }
-        );
       }
+    });
+
+    if (!existingQuestion) {
+      return NextResponse.json(
+        { error: 'Question not found' },
+        { status: 404 }
+      );
+    }
 
       console.log(`Updating question ${questionId}, type: ${type}`);
-      
+    
       // First, update the basic question data outside of the transaction
       // This reduces the transaction time
       await prisma.question.update({
-        where: { id: questionId },
-        data: {
-          name,
-          type,
-          folderId,
-          status,
-          lastModifiedBy: session.user.id,
-          lastModifiedByName: session.user.name || "Unknown User",
-          updatedAt: new Date(),
-        }
-      });
+          where: { id: questionId },
+          data: {
+            name,
+            type,
+            folderId,
+            status,
+            lastModifiedBy: session.user.id,
+            lastModifiedByName: session.user.name || "Unknown User",
+            updatedAt: new Date(),
+          }
+        });
 
       let updatedQuestion;
       
       try {
         // Use a transaction with a timeout for the complex operations
         updatedQuestion = await prisma.$transaction(async (tx) => {
-          // 2. Handle MCQ Question updates
-          if (type === 'MCQ' && mCQQuestion) {
+        // 2. Handle MCQ Question updates
+        if (type === 'MCQ' && mCQQuestion) {
             // Delete existing options - done outside transaction to reduce time
             await prisma.mCQOption.deleteMany({
               where: { mcqQuestionId: existingQuestion.mCQQuestion?.id }
-            });
+          });
 
             console.log('Updating MCQ question...');
-            // Update MCQ question
-            await tx.mCQQuestion.update({
-              where: { questionId },
-              data: {
-                questionText,
-                defaultMark: Number(defaultMark) || 1,
-                isMultiple: Boolean(mCQQuestion.isMultiple || isMultiple),
-                shuffleChoice: Boolean(mCQQuestion.shuffleChoice || shuffleChoice),
-                difficulty,
-                generalFeedback,
+          // Update MCQ question
+          await tx.mCQQuestion.update({
+            where: { questionId },
+            data: {
+              questionText,
+              defaultMark: Number(defaultMark) || 1,
+              isMultiple: Boolean(mCQQuestion.isMultiple || isMultiple),
+              shuffleChoice: Boolean(mCQQuestion.shuffleChoice || shuffleChoice),
+              difficulty,
+              generalFeedback,
                 // Create new options with createMany for better performance
-                options: {
+              options: {
                   createMany: {
                     data: (mCQQuestion.options || []).map((option: any) => ({
-                      text: option.text,
-                      grade: Number(option.grade) || 0,
-                      feedback: option.feedback || ''
-                    }))
+                  text: option.text,
+                  grade: Number(option.grade) || 0,
+                  feedback: option.feedback || ''
+                }))
                   }
-                }
               }
-            });
+            }
+          });
             console.log('MCQ question updated successfully.');
+        }
+        
+        // 3. Handle Coding Question updates
+        if (type === 'CODING' && codingQuestion) {
+          // Get the coding question ID
+            const codingQuestionId = existingQuestion.codingQuestion?.id;
+          
+          if (!codingQuestionId) {
+            throw new Error('Coding question not found');
           }
           
-          // 3. Handle Coding Question updates
-          if (type === 'CODING' && codingQuestion) {
-            // Get the coding question ID
-            const codingQuestionId = existingQuestion.codingQuestion?.id;
-            
-            if (!codingQuestionId) {
-              throw new Error('Coding question not found');
-            }
-            
             console.log('Updating basic coding question info...');
             // Update the coding question basic info
-            await tx.codingQuestion.update({
-              where: { questionId },
-              data: {
-                questionText,
-                defaultMark: Number(defaultMark) || 1,
-                defaultLanguage: codingQuestion.defaultLanguage || null,
+          await tx.codingQuestion.update({
+            where: { questionId },
+            data: {
+              questionText,
+              defaultMark: Number(defaultMark) || 1,
+              defaultLanguage: codingQuestion.defaultLanguage || null,
                 difficulty,
                 isAllOrNothing: Boolean(
                   codingQuestion?.isAllOrNothing || 
@@ -309,8 +309,8 @@ export async function PUT(
                   allOrNothingGrading || 
                   false
                 ),
-                tags: {
-                  set: codingQuestion.tags.map((tagId: string) => ({ id: tagId }))
+              tags: {
+                set: codingQuestion.tags.map((tagId: string) => ({ id: tagId }))
                 }
               }
             });
@@ -380,8 +380,8 @@ export async function PUT(
                   const languagesToCreate = newLanguageOptions
                     .filter((lang: { language: string }) => !existingLanguageMap.has(lang.language))
                     .map((lang: { language: string; solution?: string; preloadCode?: string }) => ({
-                      codingQuestionId,
-                      language: lang.language,
+                  codingQuestionId,
+                  language: lang.language,
                       solution: lang.solution || '',
                       preloadCode: lang.preloadCode || ''
                     }));
@@ -402,9 +402,9 @@ export async function PUT(
                       return {
                         id: existing?.id,
                         data: {
-                          solution: lang.solution || '',
-                          preloadCode: lang.preloadCode || ''
-                        }
+                  solution: lang.solution || '',
+                  preloadCode: lang.preloadCode || ''
+                }
                       };
                     });
                   
@@ -526,8 +526,8 @@ export async function PUT(
                         where: { id: { in: testCasesToDelete } }
                       }) : 
                       Promise.resolve(),
-                    
-                    // Create new test cases
+          
+          // Create new test cases
                     testCasesToCreate.length > 0 ? 
                       prisma.testCase.createMany({
                         data: testCasesToCreate
@@ -558,7 +558,7 @@ export async function PUT(
             }
           }
         }
-
+        
         // Fetch only essential data for the updated question
         // Avoid fetching all test cases and language options if not needed immediately
         console.time('Fetching updated question');
@@ -602,9 +602,9 @@ export async function PUT(
             languageOptions: completeQuestion?.codingQuestion?.languageOptions.length || 0
           },
           message: "Question updated successfully. Full data is available on subsequent requests."
-        });
-      } catch (transactionError) {
-        console.error('Transaction error:', transactionError);
+      });
+    } catch (transactionError) {
+      console.error('Transaction error:', transactionError);
         
         // Check if this is a transaction timeout or closed transaction error
         const errorMessage = String(transactionError);
@@ -618,18 +618,18 @@ export async function PUT(
           return processRequest(); // Retry the request
         }
         
-        return NextResponse.json(
-          { error: `Transaction failed: ${transactionError instanceof Error ? transactionError.message : String(transactionError)}` },
-          { status: 500 }
-        );
-      }
-    } catch (error) {
-      console.error('Error updating question:', error);
       return NextResponse.json(
-        { error: `Error updating question: ${error instanceof Error ? error.message : String(error)}` },
+        { error: `Transaction failed: ${transactionError instanceof Error ? transactionError.message : String(transactionError)}` },
         { status: 500 }
       );
     }
+  } catch (error) {
+    console.error('Error updating question:', error);
+    return NextResponse.json(
+      { error: `Error updating question: ${error instanceof Error ? error.message : String(error)}` },
+      { status: 500 }
+    );
+  }
   };
   
   // Start the request processing with retry capability

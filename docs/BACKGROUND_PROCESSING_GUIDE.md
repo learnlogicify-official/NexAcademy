@@ -750,18 +750,125 @@ Update your `package.json` to include a worker script:
 }
 ```
 
+### 8. Optimizing Bull for Upstash Redis
+
+When using Bull with Upstash Redis, consider these optimizations for better performance and reliability:
+
+1. **Job Concurrency Settings**
+
+   Limit the number of concurrent jobs to avoid overwhelming Upstash Redis connections:
+
+   ```typescript
+   // In lib/queue/statsWorker.ts
+   
+   // Set concurrency limit
+   statsQueue.process(10, async (job) => {
+     // Job processing logic
+   });
+   ```
+
+2. **Job Retention**
+
+   Configure job retention settings to manage storage usage:
+
+   ```typescript
+   // In lib/queue/config.ts
+   
+   // Create queues with retention settings
+   export const statsQueue = new Queue('statistics-processing', {
+     ...redisConfig,
+     defaultJobOptions: {
+       removeOnComplete: 100, // Keep only 100 completed jobs
+       removeOnFail: 200,     // Keep only 200 failed jobs
+     }
+   });
+   ```
+
+3. **Rate Limiting**
+
+   Implement rate limiting for job creation to prevent overwhelming Upstash Redis:
+
+   ```typescript
+   // In app/api/admin/background-jobs/route.ts
+   
+   // Simple rate limiting
+   const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+   const MAX_REQUESTS_PER_WINDOW = 20;
+   
+   let requestCount = 0;
+   let windowStart = Date.now();
+   
+   // Before creating a job
+   const now = Date.now();
+   if (now - windowStart > RATE_LIMIT_WINDOW_MS) {
+     requestCount = 0;
+     windowStart = now;
+   }
+   
+   if (requestCount >= MAX_REQUESTS_PER_WINDOW) {
+     return NextResponse.json(
+       { error: 'Rate limit exceeded. Try again later.' },
+       { status: 429 }
+     );
+   }
+   
+   requestCount++;
+   
+   // Proceed with job creation
+   ```
+
+4. **Connection Pooling**
+
+   For high-throughput applications, consider implementing connection pooling:
+
+   ```typescript
+   // In lib/redis/pool.ts
+   import Redis from 'ioredis';
+   import { GenericPool } from 'generic-pool';
+   
+   const factory = {
+     create: async () => {
+       const client = new Redis({
+         port: parseInt(process.env.UPSTASH_REDIS_PORT || '6379'),
+         host: process.env.UPSTASH_REDIS_HOST,
+         password: process.env.UPSTASH_REDIS_PASSWORD,
+         tls: { rejectUnauthorized: false },
+       });
+       return client;
+     },
+     destroy: async (client) => {
+       client.quit();
+     }
+   };
+   
+   const opts = {
+     min: 2,  // Minimum connections
+     max: 10, // Maximum connections
+     acquireTimeoutMillis: 5000
+   };
+   
+   export const redisPool = GenericPool.createPool(factory, opts);
+   ```
+
 ## Performance Monitoring
 
-After implementing background processing, monitor the performance improvements:
+After implementing background processing with Upstash Redis, monitor the performance improvements:
 
 1. **API Response Time**: The API should respond almost immediately when triggering background jobs
    - Expected improvement: 95-99% reduction in wait time for statistics calculations
+   - Use Upstash Redis dashboard to monitor command latency
 
 2. **Server Load**: Monitor server CPU and memory usage during peak times
    - Expected improvement: More consistent server performance with reduced spikes
+   - Reduced server resource usage since Redis is now managed by Upstash
 
 3. **User Experience**: Measure perceived performance improvements
    - Expected improvement: Users can continue working while heavy calculations happen in the background
+
+4. **Upstash Redis Metrics**: Monitor Upstash-specific performance metrics
+   - Track connection count, memory usage, and commands per second in the Upstash dashboard
+   - Set up alerts for abnormal queue sizes or processing delays
+   - Monitor costs and usage patterns to optimize your Upstash plan
 
 ## Benefits of Upstash Redis for Background Processing
 

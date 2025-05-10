@@ -469,6 +469,7 @@ model ProblemSubmission {
   submittedAt       DateTime              @default(now())
   testcasesPassed   Int
   totalTestcases    Int
+  skippedTestcases  Int                   @default(0)
   allPassed         Boolean               @default(false)
   runtime           String?
   memory            String?

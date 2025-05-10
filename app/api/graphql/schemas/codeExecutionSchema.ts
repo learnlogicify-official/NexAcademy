@@ -18,6 +18,7 @@ export const codeExecutionTypeDefs = gql`
     status: ExecutionStatus!
     verdict: String!
     isCorrect: Boolean!
+    isSkipped: Boolean
     executionTime: String
     memoryUsed: String
   }

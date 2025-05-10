@@ -1,5 +1,5 @@
 import React from "react"
-import { Star, ThumbsUp, Crown, Lock, BookOpen, Code, Award, Timer, BarChart2, Users, Tag, ExternalLink } from "lucide-react"
+import { Star, ThumbsUp, Crown, Lock, BookOpen, Code, Award, Timer, BarChart2, Users, Tag, ExternalLink, Bookmark, ChevronRight, Activity } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
@@ -33,67 +33,70 @@ interface Problem {
 
 export function ProblemDescription({ isPremium = false }) {
   return (
-    <div className="space-y-6 overflow-auto h-full pb-8">
-      {/* Header section with problem title, difficulty, and solved status */}
-      <div className="border-b pb-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 h-8 w-8 rounded-full flex items-center justify-center font-semibold">
-              1
-            </div>
-            <h1 className="text-xl font-bold">Two Sum</h1>
-          </div>
-          <Badge variant="outline" className="text-green-600 border-green-200 flex items-center gap-1 px-2 py-1">
-            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M20 6L9 17L4 12"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Solved
-          </Badge>
+    <div className="space-y-4 overflow-auto h-full pb-6">
+      {/* Modern compact header with glassmorphism effect */}
+      <div className="relative mb-3 rounded-lg bg-gradient-to-br from-white/80 to-white/50 dark:from-gray-800/60 dark:to-gray-800/30 backdrop-blur-sm border border-gray-100/80 dark:border-gray-700/30 shadow-sm overflow-hidden group">
+        {/* Problem number badge */}
+        <div className="absolute top-0 left-0 bg-blue-600/10 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 text-xs font-medium px-2 py-1 rounded-br-md">
+          Problem #1
         </div>
         
-        {/* Problem metadata cards */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">Difficulty</span>
-            <span className="font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span>Easy
+        {/* Title and difficulty - main heading */}
+        <div className="pt-7 pb-3 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0 pr-2">
+              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate transition-all group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                Two Sum
+              </h1>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Difficulty pill */}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-100 dark:border-green-800/50">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 mr-1.5"></span>
+                Easy
             </span>
+              
+              {/* Status badge */}
+              <Badge variant="outline" className="text-green-600 border-green-200 flex items-center gap-1 px-1.5 py-0.5 bg-green-50/50 dark:bg-green-900/20">
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="text-xs">Solved</span>
+              </Badge>
           </div>
-          <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">Success Rate</span>
-            <span className="font-medium text-blue-600 dark:text-blue-400">49.2%</span>
           </div>
-          <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">XP Reward</span>
-            <span className="font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1">
-              <Award className="h-3 w-3" /> 200
-            </span>
+          
+          {/* Tags and metadata in compact row */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+            {/* XP reward */}
+            <div className="flex items-center text-xs text-purple-600 dark:text-purple-400 font-medium">
+              <Award className="h-3 w-3 mr-1" />
+              <span>200 XP</span>
           </div>
+            
+            {/* Success rate */}
+            <div className="flex items-center text-xs text-blue-600 dark:text-blue-400 font-medium">
+              <Activity className="h-3 w-3 mr-1" />
+              <span>49.2% success</span>
         </div>
 
-        {/* Topics and action buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
-            <Tag className="h-3 w-3 mr-1" />
+            <div className="flex-1 flex flex-wrap items-center gap-1.5 mt-0.5">
+              <Badge variant="secondary" className="bg-blue-50/80 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer px-1.5 py-0.5 text-xs border-blue-100/80 dark:border-blue-800/30">
             Array
           </Badge>
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
-            <Tag className="h-3 w-3 mr-1" />
+              <Badge variant="secondary" className="bg-blue-50/80 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer px-1.5 py-0.5 text-xs border-blue-100/80 dark:border-blue-800/30">
             Hash Table
           </Badge>
+            </div>
           
-          <div className="ml-auto flex items-center gap-2">
+            {/* Action buttons in a neat row */}
+            <div className="flex items-center gap-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    <BookOpen className="h-4 w-4" />
+                    <button className="p-1.5 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:scale-105">
+                      <BookOpen className="h-3 w-3" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>View Editorial</TooltipContent>
@@ -103,8 +106,8 @@ export function ProblemDescription({ isPremium = false }) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    <Code className="h-4 w-4" />
+                    <button className="p-1.5 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:scale-105">
+                      <Code className="h-3 w-3" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>View Solutions</TooltipContent>
@@ -114,123 +117,110 @@ export function ProblemDescription({ isPremium = false }) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    <Star className="h-4 w-4" />
+                    <button className="p-1.5 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:scale-105">
+                      <Bookmark className="h-3 w-3" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>Add to Favorites</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    {!isPremium && <Lock className="h-4 w-4 text-orange-500" />}
-                    {isPremium && <Users className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {!isPremium ? "Premium feature: View companies" : "View companies that ask this question"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Problem description */}
-      <div className="prose prose-sm max-w-none dark:prose-invert">
-        <p>
+      {/* Problem description - Enhanced styling for educational content */}
+      <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mb-2 prose-p:leading-relaxed">
+        <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
           Given an array of integers <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">nums</code> and an
           integer <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">target</code>, return{" "}
-          <em>
+          <em className="text-blue-600 dark:text-blue-400 not-italic font-medium">
             indices of the two numbers such that they add up to{" "}
             <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">target</code>
           </em>
           .
         </p>
-        <p>
-          You may assume that each input would have <strong>exactly one solution</strong>, and you may not use the same
+        <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
+          You may assume that each input would have <strong className="font-semibold text-gray-900 dark:text-gray-100">exactly one solution</strong>, and you may not use the same
           element twice.
         </p>
-        <p>You can return the answer in any order.</p>
+        <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">You can return the answer in any order.</p>
 
-        {/* Examples section with enhanced styling */}
-        <div className="mt-6 space-y-4">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
-            <div className="bg-gray-50 dark:bg-gray-800/80 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-medium flex items-center gap-2">
+        {/* Improved Examples section with better visual distinction */}
+        <div className="mt-5 space-y-4">
+          <div className="bg-gradient-to-br from-gray-50/80 to-gray-50 dark:from-gray-800/40 dark:to-gray-800/80 border border-gray-200/70 dark:border-gray-700/50 rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-gray-50/80 dark:bg-gray-800/60 px-3 py-1.5 border-b border-gray-200/70 dark:border-gray-700/50">
+              <h3 className="font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold">
                   1
                 </span>
                 Example 1
               </h3>
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-3 space-y-2">
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Input:</span>
-                <code className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded block w-full font-mono text-sm">
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Input:</span>
+                <code className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded block w-full font-mono text-sm">
                   nums = [2,7,11,15], target = 9
                 </code>
               </div>
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Output:</span>
-                <code className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded block w-full font-mono text-sm">
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Output:</span>
+                <code className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded block w-full font-mono text-sm">
                   [0,1]
                 </code>
               </div>
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Explanation:</span>
-                <span className="text-sm">Because nums[0] + nums[1] == 9, we return [0, 1].</span>
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Explain:</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Because nums[0] + nums[1] == 9, we return [0, 1].</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
-            <div className="bg-gray-50 dark:bg-gray-800/80 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-medium flex items-center gap-2">
+          <div className="bg-gradient-to-br from-gray-50/80 to-gray-50 dark:from-gray-800/40 dark:to-gray-800/80 border border-gray-200/70 dark:border-gray-700/50 rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-gray-50/80 dark:bg-gray-800/60 px-3 py-1.5 border-b border-gray-200/70 dark:border-gray-700/50">
+              <h3 className="font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold">
                   2
                 </span>
                 Example 2
               </h3>
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-3 space-y-2">
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Input:</span>
-                <code className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded block w-full font-mono text-sm">
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Input:</span>
+                <code className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded block w-full font-mono text-sm">
                   nums = [3,2,4], target = 6
                 </code>
               </div>
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Output:</span>
-                <code className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded block w-full font-mono text-sm">
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Output:</span>
+                <code className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded block w-full font-mono text-sm">
                   [1,2]
                 </code>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
-            <div className="bg-gray-50 dark:bg-gray-800/80 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-medium flex items-center gap-2">
+          <div className="bg-gradient-to-br from-gray-50/80 to-gray-50 dark:from-gray-800/40 dark:to-gray-800/80 border border-gray-200/70 dark:border-gray-700/50 rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-gray-50/80 dark:bg-gray-800/60 px-3 py-1.5 border-b border-gray-200/70 dark:border-gray-700/50">
+              <h3 className="font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold">
                   3
                 </span>
                 Example 3
               </h3>
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-3 space-y-2">
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Input:</span>
-                <code className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded block w-full font-mono text-sm">
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Input:</span>
+                <code className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded block w-full font-mono text-sm">
                   nums = [3,3], target = 6
                 </code>
               </div>
               <div className="flex items-start">
-                <span className="text-gray-500 dark:text-gray-400 font-medium w-20">Output:</span>
-                <code className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded block w-full font-mono text-sm">
+                <span className="text-gray-500 dark:text-gray-400 font-medium w-16 text-sm">Output:</span>
+                <code className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded block w-full font-mono text-sm">
                   [0,1]
                 </code>
               </div>
@@ -238,130 +228,82 @@ export function ProblemDescription({ isPremium = false }) {
           </div>
         </div>
 
-        {/* Constraints section */}
-        <div className="mt-6">
-          <h3 className="text-base font-medium flex items-center gap-2 mb-3">
+        {/* Constraints section with improved educational styling */}
+        <div className="mt-5 bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-lg border border-gray-200/70 dark:border-gray-700/70">
+          <h3 className="text-base font-medium flex items-center gap-2 mb-2 text-gray-800 dark:text-gray-200">
             <BarChart2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             Constraints
           </h3>
-          <ul className="list-disc pl-5 space-y-1 marker:text-blue-500">
-            <li>
-              <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
+          <ul className="list-none space-y-1 pl-0">
+            <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-400 mt-0.5"></div>
+              <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-800 dark:text-gray-200 text-sm">
                 2 &lt;= nums.length &lt;= 10<sup>4</sup>
               </code>
             </li>
-            <li>
-              <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
+            <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-400 mt-0.5"></div>
+              <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-800 dark:text-gray-200 text-sm">
                 -10<sup>9</sup> &lt;= nums[i] &lt;= 10<sup>9</sup>
               </code>
             </li>
-            <li>
-              <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
+            <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-400 mt-0.5"></div>
+              <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-800 dark:text-gray-200 text-sm">
                 -10<sup>9</sup> &lt;= target &lt;= 10<sup>9</sup>
               </code>
             </li>
-            <li>
-              <strong>Only one valid answer exists.</strong>
+            <li className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-400 mt-0.5"></div>
+              <span className="font-medium">Only one valid answer exists.</span>
             </li>
           </ul>
         </div>
 
-        {/* Premium insights section */}
+        {/* Premium insights section with improved styling */}
         {isPremium && (
-          <div className="mt-6 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border border-orange-200 dark:border-orange-900/40 rounded-lg p-4">
-            <h3 className="font-medium text-orange-800 dark:text-orange-400 mb-3 flex items-center gap-2">
+          <div className="mt-5 bg-gradient-to-r from-amber-50/90 to-orange-50/90 dark:from-amber-950/30 dark:to-orange-950/30 border border-orange-200/80 dark:border-orange-900/40 rounded-lg p-3">
+            <h3 className="font-medium text-orange-800 dark:text-orange-400 mb-2 flex items-center gap-2 text-base">
               <Crown className="h-4 w-4" />
-              Premium Insights
+              Learning Resources
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-sm flex items-center gap-1.5">
+                <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                   <Timer className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
                   Acceptance Rate:
                 </span>
-                <span className="font-medium">49.2%</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">49.2%</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm flex items-center gap-1.5">
+                <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                  Submissions:
+                  Companies:
                 </span>
-                <span className="font-medium">14.2M</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">Google, Amazon, Microsoft</span>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm flex items-center gap-1.5">
-                    <BarChart2 className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                    Success Rate:
+                  <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <BrainCircuit className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                    Related Topics:
                   </span>
-                  <span className="text-xs">49.2%</span>
                 </div>
-                <Progress value={49.2} className="h-2 bg-gray-200" indicatorClassName="bg-green-500" />
-              </div>
-              <div>
-                <span className="text-sm flex items-center gap-1.5 mb-2">
-                  <BarChart2 className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                  Difficulty Distribution:
+                <div className="flex flex-wrap gap-1">
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    Hash Table
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    Array
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                    Two Pointers
                 </span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-green-800 dark:text-green-400">Easy</span>
-                      <span className="text-xs">35%</span>
-                    </div>
-                    <Progress value={35} className="h-1.5 bg-gray-200" indicatorClassName="bg-green-500" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-yellow-800 dark:text-yellow-400">Medium</span>
-                      <span className="text-xs">45%</span>
-                    </div>
-                    <Progress value={45} className="h-1.5 bg-gray-200" indicatorClassName="bg-yellow-500" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-red-800 dark:text-red-400">Hard</span>
-                      <span className="text-xs">20%</span>
-                    </div>
-                    <Progress value={20} className="h-1.5 bg-gray-200" indicatorClassName="bg-red-500" />
-                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
-
-        {/* Community engagement section */}
-        <div className="mt-6 border-t pt-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center">
-              <button className="p-1.5 rounded-l-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border-r border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">
-                <ThumbsUp className="h-4 w-4" />
-              </button>
-              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm">
-                61.4K
-              </span>
-              <button className="p-1.5 rounded-r-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <ThumbsDown className="h-4 w-4" />
-              </button>
-            </div>
-            
-            <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm">
-              <Star className="h-3.5 w-3.5" />
-              <span>Favorite</span>
-            </button>
-            
-            <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm">
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Share</span>
-            </button>
-          </div>
-          
-          <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-500"></div>
-            <span>1165 Online</span>
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -425,6 +367,33 @@ function HelpCircle(props: React.SVGProps<SVGSVGElement>) {
       <circle cx="12" cy="12" r="10" />
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  )
+}
+
+function BrainCircuit(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 4.24 3 3 0 0 0 .34 5.58 2.5 2.5 0 0 0 2.96 3.08 2.5 2.5 0 0 0 4.91.05L12 20V4.5Z" />
+      <path d="M16 8V5c0-1.1.9-2 2-2" />
+      <path d="M12 13h4" />
+      <path d="M12 18h6a2 2 0 0 1 2 2v1" />
+      <path d="M12 8h8" />
+      <path d="M20.5 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" />
+      <path d="M16.5 13a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" />
+      <path d="M20.5 21a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" />
+      <path d="M18.5 3a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" />
     </svg>
   )
 }

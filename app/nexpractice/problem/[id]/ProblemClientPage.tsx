@@ -76,6 +76,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner"
 import confetti from 'canvas-confetti'
 import { HiddenTestcasesTab } from "./components/HiddenTestcasesTab";
+import ProblemHeader from "./components/ProblemHeader"
+import { gql } from '@apollo/client';
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -503,42 +505,55 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   const questionTextStyles = `
     .prose pre {
       position: relative;
-      background-color: ${appTheme === 'dark' ? '#161b2a' : '#f8fafc'};
-      border: 1px solid ${appTheme === 'dark' ? '#2a3655' : '#e5e7eb'};
-      border-radius: 0.5rem;
-      padding: 0.75rem 0.95rem;
-      margin: 1rem 0;
+      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : 'rgba(248, 250, 252, 0.8)'};
+      border: 1px solid ${appTheme === 'dark' ? 'rgba(42, 54, 85, 0.6)' : 'rgba(229, 231, 235, 0.8)'};
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
       overflow-x: auto;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.85rem;
-      line-height: 1.4;
-      box-shadow: 0 1px 3px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.02)'};
+      font-size: 0.9rem;
+      line-height: 1.5;
+      box-shadow: 0 4px 20px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.03)'};
+      backdrop-filter: blur(8px);
     }
     
     .prose pre::before {
       content: "";
       position: absolute;
-      top: 0.4rem;
-      left: 0.4rem;
-      width: 0.4rem;
-      height: 0.4rem;
+      top: 0.75rem;
+      left: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      height: 0.5rem;
+    }
+    
+    .prose pre::after {
+      content: "";
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      width: 0.5rem;
+      height: 0.5rem;
       border-radius: 50%;
       background-color: #ff5f56;
-      box-shadow: 0.85rem 0 0 0 #ffbd2e, 1.7rem 0 0 0 #27c93f;
-      opacity: 0.7;
+      box-shadow: 1.25rem 0 0 0 #ffbd2e, 2.5rem 0 0 0 #27c93f;
+      opacity: 0.8;
     }
     
     .prose code {
       position: relative;
-      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)'};
+      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.07)'};
       border-radius: 0.25rem;
-      padding: 0.1rem 0.3rem;
+      padding: 0.15rem 0.35rem;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.85rem;
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4f46e5'};
-      font-weight: 500;
+      font-size: 0.9rem;
+      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
+      font-weight: 600;
       border: none;
       white-space: nowrap;
+      letter-spacing: -0.02em;
     }
     
     .prose pre code {
@@ -550,7 +565,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       border: none;
       font-weight: normal;
       white-space: pre;
-      padding-top: 1rem; /* Add space for the circles */
+      padding-top: 1.5rem; /* Add space for the circles */
+      letter-spacing: 0;
     }
     
     .prose ul {
@@ -561,23 +577,24 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     
     .prose ul li {
       position: relative;
-      margin-top: 0.3rem;
-      margin-bottom: 0.3rem;
-      padding-left: 1rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      padding-left: 1.25rem;
       font-size: 0.95rem;
+      line-height: 1.5;
     }
     
     .prose ul li::before {
       content: "";
       position: absolute;
-      left: -0.75rem;
-      top: 0.4rem;
-      height: 0.375rem;
-      width: 0.375rem;
+      left: -0.25rem;
+      top: 0.6rem;
+      height: 0.5rem;
+      width: 0.5rem;
       border-radius: 50%;
-      background-color: ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'};
+      background: linear-gradient(to right, ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'}, ${appTheme === 'dark' ? '#a78bfa' : '#6366f1'});
       transform: scale(0.8);
-      opacity: 0.8;
+      box-shadow: 0 0 8px ${appTheme === 'dark' ? 'rgba(129, 140, 248, 0.5)' : 'rgba(79, 70, 229, 0.3)'};
     }
     
     .prose ol {
@@ -589,28 +606,30 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     
     .prose ol li {
       position: relative;
-      margin-top: 0.3rem;
-      margin-bottom: 0.3rem;
-      padding-left: 1rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      padding-left: 1.25rem;
       counter-increment: item;
       font-size: 0.95rem;
+      line-height: 1.5;
     }
     
     .prose ol li::before {
       content: counter(item);
       position: absolute;
-      left: -1.4rem;
+      left: -1.5rem;
       top: 0;
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      width: 1.2rem;
-      height: 1.2rem;
+      width: 1.4rem;
+      height: 1.4rem;
       border-radius: 50%;
-      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'};
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4f46e5'};
+      background: linear-gradient(120deg, ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'}, ${appTheme === 'dark' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(99, 102, 241, 0.15)'});
+      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 2px 6px ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.15)'};
     }
     
     .prose p {
@@ -619,27 +638,33 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       line-height: 1.5;
       letter-spacing: -0.01em;
       font-size: 0.95rem;
+      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
     }
     
     .prose p strong {
       font-weight: 600;
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4f46e5'};
+      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
+      background: linear-gradient(to right, ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'}, ${appTheme === 'dark' ? '#a78bfa' : '#6366f1'});
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: ${appTheme === 'dark' ? 'transparent' : 'transparent'};
+      text-shadow: ${appTheme === 'dark' ? '0 0 10px rgba(129, 140, 248, 0.3)' : 'none'};
     }
     
     .prose p em {
       font-style: italic;
-      color: ${appTheme === 'dark' ? '#c4b5fd' : '#6d28d9'};
+      color: ${appTheme === 'dark' ? '#c4b5fd' : '#7c3aed'};
     }
     
     .prose h1, .prose h2, .prose h3, .prose h4 {
       font-weight: 700;
-      line-height: 1.15;
-      margin-top: 1.2rem;
-      margin-bottom: 0.6rem;
-      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
-      letter-spacing: -0.025em;
+      line-height: 1.2;
+      margin-top: 1.25rem;
+      margin-bottom: 0.75rem;
+      color: ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'};
+      letter-spacing: -0.03em;
       position: relative;
-      padding-bottom: 0.3rem;
+      padding-bottom: 0.4rem;
     }
     
     .prose h1::after, .prose h2::after, .prose h3::after {
@@ -647,48 +672,71 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       position: absolute;
       bottom: 0;
       left: 0;
-      width: 2rem;
-      height: 0.1rem;
+      width: 3rem;
+      height: 0.2rem;
       background: linear-gradient(to right, #4f46e5, #8b5cf6, #d946ef);
       border-radius: 2px;
+      box-shadow: 0 2px 8px ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.15)'};
     }
     
     .prose h1 {
-      font-size: 1.4rem;
+      font-size: 1.75rem;
+      background: linear-gradient(to right, ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'}, ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'});
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
     }
     
     .prose h2 {
-      font-size: 1.25rem;
+      font-size: 1.4rem;
     }
     
     .prose h3 {
-      font-size: 1.15rem;
+      font-size: 1.25rem;
     }
     
     .prose h4 {
-      font-size: 1.05rem;
+      font-size: 1.1rem;
     }
     
     .prose blockquote {
-      border-left: 4px solid ${appTheme === 'dark' ? '#4f46e5' : '#6366f1'};
-      padding: 0.8rem 1.2rem;
+      position: relative;
+      border-left: none;
+      padding: 1.25rem 1.5rem;
       font-style: italic;
-      margin: 1.25rem 0;
-      color: ${appTheme === 'dark' ? '#94a3b8' : '#64748b'};
-      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)'};
-      border-radius: 0 0.5rem 0.5rem 0;
-      box-shadow: 0 2px 5px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)'};
+      margin: 1.5rem 0;
+      color: ${appTheme === 'dark' ? '#94a3b8' : '#475569'};
+      background: linear-gradient(to right, ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.07)'}, ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.1)' : 'rgba(79, 70, 229, 0.05)'});
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 15px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.03)'};
+      backdrop-filter: blur(4px);
+    }
+    
+    .prose blockquote::before {
+      content: """;
+      position: absolute;
+      top: -0.5rem;
+      left: 0.5rem;
+      font-size: 3rem;
+      font-family: serif;
+      color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)'};
+      z-index: 0;
     }
     
     .prose blockquote p {
+      position: relative;
       margin: 0.35rem 0;
+      z-index: 1;
     }
     
     .prose a {
+      position: relative;
       color: ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'};
       text-decoration: none;
-      border-bottom: 1px dotted ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'};
+      font-weight: 500;
       transition: all 0.2s ease;
+      border-bottom: 1px dashed ${appTheme === 'dark' ? 'rgba(147, 197, 253, 0.5)' : 'rgba(79, 70, 229, 0.5)'};
+      padding-bottom: 0.05rem;
     }
     
     .prose a:hover {
@@ -696,91 +744,231 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       border-bottom: 1px solid ${appTheme === 'dark' ? '#bfdbfe' : '#4338ca'};
     }
     
+    .prose a::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      transform: scaleX(0);
+      transform-origin: right;
+      background: linear-gradient(to right, ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'}, ${appTheme === 'dark' ? '#bfdbfe' : '#818cf8'});
+      transition: transform 0.3s ease;
+    }
+    
+    .prose a:hover::after {
+      transform: scaleX(1);
+      transform-origin: left;
+    }
+    
     .prose table {
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
-      margin: 1.5rem 0;
-      border-radius: 0.5rem;
+      margin: 1.75rem 0;
+      border-radius: 0.75rem;
       overflow: hidden;
-      box-shadow: 0 2px 10px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)'};
+      box-shadow: 0 4px 18px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.05)'};
+      background: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255, 255, 255, 0.7)'};
+      backdrop-filter: blur(10px);
     }
     
     .prose table th {
-      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.1)'};
-      border: 1px solid ${appTheme === 'dark' ? '#334155' : '#e2e8f0'};
-      padding: 0.75rem 1rem;
+      background: linear-gradient(to right, ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.1)'}, ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.08)'});
+      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.6)' : 'rgba(226, 232, 240, 0.8)'};
+      padding: 0.85rem 1.25rem;
       text-align: left;
       font-weight: 600;
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4f46e5'};
-      font-size: 0.875rem;
+      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
+      font-size: 0.9rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
     
     .prose table td {
-      border: 1px solid ${appTheme === 'dark' ? '#334155' : '#e2e8f0'};
-      padding: 0.75rem 1rem;
-      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.7)'};
+      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.6)' : 'rgba(226, 232, 240, 0.8)'};
+      padding: 0.85rem 1.25rem;
+      font-size: 0.95rem;
+      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.5)'};
     }
     
     .prose table tr:nth-child(even) td {
-      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.85)' : 'rgba(241, 245, 249, 0.5)'};
+      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : 'rgba(248, 250, 252, 0.7)'};
     }
     
     .prose img {
       max-width: 100%;
       height: auto;
-      border-radius: 0.5rem;
-      margin: 1.5rem 0;
-      box-shadow: 0 4px 12px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)'};
+      border-radius: 0.75rem;
+      margin: 1.75rem 0;
+      box-shadow: 0 8px 25px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.1)'};
+      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.6)' : 'rgba(226, 232, 240, 0.8)'};
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .prose img:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.15)'};
     }
 
     /* Additional styles for better content density */
     .TabsContent {
-      margin-top: 0.75rem !important;
+      margin-top: 0.85rem !important;
     }
 
     .test-case-card {
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.85rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)'};
+    }
+    
+    .test-case-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.06)'};
     }
     
     .test-case-card .px-4 {
-      padding-left: 0.85rem !important;
-      padding-right: 0.85rem !important;
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
     }
     
     .test-case-card .py-3 {
-      padding-top: 0.65rem !important;
-      padding-bottom: 0.65rem !important;
+      padding-top: 0.75rem !important;
+      padding-bottom: 0.75rem !important;
     }
     
     .test-case-card .p-4 {
-      padding: 0.85rem !important;
+      padding: 1rem !important;
     }
     
     .test-case-card .p-3 {
-      padding: 0.75rem !important;
+      padding: 0.85rem !important;
     }
     
     .test-case-card .gap-4 {
-      gap: 0.75rem !important;
+      gap: 0.85rem !important;
     }
     
-    /* Optimize code fence blocks to take less vertical space */
-    pre code {
-      line-height: 1.4 !important;
+    /* Fancy premium scrollbar */
+    .prose::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
     }
-
+    
+    .prose::-webkit-scrollbar-track {
+      background: ${appTheme === 'dark' ? 'rgba(30, 41, 59, 0.2)' : 'rgba(248, 250, 252, 0.8)'};
+      border-radius: 8px;
+    }
+    
+    .prose::-webkit-scrollbar-thumb {
+      background: linear-gradient(to bottom, #4f46e5, #8b5cf6);
+      border-radius: 8px;
+    }
+    
+    .prose::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(to bottom, #4338ca, #7c3aed);
+    }
+    
+    /* Premium animations */
+    .prose h1, .prose h2, .prose h3 {
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+    
+    .prose h1:hover, .prose h2:hover, .prose h3:hover {
+      transform: translateX(3px);
+    }
+    
+    /* Make code blocks look more premium */
+    pre code {
+      line-height: 1.5 !important;
+      color: ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'} !important;
+    }
+    
+    pre code .keyword {
+      color: ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'} !important;
+      font-weight: 600 !important;
+    }
+    
+    pre code .string {
+      color: ${appTheme === 'dark' ? '#86efac' : '#16a34a'} !important;
+    }
+    
+    pre code .number {
+      color: ${appTheme === 'dark' ? '#fda4af' : '#dc2626'} !important;
+    }
+    
+    pre code .comment {
+      color: ${appTheme === 'dark' ? '#94a3b8' : '#64748b'} !important;
+      font-style: italic !important;
+    }
+    
     /* Reduce spacing in bullet points */
     .prose ul {
-      margin-top: 0.5rem !important;
-      margin-bottom: 0.5rem !important;
+      margin-top: 0.6rem !important;
+      margin-bottom: 0.6rem !important;
     }
 
     /* Make any images more compact */
     .problem-description img {
-      margin: 0.75rem 0 !important;
+      margin: 0.85rem 0 !important;
+    }
+    
+    /* Problem description card with subtle gradient border */
+    .content-card {
+      position: relative;
+      border-radius: 1rem;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      background: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)'};
+      backdrop-filter: blur(12px);
+      border: 1px solid;
+      border-image: linear-gradient(
+        to right bottom, 
+        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.5)' : 'rgba(99, 102, 241, 0.3)'}, 
+        ${appTheme === 'dark' ? 'rgba(147, 51, 234, 0.2)' : 'rgba(147, 51, 234, 0.1)'}, 
+        ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.1)' : 'rgba(79, 70, 229, 0.05)'}
+      ) 1;
+      box-shadow: 
+        0 10px 30px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.05)'}, 
+        inset 0 1px 0 0 ${appTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)'};
+    }
+    
+    .content-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 
+        0 15px 40px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.08)'}, 
+        inset 0 1px 0 0 ${appTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 1)'};
+    }
+    
+    .content-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        120deg,
+        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.4)'},
+        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.001)' : 'rgba(255, 255, 255, 0.9)'},
+        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.4)'}
+      );
+      z-index: 0;
+      pointer-events: none;
+    }
+    
+    .content-card-inner {
+      position: relative;
+      z-index: 1;
+      padding: 1.5rem;
+    }
+    
+    /* Problem description styling */
+    .problem-description {
+      position: relative;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
   `;
 
@@ -1872,15 +2060,16 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         
         // Log the results for debugging
         console.log("API Response results:", results);
-        console.log("Skipped test cases:", results.filter((r: any) => 
+        
+        // Count skipped test cases
+        const skippedTestcases = results.filter((r: any) => 
           r.isSkipped || r.verdict === "Skipped" || (r.status && r.status.description === "Skipped")
-        ));
-        console.log("Failed test cases:", results.filter((r: any) => 
-          !r.isCorrect && 
-          !r.isSkipped && 
-          r.verdict !== "Skipped" && 
-          (!r.status || r.status.description !== "Skipped")
-        ));
+        ).length;
+        console.log("Skipped test cases:", skippedTestcases);
+        
+        // Count passed test cases correctly
+        const passedTestcases = results.filter((r: any) => r.isCorrect).length;
+        console.log("Passed test cases:", passedTestcases);
         
         // Now that we have the response, set the total number of testcases
         setTotalHiddenTestcases(totalTests || results?.length || 0);
@@ -2084,9 +2273,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     const luxuryColors = ['#FFD700', '#E0BF00', '#B8860B', '#DAA520', '#9370DB', '#FFFFFF'];
     const accentColors = ['#4B0082', '#9932CC', '#8A2BE2', '#FF1493', '#00BFFF'];
     
-    // Custom shapes setup (more premium)
-    const shapes = ['square', 'circle'];
-    
     // Phase 1: Initial golden shower from top (sparse but elegant)
     const createGoldenShower = () => {
       confetti({
@@ -2095,7 +2281,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         spread: 100,
         origin: { x: 0.5, y: 0 },
         colors: luxuryColors,
-        shapes: ['square'],
+        shapes: ['square'] as any,
         gravity: 0.65,
         scalar: 1.5,
         drift: 0.5,
@@ -2115,7 +2301,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         spread: 25,
         origin: { x: 0, y: 0.5 },
         colors: accentColors,
-        shapes,
+        shapes: ['square', 'circle'] as any,
         gravity: 0.4,
         scalar: 1.3,
         ticks: 400
@@ -2128,7 +2314,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         spread: 25,
         origin: { x: 1, y: 0.5 },
         colors: accentColors,
-        shapes,
+        shapes: ['square', 'circle'] as any,
         gravity: 0.4,
         scalar: 1.3,
         ticks: 400
@@ -2141,23 +2327,23 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       const animationEnd = Date.now() + duration;
       
       const rainInterval = setInterval(() => {
-        const timeLeft = animationEnd - Date.now();
-        
+      const timeLeft = animationEnd - Date.now();
+      
         if (timeLeft <= 0) {
           clearInterval(rainInterval);
           return;
         }
-        
+      
         // Calculate decreasing particle count as animation progresses
         const particleCount = 3;
-        
-        confetti({
+      
+      confetti({
           particleCount,
           angle: 90,
           spread: 70,
           origin: { x: Math.random(), y: 0 },
           colors: [...luxuryColors, ...accentColors],
-          shapes,
+          shapes: ['square', 'circle'] as any,
           gravity: 0.6,
           scalar: 1.4,
           drift: 0.2,
@@ -2187,6 +2373,331 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     
     return entry ? parseInt(entry[0], 10) : 71; // Default to Python 3 (ID 71) if not found
   };
+
+  // Define the GET_USER_SUBMISSIONS query inside the component
+  const GET_USER_SUBMISSIONS = gql`
+    query GetUserSubmissions($problemId: String!, $page: Int, $limit: Int) {
+      userSubmissions(problemId: $problemId, page: $page, limit: $limit) {
+        submissions {
+          id
+          submittedAt
+          language
+          testcasesPassed
+          totalTestcases
+          skippedTestcases
+          allPassed
+          runtime
+          memory
+          code
+        }
+        pagination {
+          totalCount
+          totalPages
+          currentPage
+          hasNextPage
+          hasPreviousPage
+        }
+      }
+    }
+  `;
+
+  // Add the SubmissionsTabContent component inside the main component
+  const SubmissionsTabContent = React.memo(({ 
+    problemId, 
+    submitCode, 
+    isSubmitting, 
+    query,
+    onLoadSubmission,
+    session
+  }: { 
+    problemId: string; 
+    submitCode: () => void; 
+    isSubmitting: boolean; 
+    query: any;
+    onLoadSubmission: (code: string) => void;
+    session: any;
+  }) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 5;
+    
+    const { loading, error, data, refetch } = useQuery(query, {
+      variables: { problemId, page: currentPage, limit: PAGE_SIZE },
+      skip: !session?.user?.id,
+      fetchPolicy: 'network-only',
+    });
+
+  
+    // Handle page navigation
+    const goToNextPage = () => {
+      if (data?.userSubmissions?.pagination?.hasNextPage) {
+        setCurrentPage(prev => prev + 1);
+      }
+    };
+
+    const goToPreviousPage = () => {
+      if (data?.userSubmissions?.pagination?.hasPreviousPage) {
+        setCurrentPage(prev => prev - 1);
+      }
+    };
+
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-6 space-y-3">
+          <Loader2 className="h-7 w-7 text-indigo-500 dark:text-indigo-400 animate-spin" />
+          <p className="text-xs text-slate-600 dark:text-slate-400">Loading submissions...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-lg text-red-800 dark:text-red-300 text-sm">
+          <h3 className="font-medium flex items-center gap-1.5">
+            <AlertTriangle className="h-4 w-4" />
+            Error loading submissions
+          </h3>
+          <p className="mt-1 text-xs">{error.message}</p>
+        </div>
+      );
+    }
+
+    const submissions = data?.userSubmissions?.submissions || [];
+    const pagination = data?.userSubmissions?.pagination || { 
+      totalCount: 0, 
+      totalPages: 1,
+      currentPage: 1,
+      hasNextPage: false,
+      hasPreviousPage: false
+    };
+
+    if (submissions.length === 0) {
+      return (
+        <div className="flex items-center justify-center p-6">
+          <div className="text-center">
+            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-3">
+              <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">No submissions yet</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-3">
+              Submit your solution to see your submission history
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-xs py-1 h-8"
+              onClick={submitCode}
+              disabled={isSubmitting}
+            >
+              <Send className="h-3 w-3 mr-1.5" />
+              {isSubmitting ? "Submitting..." : "Submit Solution"}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Get language name function
+    const getLanguageName = (languageId: string): string => {
+      const langName = JUDGE0_LANGUAGES[languageId as keyof typeof JUDGE0_LANGUAGES];
+      if (!langName) return `Lang: ${languageId}`;
+      // Just return the language name without version
+      return parseLanguageName(langName).name;
+    };
+
+    // Calculate relative time (e.g., "2 hours ago")
+    const getRelativeTime = (dateString: string): string => {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffSecs / 60);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffDays > 0) {
+        return `${diffDays}d ago`;
+      } else if (diffHours > 0) {
+        return `${diffHours}h ago`;
+      } else if (diffMins > 0) {
+        return `${diffMins}m ago`;
+      } else {
+        return 'Just now';
+      }
+    };
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-base font-medium text-slate-800 dark:text-slate-200">Submissions History</h3>
+          <div className="flex items-center space-x-1">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-xs py-0.5 h-6 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+              onClick={() => refetch()}
+            >
+              <RotateCw className="h-3 w-3 mr-1" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+        
+        <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+          Showing {submissions.length} of {pagination.totalCount} submissions
+        </div>
+
+        {/* Compact Submission list */}
+        <div className="space-y-2">
+          {submissions.map((submission: any) => {
+            const isPassed = submission.allPassed;
+            const isRuntimeError = !isPassed && submission.testcasesPassed === 0;
+            const isPartiallyCorrect = !isPassed && submission.testcasesPassed > 0;
+            
+            return (
+              <div 
+                key={submission.id} 
+                className={`rounded-md border ${
+                  isPassed 
+                    ? 'border-green-200/70 dark:border-green-900/30' 
+                    : isRuntimeError
+                      ? 'border-red-200/70 dark:border-red-900/30'
+                      : 'border-amber-200/70 dark:border-amber-900/30'
+                  } bg-white dark:bg-slate-800/50 overflow-hidden transition-all duration-200 hover:shadow-sm`}
+              >
+                <div className={`px-3 py-1.5 flex items-center justify-between gap-2 ${
+                  isPassed 
+                    ? 'bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/30 dark:to-green-900/20 border-b border-green-200/70 dark:border-green-900/30' 
+                    : isRuntimeError
+                      ? 'bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-900/20 border-b border-red-200/70 dark:border-red-900/30'
+                      : 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/20 border-b border-amber-200/70 dark:border-amber-900/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className={`h-4 w-4 rounded-full flex items-center justify-center
+                      ${isPassed 
+                        ? 'bg-green-500/20' 
+                        : isRuntimeError
+                          ? 'bg-red-500/20'
+                          : 'bg-amber-500/20'
+                      }`}
+                    >
+                      {isPassed ? (
+                        <CheckCircle2 className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
+                      ) : isRuntimeError ? (
+                        <XCircle className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
+                      ) : (
+                        <AlertTriangle className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      isPassed 
+                        ? 'text-green-700 dark:text-green-400' 
+                        : isRuntimeError
+                          ? 'text-red-700 dark:text-red-400'
+                          : 'text-amber-700 dark:text-amber-400'
+                      }`}
+                    >
+                      {isPassed 
+                        ? 'Accepted' 
+                        : isRuntimeError
+                          ? 'Runtime Error'
+                          : 'Partially Correct'
+                      }
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {getRelativeTime(submission.submittedAt)}
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-1.5 text-[10px] text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                      onClick={(e) => {
+                        // Prevent all forms of event propagation
+                        e.stopPropagation();
+                        e.preventDefault();
+                        e.nativeEvent.stopImmediatePropagation();
+                        
+                        if (submission.code) {
+                          onLoadSubmission(submission.code);
+                        } else {
+                          toast.error("No code available for this submission");
+                        }
+                      }}
+                    >
+                      <ClipboardCopy className="h-2.5 w-2.5 mr-1" />
+                      Load
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="p-2 grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Testcases</span>
+                    </div>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {submission.testcasesPassed}/{submission.totalTestcases}
+                      {submission.skippedTestcases > 0 && `, ${submission.skippedTestcases} skipped`}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Runtime</span>
+                    </div>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {submission.runtime || '- ms'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1">
+                      <Code className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Language</span>
+                    </div>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {getLanguageName(submission.language)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Pagination controls */}
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+              onClick={goToPreviousPage}
+              disabled={!pagination.hasPreviousPage}
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+              Previous
+            </Button>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+              onClick={goToNextPage}
+              disabled={!pagination.hasNextPage}
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  });
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
@@ -2240,6 +2751,30 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         }
         .animate-pulse-opacity {
           animation: pulse-opacity 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes spin-slow {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 5s linear infinite;
+        }
+        
+        @keyframes pulse-slow {
+          0%, 100% {
+            opacity: 0.7;
+          }
+          50% {
+            opacity: 0.3;
+          }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
         /* Glass card effects */
@@ -2312,33 +2847,42 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         }
       `}} />
       {/* Header with NexPractice theming */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-100 dark:border-indigo-900/50 bg-white dark:bg-slate-900 shadow-sm md:px-6 md:py-3">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-900 shadow-sm md:px-6 md:py-3 relative overflow-hidden backdrop-blur-sm">
+        {/* Abstract background decoration */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none"></div>
+        <div className="absolute -top-24 -right-20 w-64 h-64 bg-gradient-to-br from-indigo-100/20 to-purple-100/10 dark:from-indigo-900/10 dark:to-purple-900/5 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-8 left-1/3 w-32 h-32 bg-gradient-to-tr from-blue-100/10 to-indigo-100/10 dark:from-blue-900/5 dark:to-indigo-900/5 rounded-full blur-3xl"></div>
+        
         {/* Left section: Logo and sidebar toggle */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 relative z-10">
           {/* Sidebar toggle button */}
           <button
-            className="mr-2 flex items-center justify-center rounded-md h-9 w-9 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-sm"
+            className="mr-2 flex items-center justify-center rounded-lg h-9 w-9 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-30 shadow-sm transition-all duration-200 hover:scale-105"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open questions sidebar"
           >
             <List className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2">
-            {/* Unique logo with code brackets and 3D effect */}
-            <div className="relative flex items-center justify-center w-8 h-8">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-xl transform rotate-3 opacity-80"></div>
-              <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-500 rounded-xl transform -rotate-3 opacity-80"></div>
-              <div className="relative z-10 flex items-center justify-center w-7 h-7 bg-white dark:bg-slate-800 rounded-lg shadow-inner">
-                <Code className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            {/* Unique logo with 3D effect and pulse animation */}
+            <div className="relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-105 group">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-lg transform rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
+              <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-500 rounded-lg transform -rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
+              <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-white dark:bg-slate-800 rounded-lg shadow-inner overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-900 opacity-40"></div>
+                <div className="relative">
+                  <Code className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <div className="absolute inset-0 bg-indigo-500/10 dark:bg-indigo-500/20 animate-pulse-slow rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </div>
               </div>
             </div>
             
-            {/* Distinctive typography with gradient line */}
-            <div>
+            {/* Distinctive typography with animated gradient line */}
+            <div className="group">
               <h1 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-indigo-300 dark:via-purple-300 dark:to-pink-300">
                 NexPractice
               </h1>
-              <div className="h-1 w-10 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"></div>
+              <div className="h-1 w-10 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full group-hover:animate-gradient-x"></div>
             </div>
           </div>
 
@@ -2353,7 +2897,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-3">
           <Button
             size="sm"
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 min-w-28 relative overflow-hidden"
+            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 min-w-28 relative overflow-hidden group transition-all duration-200 hover:shadow-md"
             onClick={runCode}
             disabled={isRunning}
           >
@@ -2372,8 +2916,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </>
             ) : (
               <>
-            <Play className="h-4 w-4" />
-            Run Code
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-indigo-700 transition-all duration-300 group-hover:scale-105"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20"></div>
+                <span className="relative z-10 flex items-center">
+                  <Play className="h-4 w-4 mr-1.5" />
+                  Run Code
+                </span>
               </>
             )}
           </Button>
@@ -2381,7 +2929,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           <Button
             variant="outline"
             size="sm"
-            className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors gap-1 min-w-28 relative overflow-hidden"
+            className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-800 dark:hover:text-indigo-200 transition-all duration-200 gap-1 min-w-28 relative overflow-hidden group"
             onClick={submitCode}
             disabled={isSubmitting}
           >
@@ -2400,8 +2948,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </>
             ) : (
               <>
-                <Send className="h-4 w-4 mr-1" />
-            Submit
+                <div className="absolute inset-0 bg-gradient-to-r from-white to-slate-100 dark:from-slate-900 dark:to-slate-800/80 opacity-50 group-hover:opacity-80 transition-all duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-200/80 dark:bg-indigo-700/40 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-600/40 transition-colors"></div>
+                <span className="relative z-10 flex items-center">
+                  <Send className="h-4 w-4 mr-1.5" />
+                  Submit
+                </span>
               </>
             )}
           </Button>
@@ -2412,11 +2964,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         <div className="flex items-center">
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-3 mr-4">
-            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-colors gap-1">
+            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-30 transition-colors gap-1">
               <Zap className="h-4 w-4 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70" />
               Random Challenge
             </Button>
-            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-colors gap-1">
+            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-30 transition-colors gap-1">
               <Sparkles className="h-4 w-4 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70" />
               Daily Challenge
             </Button>
@@ -2629,149 +3181,88 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           }`}
           style={{ width: isMobile ? "100%" : `${leftPanelWidth}%` }}
         >
-          <div className="p-4 md:p-5">
-            {/* Problem header with gradient card - make it more compact */}
-            <Card className="mb-4 border-none overflow-hidden shadow-lg relative group glass-card">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl opacity-20 blur-sm group-hover:opacity-40 transition duration-300"></div>
-              <div className="relative bg-white/80 dark:bg-slate-900/80 rounded-xl p-0.5 overflow-hidden backdrop-blur-sm">
-                <div className="absolute inset-0 bg-grid-pattern opacity-[0.03]"></div>
-              <div className="relative">
-                {/* Background pattern and gradients */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50/30 to-pink-50/20 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-pink-950/20">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200/20 to-purple-300/20 dark:from-indigo-500/10 dark:to-purple-600/10 rounded-full blur-2xl opacity-70 transform translate-x-8 -translate-y-8"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tl from-blue-200/20 to-indigo-300/20 dark:from-blue-500/10 dark:to-indigo-600/10 rounded-full blur-2xl opacity-70 transform -translate-x-8 translate-y-8"></div>
-                </div>
-                
-                  <CardContent className="relative z-10 p-3">
-                    {/* Fullscreen icon integrated in header */}
-                    {!isMobile && (
-                      <div className="absolute top-2 right-2 z-20">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30" onClick={toggleLeftPanelExpansion} aria-label={isLeftPanelExpanded ? 'Collapse Panel' : 'Expand Panel'}>
-                          {isLeftPanelExpanded ? (
-                            <Minimize2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                          ) : (
-                            <Maximize2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                    <div className="flex items-start gap-2">
-                      {/* 3D problem number badge - make more compact */}
-                      <div className="relative flex flex-shrink-0 mt-1">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-lg blur opacity-30"></div>
-                        <div className="relative h-8 w-8 flex items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-xs font-bold shadow-xl border border-indigo-700/20">
-                          <div className="absolute inset-0.5 rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 opacity-80"></div>
-                          <span className="relative z-10 drop-shadow-sm">{problemNumber}</span>
-                          <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-black/20 rounded-b-md"></div>
-                        </div>
-                    </div>
-                    
-                      <div className="flex-1 space-y-1">
-                        {/* Problem title with gradient text - smaller font size */}
-                        <div className="relative">
-                          <h2 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300 pb-0.5 bg-[length:200%_auto] animate-gradient-slow">
-                        {problemTitle}
-                      </h2>
-                          <div className="h-0.5 w-12 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"></div>
-                    </div>
-                    
-                        {/* Problem stats bar - more compact */}
-                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                          <div className="flex items-center">
-                      {getDifficultyBadge(difficulty)}
-                          </div>
-                      
-                          <div className="h-3 w-0.5 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                          
-                          <div className="flex items-center text-amber-500 border border-amber-200 dark:border-amber-800/30 bg-amber-50 dark:bg-amber-900/20 rounded-full px-1.5 py-0.5">
-                            <Star className="h-3 w-3 fill-current text-amber-500 mr-1" />
-                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">4.8</span>
-                          </div>
-                          
-                          <div className="h-3 w-0.5 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                          
-                          {/* Tags - updated style with tag-pill class */}
-                          <div className="flex flex-wrap gap-1">
-                            <div className="tag-pill">Array</div>
-                            <div className="tag-pill">Hash Table</div>
-                            <div className="tag-pill">Two Pointers</div>
-                          </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                    {/* Stats grid - make more compact */}
-                    <div className="mt-3 grid grid-cols-3 gap-1.5 text-[10px]">
-                      <div className="flex items-center justify-center p-1 rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-800/30 border border-indigo-100 dark:border-indigo-800/30">
-                    <div className="flex items-center">
-                          <Clock className="h-3 w-3 text-indigo-500 dark:text-indigo-400 mr-1" />
-                          <span className="font-medium text-indigo-700 dark:text-indigo-300">~30 mins</span>
-                    </div>
-                      </div>
-                      <div className="flex items-center justify-center p-1 rounded-lg bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 border border-emerald-100 dark:border-emerald-800/30">
-                    <div className="flex items-center">
-                          <Check className="h-3 w-3 text-emerald-500 dark:text-emerald-400 mr-1" />
-                          <span className="font-medium text-emerald-700 dark:text-emerald-300">Acceptance: 68%</span>
-                    </div>
-                      </div>
-                      <div className="flex items-center justify-center p-1 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border border-purple-100 dark:border-purple-800/30">
-                    <div className="flex items-center">
-                          <Eye className="h-3 w-3 text-purple-500 dark:text-purple-400 mr-1" />
-                          <span className="font-medium text-purple-700 dark:text-purple-300">Submissions: 4.2K</span>
-                        </div>
-                    </div>
-                  </div>
-                </CardContent>
-                </div>
-              </div>
-            </Card>
+          <div className="p-3 md:px-5 md:py-3">
+            {/* Use the new ProblemHeader component */}
+            <ProblemHeader 
+              problemNumber={problemNumber}
+              problemTitle={problemTitle}
+              difficulty={difficulty}
+              isLeftPanelExpanded={isLeftPanelExpanded}
+              toggleLeftPanelExpansion={toggleLeftPanelExpansion}
+              isMobile={isMobile}
+              getDifficultyBadge={getDifficultyBadge}
+              solvedBy={codingQuestion.question?.solvedBy || 1248}
+              tags={codingQuestion.question?.tags || [{ name: 'Array' }, { name: 'Hash Table' }, { name: 'Two Pointers' }]}
+            />
 
             {/* Problem content tabs with new gradient background */}
-            <Tabs defaultValue="description" className="mb-6">
-              <TabsList className="grid grid-cols-3 bg-gradient-to-r from-indigo-50/80 via-purple-50/80 to-indigo-50/80 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-indigo-900/20 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-indigo-100/80 dark:border-indigo-900/30 shadow-sm">
+            <Tabs defaultValue="description" className="mt-2 mb-5">
+              <TabsList className="grid grid-cols-4 bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-indigo-50/90 dark:from-indigo-900/30 dark:via-purple-900/25 dark:to-indigo-900/30 p-1.5 rounded-xl overflow-hidden backdrop-blur-sm border border-indigo-100/90 dark:border-indigo-900/40 shadow-sm">
                 <TabsTrigger
                   value="description"
-                  className="rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
                   </div>
-                  <FileText className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400" />
-                  Description
+                  <div className="relative z-10 flex items-center">
+                    <FileText className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
+                    <span className="font-medium">Description</span>
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="submissions"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                >
+                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
+                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
+                  </div>
+                  <div className="relative z-10 flex items-center">
+                    <BarChart2 className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
+                    <span className="font-medium">Submissions</span>
+                  </div>
                 </TabsTrigger>
                 <TabsTrigger
                   value="solution"
-                  className="rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
                   </div>
-                  <BookOpenCheck className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400" />
-                  Solution
+                  <div className="relative z-10 flex items-center">
+                    <BookOpenCheck className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
+                    <span className="font-medium">Solution</span>
+                  </div>
                 </TabsTrigger>
                 <TabsTrigger
                   value="discussion"
-                  className="rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
                   </div>
-                  <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400" />
-                  Discussion
+                  <div className="relative z-10 flex items-center">
+                    <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
+                    <span className="font-medium">Discussion</span>
+                  </div>
                 </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="description" className="mt-4 space-y-6 focus-visible:outline-none focus-visible:ring-0">
+              <TabsContent value="description" className="mt-3 space-y-5 focus-visible:outline-none focus-visible:ring-0">
                 {/* Problem description with content-card styling */}
                 <div className="content-card">
                   <div className="content-card-gradient"></div>
-                  <div className="content-card-inner relative">
+                  <div className="content-card-inner relative pt-2">
                     {/* Abstract background decorations */}
-                    <div className="absolute -top-5 -right-5 w-40 h-40 bg-gradient-to-br from-indigo-100/30 to-purple-100/20 dark:from-indigo-700/10 dark:to-purple-700/5 rounded-full blur-3xl opacity-70"></div>
-                    <div className="absolute -bottom-5 -left-5 w-40 h-40 bg-gradient-to-tr from-blue-100/20 to-indigo-100/20 dark:from-blue-700/5 dark:to-indigo-700/10 rounded-full blur-3xl opacity-60"></div>
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-br from-indigo-100/30 to-purple-100/20 dark:from-indigo-700/10 dark:to-purple-700/5 rounded-full blur-3xl opacity-70"></div>
+                    <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-gradient-to-tr from-blue-100/20 to-indigo-100/20 dark:from-blue-700/5 dark:to-indigo-700/10 rounded-full blur-3xl opacity-60"></div>
                     
                     {/* Problem description content with improved typography */}
-                    <div className="relative z-10 problem-description">
+                    <div className="relative z-10 problem-description prose">
                       <div 
                         className="description-content prose prose-indigo dark:prose-invert max-w-none text-slate-700 dark:text-slate-300" 
                         dangerouslySetInnerHTML={{ __html: description }} 
@@ -2783,26 +3274,26 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 {/* Example test cases with test-case-card styling */}
                 {examples.map((tc: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
                   <div key={tc.id} className="test-case-card relative group transition-all duration-300 hover:shadow-md">
-                    {/* Top color stripe */}
-                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+                    {/* Top decorative gradient bar */}
+                    <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
                     
                     {/* Example header */}
-                    <div className="px-4 py-3 flex items-center gap-2 bg-gradient-to-r from-indigo-50/80 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-indigo-100 dark:border-indigo-800/30">
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold shadow-sm">
-                          {idx + 1}
-                        </div>
-                      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 tracking-tight">Example {idx + 1}</h3>
+                    <div className="px-4 py-3 flex items-center gap-2 bg-gradient-to-r from-indigo-50/90 to-purple-50/70 dark:from-indigo-900/30 dark:to-purple-900/20 border-b border-indigo-100 dark:border-indigo-800/40">
+                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold shadow-sm">
+                        {idx + 1}
                       </div>
+                      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 tracking-tight">Example {idx + 1}</h3>
+                    </div>
                     
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* INPUT section with enhanced styling */}
-                      <div className="rounded-lg overflow-hidden shadow-sm border border-slate-200/70 dark:border-slate-700/50 transition-all duration-300 group-hover:shadow">
-                        <div className="relative px-3 py-2 bg-gradient-to-r from-slate-100 to-indigo-50/50 dark:from-slate-800 dark:to-indigo-900/20 border-b border-slate-200 dark:border-slate-700/70">
+                      <div className="rounded-lg overflow-hidden border border-slate-200/80 dark:border-slate-700/60 transition-all duration-300 group-hover:shadow group-hover:border-indigo-200 dark:group-hover:border-indigo-800/40">
+                        <div className="relative px-3 py-2 bg-gradient-to-r from-slate-100 to-indigo-50/70 dark:from-slate-800 dark:to-indigo-900/30 border-b border-slate-200 dark:border-slate-700/70">
                           <div className="absolute left-0 inset-y-0 w-1 bg-indigo-500"></div>
                           <div className="flex items-center">
-                            <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></div>
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 mr-2"></div>
                             <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Input</span>
-                            <span className="ml-auto text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Data</span>
+                            <span className="ml-auto text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Data</span>
                           </div>
                         </div>
                         <div className="p-3 font-mono text-sm text-indigo-700 dark:text-indigo-300 bg-white/50 dark:bg-slate-800/50 overflow-auto">
@@ -2846,7 +3337,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 ))}
               </TabsContent>
               
-              <TabsContent value="solution" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
+              <TabsContent value="solution" className="mt-3 focus-visible:outline-none focus-visible:ring-0">
                 <div className="content-card group hover:translate-y-[-2px] transition-all duration-300">
                   <div className="content-card-gradient opacity-30"></div>
                   <div className="content-card-inner flex flex-col items-center justify-center py-12">
@@ -2865,7 +3356,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       <Button 
                         variant="outline"
                         size="sm"
-                        className="gap-1 bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/40 dark:hover:to-purple-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50"
+                        className="gap-1 bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/40 dark:hover:to-purple-900/40 text-indigo-700 dark:text-indigo-30 border-indigo-200 dark:border-indigo-800/50"
                       >
                         <Code className="h-3.5 w-3.5 mr-1" />
                         Solve First
@@ -2873,11 +3364,37 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       <Button 
                         variant="outline"
                         size="sm"
-                        className="gap-1 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100/80 hover:to-orange-100/80 dark:from-amber-900/20 dark:to-orange-900/20 dark:hover:from-amber-900/40 dark:hover:to-orange-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/50"
+                        className="gap-1 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100/80 hover:to-orange-100/80 dark:from-amber-900/20 dark:to-orange-900/20 dark:hover:from-amber-900/40 dark:hover:to-orange-900/40 text-amber-700 dark:text-amber-30 border-amber-200 dark:border-amber-800/50"
                       >
                         <Crown className="h-3.5 w-3.5 mr-1" />
                         Premium Access
                       </Button>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="submissions" className="mt-3 focus-visible:outline-none focus-visible:ring-0">
+                <div className="content-card">
+                  <div className="content-card-gradient"></div>
+                  <div className="content-card-inner relative pt-2">
+                    {/* Abstract background decorations */}
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-br from-indigo-100/30 to-purple-100/20 dark:from-indigo-700/10 dark:to-purple-700/5 rounded-full blur-3xl opacity-70"></div>
+                    <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-gradient-to-tr from-blue-100/20 to-indigo-100/20 dark:from-blue-700/5 dark:to-indigo-700/10 rounded-full blur-3xl opacity-60"></div>
+                    
+                    {/* Submissions content */}
+                    <div className="relative z-10 space-y-4">
+                      <SubmissionsTabContent 
+                        problemId={codingQuestion.questionId} 
+                        submitCode={submitCode} 
+                        isSubmitting={isSubmitting} 
+                        query={GET_USER_SUBMISSIONS}
+                        onLoadSubmission={(code) => {
+                          setCode(code);
+                          toast.success("Submission code loaded to editor");
+                        }}
+                        session={session}
+                      />
                     </div>
                   </div>
                 </div>
@@ -2991,7 +3508,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                           <div className="h-5 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
                           <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-base">Select Programming Language</h3>
                         </div>
-                        <div className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                        <div className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-30 px-2 py-0.5 rounded-full font-medium">
                           {Object.keys(JUDGE0_LANGUAGES).length} languages available
                         </div>
                       </div>
@@ -3203,7 +3720,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-300"
+                  className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-30"
                   asChild
                 >
                   <Popover>
