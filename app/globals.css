@@ -72,37 +72,586 @@
 
 /* Problem description and test case formatting */
 .problem-description-content {
+  font-size: 0.95rem;
   line-height: 1.6;
+  padding: 1.5rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.5));
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  border: 1px solid rgba(230, 236, 241, 0.8);
+  box-shadow: 
+    0 4px 24px -6px rgba(0, 0, 0, 0.05),
+    0 12px 48px -12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+.dark .problem-description-content {
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.7), rgba(15, 23, 42, 0.6));
+  border: 1px solid rgba(55, 65, 81, 0.5);
+  box-shadow: 
+    0 4px 24px -6px rgba(0, 0, 0, 0.2),
+    0 12px 24px -8px rgba(0, 0, 0, 0.3);
+}
+
+.problem-description-content:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 28px -6px rgba(0, 0, 0, 0.07),
+    0 18px 54px -12px rgba(0, 0, 0, 0.08);
+}
+
+.dark .problem-description-content:hover {
+  box-shadow: 
+    0 6px 28px -6px rgba(0, 0, 0, 0.3),
+    0 18px 54px -12px rgba(0, 0, 0, 0.35);
+}
+
+.problem-description-content::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 20px;
+  width: 40%;
+  height: 10px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.5), rgba(168, 85, 247, 0.4), rgba(236, 72, 153, 0.3));
+  filter: blur(8px);
+  border-radius: 100%;
+  opacity: 0.6;
+}
+
+.dark .problem-description-content::before {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.6), rgba(168, 85, 247, 0.5), rgba(236, 72, 153, 0.4));
+  opacity: 0.5;
+}
+
+/* Paragraph styling */
 .problem-description-content p {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: rgba(15, 23, 42, 0.95);
+  letter-spacing: -0.011em;
+  transition: color 0.2s ease;
 }
 
+.dark .problem-description-content p {
+  color: rgba(226, 232, 240, 0.95);
+}
+
+/* Fancy inline code style */
 .problem-description-content code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  background-color: rgb(243, 244, 246);
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.375rem;
+  letter-spacing: -0.025em;
+  background: rgba(99, 102, 241, 0.08);
+  color: rgba(79, 70, 229, 1);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.05);
+  font-feature-settings: "calt" 1;
+  font-variant-ligatures: contextual;
+  transition: all 0.2s ease;
+}
+
+.problem-description-content code:hover {
+  background: rgba(99, 102, 241, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
 }
 
 .dark .problem-description-content code {
-  background-color: rgba(75, 85, 99, 0.3);
-  color: rgb(209, 213, 219);
+  background: rgba(99, 102, 241, 0.15);
+  color: rgba(165, 180, 252, 1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.15);
 }
 
+.dark .problem-description-content code:hover {
+  background: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Elevated code blocks */
 .problem-description-content pre {
-  white-space: pre-wrap;
-  background-color: rgb(243, 244, 246);
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  margin: 1rem 0;
+  position: relative;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background: rgba(248, 250, 252, 0.75);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
+  transition: all 0.3s ease;
+}
+
+.problem-description-content pre:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.08),
+    0 6px 10px -5px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
 }
 
 .dark .problem-description-content pre {
-  background-color: rgb(31, 41, 55);
-  color: rgb(209, 213, 219);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.25),
+    0 2px 4px -1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .problem-description-content pre:hover {
+  box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.3),
+    0 6px 10px -5px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Code block visual enhancements */
+.problem-description-content pre::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ff5f57;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  z-index: 1;
+}
+
+.problem-description-content pre::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 32px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #febc2e;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  z-index: 1;
+}
+
+.problem-description-content pre code {
+  display: block;
+  padding: 0;
+  padding-top: 1.5rem;
+  background: transparent;
+  color: #1e293b;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  font-weight: 400;
+  border: none;
+  box-shadow: none;
+  overflow-x: auto;
+  white-space: pre;
+  transition: color 0.2s ease;
+}
+
+.dark .problem-description-content pre code {
+  color: #e2e8f0;
+}
+
+/* Headings with modern styling */
+.problem-description-content h1, 
+.problem-description-content h2, 
+.problem-description-content h3,
+.problem-description-content h4 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #111827;
+  position: relative;
+  padding-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.problem-description-content h1 {
+  font-size: 1.5rem;
+  background: linear-gradient(to right, #111827, #374151);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.problem-description-content h2 {
+  font-size: 1.3rem;
+}
+
+.problem-description-content h3 {
+  font-size: 1.15rem;
+}
+
+.problem-description-content h4 {
+  font-size: 1.05rem;
+}
+
+.dark .problem-description-content h1, 
+.dark .problem-description-content h2, 
+.dark .problem-description-content h3,
+.dark .problem-description-content h4 {
+  color: #f1f5f9;
+}
+
+.dark .problem-description-content h1 {
+  background: linear-gradient(to right, #f1f5f9, #cbd5e1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Underline effect for headings */
+.problem-description-content h1::after,
+.problem-description-content h2::after,
+.problem-description-content h3::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 2.5rem;
+  height: 0.2rem;
+  background: linear-gradient(to right, #4f46e5, #6366f1, #8b5cf6);
+  border-radius: 0.5rem;
+  transition: width 0.3s ease;
+}
+
+.problem-description-content h1:hover::after,
+.problem-description-content h2:hover::after,
+.problem-description-content h3:hover::after {
+  width: 4rem;
+}
+
+.dark .problem-description-content h1::after,
+.dark .problem-description-content h2::after,
+.dark .problem-description-content h3::after {
+  background: linear-gradient(to right, #6366f1, #8b5cf6, #a855f7);
+  opacity: 0.8;
+}
+
+/* List styling */
+.problem-description-content ul, 
+.problem-description-content ol {
+  margin: 1rem 0 1.5rem;
+  padding-left: 1rem;
+}
+
+.problem-description-content ul {
+  list-style-type: none;
+}
+
+.problem-description-content ul li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.problem-description-content ul li::before {
+  content: "";
+  position: absolute;
+  top: 0.6rem;
+  left: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.problem-description-content ul li:hover::before {
+  transform: scale(1.2);
+}
+
+.dark .problem-description-content ul li::before {
+  background: linear-gradient(to right, #6366f1, #818cf8);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+
+.problem-description-content ol {
+  list-style-type: none;
+  counter-reset: item;
+}
+
+.problem-description-content ol li {
+  position: relative;
+  padding-left: 2rem;
+  margin-bottom: 0.75rem;
+  counter-increment: item;
+}
+
+.problem-description-content ol li::before {
+  content: counter(item);
+  position: absolute;
+  top: 0.1rem;
+  left: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4f46e5;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(99, 102, 241, 0.05));
+  border-radius: 50%;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.1);
+  transition: all 0.2s ease;
+}
+
+.problem-description-content ol li:hover::before {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(99, 102, 241, 0.1));
+}
+
+.dark .problem-description-content ol li::before {
+  color: #a5b4fc;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.2), rgba(99, 102, 241, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.2);
+}
+
+/* Strong and em styling */
+.problem-description-content strong {
+  font-weight: 600;
+  color: #4f46e5;
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding: 0 0.2rem;
+}
+
+.dark .problem-description-content strong {
+  background: linear-gradient(to right, #818cf8, #a5b4fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(129, 140, 248, 0.3);
+}
+
+.problem-description-content em {
+  font-style: italic;
+  color: #6d28d9;
+  font-weight: 500;
+}
+
+.dark .problem-description-content em {
+  color: #c4b5fd;
+}
+
+/* Example blocks */
+.problem-description-content .example-block {
+  background: rgba(248, 250, 252, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin: 1.5rem 0;
+  position: relative;
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.problem-description-content .example-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.dark .problem-description-content .example-block {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.dark .problem-description-content .example-block:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.problem-description-content .example-block::before {
+  content: "Example";
+  position: absolute;
+  top: -0.75rem;
+  left: 1rem;
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+  transition: all 0.2s ease;
+}
+
+.problem-description-content .example-block:hover::before {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(79, 70, 229, 0.35);
+}
+
+.dark .problem-description-content .example-block::before {
+  background: linear-gradient(to right, #6366f1, #818cf8);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.4);
+}
+
+/* Constraints block */
+.problem-description-content .constraints {
+  background: rgba(243, 244, 246, 0.6);
+  border-left: 4px solid #6366f1;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  transition: all 0.2s ease;
+}
+
+.problem-description-content .constraints:hover {
+  background: rgba(243, 244, 246, 0.8);
+  border-left-width: 6px;
+  transform: translateX(2px);
+}
+
+.dark .problem-description-content .constraints {
+  background: rgba(30, 41, 59, 0.4);
+  border-left-color: #818cf8;
+}
+
+.dark .problem-description-content .constraints:hover {
+  background: rgba(30, 41, 59, 0.6);
+}
+
+/* Test case styling */
+.test-case-grid {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: rgba(250, 250, 250, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 1.25rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+}
+
+.test-case-grid:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark .test-case-grid {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+}
+
+.dark .test-case-grid:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.test-case-grid .test-case-content {
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  overflow-x: auto;
+  line-height: 1.5;
+  transition: all 0.2s ease;
+}
+
+.test-case-grid .test-case-content:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+
+.dark .test-case-grid .test-case-content {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  color: #e2e8f0;
+}
+
+.dark .test-case-grid .test-case-content:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.test-case-header {
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.test-case-header::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: #6366f1;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.test-case-header:hover::before {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+}
+
+.dark .test-case-header {
+  color: #d1d5db;
+}
+
+.dark .test-case-header::before {
+  background: #818cf8;
+}
+
+.dark .test-case-header:hover::before {
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.6);
+}
+
+/* Make the scrollbar more subtle */
+.left-panel .panel-scrollable::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.left-panel .panel-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.left-panel .panel-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 100px;
+}
+
+.left-panel .panel-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.dark .left-panel .panel-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .left-panel .panel-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* Ensure test case pre elements display properly */
@@ -3112,4 +3661,877 @@ html, body {
 
 .left-panel .bg-gradient-to-br:hover .bg-blue-100.dark\:bg-blue-900\/30.text-blue-700 {
   transform: scale(1.1);
+}
+
+.dark .problem-description-content code {
+  background-color: rgba(51, 65, 85, 0.3); /* blue-gray */
+  color: #e0e7ef; /* light blue-gray */
+}
+.dark .problem-description-content pre {
+  background-color: #1e293b; /* blue-gray */
+  color: #e0e7ef;
+}
+.dark .problem-description-content strong {
+  color: #60a5fa; /* blue-400 */
+  background: linear-gradient(to right, #38bdf8, #64748b);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 10px #38bdf833;
+}
+.dark .problem-description-content em {
+  color: #94a3b8; /* blue-gray-400 */
+}
+.dark .problem-description-content ul li::before {
+  background: linear-gradient(to right, #60a5fa, #38bdf8);
+  box-shadow: 0 0 8px #60a5fa88;
+}
+.dark .problem-description-content ol li::before {
+  background: linear-gradient(120deg, #60a5fa33, #38bdf833);
+  color: #e0e7ef;
+  box-shadow: 0 2px 6px #60a5fa33;
+}
+.dark .problem-description-content h1, 
+.dark .problem-description-content h2, 
+.dark .problem-description-content h3, 
+.dark .problem-description-content h4 {
+  color: #e0e7ef;
+}
+.dark .problem-description-content h1::after, 
+.dark .problem-description-content h2::after, 
+.dark .problem-description-content h3::after {
+  background: linear-gradient(to right, #60a5fa, #38bdf8, #64748b);
+  box-shadow: 0 2px 8px #60a5fa33;
+}
+
+/* Premium Test Case Styling */
+.test-case-grid {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: rgba(250, 250, 250, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 1.25rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+}
+
+.test-case-grid:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark .test-case-grid {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+}
+
+.dark .test-case-grid:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.test-case-grid .test-case-content {
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  overflow-x: auto;
+  line-height: 1.5;
+  transition: all 0.2s ease;
+}
+
+.test-case-grid .test-case-content:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+
+.dark .test-case-grid .test-case-content {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  color: #e2e8f0;
+}
+
+.dark .test-case-grid .test-case-content:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.test-case-header {
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.test-case-header::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: #6366f1;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.test-case-header:hover::before {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+}
+
+.dark .test-case-header {
+  color: #d1d5db;
+}
+
+.dark .test-case-header::before {
+  background: #818cf8;
+}
+
+.dark .test-case-header:hover::before {
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.6);
+}
+
+/* Premium Syntax Highlighting for Problem Description */
+.problem-description-content pre.language-javascript,
+.problem-description-content pre.language-js,
+.problem-description-content pre.language-typescript,
+.problem-description-content pre.language-ts {
+  position: relative;
+  background: rgba(248, 250, 252, 0.75);
+}
+
+.dark .problem-description-content pre.language-javascript,
+.dark .problem-description-content pre.language-js,
+.dark .problem-description-content pre.language-typescript,
+.dark .problem-description-content pre.language-ts {
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.problem-description-content pre.language-javascript::before,
+.problem-description-content pre.language-js::before,
+.problem-description-content pre.language-typescript::before,
+.problem-description-content pre.language-ts::before {
+  background-color: #f7df1e;
+}
+
+.problem-description-content pre.language-javascript::after,
+.problem-description-content pre.language-js::after,
+.problem-description-content pre.language-typescript::after,
+.problem-description-content pre.language-ts::after {
+  background-color: #0288d1;
+}
+
+.problem-description-content pre.language-python {
+  position: relative;
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.75), rgba(248, 250, 252, 0.8));
+}
+
+.dark .problem-description-content pre.language-python {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.9));
+}
+
+.problem-description-content pre.language-python::before {
+  background-color: #4584b6;
+}
+
+.problem-description-content pre.language-python::after {
+  background-color: #ffde57;
+}
+
+.problem-description-content pre.language-java {
+  position: relative;
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.75), rgba(248, 250, 252, 0.8));
+}
+
+.dark .problem-description-content pre.language-java {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.9));
+}
+
+.problem-description-content pre.language-java::before {
+  background-color: #5382a1;
+}
+
+.problem-description-content pre.language-java::after {
+  background-color: #f89820;
+}
+
+.problem-description-content pre.language-cpp,
+.problem-description-content pre.language-c {
+  position: relative;
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.75), rgba(248, 250, 252, 0.8));
+}
+
+.dark .problem-description-content pre.language-cpp,
+.dark .problem-description-content pre.language-c {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.9));
+}
+
+.problem-description-content pre.language-cpp::before,
+.problem-description-content pre.language-c::before {
+  background-color: #659bd3;
+}
+
+.problem-description-content pre.language-cpp::after,
+.problem-description-content pre.language-c::after {
+  background-color: #004482;
+}
+
+/* Syntax highlighting colors */
+.problem-description-content .token.comment,
+.problem-description-content .token.prolog,
+.problem-description-content .token.doctype,
+.problem-description-content .token.cdata {
+  color: #6e7781;
+}
+
+.dark .problem-description-content .token.comment,
+.dark .problem-description-content .token.prolog,
+.dark .problem-description-content .token.doctype,
+.dark .problem-description-content .token.cdata {
+  color: #8b949e;
+}
+
+.problem-description-content .token.punctuation {
+  color: #333333;
+}
+
+.dark .problem-description-content .token.punctuation {
+  color: #c9d1d9;
+}
+
+.problem-description-content .token.property,
+.problem-description-content .token.tag,
+.problem-description-content .token.constant,
+.problem-description-content .token.symbol,
+.problem-description-content .token.deleted {
+  color: #953800;
+}
+
+.dark .problem-description-content .token.property,
+.dark .problem-description-content .token.tag,
+.dark .problem-description-content .token.constant,
+.dark .problem-description-content .token.symbol,
+.dark .problem-description-content .token.deleted {
+  color: #ff7b72;
+}
+
+.problem-description-content .token.selector,
+.problem-description-content .token.attr-name,
+.problem-description-content .token.string,
+.problem-description-content .token.char,
+.problem-description-content .token.builtin,
+.problem-description-content .token.inserted {
+  color: #032f62;
+}
+
+.dark .problem-description-content .token.selector,
+.dark .problem-description-content .token.attr-name,
+.dark .problem-description-content .token.string,
+.dark .problem-description-content .token.char,
+.dark .problem-description-content .token.builtin,
+.dark .problem-description-content .token.inserted {
+  color: #a5d6ff;
+}
+
+.problem-description-content .token.operator,
+.problem-description-content .token.entity,
+.problem-description-content .token.url,
+.problem-description-content .language-css .token.string,
+.problem-description-content .style .token.string {
+  color: #d73a49;
+}
+
+.dark .problem-description-content .token.operator,
+.dark .problem-description-content .token.entity,
+.dark .problem-description-content .token.url,
+.dark .problem-description-content .language-css .token.string,
+.dark .problem-description-content .style .token.string {
+  color: #ff7b72;
+}
+
+.problem-description-content .token.atrule,
+.problem-description-content .token.attr-value,
+.problem-description-content .token.keyword {
+  color: #d73a49;
+}
+
+.dark .problem-description-content .token.atrule,
+.dark .problem-description-content .token.attr-value,
+.dark .problem-description-content .token.keyword {
+  color: #ff7b72;
+}
+
+.problem-description-content .token.function,
+.problem-description-content .token.class-name {
+  color: #6f42c1;
+}
+
+.dark .problem-description-content .token.function,
+.dark .problem-description-content .token.class-name {
+  color: #d2a8ff;
+}
+
+.problem-description-content .token.regex,
+.problem-description-content .token.important,
+.problem-description-content .token.variable {
+  color: #e36209;
+}
+
+.dark .problem-description-content .token.regex,
+.dark .problem-description-content .token.important,
+.dark .problem-description-content .token.variable {
+  color: #ffa657;
+}
+
+.problem-description-content .token.important,
+.problem-description-content .token.bold {
+  font-weight: bold;
+}
+
+.problem-description-content .token.italic {
+  font-style: italic;
+}
+
+.problem-description-content .token.entity {
+  cursor: help;
+}
+
+/* Line numbers for code blocks */
+.problem-description-content pre.line-numbers {
+  position: relative;
+  padding-left: 3.5rem;
+  counter-reset: linenumber;
+}
+
+.problem-description-content pre.line-numbers > code {
+  position: relative;
+}
+
+.problem-description-content .line-numbers .line-numbers-rows {
+  position: absolute;
+  pointer-events: none;
+  top: 1.5rem;
+  left: 0;
+  width: 2.5rem;
+  letter-spacing: -1px;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  user-select: none;
+}
+
+.dark .problem-description-content .line-numbers .line-numbers-rows {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.problem-description-content .line-numbers-rows > span {
+  display: block;
+  counter-increment: linenumber;
+}
+
+.problem-description-content .line-numbers-rows > span:before {
+  content: counter(linenumber);
+  color: #999;
+  display: block;
+  padding-right: 0.8rem;
+  text-align: right;
+  font-size: 0.75rem;
+}
+
+.dark .problem-description-content .line-numbers-rows > span:before {
+  color: #666;
+}
+
+/* Premium Left Panel Styling */
+.left-panel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+  margin: 8px 0 8px 8px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border)/0.7);
+  box-shadow: 
+    0 4px 20px rgba(0,0,0,0.04), 
+    0 1px 3px rgba(0,0,0,0.03), 
+    0 0 0 1px rgba(0,0,0,0.01);
+  position: relative;
+  background: white;
+  background-image: 
+    radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.05) 0%, transparent 25%),
+    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 25%);
+}
+
+.dark .left-panel {
+  border-color: hsl(var(--border)/0.6);
+  box-shadow: 
+    0 4px 20px rgba(0,0,0,0.15), 
+    0 1px 5px rgba(0,0,0,0.1), 
+    0 0 0 1px rgba(255,255,255,0.03);
+  background: #0f172a;
+  background-image: 
+    radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.1) 0%, transparent 25%),
+    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.1) 0%, transparent 25%);
+}
+
+.left-panel:hover {
+  box-shadow: 
+    0 6px 24px rgba(0,0,0,0.08), 
+    0 2px 8px rgba(0,0,0,0.05), 
+    0 0 0 1px rgba(0,0,0,0.02);
+  transform: translateY(-1px);
+}
+
+.dark .left-panel:hover {
+  box-shadow: 
+    0 6px 24px rgba(0,0,0,0.2), 
+    0 2px 8px rgba(0,0,0,0.15), 
+    0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* Modern glow effect for the top of panels */
+.left-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, 
+    transparent, 
+    rgba(99, 102, 241, 0.3) 20%, 
+    rgba(99, 102, 241, 0.3) 80%, 
+    transparent
+  );
+  opacity: 0.7;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.dark .left-panel::before {
+  background: linear-gradient(to right, 
+    transparent, 
+    rgba(129, 140, 248, 0.3) 20%, 
+    rgba(129, 140, 248, 0.3) 80%, 
+    transparent
+  );
+  opacity: 0.3;
+}
+
+.left-panel-content {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+  transition: padding 0.2s ease;
+}
+
+.left-panel-content:hover {
+  padding: 1.25rem;
+}
+
+.dark .left-panel-content {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* New server-side styles for problem description - ensures no style flash */
+/* Problem description - base styles */
+.prose, .problem-description {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  color: #1e293b;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  padding: 0.75rem 1.25rem;
+}
+
+.dark .prose, .dark .problem-description {
+  color: #e2e8f0;
+}
+
+/* Content card styling */
+.content-card {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid;
+  border-image: linear-gradient(
+    to right bottom, 
+    rgba(99, 102, 241, 0.3), 
+    rgba(147, 51, 234, 0.1), 
+    rgba(79, 70, 229, 0.05)
+  ) 1;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.05), 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+.dark .content-card {
+  background: rgba(15, 23, 42, 0.7);
+  border-image: linear-gradient(
+    to right bottom, 
+    rgba(99, 102, 241, 0.5), 
+    rgba(147, 51, 234, 0.2), 
+    rgba(79, 70, 229, 0.1)
+  ) 1;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.25), 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Code blocks */
+.prose pre, .problem-description pre {
+  position: relative;
+  background-color: rgba(248, 250, 252, 0.8);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(8px);
+}
+
+.dark .prose pre, .dark .problem-description pre {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(42, 54, 85, 0.6);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Code block dots */
+.prose pre::before, .problem-description pre::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background-color: #ff5f56;
+  box-shadow: 0.85rem 0 0 0 #ffbd2e, 1.7rem 0 0 0 #27c93f;
+  opacity: 0.7;
+}
+
+/* Inline code */
+.prose code, .problem-description code {
+  position: relative;
+  background-color: rgba(99, 102, 241, 0.07);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9rem;
+  color: #4338ca;
+  font-weight: 600;
+  border: none;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.dark .prose code, .dark .problem-description code {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+/* Code blocks - inner code */
+.prose pre code, .problem-description pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  box-shadow: none;
+  border: none;
+  font-weight: normal;
+  white-space: pre;
+  padding-top: 1.5rem; /* Add space for the circles */
+  letter-spacing: 0;
+  display: block;
+}
+
+/* Unordered lists */
+.prose ul, .problem-description ul {
+  list-style-type: none;
+  padding-left: 1.5rem;
+  margin: 0.6rem 0;
+}
+
+.prose ul li, .problem-description ul li {
+  position: relative;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.prose ul li::before, .problem-description ul li::before {
+  content: "";
+  position: absolute;
+  left: -0.25rem;
+  top: 0.6rem;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 50%;
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  transform: scale(0.8);
+  box-shadow: 0 0 8px rgba(79, 70, 229, 0.3);
+}
+
+.dark .prose ul li::before, .dark .problem-description ul li::before {
+  background: linear-gradient(to right, #818cf8, #a78bfa);
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.5);
+}
+
+/* Ordered lists */
+.prose ol, .problem-description ol {
+  list-style-type: none;
+  counter-reset: item;
+  padding-left: 1.5rem;
+  margin: 0.6rem 0;
+}
+
+.prose ol li, .problem-description ol li {
+  position: relative;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.25rem;
+  counter-increment: item;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.prose ol li::before, .problem-description ol li::before {
+  content: counter(item);
+  position: absolute;
+  left: -1.5rem;
+  top: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.15));
+  color: #4338ca;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
+}
+
+.dark .prose ol li::before, .dark .problem-description ol li::before {
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.2), rgba(167, 139, 250, 0.2));
+  color: #a5b4fc;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
+}
+
+/* Paragraphs */
+.prose p, .problem-description p {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.dark .prose p, .dark .problem-description p {
+  color: #e2e8f0;
+}
+
+/* Bold text */
+.prose p strong, .problem-description p strong {
+  font-weight: 600;
+  color: #4338ca;
+}
+
+.dark .prose p strong, .dark .problem-description p strong {
+  color: #a5b4fc;
+}
+
+/* Italics */
+.prose p em, .problem-description p em {
+  font-style: italic;
+  color: #7c3aed;
+}
+
+.dark .prose p em, .dark .problem-description p em {
+  color: #c4b5fd;
+}
+
+/* Headings */
+.prose h1, .prose h2, .prose h3, .prose h4, 
+.problem-description h1, .problem-description h2, .problem-description h3, .problem-description h4 {
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  position: relative;
+  padding-bottom: 0.4rem;
+}
+
+.dark .prose h1, .dark .prose h2, .dark .prose h3, .dark .prose h4, 
+.dark .problem-description h1, .dark .problem-description h2, .dark .problem-description h3, .dark .problem-description h4 {
+  color: #f8fafc;
+}
+
+.prose h1::after, .prose h2::after, .prose h3::after,
+.problem-description h1::after, .problem-description h2::after, .problem-description h3::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 3rem;
+  height: 0.2rem;
+  background: linear-gradient(to right, #4f46e5, #8b5cf6, #d946ef);
+  border-radius: 2px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.dark .prose h1::after, .dark .prose h2::after, .dark .prose h3::after,
+.dark .problem-description h1::after, .dark .problem-description h2::after, .dark .problem-description h3::after {
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.prose h1, .problem-description h1 {
+  font-size: 1.75rem;
+}
+
+.prose h2, .problem-description h2 {
+  font-size: 1.4rem;
+}
+
+.prose h3, .problem-description h3 {
+  font-size: 1.25rem;
+}
+
+.prose h4, .problem-description h4 {
+  font-size: 1.1rem;
+}
+
+/* Blockquotes */
+.prose blockquote, .problem-description blockquote {
+  position: relative;
+  border-left: none;
+  padding: 1.25rem 1.5rem;
+  font-style: italic;
+  margin: 1.5rem 0;
+  color: #475569;
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.07), rgba(79, 70, 229, 0.05));
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(4px);
+}
+
+.dark .prose blockquote, .dark .problem-description blockquote {
+  color: #94a3b8;
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.1));
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Tables */
+.prose table, .problem-description table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1.75rem 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.dark .prose table, .dark .problem-description table {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.prose table th, .problem-description table th {
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.1), rgba(79, 70, 229, 0.08));
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 0.85rem 1.25rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4338ca;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dark .prose table th, .dark .problem-description table th {
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.25), rgba(79, 70, 229, 0.2));
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  color: #a5b4fc;
+}
+
+.prose table td, .problem-description table td {
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 0.85rem 1.25rem;
+  font-size: 0.95rem;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.dark .prose table td, .dark .problem-description table td {
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  background-color: rgba(15, 23, 42, 0.4);
+}
+
+.prose table tr:nth-child(even) td, .problem-description table tr:nth-child(even) td {
+  background-color: rgba(248, 250, 252, 0.7);
+}
+
+.dark .prose table tr:nth-child(even) td, .dark .problem-description table tr:nth-child(even) td {
+  background-color: rgba(15, 23, 42, 0.6);
+}
+
+/* Fancy scrollbar */
+.prose::-webkit-scrollbar, .problem-description::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.prose::-webkit-scrollbar-track, .problem-description::-webkit-scrollbar-track {
+  background: rgba(248, 250, 252, 0.8);
+  border-radius: 8px;
+}
+
+.dark .prose::-webkit-scrollbar-track, .dark .problem-description::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.2);
+}
+
+.prose::-webkit-scrollbar-thumb, .problem-description::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #4f46e5, #8b5cf6);
+  border-radius: 8px;
+}
+
+/* Utility for card body content */
+.card-body {
+  padding: 1.5rem 2rem;
+  background: inherit;
+  border-radius: 0.75rem;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .card-body {
+    padding: 1rem 0.75rem;
+  }
 }

@@ -18,10 +18,6 @@ interface Context {
 
 // Convert Judge0Result to TestCaseResult format expected by schema
 const formatTestCaseResult = (judge0Result: Judge0Result, testCaseId?: string) => {
-  // Determine if the test case was skipped
-  const isSkipped = judge0Result.status.description === "Skipped" || 
-                    judge0Result.verdict === "Skipped";
-  
   return {
     id: testCaseId || 'unknown',
     input: judge0Result.input,
@@ -35,7 +31,6 @@ const formatTestCaseResult = (judge0Result: Judge0Result, testCaseId?: string) =
     },
     verdict: judge0Result.verdict,
     isCorrect: judge0Result.verdict === 'Accepted',
-    isSkipped,
     executionTime: judge0Result.time,
     memoryUsed: judge0Result.memory
   };
@@ -254,17 +249,6 @@ export const codeExecutionResolvers = {
         // Store the submission if user is logged in
         if (context.session?.user?.id) {
           try {
-            // Count skipped testcases
-            const skippedTestcases = formattedResults.filter(result => 
-              result.isSkipped || 
-              result.verdict === "Skipped" || 
-              result.status?.description === "Skipped"
-            ).length;
-
-            // Count passed testcases correctly
-            const passedTestcases = formattedResults.filter(result => result.isCorrect).length;
-            
-            // Use type assertion to bypass type checking until Prisma client types are updated
             await prisma.problemSubmission.create({
               data: {
                 userId: context.session.user.id,
@@ -272,13 +256,12 @@ export const codeExecutionResolvers = {
                 language: languageId.toString(),
                 code: sourceCode,
                 submittedAt: new Date(),
-                testcasesPassed: passedTestcases,
-                skippedTestcases, // Include skippedTestcases from the schema
+                testcasesPassed: allTestsPassed ? judge0TestCases.length : (failedTestIndex === -1 ? judge0TestCases.length : failedTestIndex),
                 totalTestcases: judge0TestCases.length,
                 allPassed: allTestsPassed,
                 runtime: formattedResults[0]?.executionTime || null,
                 memory: formattedResults[0]?.memoryUsed ? formattedResults[0].memoryUsed.toString() : null
-              } as any // Use type assertion to bypass type checking
+              }
             });
           } catch (err) {
             console.error("Failed to store submission:", err);

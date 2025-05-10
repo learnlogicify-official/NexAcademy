@@ -43,7 +43,7 @@ import {
   Loader2,
   Percent,
   Lock,
-  CheckCircle2,
+  CheckCircle,
   AlignLeft,
   ZoomIn,
   ZoomOut,
@@ -52,7 +52,22 @@ import {
   Copy,
   ClipboardCopy,
   Sparkle,
-  ArrowLeft
+  ArrowLeft,
+  Filter,
+  RefreshCw,
+  Database,
+  AlertCircle,
+  HelpCircle,
+  Calendar,
+  Hash,
+  Code2,
+  Server,
+  FileCode,
+  MonitorSmartphone,
+  Moon,
+  Sun,
+  Type,
+  Indent
 } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -77,7 +92,15 @@ import { toast } from "sonner"
 import confetti from 'canvas-confetti'
 import { HiddenTestcasesTab } from "./components/HiddenTestcasesTab";
 import ProblemHeader from "./components/ProblemHeader"
-import { gql } from '@apollo/client';
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
+import { useSearchParams } from "next/navigation"
+import { submissionService } from '@/lib/services/submissionService';
+import JSConfetti from 'js-confetti'
+import { Editor } from "@monaco-editor/react"
+import { ModeToggle } from "@/components/nexpractice/mode-toggle";
+import DOMPurify from 'isomorphic-dompurify';
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -464,6 +487,11 @@ const parseLanguageName = (fullName: string) => {
 };
 
 export default function ProblemClientPage({ codingQuestion, defaultLanguage, preloadCode }: ProblemClientPageProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+
   // Initialize language correctly based on defaultLanguage
   const processDefaultLanguage = (lang: string): string => {
     if (lang === "Java") return "62"; // Java ID
@@ -501,685 +529,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   const startLeftWidth = useRef(50)
   const startEditorHeight = useRef(70)
 
-  // Define styles for the question text based on the current theme
-  const questionTextStyles = `
-    .prose pre {
-      position: relative;
-      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : 'rgba(248, 250, 252, 0.8)'};
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(42, 54, 85, 0.6)' : 'rgba(229, 231, 235, 0.8)'};
-      border-radius: 0.75rem;
-      padding: 1rem 1.25rem;
-      margin: 1.25rem 0;
-      overflow-x: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      box-shadow: 0 4px 20px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.03)'};
-      backdrop-filter: blur(8px);
-    }
-    
-    .prose pre::before {
-      content: "";
-      position: absolute;
-      top: 0.75rem;
-      left: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      height: 0.5rem;
-    }
-    
-    .prose pre::after {
-      content: "";
-      position: absolute;
-      top: 0.75rem;
-      left: 0.75rem;
-      width: 0.5rem;
-      height: 0.5rem;
-      border-radius: 50%;
-      background-color: #ff5f56;
-      box-shadow: 1.25rem 0 0 0 #ffbd2e, 2.5rem 0 0 0 #27c93f;
-      opacity: 0.8;
-    }
-    
-    .prose code {
-      position: relative;
-      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.07)'};
-      border-radius: 0.25rem;
-      padding: 0.15rem 0.35rem;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.9rem;
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
-      font-weight: 600;
-      border: none;
-      white-space: nowrap;
-      letter-spacing: -0.02em;
-    }
-    
-    .prose pre code {
-      background-color: transparent;
-      padding: 0;
-      border-radius: 0;
-      color: inherit;
-      box-shadow: none;
-      border: none;
-      font-weight: normal;
-      white-space: pre;
-      padding-top: 1.5rem; /* Add space for the circles */
-      letter-spacing: 0;
-    }
-    
-    .prose ul {
-      list-style-type: none;
-      padding-left: 1.5rem;
-      margin: 1rem 0;
-    }
-    
-    .prose ul li {
-      position: relative;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
-      padding-left: 1.25rem;
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-    
-    .prose ul li::before {
-      content: "";
-      position: absolute;
-      left: -0.25rem;
-      top: 0.6rem;
-      height: 0.5rem;
-      width: 0.5rem;
-      border-radius: 50%;
-      background: linear-gradient(to right, ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'}, ${appTheme === 'dark' ? '#a78bfa' : '#6366f1'});
-      transform: scale(0.8);
-      box-shadow: 0 0 8px ${appTheme === 'dark' ? 'rgba(129, 140, 248, 0.5)' : 'rgba(79, 70, 229, 0.3)'};
-    }
-    
-    .prose ol {
-      list-style-type: none;
-      counter-reset: item;
-      padding-left: 1.5rem;
-      margin: 1rem 0;
-    }
-    
-    .prose ol li {
-      position: relative;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
-      padding-left: 1.25rem;
-      counter-increment: item;
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-    
-    .prose ol li::before {
-      content: counter(item);
-      position: absolute;
-      left: -1.5rem;
-      top: 0;
-      font-size: 0.75rem;
-      font-weight: 600;
-      width: 1.4rem;
-      height: 1.4rem;
-      border-radius: 50%;
-      background: linear-gradient(120deg, ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'}, ${appTheme === 'dark' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(99, 102, 241, 0.15)'});
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 6px ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.15)'};
-    }
-    
-    .prose p {
-      margin-top: 0.75rem;
-      margin-bottom: 0.75rem;
-      line-height: 1.5;
-      letter-spacing: -0.01em;
-      font-size: 0.95rem;
-      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
-    }
-    
-    .prose p strong {
-      font-weight: 600;
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
-      background: linear-gradient(to right, ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'}, ${appTheme === 'dark' ? '#a78bfa' : '#6366f1'});
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: ${appTheme === 'dark' ? 'transparent' : 'transparent'};
-      text-shadow: ${appTheme === 'dark' ? '0 0 10px rgba(129, 140, 248, 0.3)' : 'none'};
-    }
-    
-    .prose p em {
-      font-style: italic;
-      color: ${appTheme === 'dark' ? '#c4b5fd' : '#7c3aed'};
-    }
-    
-    .prose h1, .prose h2, .prose h3, .prose h4 {
-      font-weight: 700;
-      line-height: 1.2;
-      margin-top: 1.25rem;
-      margin-bottom: 0.75rem;
-      color: ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'};
-      letter-spacing: -0.03em;
-      position: relative;
-      padding-bottom: 0.4rem;
-    }
-    
-    .prose h1::after, .prose h2::after, .prose h3::after {
-      content: "";
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 3rem;
-      height: 0.2rem;
-      background: linear-gradient(to right, #4f46e5, #8b5cf6, #d946ef);
-      border-radius: 2px;
-      box-shadow: 0 2px 8px ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.15)'};
-    }
-    
-    .prose h1 {
-      font-size: 1.75rem;
-      background: linear-gradient(to right, ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'}, ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'});
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: transparent;
-    }
-    
-    .prose h2 {
-      font-size: 1.4rem;
-    }
-    
-    .prose h3 {
-      font-size: 1.25rem;
-    }
-    
-    .prose h4 {
-      font-size: 1.1rem;
-    }
-    
-    .prose blockquote {
-      position: relative;
-      border-left: none;
-      padding: 1.25rem 1.5rem;
-      font-style: italic;
-      margin: 1.5rem 0;
-      color: ${appTheme === 'dark' ? '#94a3b8' : '#475569'};
-      background: linear-gradient(to right, ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.07)'}, ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.1)' : 'rgba(79, 70, 229, 0.05)'});
-      border-radius: 0.75rem;
-      box-shadow: 0 4px 15px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.03)'};
-      backdrop-filter: blur(4px);
-    }
-    
-    .prose blockquote::before {
-      content: """;
-      position: absolute;
-      top: -0.5rem;
-      left: 0.5rem;
-      font-size: 3rem;
-      font-family: serif;
-      color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)'};
-      z-index: 0;
-    }
-    
-    .prose blockquote p {
-      position: relative;
-      margin: 0.35rem 0;
-      z-index: 1;
-    }
-    
-    .prose a {
-      position: relative;
-      color: ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'};
-      text-decoration: none;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      border-bottom: 1px dashed ${appTheme === 'dark' ? 'rgba(147, 197, 253, 0.5)' : 'rgba(79, 70, 229, 0.5)'};
-      padding-bottom: 0.05rem;
-    }
-    
-    .prose a:hover {
-      color: ${appTheme === 'dark' ? '#bfdbfe' : '#4338ca'};
-      border-bottom: 1px solid ${appTheme === 'dark' ? '#bfdbfe' : '#4338ca'};
-    }
-    
-    .prose a::after {
-      content: "";
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      width: 100%;
-      height: 1px;
-      transform: scaleX(0);
-      transform-origin: right;
-      background: linear-gradient(to right, ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'}, ${appTheme === 'dark' ? '#bfdbfe' : '#818cf8'});
-      transition: transform 0.3s ease;
-    }
-    
-    .prose a:hover::after {
-      transform: scaleX(1);
-      transform-origin: left;
-    }
-    
-    .prose table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      margin: 1.75rem 0;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      box-shadow: 0 4px 18px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.05)'};
-      background: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255, 255, 255, 0.7)'};
-      backdrop-filter: blur(10px);
-    }
-    
-    .prose table th {
-      background: linear-gradient(to right, ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.1)'}, ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.08)'});
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.6)' : 'rgba(226, 232, 240, 0.8)'};
-      padding: 0.85rem 1.25rem;
-      text-align: left;
-      font-weight: 600;
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4338ca'};
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    .prose table td {
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.6)' : 'rgba(226, 232, 240, 0.8)'};
-      padding: 0.85rem 1.25rem;
-      font-size: 0.95rem;
-      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.5)'};
-    }
-    
-    .prose table tr:nth-child(even) td {
-      background-color: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : 'rgba(248, 250, 252, 0.7)'};
-    }
-    
-    .prose img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 0.75rem;
-      margin: 1.75rem 0;
-      box-shadow: 0 8px 25px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.1)'};
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.6)' : 'rgba(226, 232, 240, 0.8)'};
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .prose img:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 30px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.15)'};
-    }
-
-    /* Additional styles for better content density */
-    .TabsContent {
-      margin-top: 0.85rem !important;
-    }
-
-    .test-case-card {
-      margin-bottom: 0.85rem;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)'};
-    }
-    
-    .test-case-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.06)'};
-    }
-    
-    .test-case-card .px-4 {
-      padding-left: 1rem !important;
-      padding-right: 1rem !important;
-    }
-    
-    .test-case-card .py-3 {
-      padding-top: 0.75rem !important;
-      padding-bottom: 0.75rem !important;
-    }
-    
-    .test-case-card .p-4 {
-      padding: 1rem !important;
-    }
-    
-    .test-case-card .p-3 {
-      padding: 0.85rem !important;
-    }
-    
-    .test-case-card .gap-4 {
-      gap: 0.85rem !important;
-    }
-    
-    /* Fancy premium scrollbar */
-    .prose::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    
-    .prose::-webkit-scrollbar-track {
-      background: ${appTheme === 'dark' ? 'rgba(30, 41, 59, 0.2)' : 'rgba(248, 250, 252, 0.8)'};
-      border-radius: 8px;
-    }
-    
-    .prose::-webkit-scrollbar-thumb {
-      background: linear-gradient(to bottom, #4f46e5, #8b5cf6);
-      border-radius: 8px;
-    }
-    
-    .prose::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(to bottom, #4338ca, #7c3aed);
-    }
-    
-    /* Premium animations */
-    .prose h1, .prose h2, .prose h3 {
-      transition: transform 0.2s ease, color 0.2s ease;
-    }
-    
-    .prose h1:hover, .prose h2:hover, .prose h3:hover {
-      transform: translateX(3px);
-    }
-    
-    /* Make code blocks look more premium */
-    pre code {
-      line-height: 1.5 !important;
-      color: ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'} !important;
-    }
-    
-    pre code .keyword {
-      color: ${appTheme === 'dark' ? '#93c5fd' : '#4f46e5'} !important;
-      font-weight: 600 !important;
-    }
-    
-    pre code .string {
-      color: ${appTheme === 'dark' ? '#86efac' : '#16a34a'} !important;
-    }
-    
-    pre code .number {
-      color: ${appTheme === 'dark' ? '#fda4af' : '#dc2626'} !important;
-    }
-    
-    pre code .comment {
-      color: ${appTheme === 'dark' ? '#94a3b8' : '#64748b'} !important;
-      font-style: italic !important;
-    }
-    
-    /* Reduce spacing in bullet points */
-    .prose ul {
-      margin-top: 0.6rem !important;
-      margin-bottom: 0.6rem !important;
-    }
-
-    /* Make any images more compact */
-    .problem-description img {
-      margin: 0.85rem 0 !important;
-    }
-    
-    /* Problem description card with subtle gradient border */
-    .content-card {
-      position: relative;
-      border-radius: 1rem;
-      overflow: hidden;
-      transition: all 0.3s ease;
-      background: ${appTheme === 'dark' ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)'};
-      backdrop-filter: blur(12px);
-      border: 1px solid;
-      border-image: linear-gradient(
-        to right bottom, 
-        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.5)' : 'rgba(99, 102, 241, 0.3)'}, 
-        ${appTheme === 'dark' ? 'rgba(147, 51, 234, 0.2)' : 'rgba(147, 51, 234, 0.1)'}, 
-        ${appTheme === 'dark' ? 'rgba(79, 70, 229, 0.1)' : 'rgba(79, 70, 229, 0.05)'}
-      ) 1;
-      box-shadow: 
-        0 10px 30px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.05)'}, 
-        inset 0 1px 0 0 ${appTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)'};
-    }
-    
-    .content-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 
-        0 15px 40px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.08)'}, 
-        inset 0 1px 0 0 ${appTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 1)'};
-    }
-    
-    .content-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        120deg,
-        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.4)'},
-        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.001)' : 'rgba(255, 255, 255, 0.9)'},
-        ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.4)'}
-      );
-      z-index: 0;
-      pointer-events: none;
-    }
-    
-    .content-card-inner {
-      position: relative;
-      z-index: 1;
-      padding: 1.5rem;
-    }
-    
-    /* Problem description styling */
-    .problem-description {
-      position: relative;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6;
-      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
-  `;
-
-  // Custom CSS for grid pattern
-  const gridPatternCSS = `
-    .bg-grid-pattern {
-      background-size: 30px 30px;
-      background-image: 
-        linear-gradient(to right, ${appTheme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)'} 1px, transparent 1px),
-        linear-gradient(to bottom, ${appTheme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)'} 1px, transparent 1px);
-    }
-    
-    .content-card {
-      position: relative;
-      overflow: hidden;
-      border-radius: 0.75rem;
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'};
-      background: ${appTheme === 'dark' ? '#0f172a' : 'white'};
-      transition: all 0.2s ease;
-    }
-    
-    .content-card:hover {
-      box-shadow: 0 0 0 1px rgba(107, 70, 193, 0.2), 
-                 0 4px 20px -2px rgba(107, 70, 193, 0.12);
-    }
-    
-    .content-card-gradient {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(to right, #4f46e5, #8b5cf6, #d946ef);
-      z-index: 1;
-    }
-    
-    .content-card-inner {
-      position: relative;
-      z-index: 1;
-      padding: 1.25rem;
-    }
-    
-    /* Problem description styling */
-    .problem-description {
-      position: relative;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.5;
-      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
-
-    .problem-description h1 {
-      font-size: 1.4rem;
-    }
-
-    .problem-description h2 {
-      font-size: 1.25rem;
-    }
-
-    .problem-description h3 {
-      font-size: 1.15rem;
-    }
-
-    .problem-description h4 {
-      font-size: 1.05rem;
-    }
-
-    .problem-description h1,
-    .problem-description h2,
-    .problem-description h3,
-    .problem-description h4,
-    .problem-description h5,
-    .problem-description h6 {
-      margin-top: 1.25rem;
-      margin-bottom: 0.75rem;
-      font-weight: 700;
-      line-height: 1.2;
-      color: ${appTheme === 'dark' ? '#f8fafc' : '#0f172a'};
-      position: relative;
-    }
-
-    .problem-description h1::after,
-    .problem-description h2::after,
-    .problem-description h3::after {
-      content: "";
-      position: absolute;
-      bottom: -0.35rem;
-      left: 0;
-      width: 2.5rem;
-      height: 0.15rem;
-      background: linear-gradient(to right, #4f46e5, #8b5cf6, #d946ef);
-      border-radius: 2px;
-    }
-
-    .problem-description p {
-      margin-bottom: 0.75rem;
-      line-height: 1.5;
-      font-size: 0.95rem;
-    }
-
-    .problem-description pre {
-      position: relative;
-      margin: 0.85rem 0;
-      padding: 0.9rem 0.85rem;
-      background-color: ${appTheme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : 'rgba(250, 250, 252, 0.8)'};
-      border-radius: 0.4rem;
-      overflow-x: auto;
-      box-shadow: 0 1px 3px ${appTheme === 'dark' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.02)'};
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.8)'};
-    }
-    
-    .problem-description pre::before {
-      content: "";
-      position: absolute;
-      top: 0.5rem;
-      left: 0.5rem;
-      width: 0.4rem;
-      height: 0.4rem;
-      border-radius: 50%;
-      background-color: #ff5f56;
-      box-shadow: 0.85rem 0 0 0 #ffbd2e, 1.7rem 0 0 0 #27c93f;
-      opacity: 0.7;
-    }
-
-    .problem-description pre code {
-      background-color: transparent;
-      padding: 0;
-      border: none;
-      box-shadow: none;
-      font-weight: 400;
-      color: ${appTheme === 'dark' ? '#e2e8f0' : '#1e293b'};
-      display: block;
-      padding-top: 0.7rem;
-      line-height: 1.4;
-    }
-
-    .problem-description ul, 
-    .problem-description ol {
-      margin-top: 0.6rem;
-      margin-bottom: 0.6rem;
-      padding-left: 1.25rem;
-    }
-
-    .problem-description ul {
-      list-style-type: none;
-    }
-
-    .problem-description ul li {
-      position: relative;
-      padding-left: 1.5rem;
-      margin-bottom: 0.25rem;
-      font-size: 0.95rem;
-    }
-
-    .problem-description ul li::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.6rem;
-      height: 0.375rem;
-      width: 0.375rem;
-      background-color: ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'};
-      border-radius: 50%;
-    }
-
-    .problem-description ol {
-      list-style-type: none;
-      counter-reset: item;
-    }
-
-    .problem-description ol li {
-      position: relative;
-      padding-left: 1.5rem;
-      margin-bottom: 0.25rem;
-      counter-increment: item;
-      font-size: 0.95rem;
-    }
-
-    .problem-description ol li::before {
-      content: counter(item);
-      position: absolute;
-      left: 0;
-      top: 0.15rem;
-      height: 1.25rem;
-      width: 1.25rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'};
-      color: ${appTheme === 'dark' ? '#a5b4fc' : '#4f46e5'};
-      border-radius: 50%;
-    }
-
-    /* Update tag pill style to be more compact without icons */
-    .tag-pill {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.2rem 0.4rem;
-      border-radius: 9999px;
-      font-size: 0.7rem;
-      font-weight: 500;
-      background: ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.1)'};
-      color: ${appTheme === 'dark' ? '#818cf8' : '#4f46e5'};
-      margin: 0.15rem;
-      border: 1px solid ${appTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.2)'};
-      transition: all 0.15s ease;
-    }
-  `;
+  // Remove client-side style injection to prevent hydration mismatch
+  // Now relying on predefined CSS classes in globals.css
 
   // Toggle focus mode for the editor
   const toggleFocusMode = () => {
@@ -2060,16 +1411,15 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         
         // Log the results for debugging
         console.log("API Response results:", results);
-        
-        // Count skipped test cases
-        const skippedTestcases = results.filter((r: any) => 
+        console.log("Skipped test cases:", results.filter((r: any) => 
           r.isSkipped || r.verdict === "Skipped" || (r.status && r.status.description === "Skipped")
-        ).length;
-        console.log("Skipped test cases:", skippedTestcases);
-        
-        // Count passed test cases correctly
-        const passedTestcases = results.filter((r: any) => r.isCorrect).length;
-        console.log("Passed test cases:", passedTestcases);
+        ));
+        console.log("Failed test cases:", results.filter((r: any) => 
+          !r.isCorrect && 
+          !r.isSkipped && 
+          r.verdict !== "Skipped" && 
+          (!r.status || r.status.description !== "Skipped")
+        ));
         
         // Now that we have the response, set the total number of testcases
         setTotalHiddenTestcases(totalTests || results?.length || 0);
@@ -2268,11 +1618,26 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     }
   };
   
+  // Confetti celebration trigger
   const triggerConfettiCelebration = () => {
     // Ultra-premium color scheme with metallic/luxury colors
     const luxuryColors = ['#FFD700', '#E0BF00', '#B8860B', '#DAA520', '#9370DB', '#FFFFFF'];
     const accentColors = ['#4B0082', '#9932CC', '#8A2BE2', '#FF1493', '#00BFFF'];
-    
+    // Custom shapes for confetti
+    // @ts-ignore - Ignore the shape type mismatch
+    const shapeOptions = ['square', 'circle'];
+
+    // Helper to patch all confetti canvases
+    const patchConfettiCanvas = () => {
+      // canvas-confetti appends canvases to body
+      document.querySelectorAll('canvas').forEach((c) => {
+        // Only patch if it's a confetti canvas (zIndex or style)
+        if (c.style && (c.style.zIndex === '200' || c.className.includes('confetti'))) {
+          c.style.pointerEvents = 'none';
+        }
+      });
+    };
+
     // Phase 1: Initial golden shower from top (sparse but elegant)
     const createGoldenShower = () => {
       confetti({
@@ -2281,7 +1646,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         spread: 100,
         origin: { x: 0.5, y: 0 },
         colors: luxuryColors,
-        shapes: ['square'] as any,
+        // @ts-ignore - Ignore the shape type mismatch 
+        shapes: shapeOptions,
         gravity: 0.65,
         scalar: 1.5,
         drift: 0.5,
@@ -2290,8 +1656,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         zIndex: 200,
         disableForReducedMotion: true
       });
+      setTimeout(patchConfettiCanvas, 50);
     };
-    
+
     // Phase 2: Elegant side bursts for dimension
     const createSideBursts = () => {
       // Left side
@@ -2301,67 +1668,63 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         spread: 25,
         origin: { x: 0, y: 0.5 },
         colors: accentColors,
-        shapes: ['square', 'circle'] as any,
+        // @ts-ignore - Ignore the shape type mismatch
+        shapes: shapeOptions,
         gravity: 0.4,
         scalar: 1.3,
         ticks: 400
       });
-      
+      setTimeout(patchConfettiCanvas, 50);
       // Right side
-      confetti({
-        particleCount: 10,
-        angle: 120,
-        spread: 25,
-        origin: { x: 1, y: 0.5 },
-        colors: accentColors,
-        shapes: ['square', 'circle'] as any,
-        gravity: 0.4,
-        scalar: 1.3,
-        ticks: 400
-      });
+      setTimeout(() => {
+        confetti({
+          particleCount: 10,
+          angle: 120,
+          spread: 25,
+          origin: { x: 1, y: 0.5 },
+          colors: accentColors,
+          // @ts-ignore - Ignore the shape type mismatch
+          shapes: shapeOptions,
+          gravity: 0.4,
+          scalar: 1.3,
+          ticks: 400
+        });
+        setTimeout(patchConfettiCanvas, 50);
+      }, 150);
     };
-    
-    // Phase 3: Continuous gentle rain with fewer but higher quality particles
+
+    // Gentle rain effect
     const createGentleRain = () => {
-      const duration = 2500;
-      const animationEnd = Date.now() + duration;
-      
-      const rainInterval = setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-      
-        if (timeLeft <= 0) {
-          clearInterval(rainInterval);
-          return;
-        }
-      
-        // Calculate decreasing particle count as animation progresses
-        const particleCount = 3;
-      
-      confetti({
-          particleCount,
+      const interval = setInterval(() => {
+        confetti({
+          particleCount: 15,
           angle: 90,
-          spread: 70,
+          spread: 180,
           origin: { x: Math.random(), y: 0 },
           colors: [...luxuryColors, ...accentColors],
-          shapes: ['square', 'circle'] as any,
+          // @ts-ignore - Ignore the shape type mismatch
+          shapes: shapeOptions,
           gravity: 0.6,
           scalar: 1.4,
           drift: 0.2,
-          ticks: 500
+          ticks: 400
         });
-      }, 300); // Release particles every 300ms for a more exclusive feel
+        setTimeout(patchConfettiCanvas, 50);
+      }, 300);
+      // Clear the interval after a few seconds
+      setTimeout(() => clearInterval(interval), 2000);
     };
-    
-    // Execute all phases with elegant timing
+
+    // Execute celebration effects in sequence
     createGoldenShower();
-    
     setTimeout(() => {
       createSideBursts();
     }, 200);
-    
     setTimeout(() => {
       createGentleRain();
     }, 500);
+    // Patch again after all effects
+    setTimeout(patchConfettiCanvas, 2500);
   };
 
   // Add helper function to parse language ID
@@ -2374,330 +1737,325 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     return entry ? parseInt(entry[0], 10) : 71; // Default to Python 3 (ID 71) if not found
   };
 
-  // Define the GET_USER_SUBMISSIONS query inside the component
-  const GET_USER_SUBMISSIONS = gql`
-    query GetUserSubmissions($problemId: String!, $page: Int, $limit: Int) {
-      userSubmissions(problemId: $problemId, page: $page, limit: $limit) {
-        submissions {
-          id
-          submittedAt
-          language
-          testcasesPassed
-          totalTestcases
-          skippedTestcases
-          allPassed
-          runtime
-          memory
-          code
-        }
-        pagination {
-          totalCount
-          totalPages
-          currentPage
-          hasNextPage
-          hasPreviousPage
-        }
-      }
-    }
-  `;
-
-  // Add the SubmissionsTabContent component inside the main component
-  const SubmissionsTabContent = React.memo(({ 
-    problemId, 
-    submitCode, 
-    isSubmitting, 
-    query,
-    onLoadSubmission,
-    session
-  }: { 
-    problemId: string; 
-    submitCode: () => void; 
-    isSubmitting: boolean; 
-    query: any;
-    onLoadSubmission: (code: string) => void;
-    session: any;
-  }) => {
-    const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 5;
-    
-    const { loading, error, data, refetch } = useQuery(query, {
-      variables: { problemId, page: currentPage, limit: PAGE_SIZE },
-      skip: !session?.user?.id,
-      fetchPolicy: 'network-only',
-    });
-
+  // Additional state for submissions tab
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize] = useState(5);
+  const [submissionsTabActive, setSubmissionsTabActive] = useState(false);
   
-    // Handle page navigation
-    const goToNextPage = () => {
-      if (data?.userSubmissions?.pagination?.hasNextPage) {
-        setCurrentPage(prev => prev + 1);
+  // State to track if the submissions tab has been loaded at least once
+  const [submissionsInitialized, setSubmissionsInitialized] = useState(false);
+  
+  // Fetch submissions when the submissions tab becomes active
+  const fetchSubmissions = useCallback(async (page = 1, size = pageSize) => {
+    if (!submissionsTabActive || !session?.user?.id) return;
+    
+    try {
+      // Set loading state and clear error
+      setSubmissionsLoading(true);
+      setSubmissionsError(null);
+      
+      // Clear existing submissions while loading to provide better UX
+      setSubmissions([]);
+      
+      // Log the entire coding question object to inspect its structure
+      console.log('Coding question object:', codingQuestion);
+      
+      // Determine the correct problem ID to use - add fallbacks for backward compatibility
+      const problemId = codingQuestion.questionId || codingQuestion.id;
+      console.log('Using problemId:', problemId);
+      
+      console.log('Fetching submissions with params:', {
+        problemId,
+        userId: session.user.id,
+        page,
+        pageSize: size
+      });
+      
+      try {
+        const data = await submissionService.getProblemSubmissions({
+          problemId,
+          userId: session.user.id,
+          page,
+          pageSize: size
+        });
+        
+        console.log('Submissions response:', data);
+        
+        if (data && data.submissions) {
+          setSubmissions(data.submissions);
+          setTotalPages(data.totalPages);
+          setCurrentPage(data.page);
+        } else {
+          console.warn('Received empty or invalid response from submissions API');
+          setSubmissionsError('Failed to load submissions. Empty or invalid response received.');
+          setSubmissions([]);
+        }
+      } catch (apiError: any) {
+        console.error('API error while fetching submissions:', apiError);
+        
+        // Attempt to extract GraphQL error message if available
+        let errorMessage = 'Failed to load submissions. Please try again.';
+        if (apiError.graphQLErrors && apiError.graphQLErrors.length > 0) {
+          errorMessage = `GraphQL error: ${apiError.graphQLErrors[0].message}`;
+        } else if (apiError.networkError) {
+          errorMessage = `Network error: ${apiError.networkError.message}`;
+        } else if (apiError.message) {
+          errorMessage = apiError.message;
+        }
+        
+        setSubmissionsError(errorMessage);
+        setSubmissions([]);
       }
-    };
-
-    const goToPreviousPage = () => {
-      if (data?.userSubmissions?.pagination?.hasPreviousPage) {
-        setCurrentPage(prev => prev - 1);
-      }
-    };
-
-    if (loading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-6 space-y-3">
-          <Loader2 className="h-7 w-7 text-indigo-500 dark:text-indigo-400 animate-spin" />
-          <p className="text-xs text-slate-600 dark:text-slate-400">Loading submissions...</p>
-        </div>
-      );
+    } catch (error) {
+      console.error('Error in fetchSubmissions:', error);
+      setSubmissionsError('Failed to load submissions. Please try again.');
+      setSubmissions([]);
+    } finally {
+      setSubmissionsLoading(false);
     }
-
-    if (error) {
-      return (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-lg text-red-800 dark:text-red-300 text-sm">
-          <h3 className="font-medium flex items-center gap-1.5">
-            <AlertTriangle className="h-4 w-4" />
-            Error loading submissions
-          </h3>
-          <p className="mt-1 text-xs">{error.message}</p>
-        </div>
-      );
+  }, [submissionsTabActive, session?.user?.id, codingQuestion, pageSize]);
+  
+  // Handle tab change to load submissions when the tab becomes active
+  const handleTabChange = (value: string) => {
+    if (value === 'submissions') {
+      setSubmissionsTabActive(true);
+    } else {
+      setSubmissionsTabActive(false);
     }
+  };
 
-    const submissions = data?.userSubmissions?.submissions || [];
-    const pagination = data?.userSubmissions?.pagination || { 
-      totalCount: 0, 
-      totalPages: 1,
-      currentPage: 1,
-      hasNextPage: false,
-      hasPreviousPage: false
-    };
+  // Monitor submissionsTabActive state to fetch submissions automatically
+  useEffect(() => {
+    if (submissionsTabActive && session?.user?.id && !submissionsInitialized) {
+      console.log('Auto-fetching submissions for the first time');
+      fetchSubmissions(1);
+      setSubmissionsInitialized(true);
+    }
+  }, [submissionsTabActive, session?.user?.id, fetchSubmissions, submissionsInitialized]);
 
-    if (submissions.length === 0) {
-      return (
-        <div className="flex items-center justify-center p-6">
-          <div className="text-center">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-3">
-              <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+  // Helper functions for submissions
+  const renderSubmissionStatus = (submission: any) => {
+    const status = submission.status;
+    const testcaseInfo = submission.testcasesPassed !== undefined && submission.totalTestcases !== undefined 
+      ? `(${submission.testcasesPassed}/${submission.totalTestcases})` 
+      : '';
+    
+    switch (status) {
+      case 'ACCEPTED':
+  return (
+          <>
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
             </div>
-            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">No submissions yet</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-3">
-              Submit your solution to see your submission history
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-xs py-1 h-8"
-              onClick={submitCode}
-              disabled={isSubmitting}
-            >
-              <Send className="h-3 w-3 mr-1.5" />
-              {isSubmitting ? "Submitting..." : "Submit Solution"}
-            </Button>
-          </div>
-        </div>
-      );
+            <div className="ml-2">
+              <div className="text-sm font-medium text-green-600 dark:text-green-400">Accepted</div>
+              {testcaseInfo && <div className="text-xs text-slate-500 dark:text-slate-400">{testcaseInfo}</div>}
+            </div>
+          </>
+        );
+      case 'FAILED':
+      case 'WRONG_ANSWER':
+        return (
+          <>
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
+            </div>
+            <div className="ml-2">
+              <div className="text-sm font-medium text-red-600 dark:text-red-400">Failed</div>
+              {testcaseInfo && <div className="text-xs text-slate-500 dark:text-slate-400">{testcaseInfo}</div>}
+            </div>
+          </>
+        );
+      case 'TIME_LIMIT_EXCEEDED':
+        return (
+          <>
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
+            </div>
+            <div className="ml-2">
+              <div className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Time Limit Exceeded</div>
+              {testcaseInfo && <div className="text-xs text-slate-500 dark:text-slate-400">{testcaseInfo}</div>}
+            </div>
+          </>
+        );
+      case 'RUNTIME_ERROR':
+        return (
+          <>
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+              <AlertTriangle className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+            </div>
+            <div className="ml-2">
+              <div className="text-sm font-medium text-orange-600 dark:text-orange-400">Runtime Error</div>
+              {testcaseInfo && <div className="text-xs text-slate-500 dark:text-slate-400">{testcaseInfo}</div>}
+            </div>
+          </>
+        );
+      case 'COMPILATION_ERROR':
+        return (
+          <>
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <AlertCircle className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+            </div>
+            <div className="ml-2 text-sm font-medium text-purple-600 dark:text-purple-400">Compilation Error</div>
+          </>
+        );
+      default:
+        return (
+          <>
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <HelpCircle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            </div>
+            <div className="ml-2 text-sm font-medium text-slate-500 dark:text-slate-400">{status || 'Unknown'}</div>
+          </>
+        );
     }
+  };
 
-    // Get language name function
-    const getLanguageName = (languageId: string): string => {
-      const langName = JUDGE0_LANGUAGES[languageId as keyof typeof JUDGE0_LANGUAGES];
-      if (!langName) return `Lang: ${languageId}`;
-      // Just return the language name without version
-      return parseLanguageName(langName).name;
+  const getLanguageColor = (language: string) => {
+    const colors: Record<string, string> = {
+      'JavaScript': 'bg-yellow-500',
+      'TypeScript': 'bg-blue-500',
+      'Python': 'bg-green-500',
+      'Java': 'bg-red-500',
+      'C++': 'bg-purple-500',
+      'C': 'bg-gray-500',
+      'C#': 'bg-indigo-500',
+      'Go': 'bg-teal-500',
+      'Ruby': 'bg-pink-500',
+      'Swift': 'bg-orange-500',
+      'PHP': 'bg-violet-500',
+      'Rust': 'bg-amber-500'
+    };
+    
+    return colors[language] || 'bg-slate-500';
+  };
+
+  // Add helper function to convert language ID to language name
+  const getLanguageNameFromId = (languageId: string) => {
+    if (!languageId) return "Unknown";
+    
+    // If languageId is a language name rather than an ID
+    if (isNaN(Number(languageId))) return languageId;
+    
+    // Check if the ID exists in JUDGE0_LANGUAGES
+    const fullName = JUDGE0_LANGUAGES[languageId as keyof typeof JUDGE0_LANGUAGES];
+    if (fullName) {
+      return parseLanguageName(fullName).name;
+    }
+    
+    return "Unknown";
+  };
+
+  const formatSubmissionDate = (dateString: string | Date | number | null | undefined) => {
+    if (!dateString) return 'Unknown date';
+    
+    // Handle Unix timestamps (in milliseconds)
+    let date: Date;
+    if (typeof dateString === 'number' || !isNaN(Number(dateString))) {
+      date = new Date(Number(dateString));
+    } else {
+      date = new Date(dateString);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'Unknown date';
+    
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return 'just now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} day${days === 1 ? '' : 's'} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+  
+  const viewSubmissionDetails = (submission: any, e?: React.MouseEvent) => {
+    // If called from an event handler for a button inside a row, stop propagation
+    if (e) e.stopPropagation();
+    setSelectedSubmission(submission);
+  };
+  
+  const closeSubmissionDetails = () => {
+    setSelectedSubmission(null);
+  };
+  
+  const loadSubmissionCode = (submission: any, e?: React.MouseEvent) => {
+    // If called from an event handler for a button inside a row, stop propagation
+    if (e) e.stopPropagation();
+    
+    // Load the submission code into editor
+    setCode(submission.code || '');
+    
+    // Handle the language ID - if it's a number, use it directly
+    // If not, fall back to defaultLanguage
+    const langId = submission.language && !isNaN(Number(submission.language))
+      ? submission.language 
+      : defaultLanguage;
+    
+    setLanguage(langId);
+    
+    // Switch to code editor panel
+    if (isMobile) {
+      setActivePanel("code");
+    }
+    
+    // Get full language name for toast
+    const fullLangName = JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown";
+    
+    // Show a success toast
+    toast({
+      title: "Code loaded",
+      description: `Loaded ${fullLangName} code from ${formatSubmissionDate(submission.submittedAt)} submission`,
+    });
+  };
+
+  // State for selected submission details view
+  const [selectedSubmission, setSelectedSubmission] = useState<any>(null)
+
+  // Get Monaco Editor language from Judge0 language
+  const getMonacoLanguage = (languageName: string): string => {
+    if (!languageName) return 'plaintext';
+    
+    const languageMap: Record<string, string> = {
+      'Java': 'java',
+      'C': 'c',
+      'C++': 'cpp',
+      'Python': 'python',
+      'JavaScript': 'javascript',
+      'TypeScript': 'typescript',
+      'Go': 'go',
+      'Ruby': 'ruby',
+      'PHP': 'php',
+      'Rust': 'rust',
+      'C#': 'csharp',
+      'Swift': 'swift',
+      'Kotlin': 'kotlin',
+      'Scala': 'scala',
+      'Objective-C': 'objective-c',
+      'R': 'r',
+      'Perl': 'perl',
+      'Haskell': 'haskell',
+      'Lua': 'lua',
+      'Assembly': 'asm'
     };
 
-    // Calculate relative time (e.g., "2 hours ago")
-    const getRelativeTime = (dateString: string): string => {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffSecs = Math.floor(diffMs / 1000);
-      const diffMins = Math.floor(diffSecs / 60);
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-
-      if (diffDays > 0) {
-        return `${diffDays}d ago`;
-      } else if (diffHours > 0) {
-        return `${diffHours}h ago`;
-      } else if (diffMins > 0) {
-        return `${diffMins}m ago`;
-      } else {
-        return 'Just now';
-      }
-    };
-
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-base font-medium text-slate-800 dark:text-slate-200">Submissions History</h3>
-          <div className="flex items-center space-x-1">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="text-xs py-0.5 h-6 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-              onClick={() => refetch()}
-            >
-              <RotateCw className="h-3 w-3 mr-1" />
-              Refresh
-            </Button>
-          </div>
-        </div>
-        
-        <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-          Showing {submissions.length} of {pagination.totalCount} submissions
-        </div>
-
-        {/* Compact Submission list */}
-        <div className="space-y-2">
-          {submissions.map((submission: any) => {
-            const isPassed = submission.allPassed;
-            const isRuntimeError = !isPassed && submission.testcasesPassed === 0;
-            const isPartiallyCorrect = !isPassed && submission.testcasesPassed > 0;
-            
-            return (
-              <div 
-                key={submission.id} 
-                className={`rounded-md border ${
-                  isPassed 
-                    ? 'border-green-200/70 dark:border-green-900/30' 
-                    : isRuntimeError
-                      ? 'border-red-200/70 dark:border-red-900/30'
-                      : 'border-amber-200/70 dark:border-amber-900/30'
-                  } bg-white dark:bg-slate-800/50 overflow-hidden transition-all duration-200 hover:shadow-sm`}
-              >
-                <div className={`px-3 py-1.5 flex items-center justify-between gap-2 ${
-                  isPassed 
-                    ? 'bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/30 dark:to-green-900/20 border-b border-green-200/70 dark:border-green-900/30' 
-                    : isRuntimeError
-                      ? 'bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-900/20 border-b border-red-200/70 dark:border-red-900/30'
-                      : 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/20 border-b border-amber-200/70 dark:border-amber-900/30'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <div className={`h-4 w-4 rounded-full flex items-center justify-center
-                      ${isPassed 
-                        ? 'bg-green-500/20' 
-                        : isRuntimeError
-                          ? 'bg-red-500/20'
-                          : 'bg-amber-500/20'
-                      }`}
-                    >
-                      {isPassed ? (
-                        <CheckCircle2 className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
-                      ) : isRuntimeError ? (
-                        <XCircle className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
-                      ) : (
-                        <AlertTriangle className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
-                      )}
-                    </div>
-                    <span className={`text-xs font-medium ${
-                      isPassed 
-                        ? 'text-green-700 dark:text-green-400' 
-                        : isRuntimeError
-                          ? 'text-red-700 dark:text-red-400'
-                          : 'text-amber-700 dark:text-amber-400'
-                      }`}
-                    >
-                      {isPassed 
-                        ? 'Accepted' 
-                        : isRuntimeError
-                          ? 'Runtime Error'
-                          : 'Partially Correct'
-                      }
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      {getRelativeTime(submission.submittedAt)}
-                    </span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 px-1.5 text-[10px] text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                      onClick={(e) => {
-                        // Prevent all forms of event propagation
-                        e.stopPropagation();
-                        e.preventDefault();
-                        e.nativeEvent.stopImmediatePropagation();
-                        
-                        if (submission.code) {
-                          onLoadSubmission(submission.code);
-                        } else {
-                          toast.error("No code available for this submission");
-                        }
-                      }}
-                    >
-                      <ClipboardCopy className="h-2.5 w-2.5 mr-1" />
-                      Load
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="p-2 grid grid-cols-3 gap-2 text-[11px]">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3 text-slate-400 dark:text-slate-500" />
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Testcases</span>
-                    </div>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {submission.testcasesPassed}/{submission.totalTestcases}
-                      {submission.skippedTestcases > 0 && `, ${submission.skippedTestcases} skipped`}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Runtime</span>
-                    </div>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {submission.runtime || '- ms'}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1">
-                      <Code className="h-3 w-3 text-slate-400 dark:text-slate-500" />
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Language</span>
-                    </div>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {getLanguageName(submission.language)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        
-        {/* Pagination controls */}
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between pt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70"
-              onClick={goToPreviousPage}
-              disabled={!pagination.hasPreviousPage}
-            >
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-              Previous
-            </Button>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Page {pagination.currentPage} of {pagination.totalPages}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70"
-              onClick={goToNextPage}
-              disabled={!pagination.hasNextPage}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  });
+    const normalizedName = languageName.split(' ')[0];
+    return languageMap[normalizedName] || 'plaintext';
+  };
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
@@ -2707,194 +2065,38 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      {/* Add the style tag with our custom styles */}
-      <style dangerouslySetInnerHTML={{ __html: questionTextStyles + gridPatternCSS + `
-        @keyframes gradient-x {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-        .animate-gradient-x {
-          background-size: 200% 100%;
-          animation: gradient-x 3s linear infinite;
-        }
-        
-        @keyframes gradient-slow {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-        .animate-gradient-slow {
-          background-size: 200% auto;
-          animation: gradient-slow 4s ease-in-out infinite;
-        }
-        
-        @keyframes pulse-opacity {
-          0%, 100% {
-            opacity: 0.8;
-          }
-          50% {
-            opacity: 0.4;
-          }
-        }
-        .animate-pulse-opacity {
-          animation: pulse-opacity 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        @keyframes spin-slow {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 5s linear infinite;
-        }
-        
-        @keyframes pulse-slow {
-          0%, 100% {
-            opacity: 0.7;
-          }
-          50% {
-            opacity: 0.3;
-          }
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        /* Glass card effects */
-        .glass-card {
-          background: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-        }
-        .dark .glass-card {
-          background: rgba(15, 23, 42, 0.7);
-          border: 1px solid rgba(30, 41, 59, 0.2);
-        }
-        
-        /* Problem description card styles */
-        .content-card {
-          position: relative;
-          border-radius: 12px;
-          overflow: hidden;
-          transition: all 0.3s ease;
-        }
-        .content-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.1);
-        }
-        .content-card-gradient {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8));
-          border: 1px solid rgba(224, 231, 255, 0.7);
-          border-radius: 12px;
-        }
-        .dark .content-card-gradient {
-          background: linear-gradient(to bottom right, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.7));
-          border: 1px solid rgba(51, 65, 85, 0.5);
-        }
-        .content-card-inner {
-          position: relative;
-          z-index: 10;
-          padding: 1.25rem;
-        }
-        
-        /* Tag pill style */
-        .tag-pill {
-          display: inline-flex;
-          padding: 0.15rem 0.5rem;
-          font-size: 0.65rem;
-          font-weight: 500;
-          border-radius: 0.375rem;
-          background: linear-gradient(to bottom right, rgba(224, 231, 255, 0.6), rgba(224, 231, 255, 0.3));
-          color: rgb(67, 56, 202);
-          border: 1px solid rgba(224, 231, 255, 0.7);
-        }
-        .dark .tag-pill {
-          background: linear-gradient(to bottom right, rgba(49, 46, 129, 0.3), rgba(49, 46, 129, 0.1));
-          color: rgb(165, 180, 252);
-          border: 1px solid rgba(67, 56, 202, 0.3);
-        }
-        
-        /* Test case card styles */
-        .test-case-card {
-          border-radius: 0.75rem;
-          overflow: hidden;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-          background-color: white;
-        }
-        .dark .test-case-card {
-          background-color: rgb(15, 23, 42);
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-        }
-      `}} />
       {/* Header with NexPractice theming */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-900 shadow-sm md:px-6 md:py-3 relative overflow-hidden backdrop-blur-sm">
-        {/* Abstract background decoration */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none"></div>
-        <div className="absolute -top-24 -right-20 w-64 h-64 bg-gradient-to-br from-indigo-100/20 to-purple-100/10 dark:from-indigo-900/10 dark:to-purple-900/5 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-8 left-1/3 w-32 h-32 bg-gradient-to-tr from-blue-100/10 to-indigo-100/10 dark:from-blue-900/5 dark:to-indigo-900/5 rounded-full blur-3xl"></div>
-        
+      <header className="flex items-center justify-between px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-black dark:via-neutral-900 dark:to-black shadow-sm relative overflow-hidden backdrop-blur-sm z-30">
         {/* Left section: Logo and sidebar toggle */}
-        <div className="flex items-center gap-4 relative z-10">
-          {/* Sidebar toggle button */}
+        <div className="flex items-center gap-4 min-w-0 relative z-10">
           <button
-            className="mr-2 flex items-center justify-center rounded-lg h-9 w-9 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-30 shadow-sm transition-all duration-200 hover:scale-105"
+            className="mr-2 flex items-center justify-center rounded-lg h-9 w-9 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-black border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-neutral-800 text-indigo-700 dark:text-gray-200 shadow-sm transition-all duration-200 hover:scale-105"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open questions sidebar"
           >
             <List className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-2">
-            {/* Unique logo with 3D effect and pulse animation */}
+          <div className="flex items-center gap-2 min-w-0">
             <div className="relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-105 group">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-lg transform rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
-              <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-500 rounded-lg transform -rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
-              <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-white dark:bg-slate-800 rounded-lg shadow-inner overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-900 opacity-40"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-neutral-800 dark:to-neutral-900 rounded-lg transform rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
+              <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-neutral-700 dark:to-neutral-800 rounded-lg transform -rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
+              <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-white dark:bg-neutral-900 rounded-lg shadow-inner overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-neutral-900 dark:to-black opacity-40"></div>
                 <div className="relative">
-                  <Code className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <div className="absolute inset-0 bg-indigo-500/10 dark:bg-indigo-500/20 animate-pulse-slow rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </div>
+                  <Code className="w-4 h-4 text-indigo-600 dark:text-gray-200" />
+                  <div className="absolute inset-0 bg-indigo-500/10 dark:bg-gray-200/10 animate-pulse-slow rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </div>
             </div>
-            
-            {/* Distinctive typography with animated gradient line */}
-            <div className="group">
-              <h1 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-indigo-300 dark:via-purple-300 dark:to-pink-300">
-                NexPractice
-              </h1>
-              <div className="h-1 w-10 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full group-hover:animate-gradient-x"></div>
             </div>
+            <div className="group min-w-0">
+              <h1 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-blue-200 dark:via-gray-400 dark:to-blue-200 truncate">NexPractice</h1>
+              <div className="h-1 w-10 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 dark:from-blue-900 dark:via-gray-700 dark:to-blue-900 rounded-full group-hover:animate-gradient-x"></div>
           </div>
-
-          {/* Mobile Menu Button */}
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          </div>
         </div>
 
-        {/* Middle section with run and submit buttons */}
-        <div className="hidden md:flex flex-1 items-center justify-center gap-3 mx-4">
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-3">
+        {/* Center section: Run/Submit */}
+        <div className="hidden md:flex flex-1 items-center justify-center gap-3 mx-4 px-4 border-x border-indigo-100 dark:border-indigo-900/40 min-w-0">
           <Button
             size="sm"
             className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 min-w-28 relative overflow-hidden group transition-all duration-200 hover:shadow-md"
@@ -2920,7 +2122,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20"></div>
                 <span className="relative z-10 flex items-center">
                   <Play className="h-4 w-4 mr-1.5" />
-                  Run Code
+            Run Code
                 </span>
               </>
             )}
@@ -2952,107 +2154,35 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-200/80 dark:bg-indigo-700/40 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-600/40 transition-colors"></div>
                 <span className="relative z-10 flex items-center">
                   <Send className="h-4 w-4 mr-1.5" />
-                  Submit
+            Submit
                 </span>
               </>
             )}
           </Button>
-          </div>
         </div>
 
-        {/* Right section */}
-        <div className="flex items-center">
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-3 mr-4">
-            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-30 transition-colors gap-1">
+        {/* Right section: Actions/Profile */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="hidden md:flex items-center gap-2 mr-2">
+            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-colors gap-1">
               <Zap className="h-4 w-4 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70" />
               Random Challenge
             </Button>
-            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-30 transition-colors gap-1">
+            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-colors gap-1">
               <Sparkles className="h-4 w-4 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70" />
               Daily Challenge
             </Button>
-            <Button variant="ghost" size="icon" className="ml-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30" onClick={handleFullscreenToggle} aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
+            <Button variant="ghost" size="icon" className="ml-2 rounded-full hover:bg-indigo-100 dark:hover:bg-slate-800/60 focus:bg-indigo-200 dark:focus:bg-slate-700/80 border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors" onClick={handleFullscreenToggle} aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
               {isFullscreen ? (
-                <Minimize2 className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <Minimize2 className="h-5 w-5 text-indigo-700 dark:text-indigo-200" />
               ) : (
-                <Maximize2 className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <Maximize2 className="h-5 w-5 text-indigo-700 dark:text-indigo-200" />
               )}
             </Button>
-          </div>
-
-          {/* Mobile panel switcher */}
-          {isMobile && (
-            <div className="flex border border-indigo-200 dark:border-indigo-800/50 rounded-md overflow-hidden bg-white dark:bg-slate-800 shadow-sm ml-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`px-3 py-1.5 rounded-none ${
-                  activePanel === "problem" ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"
-                }`}
-                onClick={() => setActivePanel("problem")}
-              >
-                Problem
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`px-3 py-1.5 rounded-none ${
-                  activePanel === "code" ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"
-                }`}
-                onClick={() => setActivePanel("code")}
-              >
-                Code
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`px-3 py-1.5 rounded-none ${
-                  activePanel === "results" ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"
-                }`}
-                onClick={() => setActivePanel("results")}
-              >
-                Results
-              </Button>
-            </div>
-          )}
-
-          {!isMobile && (
-            <>
               {/* Theme Switcher */}
-              <Button
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setAppTheme(appTheme === "light" ? "dark" : "light")}
-                className="rounded-full h-8 w-8 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 ml-2"
-                aria-label="Toggle theme"
-              >
-                {appTheme === "dark" ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-amber-400"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-slate-700"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
-                )}
-              </Button>
-              
-              {/* Enhanced Profile Avatar with Dropdown */}
+            <ModeToggle />
+          </div>
+          {/* ...existing theme/profile popover... */}
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="flex items-center justify-center rounded-full overflow-hidden border-2 border-indigo-100 dark:border-indigo-800/50 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
@@ -3117,66 +2247,14 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </div>
                 </PopoverContent>
               </Popover>
-            </>
-          )}
         </div>
       </header>
-
-      {/* Remove these buttons from the mobile action buttons section too, as now they're in the header */}
-      {/* Mobile action buttons */}
-      {isMobile && (
-        <div className="flex justify-between items-center p-2 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-indigo-900/50">
-          <div className="flex items-center gap-1">
-            <Star className="h-5 w-5 text-amber-400" />
-            <span className="text-sm text-slate-700 dark:text-slate-300">Problem {problemNumber}</span>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white border-none shadow-sm relative overflow-hidden min-w-20"
-              onClick={runCode}
-              disabled={isRunning}
-            >
-              {isRunning ? (
-                <>
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
-                  <div className="relative z-10 flex items-center space-x-1">
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
-                    </span>
-                    <span className="text-xs font-medium text-white animate-pulse truncate max-w-24">
-                      {loadingPhrase || "Processing..."}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-              <Play className="h-4 w-4 mr-1" />
-              Run
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-              onClick={submitCode}
-              disabled={isSubmitting}
-            >
-              <Send className="h-4 w-4 mr-1" />
-              {isSubmitting ? "Submitting..." : "Submit"}
-            </Button>
-          </div>
-        </div>
-      )}
       
       {/* Main content with resizable panels */}
       <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* Left panel - Problem description */}
         <div
-          className={`h-full overflow-auto bg-white dark:bg-slate-900 ${
+          className={`h-full overflow-auto bg-white dark:bg-black ${
             isMobile ? (activePanel === "problem" ? "block w-full" : "hidden") : "border-r border-indigo-100 dark:border-indigo-900/50"
           }`}
           style={{ width: isMobile ? "100%" : `${leftPanelWidth}%` }}
@@ -3196,11 +2274,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             />
 
             {/* Problem content tabs with new gradient background */}
-            <Tabs defaultValue="description" className="mt-2 mb-5">
-              <TabsList className="grid grid-cols-4 bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-indigo-50/90 dark:from-indigo-900/30 dark:via-purple-900/25 dark:to-indigo-900/30 p-1.5 rounded-xl overflow-hidden backdrop-blur-sm border border-indigo-100/90 dark:border-indigo-900/40 shadow-sm">
+            <Tabs defaultValue="description" className="mt-2 mb-5" onValueChange={handleTabChange}>
+              <TabsList className="grid grid-cols-4 bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-indigo-50/90 dark:from-black dark:via-neutral-900 dark:to-black p-1.5 rounded-xl overflow-hidden backdrop-blur-sm border border-indigo-100/90 dark:border-indigo-900/40 shadow-sm">
                 <TabsTrigger
                   value="description"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3212,21 +2290,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </div>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="submissions"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
-                >
-                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
-                  </div>
-                  <div className="relative z-10 flex items-center">
-                    <BarChart2 className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
-                    <span className="font-medium">Submissions</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger
                   value="solution"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3238,8 +2303,21 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </div>
                 </TabsTrigger>
                 <TabsTrigger
+                  value="submissions"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                >
+                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
+                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
+                  </div>
+                  <div className="relative z-10 flex items-center">
+                    <BarChart2 className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
+                    <span className="font-medium">Submissions</span>
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger
                   value="discussion"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3254,21 +2332,29 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               
               <TabsContent value="description" className="mt-3 space-y-5 focus-visible:outline-none focus-visible:ring-0">
                 {/* Problem description with content-card styling */}
-                <div className="content-card">
-                  <div className="content-card-gradient"></div>
-                  <div className="content-card-inner relative pt-2">
-                    {/* Abstract background decorations */}
-                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-br from-indigo-100/30 to-purple-100/20 dark:from-indigo-700/10 dark:to-purple-700/5 rounded-full blur-3xl opacity-70"></div>
-                    <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-gradient-to-tr from-blue-100/20 to-indigo-100/20 dark:from-blue-700/5 dark:to-indigo-700/10 rounded-full blur-3xl opacity-60"></div>
-                    
-                    {/* Problem description content with improved typography */}
-                    <div className="relative z-10 problem-description prose">
-                      <div 
-                        className="description-content prose prose-indigo dark:prose-invert max-w-none text-slate-700 dark:text-slate-300" 
-                        dangerouslySetInnerHTML={{ __html: description }} 
-                      />
-                    </div>
-                  </div>
+                <div style={{ 
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  padding: '0',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(226, 232, 240, 0.8)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
+                  position: 'relative',
+                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                }} className="dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
+                  {/* Premium top accent bar */}
+                  <div style={{ 
+                    height: '3px', 
+                    width: '100%', 
+                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
+                    opacity: 0.8
+                  }}></div>
+                  <article className="problem-description prose prose-indigo dark:prose-invert max-w-none px-7 py-5" style={{ borderRadius: '0' }}>
+                    <div
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description) }}
+                    />
+                  </article>
                 </div>
                 
                 {/* Example test cases with test-case-card styling */}
@@ -3280,10 +2366,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     {/* Example header */}
                     <div className="px-4 py-3 flex items-center gap-2 bg-gradient-to-r from-indigo-50/90 to-purple-50/70 dark:from-indigo-900/30 dark:to-purple-900/20 border-b border-indigo-100 dark:border-indigo-800/40">
                       <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold shadow-sm">
-                        {idx + 1}
-                      </div>
+                          {idx + 1}
+                        </div>
                       <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 tracking-tight">Example {idx + 1}</h3>
-                    </div>
+                      </div>
                     
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* INPUT section with enhanced styling */}
@@ -3337,10 +2423,26 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 ))}
               </TabsContent>
               
-              <TabsContent value="solution" className="mt-3 focus-visible:outline-none focus-visible:ring-0">
-                <div className="content-card group hover:translate-y-[-2px] transition-all duration-300">
-                  <div className="content-card-gradient opacity-30"></div>
-                  <div className="content-card-inner flex flex-col items-center justify-center py-12">
+              <TabsContent value="solution" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
+                <div style={{ 
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  padding: '0',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(226, 232, 240, 0.8)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
+                  position: 'relative',
+                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                }} className="group hover:translate-y-[-2px] dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
+                  {/* Premium top accent bar */}
+                  <div style={{ 
+                    height: '3px', 
+                    width: '100%', 
+                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
+                    opacity: 0.8
+                  }}></div>
+                  <div className="flex flex-col items-center justify-center py-12">
                     <div className="relative w-16 h-16 mb-4">
                       <div className="absolute inset-0 rounded-full bg-indigo-100 dark:bg-indigo-900/30 animate-pulse"></div>
                       <div className="absolute inset-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 opacity-20 blur-lg animate-pulse delay-75"></div>
@@ -3374,48 +2476,557 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 </div>
               </TabsContent>
               
-              <TabsContent value="submissions" className="mt-3 focus-visible:outline-none focus-visible:ring-0">
-                <div className="content-card">
-                  <div className="content-card-gradient"></div>
-                  <div className="content-card-inner relative pt-2">
-                    {/* Abstract background decorations */}
-                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-br from-indigo-100/30 to-purple-100/20 dark:from-indigo-700/10 dark:to-purple-700/5 rounded-full blur-3xl opacity-70"></div>
-                    <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-gradient-to-tr from-blue-100/20 to-indigo-100/20 dark:from-blue-700/5 dark:to-indigo-700/10 rounded-full blur-3xl opacity-60"></div>
-                    
-                    {/* Submissions content */}
-                    <div className="relative z-10 space-y-4">
-                      <SubmissionsTabContent 
-                        problemId={codingQuestion.questionId} 
-                        submitCode={submitCode} 
-                        isSubmitting={isSubmitting} 
-                        query={GET_USER_SUBMISSIONS}
-                        onLoadSubmission={(code) => {
-                          setCode(code);
-                          toast.success("Submission code loaded to editor");
-                        }}
-                        session={session}
-                      />
+              <TabsContent value="submissions" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
+                <div style={{ 
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  padding: '0',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(226, 232, 240, 0.8)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
+                  position: 'relative',
+                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                }} className="dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
+                  {/* Premium top accent bar */}
+                  <div style={{ 
+                    height: '3px', 
+                    width: '100%', 
+                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
+                    opacity: 0.8
+                  }}></div>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center">
+                        <BarChart2 className="h-5 w-5 mr-2 text-indigo-500 dark:text-indigo-400" />
+                        Your Submissions
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 text-xs"
+                          disabled={submissionsLoading}
+                        >
+                          <Filter className="h-3 w-3 mr-1" />
+                          Filter
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="h-8 text-xs bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+                          onClick={() => fetchSubmissions(currentPage)}
+                          disabled={submissionsLoading}
+                          aria-label="Refresh submissions"
+                        >
+                          <RefreshCw className={`h-3 w-3 mr-1 ${submissionsLoading ? 'animate-spin' : ''}`} />
+                          {submissionsLoading ? 'Loading...' : 'Refresh'}
+                        </Button>
+                      </div>
                     </div>
+                    
+                    {submissionsError && (
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg p-3 mb-4 text-red-600 dark:text-red-400 text-sm flex items-start">
+                        <AlertTriangle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                        <p>{submissionsError}</p>
+                      </div>
+                    )}
+                    
+                    {submissions.length === 0 && !submissionsLoading && !submissionsError ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                          <BarChart2 className="h-8 w-8 text-slate-400 dark:text-slate-600" />
+                        </div>
+                        <h4 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">No submissions found</h4>
+                        <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-6">
+                          You haven't submitted any solutions to this problem yet. Write some code and submit it to see your results here.
+                        </p>
+                        <Button
+                          onClick={() => setActivePanel("code")}
+                          className="gap-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+                        >
+                          <Code className="h-4 w-4 mr-1" />
+                          Start Coding
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {selectedSubmission ? (
+                          // Detail view for a selected submission
+                          <div className="bg-white dark:bg-black rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                            {/* Header with back button */}
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-50 via-slate-50 to-indigo-50 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-800 border-b border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex items-center text-slate-700 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50 transition-all duration-200 gap-1"
+                                onClick={closeSubmissionDetails}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                                <span className="font-medium">Back to Submissions</span>
+                              </Button>
+                              <div className="flex items-center space-x-2">
+                                <div className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-full text-xs font-medium text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
+                                  <Clock className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+                                  {formatSubmissionDate(selectedSubmission.submittedAt)}
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-8 bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200"
+                                  onClick={() => loadSubmissionCode(selectedSubmission)}
+                                >
+                                  <Copy className="h-3.5 w-3.5 mr-1.5" />
+                                  Load Code
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Top status banner based on submission status */}
+                            <div className={`w-full px-5 py-2.5 
+                              ${selectedSubmission.status === 'ACCEPTED' 
+                                ? 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/30 border-b border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-300' 
+                                : selectedSubmission.status === 'FAILED' || selectedSubmission.status === 'WRONG_ANSWER'
+                                ? 'bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-900/30 border-b border-red-200 dark:border-red-900/30 text-red-800 dark:text-red-300'
+                                : 'bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/30 border-b border-orange-200 dark:border-orange-900/30 text-orange-800 dark:text-orange-300'
+                              } text-sm font-medium flex items-center justify-between`}>
+                              <div className="flex items-center">
+                                {selectedSubmission.status === 'ACCEPTED' ? (
+                                  <CheckCircle className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
+                                ) : selectedSubmission.status === 'FAILED' || selectedSubmission.status === 'WRONG_ANSWER' ? (
+                                  <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-400" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
+                                )}
+                                <span>
+                                  {selectedSubmission.status === 'ACCEPTED' 
+                                    ? 'Solution Accepted' 
+                                    : selectedSubmission.status === 'FAILED' || selectedSubmission.status === 'WRONG_ANSWER'
+                                    ? 'Solution Failed'
+                                    : selectedSubmission.status || 'Submission Status'}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-xs">
+                                {selectedSubmission.testcasesPassed !== undefined && selectedSubmission.totalTestcases !== undefined && (
+                                  <div className="flex items-center">
+                                    <span className="mr-2">Test Cases:</span>
+                                    <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-800/60 rounded-full px-2 py-0.5 backdrop-blur-sm shadow-sm">
+                                      <span className={selectedSubmission.status === 'ACCEPTED' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                                        {selectedSubmission.testcasesPassed}
+                                      </span>
+                                      <span>/</span>
+                                      <span>{selectedSubmission.totalTestcases}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Submission content */}
+                            <div className="p-5">
+                              {/* Performance metrics */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+                                  <div className="absolute inset-0 bg-grid-pattern opacity-[0.015] pointer-events-none"></div>
+                                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-xl"></div>
+
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
+                                      <Clock className="h-4 w-4 mr-1.5 text-indigo-500 dark:text-indigo-400" />
+                                      Runtime
+                                    </h3>
+                                    <div className="text-xs px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md flex items-center">
+                                      <Zap className="h-3 w-3 mr-0.5 text-amber-500 dark:text-amber-400" />
+                                      Performance
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300 mb-1 flex items-baseline">
+                                    {selectedSubmission.runtime || 'N/A'}
+                                    <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">seconds</span>
+                                  </div>
+
+                                  {selectedSubmission.executionTimePercentile && (
+                                    <div className="flex items-center mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                      <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                        <div 
+                                          className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 dark:from-emerald-400 dark:to-emerald-500"
+                                          style={{ width: `${selectedSubmission.executionTimePercentile}%` }}
+                                        ></div>
+                                      </div>
+                                      <span className="ml-2">
+                                        Faster than {selectedSubmission.executionTimePercentile}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+                                  <div className="absolute inset-0 bg-grid-pattern opacity-[0.015] pointer-events-none"></div>
+                                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-xl"></div>
+
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
+                                      <Database className="h-4 w-4 mr-1.5 text-purple-500 dark:text-purple-400" />
+                                      Memory
+                                    </h3>
+                                    <div className="text-xs px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-md flex items-center">
+                                      <Server className="h-3 w-3 mr-0.5 text-purple-500 dark:text-purple-400" />
+                                      Usage
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="text-3xl font-bold text-purple-700 dark:text-purple-300 mb-1 flex items-baseline">
+                                    {selectedSubmission.memory 
+                                      ? (Number(selectedSubmission.memory) > 1024 
+                                          ? `${(Number(selectedSubmission.memory) / 1024).toFixed(1)}` 
+                                          : selectedSubmission.memory)
+                                      : 'N/A'}
+                                    <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">
+                                      {selectedSubmission.memory 
+                                        ? (Number(selectedSubmission.memory) > 1024 ? 'MB' : 'KB')
+                                        : ''}
+                                    </span>
+                                  </div>
+
+                                  {selectedSubmission.memoryPercentile && (
+                                    <div className="flex items-center mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                      <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                        <div 
+                                          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400 dark:from-purple-400 dark:to-purple-500"
+                                          style={{ width: `${selectedSubmission.memoryPercentile}%` }}
+                                        ></div>
+                                      </div>
+                                      <span className="ml-2">
+                                        Less than {selectedSubmission.memoryPercentile}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+                                  <div className="absolute inset-0 bg-grid-pattern opacity-[0.015] pointer-events-none"></div>
+                                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-xl"></div>
+
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
+                                      <Code2 className="h-4 w-4 mr-1.5 text-blue-500 dark:text-blue-400" />
+                                      Language
+                                    </h3>
+                                  </div>
+                                  
+                                  <div className="flex flex-col">
+                                    <div className="text-xl font-bold text-blue-700 dark:text-blue-300 flex items-center">
+                                      <div className={`w-2.5 h-2.5 rounded-full ${getLanguageColor(parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)} mr-2`}></div>
+                                      {parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name}
+                                    </div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 ml-4.5">
+                                      {parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").version}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between mt-3 text-xs">
+                                    <div className="text-slate-500 dark:text-slate-400 flex items-center">
+                                      <Calendar className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
+                                      {formatSubmissionDate(selectedSubmission.submittedAt)}
+                                    </div>
+                                    <div className="text-slate-500 dark:text-slate-400 flex items-center">
+                                      <Hash className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
+                                      {selectedSubmission.id.substring(0, 8)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Code editor */}
+                              <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
+                                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                                  <div className="flex items-center">
+                                    <div className="flex items-center space-x-1.5 pl-2">
+                                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                    </div>
+                                    <div className="flex-1 flex justify-center">
+                                      <div className="px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-200/50 dark:bg-slate-700/50 rounded-full flex items-center border border-slate-300/30 dark:border-slate-600/30">
+                                        <FileCode className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-400" />
+                                        Submitted Code
+                                      </div>
+                                    </div>
+                                    <div className="pr-2 flex items-center">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 w-7 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                                        onClick={() => {
+                                          if (selectedSubmission?.code) {
+                                            navigator.clipboard.writeText(selectedSubmission.code);
+                                            toast({
+                                              title: "Code copied",
+                                              description: "The code has been copied to your clipboard",
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <Copy className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="relative">
+                                  <div className="h-[500px] w-full border-0 overflow-hidden">
+                                    <Editor
+                                      height="500px"
+                                      defaultLanguage={getMonacoLanguage(parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)}
+                                      defaultValue={selectedSubmission.code || '// No code available'}
+                                      theme={appTheme === 'dark' ? 'vs-dark' : 'light'}
+                                      options={{
+                                        readOnly: true,
+                                        minimap: { enabled: true },
+                                        scrollBeyondLastLine: false,
+                                        fontSize: fontSize,
+                                        tabSize: tabSize,
+                                        wordWrap: 'on',
+                                        lineNumbers: 'on',
+                                        fontFamily: 'JetBrains Mono, Consolas, monospace',
+                                        automaticLayout: true,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="absolute top-2 right-2 z-10 flex gap-1.5">
+                                    <div className="px-2.5 py-1 bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-sm border border-slate-200/50 dark:border-slate-600/50">
+                                      <div className={`w-2 h-2 rounded-full ${getLanguageColor(parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)}`}></div>
+                                      {parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          // List view of all submissions
+                          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 mb-4">
+                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                              <thead className="bg-slate-50 dark:bg-slate-800">
+                                <tr>
+                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Status
+                                  </th>
+                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Runtime
+                                  </th>
+                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Memory
+                                  </th>
+                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Language
+                                  </th>
+                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Submitted
+                                  </th>
+                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    Actions
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className={`bg-white dark:bg-black divide-y divide-slate-200 dark:divide-slate-700 ${submissionsLoading ? 'opacity-60' : ''}`}>
+                                {submissionsLoading && submissions.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                                      <div className="flex flex-col items-center">
+                                        <Loader2 className="h-8 w-8 animate-spin text-indigo-500 dark:text-indigo-400 mb-3" />
+                                        <p>Loading submissions...</p>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  submissions.map((submission) => (
+                                    <tr 
+                                      key={submission.id} 
+                                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                                      onClick={() => viewSubmissionDetails(submission)}
+                                    >
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                          {renderSubmissionStatus(submission)}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 dark:text-slate-300">
+                                        <div className="flex items-center">
+                                          <Clock className="h-3.5 w-3.5 mr-1 text-indigo-500 dark:text-indigo-400" />
+                                          <span className="mr-1 font-medium">{submission.runtime ? `${submission.runtime}s` : 'N/A'}</span>
+                                          {submission.executionTimePercentile && (
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                              (faster than {submission.executionTimePercentile}%)
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 dark:text-slate-300">
+                                        <div className="flex items-center">
+                                          <Database className="h-3.5 w-3.5 mr-1 text-indigo-500 dark:text-indigo-400" />
+                                          <span className="mr-1 font-medium">
+                                            {submission.memory 
+                                              ? (Number(submission.memory) > 1024 
+                                                  ? `${(Number(submission.memory) / 1024).toFixed(1)}MB` 
+                                                  : `${Number(submission.memory)}KB`)
+                                              : 'N/A'}
+                                          </span>
+                                          {submission.memoryPercentile && (
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                              (less than {submission.memoryPercentile}%)
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        <div className="text-sm text-slate-700 dark:text-slate-300 flex items-center">
+                                          <div className={`w-2 h-2 rounded-full ${getLanguageColor(parseLanguageName(JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)} mr-1.5`}></div>
+                                          {JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES] ? (
+                                            <div className="flex flex-col">
+                                              <span className="font-medium">
+                                                {parseLanguageName(JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES]).name}
+                                              </span>
+                                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                {parseLanguageName(JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES]).version}
+                                              </span>
+                                            </div>
+                                          ) : "Unknown"}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                                        {formatSubmissionDate(submission.submittedAt)}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                                        <div className="flex space-x-2">
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-7 w-7 rounded-full"
+                                            onClick={(e) => loadSubmissionCode(submission, e)}
+                                          >
+                                            <Copy className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                                          </Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        
+                        {/* Pagination - only show when in list view */}
+                        {!selectedSubmission && totalPages > 1 && (
+                          <div className="flex items-center justify-center gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => fetchSubmissions(1)}
+                              disabled={currentPage === 1 || submissionsLoading}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                              <ChevronLeft className="h-4 w-4 -ml-2" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => fetchSubmissions(currentPage - 1)}
+                              disabled={currentPage === 1 || submissionsLoading}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            
+                            <div className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                              Page {currentPage} of {totalPages}
+                            </div>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => fetchSubmissions(currentPage + 1)}
+                              disabled={currentPage === totalPages || submissionsLoading}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => fetchSubmissions(totalPages)}
+                              disabled={currentPage === totalPages || submissionsLoading}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                              <ChevronRight className="h-4 w-4 -ml-2" />
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {/* Stats Summary - only show in list view */}
+                        {!selectedSubmission && submissions.length > 0 && (
+                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 text-sm text-slate-700 dark:text-slate-300 flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center">
+                                <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                                <span>Accepted: {submissions.filter(s => s.status === 'ACCEPTED').length}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+                                <span>Failed: {submissions.filter(s => s.status !== 'ACCEPTED').length}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+                                <span>Total: {submissions.length}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
+                              <Info className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-400" />
+                              Submissions are scored based on runtime and memory usage
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </TabsContent>
               
               <TabsContent value="discussion" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-                <div className="content-card group hover:translate-y-[-2px] transition-all duration-300">
-                  <div className="content-card-gradient opacity-30"></div>
-                  <div className="content-card-inner flex flex-col items-center justify-center py-12">
-                    <div className="relative w-16 h-16 mb-4">
+                <div style={{ 
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  padding: '0',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(226, 232, 240, 0.8)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
+                  position: 'relative',
+                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                }} className="dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
+                  {/* Premium top accent bar */}
+                  <div style={{ 
+                    height: '3px', 
+                    width: '100%', 
+                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
+                    opacity: 0.8
+                  }}></div>
+                  <div className="p-5">
+                    <div className="relative w-16 h-16 mb-4 mx-auto">
                       <div className="absolute inset-0 rounded-full bg-purple-100 dark:bg-purple-900/30 animate-pulse"></div>
                       <div className="absolute inset-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 opacity-20 blur-lg animate-pulse delay-100"></div>
                       <div className="absolute inset-0 rounded-full flex items-center justify-center">
                         <MessageSquare className="h-10 w-10 relative z-10 text-purple-500 dark:text-purple-400 animate-float" />
                       </div>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Join the Discussion</h3>
-                    <p className="text-slate-600 dark:text-slate-400 text-center max-w-sm">
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2 text-center">Join the Discussion</h3>
+                    <p className="text-slate-600 dark:text-slate-400 text-center max-w-sm mx-auto">
                       Connect with other developers, share your approach, and learn alternative solutions.
                     </p>
-                    <div className="mt-6">
+                    <div className="mt-6 flex justify-center">
                       <Button 
                         className="gap-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md shadow-purple-500/20"
                       >
@@ -3423,7 +3034,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         View Discussion
                       </Button>
                     </div>
-                    <div className="mt-4 flex items-center text-xs text-slate-500 dark:text-slate-400 gap-1">
+                    <div className="mt-4 flex items-center justify-center text-xs text-slate-500 dark:text-slate-400 gap-1">
                       <Users className="h-3 w-3 mr-1" />
                       <span>328 developers participating</span>
                     </div>
@@ -3467,7 +3078,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               transition: "all 0.3s ease-in-out" // Add smooth transition
             }}
           >
-            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-indigo-900/50 flex-shrink-0">
+            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50 flex-shrink-0">
               <div className="flex items-center">
                 <div className="flex items-center mr-4">
                   <span className="text-base font-semibold text-indigo-700 dark:text-indigo-300 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300">
@@ -3502,7 +3113,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="start" className="w-[680px] p-0 max-h-[600px] overflow-hidden flex flex-col border-indigo-100 dark:border-indigo-900/50 shadow-lg rounded-xl">
-                    <div className="language-dropdown-header sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-indigo-900/50 p-4">
+                    <div className="language-dropdown-header sticky top-0 z-30 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className="h-5 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
@@ -3727,33 +3338,129 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     <PopoverTrigger asChild>
                       <span><Settings className="h-4 w-4 cursor-pointer" /></span>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-64 p-3">
-                      <div className="mb-2 font-semibold text-sm text-slate-700 dark:text-slate-200">Editor Settings</div>
-                      <div className="mb-3">
-                        <label className="block text-xs font-medium mb-1">Theme</label>
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditorTheme("vs-dark")}
-                            className={`px-2 py-1 rounded text-xs font-semibold border ${editorTheme === "vs-dark" ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"}`}>Dark</button>
-                          <button onClick={() => setEditorTheme("light")}
-                            className={`px-2 py-1 rounded text-xs font-semibold border ${editorTheme === "light" ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"}`}>Light</button>
+                    <PopoverContent align="end" className="w-72 p-0 border border-indigo-200/80 dark:border-indigo-800/50 shadow-xl rounded-xl overflow-hidden">
+                      {/* Gradient purple header */}
+                      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 dark:from-indigo-600 dark:via-purple-600 dark:to-indigo-700 p-4 relative flex items-center justify-between">
+                        <div className="absolute top-0 left-0 right-0 h-px bg-white/20"></div>
+                        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:16px_16px]"></div>
+                         <h3 className="text-sm font-medium text-purple-900 dark:text-purple-100 flex items-center">
+                          <Settings className="h-4 w-4 mr-2 text-white/80" />
+                          <span className="text-white font-semibold">Editor Settings</span>
+                         </h3>
+                        <div className="h-5 w-5 rounded-full bg-white/10 flex items-center justify-center">
+                          <Code className="h-3 w-3 text-white/70" />
                         </div>
                       </div>
-                      <div className="mb-3">
-                        <label className="block text-xs font-medium mb-1">Font Size</label>
-                        <input type="range" min="12" max="24" value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-full" />
-                        <div className="text-xs text-right text-slate-500 mt-1">{fontSize}px</div>
+                       
+                      <div className="p-4 bg-gradient-to-b from-white to-indigo-50/50 dark:from-slate-900 dark:to-purple-900/20 border-t border-indigo-100 dark:border-indigo-900/30">
+                         <div className="mb-4">
+                          <label className="block text-xs font-medium mb-2 text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
+                             <span className="flex items-center">
+                              <MonitorSmartphone className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-300" />
+                              Theme
+                             </span>
+                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{editorTheme === "vs-dark" ? "Dark" : "Light"}</span>
+                           </label>
+                        <div className="flex gap-2">
+                             <button 
+                               onClick={() => setEditorTheme("vs-dark")}
+                               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 flex-1 ${
+                                 editorTheme === "vs-dark" 
+                                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm" 
+                                 : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40"
+                               }`}>
+                               <span className="flex items-center justify-center">
+                                 <Moon className="h-3 w-3 mr-1.5" />
+                                 Dark
+                               </span>
+                             </button>
+                             <button 
+                               onClick={() => setEditorTheme("light")}
+                               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 flex-1 ${
+                                 editorTheme === "light" 
+                                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm" 
+                                 : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40"
+                               }`}>
+                               <span className="flex items-center justify-center">
+                                 <Sun className="h-3 w-3 mr-1.5" />
+                                 Light
+                               </span>
+                             </button>
+                        </div>
                       </div>
-                      <div className="mb-3">
-                        <label className="block text-xs font-medium mb-1">Tab Size</label>
-                        <input type="range" min="2" max="8" value={tabSize} onChange={e => setTabSize(Number(e.target.value))} className="w-full" />
-                        <div className="text-xs text-right text-slate-500 mt-1">{tabSize} spaces</div>
+                         <div className="mb-4">
+                          <label className="block text-xs font-medium mb-2 text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
+                             <span className="flex items-center">
+                              <Type className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-300" />
+                              Font Size
+                             </span>
+                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{fontSize}px</span>
+                           </label>
+                           <div className="relative mt-2">
+                            <div className="h-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full w-full overflow-hidden">
+                               <div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-400 dark:to-purple-400"
+                                style={{ width: `${((fontSize - 12) / 12) * 100}%` }}
+                              ></div>
                       </div>
+                             <input 
+                               type="range" 
+                               min="12" 
+                               max="24" 
+                               value={fontSize} 
+                               onChange={e => setFontSize(Number(e.target.value))} 
+                               className="absolute inset-0 w-full h-1.5 opacity-0 cursor-pointer" 
+                             />
+                      </div>
+                           <div className="flex justify-between mt-1.5">
+                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">12px</span>
+                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">24px</span>
+                           </div>
+                         </div>
+                         <div className="mb-4">
+                          <label className="block text-xs font-medium mb-2 text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
+                             <span className="flex items-center">
+                              <Indent className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-300" />
+                              Tab Size
+                             </span>
+                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{tabSize} spaces</span>
+                           </label>
+                           <div className="relative mt-2">
+                            <div className="h-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full w-full overflow-hidden">
+                               <div 
+                                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 dark:from-purple-400 dark:to-pink-400" 
+                                style={{ width: `${((tabSize - 2) / 6) * 100}%` }}
+                              ></div>
+                             </div>
+                             <input 
+                               type="range" 
+                               min="2" 
+                               max="8" 
+                               value={tabSize} 
+                               onChange={e => setTabSize(Number(e.target.value))} 
+                               className="absolute inset-0 w-full h-1.5 opacity-0 cursor-pointer" 
+                             />
+                           </div>
+                           <div className="flex justify-between mt-1.5">
+                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">2 spaces</span>
+                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">8 spaces</span>
+                           </div>
+                         </div>
+                         
+                         {/* Footer with reset button */}
+                         <div className="pt-3 mt-3 border-t border-indigo-200 dark:border-indigo-800/50">
                       <button
                         onClick={() => setCode(preloadCode)}
-                        className="w-full mt-2 py-1.5 rounded bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold text-xs hover:from-indigo-600 hover:to-purple-600 transition"
+                             className="w-full py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white font-medium text-xs hover:from-indigo-600 hover:via-purple-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20 relative overflow-hidden group"
                       >
+                             <span className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.2)_20%,rgba(255,255,255,0)_60%)] translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
+                             <span className="relative flex items-center justify-center">
+                               <RefreshCw className="h-3 w-3 mr-1.5" />
                         Reset Code
+                             </span>
                       </button>
+                         </div>
+                       </div>
                     </PopoverContent>
                   </Popover>
                 </Button>
@@ -3808,7 +3515,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               transition: "all 0.3s ease-in-out" // Add smooth transition
             }}
           >
-            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-indigo-900/50">
+            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50">
               <div className="flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                 <span className="font-medium text-slate-700 dark:text-slate-300">Results</span>
@@ -3841,7 +3548,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 <TabsList className="bg-slate-100 dark:bg-slate-800/70 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex">
                   <TabsTrigger
                     value="sample"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3851,7 +3558,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </TabsTrigger>
                   <TabsTrigger
                     value="hidden"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3861,7 +3568,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </TabsTrigger>
                   <TabsTrigger
                     value="custom"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3882,7 +3589,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       </div>
                       
                       {/* Test cases skeletons */}
-                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                      <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
                         {/* Header skeleton */}
                         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/70 dark:to-slate-800/50 flex justify-between">
                           <div className="flex items-center gap-2">
@@ -3976,7 +3683,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             <TabsTrigger
                               key={`sample-trigger-${result.id || idx}`}
                               value={`sample-testcase-${idx}`}
-                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
                             >
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3998,7 +3705,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         
                         {sampleTestResults.map((result, idx) => (
                           <TabsContent key={`sample-content-${result.id || idx}`} value={`sample-testcase-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                            <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
                               <div className={`px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between
                                 ${result.isCorrect 
                                   ? 'bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10' 
@@ -4065,7 +3772,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                       )}
                                     Your Output
                                   </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-30">
                                       {formatTestCase(result.actualOutput)}
                                   </div>
                                 </div>
@@ -4078,7 +3785,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                       <AlertTriangle className="h-3 w-3 mr-1.5" />
                                       Errors/Warnings
                               </div>
-                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-30">
                                       {result.compileOutput && (
                                         <div className="mb-2">
                                           <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Compile Output:</div>
@@ -4113,7 +3820,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       
                       {/* Performance summary */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
-                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                      <div className="bg-white dark:bg-black/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
                         <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-2">
                             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                         </div>
@@ -4122,7 +3829,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             {sampleTestResults[0]?.executionTime || 'N/A'}
                           </div>
                       </div>
-                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                      <div className="bg-white dark:bg-black/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
                         <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
                           <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                         </div>
@@ -4131,7 +3838,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             {sampleTestResults.filter(r => r.isCorrect).length}/{sampleTestResults.length} Passed
                           </div>
                       </div>
-                      <div className="bg-white dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                      <div className="bg-white dark:bg-black/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
                         <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-2">
                             <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                         </div>
@@ -4162,7 +3869,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             <TabsTrigger
                               key={`trigger-${tc.id}`}
                               value={`testcase-${idx}`}
-                              className="flex-1 rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-slate-900/90 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                              className="flex-1 rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
                             >
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -4181,7 +3888,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         
                         {examples.map((tc: {id: string, input: string, output: string}, idx: number) => (
                           <TabsContent key={`content-${tc.id}`} value={`testcase-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                  <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                  <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
                               <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10 px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <div className="w-5 h-5 rounded-full flex items-center justify-center bg-indigo-500 text-white text-xs font-medium">
