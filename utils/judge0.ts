@@ -207,8 +207,8 @@ async function localFallbackExecution(
   return results
 }
 
-// New batch execution function that uses the Judge0 batch API
-export async function runWithJudge0Batch({
+// Existing function with sequential execution - renamed for clarity
+export async function runWithJudge0Sequential({
   sourceCode,
   languageId,
   testCases,
@@ -237,15 +237,15 @@ export async function runWithJudge0Batch({
   }
 
   // Set reasonable limits for Judge0
-  const wallTimeLimit = Math.min(executionSettings.wall_time_limit || 20, 20); // Max 20 seconds allowed
-  const cpuTimeLimit = Math.min(executionSettings.cpu_time_limit || 10, 15);  // Max 15 seconds
-  const compTimeLimit = Math.min(executionSettings.compilation_time_limit || 20, 20); // Max 20 seconds
+  const wallTimeLimit = Math.min(executionSettings.wall_time_limit || 5, 5); // Max 20 seconds allowed
+  const cpuTimeLimit = Math.min(executionSettings.cpu_time_limit || 2, 2);  // Max 15 seconds
+  const compTimeLimit = Math.min(executionSettings.compilation_time_limit || 5, 5); // Max 20 seconds
 
   // Log the settings we're using
   console.log(`Using Judge0 settings - wallTimeLimit: ${wallTimeLimit}s, cpuTimeLimit: ${cpuTimeLimit}s, compTimeLimit: ${compTimeLimit}s`);
 
-  // Batch processing works best with small batches of 5 test cases max
-  const maxBatchSize = 5;
+  // Batch processing works best with small batches of 8 test cases max
+  const maxBatchSize = 8;
   const batches = [];
   
   for (let i = 0; i < testCases.length; i += maxBatchSize) {
@@ -566,81 +566,47 @@ export async function runWithJudge0Batch({
       console.error(`Error processing batch ${batchIndex + 1}:`, error);
       
       // Fall back to sequential for this batch
-      console.log(`Error in batch ${batchIndex + 1}, falling back to sequential execution`);
-      
-      try {
-        const batchResults = await runWithJudge0Sequential({
-          sourceCode, 
-          languageId, 
-          testCases: batchTestCases,
-          progressCallback: undefined,
-          executionSettings: {
-            ...executionSettings,
-            wall_time_limit: wallTimeLimit,
-            cpu_time_limit: cpuTimeLimit,
-            compilation_time_limit: compTimeLimit
-          }
-        });
-        
-        // Copy results to the main results array
-        batchResults.forEach((result, idx) => {
-          const globalIdx = startIdx + idx;
-          results[globalIdx] = result;
-          
-          // Check if this test case failed
-          if (result.status.id !== 3 || result.verdict !== "Accepted") {
-            hasFailedTestCase = true;
-          }
-        });
-        
-        // Update completed count and progress
-        completedCount = results.filter(r => r.verdict !== "In Queue").length;
-        if (progressCallback) {
-          progressCallback(results, completedCount);
+      console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
+      const batchResults = await runWithJudge0Sequential({
+        sourceCode,
+        languageId,
+        testCases: batchTestCases,
+        progressCallback: undefined,
+        executionSettings: {
+          ...executionSettings,
+          wall_time_limit: wallTimeLimit,
+          cpu_time_limit: cpuTimeLimit,
+          compilation_time_limit: compTimeLimit
         }
-      } catch (seqError) {
-        console.error(`Sequential fallback also failed for batch ${batchIndex + 1}:`, seqError);
+      });
+      
+      // Copy results to the main results array
+      batchResults.forEach((result, idx) => {
+        const globalIdx = startIdx + idx;
+        results[globalIdx] = result;
         
-        // Mark all test cases in this batch as failed
-        batchTestCases.forEach((testCase, idx) => {
-          const globalIdx = startIdx + idx;
-          results[globalIdx] = {
-            input: testCase.input,
-            expected: testCase.expectedOutput,
-            output: null,
-            stderr: `Processing failed: ${seqError}`,
-            compile_output: null,
-            status: { id: 13, description: "Runtime Error" },
-            verdict: "Processing Failed",
-          };
-          
-          // Set the failure flag
+        // Check if this test case failed
+        if (result.status.id !== 3 || 
+            (typeof result.output === 'string' && result.output.trim() !== testCases[startIdx + idx].expectedOutput.trim())) {
           hasFailedTestCase = true;
-        });
+        }
+      });
+      
+      // Update completed count
+      completedCount += batchTestCases.length;
+      
+      // Call progress callback
+      if (progressCallback) {
+        progressCallback(results, completedCount);
       }
     }
   }
-
-  // Mark any remaining "In Queue" test cases as timeout
-  results.forEach((result, index) => {
-    if (result.verdict === "In Queue") {
-      results[index] = {
-        input: testCases[index].input,
-        expected: testCases[index].expectedOutput,
-        output: null,
-        stderr: "Execution timed out",
-        compile_output: null,
-        status: { id: 11, description: "Time Limit Exceeded" },
-        verdict: "Time Limit Exceeded",
-      };
-    }
-  });
-
-  return results;
+  
+  return results
 }
 
-// Existing function with sequential execution - renamed for clarity
-export async function runWithJudge0Sequential({
+// New batch execution function that uses the Judge0 batch API
+export async function runWithJudge0Batch({
   sourceCode,
   languageId,
   testCases,
@@ -662,217 +628,382 @@ export async function runWithJudge0Sequential({
     max_processes_and_or_threads?: number;
   }
 }): Promise<Judge0Result[]> {
-  // Check for empty code submission or just comments
-  const trimmedCode = sourceCode.trim();
-  
-  if (!trimmedCode) {
-    return testCases.map(tc => ({
-      input: tc.input,
-      expected: tc.expectedOutput,
-      output: null,
-      stderr: "Empty code submission",
-      compile_output: null,
-      status: { id: 13, description: "Runtime Error" },
-      verdict: "Empty Code",
-      isCorrect: false,
-      isSkipped: false
-    }));
-  }
-  
-  const commentOnlyRegex = /^(\s*(\/\/.*|\/\*[\s\S]*?\*\/|#.*)\s*)*$/;
-  if (commentOnlyRegex.test(trimmedCode)) {
-    return testCases.map(tc => ({
-      input: tc.input,
-      expected: tc.expectedOutput,
-      output: null,
-      stderr: "Your code only contains comments",
-      compile_output: null,
-      status: { id: 13, description: "Runtime Error" },
-      verdict: "Comments Only",
-      isCorrect: false,
-      isSkipped: false
-    }));
-  }
-  
   // First check if we need to update the language ID
   const updatedLanguageId = getUpdatedLanguageId(languageId);
   if (updatedLanguageId !== languageId) {
     languageId = updatedLanguageId;
   }
+
+  // Set reasonable limits for Judge0
+  const wallTimeLimit = Math.min(executionSettings.wall_time_limit || 20, 20); // Max 20 seconds allowed
+  const cpuTimeLimit = Math.min(executionSettings.cpu_time_limit || 10, 15);  // Max 15 seconds
+  const compTimeLimit = Math.min(executionSettings.compilation_time_limit || 20, 20); // Max 20 seconds
+
+  // Log the settings we're using
+  console.log(`Using Judge0 settings - wallTimeLimit: ${wallTimeLimit}s, cpuTimeLimit: ${cpuTimeLimit}s, compTimeLimit: ${compTimeLimit}s`);
+
+  // Batch processing works best with small batches of 8 test cases max
+  const maxBatchSize = 8;
+  const batches = [];
   
-  const results: Judge0Result[] = [];
-  try {
-    for (let i = 0; i < testCases.length; i++) {
-      const testCase = testCases[i];
-      // 1. Submit code
-      const submissionRes = await fetch(`${JUDGE0_API_URL}/submissions?base64_encoded=true&wait=false`, {
+  for (let i = 0; i < testCases.length; i += maxBatchSize) {
+    batches.push(testCases.slice(i, i + maxBatchSize));
+  }
+  
+  console.log(`Processing ${testCases.length} test cases in ${batches.length} batches of max ${maxBatchSize} each`);
+  
+  // Initialize results array
+  const results: Judge0Result[] = new Array(testCases.length).fill(null).map((_, index) => ({
+    input: testCases[index].input,
+    expected: testCases[index].expectedOutput,
+    output: null,
+    stderr: null,
+    compile_output: null,
+    status: { id: 1, description: "In Queue" },
+    verdict: "In Queue",
+  }));
+  
+  let completedCount = 0;
+  let hasFailedTestCase = false;
+
+  // Process each batch
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    // Skip remaining batches if a test case has failed
+    if (hasFailedTestCase) {
+      console.log(`Skipping batch ${batchIndex + 1}/${batches.length} due to previous failure`);
+      
+      // Mark all remaining test cases as "Skipped"
+      const startIdx = batchIndex * maxBatchSize;
+      const remainingTestCases = batches[batchIndex];
+      
+      for (let i = 0; i < remainingTestCases.length; i++) {
+        const globalIdx = startIdx + i;
+        results[globalIdx] = {
+          input: remainingTestCases[i].input,
+          expected: remainingTestCases[i].expectedOutput,
+          output: null,
+          stderr: null,
+          compile_output: null,
+          status: { id: 0, description: "Skipped" },
+          verdict: "Skipped",
+          isSkipped: true
+        };
+      }
+      
+      completedCount += remainingTestCases.length;
+      
+      // Call progress callback
+      if (progressCallback) {
+        progressCallback(results, completedCount);
+      }
+      
+      continue;
+    }
+    
+    const batchTestCases = batches[batchIndex];
+    const startIdx = batchIndex * maxBatchSize;
+    
+    try {
+      // Prepare submission batch
+      const submissions = batchTestCases.map(testCase => ({
+        source_code: base64Encode(sourceCode),
+        language_id: languageId,
+        stdin: base64Encode(testCase.input),
+        expected_output: base64Encode(testCase.expectedOutput),
+        cpu_time_limit: cpuTimeLimit,
+        cpu_extra_time: executionSettings.cpu_extra_time || 2,
+        wall_time_limit: wallTimeLimit, 
+        memory_limit: executionSettings.memory_limit || 512000,
+        compilation_time_limit: compTimeLimit
+      }));
+      
+      console.log(`Submitting batch ${batchIndex + 1}/${batches.length} with ${submissions.length} test cases`);
+
+      // Create batch submission
+      const batchRes = await fetch(`${JUDGE0_API_URL}/submissions/batch?base64_encoded=true`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          source_code: base64Encode(sourceCode),
-          language_id: languageId,
-          stdin: base64Encode(testCase.input),
-          expected_output: base64Encode(testCase.expectedOutput),
-          cpu_time_limit: executionSettings.cpu_time_limit || 10,         // Increase CPU time limit to 10 seconds
-          cpu_extra_time: executionSettings.cpu_extra_time || 2,          // Allow 2 seconds of extra CPU time
-          wall_time_limit: executionSettings.wall_time_limit || 20,       // Wall time limit (max 20 seconds allowed)
-          memory_limit: executionSettings.memory_limit || 512000,         // 512MB memory limit
-          compilation_time_limit: executionSettings.compilation_time_limit || 30  // Increase compilation time limit to 30 seconds
-        }),
+        body: JSON.stringify({ submissions }),
       });
-      
-      if (!submissionRes.ok) {
-        const errorText = await submissionRes.text();
-        console.error('Judge0 submission error:', errorText);
+
+      if (!batchRes.ok) {
+        const errorText = await batchRes.text();
+        console.error(`Judge0 batch submission error for batch ${batchIndex + 1}:`, errorText);
         
-        // Check if this is a subscription error
-        if (errorText.includes("not subscribed") || errorText.includes("subscription")) {
-          return localFallbackExecution(sourceCode, languageId, testCases);
+        // Fall back to sequential for this batch
+        console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
+        const batchResults = await runWithJudge0Sequential({
+          sourceCode, 
+          languageId, 
+          testCases: batchTestCases,
+          progressCallback: undefined,
+          executionSettings: {
+            ...executionSettings,
+            wall_time_limit: wallTimeLimit,
+            cpu_time_limit: cpuTimeLimit,
+            compilation_time_limit: compTimeLimit
+          }
+        });
+        
+        // Copy results to the main results array
+        batchResults.forEach((result, idx) => {
+          const globalIdx = startIdx + idx;
+          results[globalIdx] = result;
+          
+          // Check if this test case failed
+          if (result.status.id !== 3 || 
+              (typeof result.output === 'string' && result.output.trim() !== testCases[startIdx + idx].expectedOutput.trim())) {
+            hasFailedTestCase = true;
+          }
+        });
+        
+        // Update completed count
+        completedCount += batchTestCases.length;
+        
+        // Call progress callback
+        if (progressCallback) {
+          progressCallback(results, completedCount);
         }
         
-        // Check if this is an archived language error
-        if (errorText.includes("archived") || errorText.includes("cannot be used anymore")) {
-          console.error("Language ID is archived. Please update the language mapping.");
-          // Show clear error to the user
-          results.push({
-            input: testCase.input,
-            expected: testCase.expectedOutput,
-            output: null,
-            stderr: null,
-            compile_output: `The selected language version is no longer supported by the Judge0 API. 
-Please update the languageId mapping to use a current version.
-Original error: ${errorText}`,
-            status: { id: 6, description: "Language Deprecated" },
-            verdict: "Language Deprecated"
-          });
-          continue; // Try the next test case
-        }
-        
-        throw new Error(`Judge0 API error: ${submissionRes.status} ${errorText}`);
-      }
-      
-      const submission = await submissionRes.json();
-      const { token } = submission;
-      if (!token) {
-        throw new Error('No token in Judge0 response');
+        continue;
       }
 
-      // 2. Poll for result
-      let result;
-      let attemptsLeft = 30; // Increase number of polling attempts
-  
-      while (attemptsLeft > 0) {
-        await new Promise((r) => setTimeout(r, 1500)); // Increase polling interval
-        try {
-          const res = await fetch(`${JUDGE0_API_URL}/submissions/${token}?base64_encoded=true`, {
-            headers: {
-              "Content-Type": "application/json"
-            },
-          });
-          if (!res.ok) {
-            console.error('Error fetching result:', await res.text());
-            throw new Error(`Error fetching result: ${res.status}`);
+      // Get tokens from batch response
+      const batchTokens = await batchRes.json();
+      if (!batchTokens || !Array.isArray(batchTokens) || batchTokens.length === 0) {
+        throw new Error('Invalid response from Judge0 batch submission');
+      }
+
+      // Extract tokens
+      const tokens = batchTokens.map(item => item.token);
+      if (tokens.some(token => !token)) {
+        throw new Error('Some tokens are missing in the batch response');
+      }
+
+      // Poll for results with longer timeout for compilation
+      const maxAttempts = 40;
+      const pollingInterval = 1500;
+      let attempts = 0;
+      let batchDone = false;
+
+      while (!batchDone && attempts < maxAttempts) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, pollingInterval));
+
+        // Poll for batch status
+        const batchStatusRes = await fetch(`${JUDGE0_API_URL}/submissions/batch?tokens=${tokens.join(',')}&base64_encoded=true`, {
+          headers: {
+            "Content-Type": "application/json"
           }
-          result = await res.json();
+        });
+
+        if (!batchStatusRes.ok) {
+          console.error(`Error polling batch ${batchIndex + 1} status:`, await batchStatusRes.text());
+          continue;
+        }
+
+        const batchStatus = await batchStatusRes.json();
+        if (!batchStatus || !batchStatus.submissions) {
+          console.error('Invalid batch status response');
+          continue;
+        }
+
+        // Update results with the latest status
+        let batchCompletedCount = 0;
+        batchStatus.submissions.forEach((submission: any, idx: number) => {
+          const globalIdx = startIdx + idx;
           
           // Decode base64 fields if they exist
-          if (result.stdout) result.stdout = base64Decode(result.stdout);
-          if (result.stderr) result.stderr = base64Decode(result.stderr);
-          if (result.compile_output) result.compile_output = base64Decode(result.compile_output);
-          if (result.message) result.message = base64Decode(result.message);
-          
-          if (result.status?.id >= 3) break; // 3+ means finished
-        } catch (e) {
-          console.error('Error during polling:', e);
-        }
-        attemptsLeft--;
-      }
-      
-      // Handle timeout case (no result after polling attempts)
-      if (!result) {
-        console.warn("Execution timeout detected - possibly an infinite loop or very slow code");
-        results.push({
-          input: testCase.input,
-          expected: testCase.expectedOutput,
-          output: null,
-          stderr: "Execution timed out - possibly contains an infinite loop or is very computationally intensive",
-          compile_output: null,
-          status: { id: 11, description: "Time Limit Exceeded" },
-          verdict: "Time Limit Exceeded",
-          isCorrect: false,
-          isSkipped: false
+          if (submission.stdout) submission.stdout = base64Decode(submission.stdout);
+          if (submission.stderr) submission.stderr = base64Decode(submission.stderr);
+          if (submission.compile_output) submission.compile_output = base64Decode(submission.compile_output);
+          if (submission.message) submission.message = base64Decode(submission.message);
+
+          // Update result if execution is done (status ID 3 or higher)
+          if (submission.status && submission.status.id >= 3) {
+            batchCompletedCount++;
+            let verdict = "Unknown";
+            let isCorrect = false;
+            
+            // Get stdout from the API response (may be null)
+            const stdout = submission.stdout;
+            
+            if (submission.status.id === 3) {
+              // Safety check to ensure values exist and are strings before trim()
+              const stdoutStr = typeof stdout === 'string' ? stdout.trim() : '';
+              const expectedStr = typeof batchTestCases[idx].expectedOutput === 'string' ? batchTestCases[idx].expectedOutput.trim() : '';
+              isCorrect = (stdoutStr === expectedStr);
+              verdict = isCorrect ? "Accepted" : "Wrong Answer";
+              
+              // If this test case failed, set the flag
+              if (!isCorrect) {
+                hasFailedTestCase = true;
+              }
+            } else if (submission.status.id === 4) {
+              verdict = "Wrong Answer";
+              hasFailedTestCase = true;
+            } else if (submission.status.id === 5) {
+              verdict = "Memory Limit Exceeded";
+              hasFailedTestCase = true;
+            } else if (submission.status.id === 6) {
+              verdict = "Compile Error";
+              hasFailedTestCase = true;
+            } else if (submission.status.id === 11) {
+              verdict = "Time Limit Exceeded";
+              hasFailedTestCase = true;
+            } else if (submission.status.id === 13) {
+              verdict = "Runtime Error";
+              hasFailedTestCase = true;
+            }
+
+            // Ensure compile errors are always mapped correctly
+            if (submission.compile_output) {
+              verdict = "Compile Error";
+              hasFailedTestCase = true;
+            } else if (submission.stderr && verdict !== "Compile Error") {
+              verdict = "Runtime Error";
+              hasFailedTestCase = true;
+            }
+
+            // Update the result
+            results[globalIdx] = {
+              input: batchTestCases[idx].input,
+              expected: batchTestCases[idx].expectedOutput,
+              output: stdout,
+              stderr: submission.stderr,
+              compile_output: submission.compile_output,
+              status: submission.status,
+              verdict,
+              time: submission.time,
+              memory: submission.memory,
+              isCorrect,
+              isSkipped: submission.status && submission.status.description === "Skipped"
+            };
+          }
         });
-        continue; // Move to next test case
+
+        // If we have a progress callback, call it with current results
+        completedCount = results.filter(r => r.verdict !== "In Queue").length;
+        if (progressCallback) {
+          progressCallback(results, completedCount);
+        }
+
+        // Check if all submissions in this batch are done
+        batchDone = batchCompletedCount === batchTestCases.length;
+        if (batchDone) {
+          console.log(`Batch ${batchIndex + 1}/${batches.length} completed`);
+          break;
+        }
       }
 
-      // 3. Map status to verdict
-      let verdict = "Unknown";
-      let isCorrect = false;
-      try {
-        if (result.status.id === 3) {
-          // Safety check to ensure values exist and are strings before trim()
-          const stdoutStr = typeof result.stdout === 'string' ? result.stdout.trim() : '';
-          const expectedStr = typeof testCase.expectedOutput === 'string' ? testCase.expectedOutput.trim() : '';
-          isCorrect = (stdoutStr === expectedStr);
-          verdict = isCorrect ? "Accepted" : "Wrong Answer";
-        } else if (result.status.id === 4) {
-          verdict = "Wrong Answer";
-        } else if (result.status.id === 5) {
-          verdict = "Memory Limit Exceeded";
-        } else if (result.status.id === 6) {
-          verdict = "Compile Error";
-        } else if (result.status.id === 11) {
-          verdict = "Time Limit Exceeded";
-        } else if (result.status.id === 13) {
-          verdict = "Runtime Error";
+      // If we still have pending test cases in this batch after max attempts,
+      // fall back to sequential execution for those
+      const pendingIndices = batchTestCases.map((_, idx) => {
+        const globalIdx = startIdx + idx;
+        return results[globalIdx].verdict === "In Queue" ? idx : -1;
+      }).filter(idx => idx !== -1);
+
+      if (pendingIndices.length > 0) {
+        console.log(`Falling back to sequential execution for ${pendingIndices.length} pending test cases in batch ${batchIndex + 1}`);
+        
+        for (const idx of pendingIndices) {
+          const globalIdx = startIdx + idx;
+          const singleTestCase = [batchTestCases[idx]];
+          
+          try {
+            const singleResult = await runWithJudge0Sequential({
+              sourceCode,
+              languageId,
+              testCases: singleTestCase,
+              progressCallback: undefined,
+              executionSettings: {
+                ...executionSettings,
+                wall_time_limit: wallTimeLimit,
+                cpu_time_limit: cpuTimeLimit,
+                compilation_time_limit: compTimeLimit
+              }
+            });
+            
+            if (singleResult && singleResult.length > 0) {
+              results[globalIdx] = singleResult[0];
+              
+              // Check if this test case failed
+              if (singleResult[0].status.id !== 3 || 
+                  (singleResult[0].verdict !== "Accepted")) {
+                hasFailedTestCase = true;
+              }
+              
+              // Update progress if callback provided
+              completedCount = results.filter(r => r.verdict !== "In Queue").length;
+              if (progressCallback) {
+                progressCallback(results, completedCount);
+              }
+            }
+          } catch (retryError) {
+            console.error(`Error retrying test case ${globalIdx}:`, retryError);
+            
+            // Mark as failed if we couldn't process it
+            results[globalIdx] = {
+              input: batchTestCases[idx].input,
+              expected: batchTestCases[idx].expectedOutput,
+              output: null,
+              stderr: `Failed to process: ${retryError}`,
+              compile_output: null,
+              status: { id: 13, description: "Runtime Error" },
+              verdict: "Processing Failed",
+            };
+            
+            // Set the failure flag
+            hasFailedTestCase = true;
+          }
         }
-        // --- Ensure compile errors are always mapped correctly ---
-        if (result.compile_output) {
-          verdict = "Compile Error";
-        } else if (result.stderr && verdict !== "Compile Error") {
-          verdict = "Runtime Error";
-        }
-      } catch (error) {
-        console.error('Error determining verdict:', error, result);
-        verdict = "Execution Error";
       }
+    } catch (error) {
+      console.error(`Error processing batch ${batchIndex + 1}:`, error);
       
-      results.push({
-        input: testCase.input,
-        expected: testCase.expectedOutput,
-        output: result.stdout,
-        stderr: result.stderr,
-        compile_output: result.compile_output,
-        status: result.status,
-        verdict,
-        time: result.time,
-        memory: result.memory,
-        isCorrect,
-        isSkipped: result.status && result.status.description === "Skipped"
+      // Fall back to sequential for this batch
+      console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
+      const batchResults = await runWithJudge0Sequential({
+        sourceCode,
+        languageId,
+        testCases: batchTestCases,
+        progressCallback: undefined,
+        executionSettings: {
+          ...executionSettings,
+          wall_time_limit: wallTimeLimit,
+          cpu_time_limit: cpuTimeLimit,
+          compilation_time_limit: compTimeLimit
+        }
       });
       
-      // If we have a progress callback, call it with current results
+      // Copy results to the main results array
+      batchResults.forEach((result, idx) => {
+        const globalIdx = startIdx + idx;
+        results[globalIdx] = result;
+        
+        // Check if this test case failed
+        if (result.status.id !== 3 || 
+            (typeof result.output === 'string' && result.output.trim() !== testCases[startIdx + idx].expectedOutput.trim())) {
+          hasFailedTestCase = true;
+        }
+      });
+      
+      // Update completed count
+      completedCount += batchTestCases.length;
+      
+      // Call progress callback
       if (progressCallback) {
-        progressCallback(results, i + 1);
+        progressCallback(results, completedCount);
       }
     }
-    return results;
-  } catch (error) {
-    console.error('Judge0 execution error:', error);
-    
-    // If there was an error starting the API or with the first few calls,
-    // fall back to local execution
-    if (results.length === 0) {
-      return localFallbackExecution(sourceCode, languageId, testCases);
-    }
-    
-    throw error;
   }
+  
+  return results
 }
 
-// Main entry point for code execution - will try batch API first, then fall back to sequential
+// Add this at the end of the file to export runWithJudge0
 export async function runWithJudge0({
   sourceCode,
   languageId,
@@ -899,79 +1030,16 @@ export async function runWithJudge0({
     max_processes_and_or_threads?: number;
   }
 }): Promise<Judge0Result[]> {
-  // Check for empty code or comments first
-  const trimmedCode = sourceCode.trim();
-  
-  if (!trimmedCode) {
-    return testCases.map(tc => ({
-      input: tc.input,
-      expected: tc.expectedOutput,
-      output: null,
-      stderr: "Empty code submission",
-      compile_output: null,
-      status: { id: 13, description: "Runtime Error" },
-      verdict: "Empty Code",
-      isCorrect: false,
-      isSkipped: false
-    }));
-  }
-  
-  const commentOnlyRegex = /^(\s*(\/\/.*|\/\*[\s\S]*?\*\/|#.*)\s*)*$/;
-  if (commentOnlyRegex.test(trimmedCode)) {
-    return testCases.map(tc => ({
-      input: tc.input,
-      expected: tc.expectedOutput,
-      output: null,
-      stderr: "Your code only contains comments",
-      compile_output: null,
-      status: { id: 13, description: "Runtime Error" },
-      verdict: "Comments Only",
-      isCorrect: false,
-      isSkipped: false
-    }));
-  }
-  
-  try {
-    // Choose execution mode based on parameters
-    if (forceSequential) {
-      return runWithJudge0Sequential({ 
-        sourceCode, 
-        languageId, 
-        testCases, 
-        progressCallback, 
-        executionSettings
-      });
-    } else if (forceBatch || testCases.length > 1) {
-      try {
-        return await runWithJudge0Batch({ 
-          sourceCode, 
-          languageId, 
-          testCases, 
-          progressCallback,
-          executionSettings
-        });
-      } catch (batchError) {
-        console.warn('Batch execution failed, falling back to sequential:', batchError);
-        return runWithJudge0Sequential({ 
-          sourceCode, 
-          languageId, 
-          testCases, 
-          progressCallback,
-          executionSettings
-        });
-      }
+  if (forceBatch) {
+    return runWithJudge0Batch({ sourceCode, languageId, testCases, progressCallback, executionSettings });
+  } else if (forceSequential) {
+    return runWithJudge0Sequential({ sourceCode, languageId, testCases, progressCallback, executionSettings });
+  } else {
+    // Default: use batch for multiple test cases, sequential for one
+    if (testCases.length > 1) {
+      return runWithJudge0Batch({ sourceCode, languageId, testCases, progressCallback, executionSettings });
     } else {
-      // Default to sequential for single test case
-      return runWithJudge0Sequential({ 
-        sourceCode, 
-        languageId, 
-        testCases, 
-        progressCallback,
-        executionSettings
-      });
+      return runWithJudge0Sequential({ sourceCode, languageId, testCases, progressCallback, executionSettings });
     }
-  } catch (error) {
-    console.error('Code execution error:', error);
-    return localFallbackExecution(sourceCode, languageId, testCases);
   }
 } 

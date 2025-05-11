@@ -598,7 +598,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   
   const isMobile = useIsMobile()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { theme: appTheme, setTheme: setAppTheme } = useTheme()
+  const { resolvedTheme: appTheme, setTheme: setAppTheme } = useTheme()
   const [focusMode, setFocusMode] = useState(false)
   const [fontSize, setFontSize] = useState(14)
   const [tabSize, setTabSize] = useState(4)
@@ -2545,6 +2545,16 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   // Note: we're not including language in the dependency array, 
   // as language changes are handled by handleLanguageChange
   }, [problemId, preloadCode, authStatus, authSession]);
+
+  // Always sync editor theme to match app theme, but only after resolvedTheme is available
+  useEffect(() => {
+    if (appTheme === 'dark') {
+      setEditorTheme('vs-dark');
+    } else if (appTheme === 'light') {
+      setEditorTheme('light');
+    }
+    // Do nothing if appTheme is 'system' or undefined
+  }, [appTheme]);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
