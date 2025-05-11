@@ -75,7 +75,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { NexEditor as CodeEditor } from "@/components/NexEditor"
-import { useMobile as useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { useTheme } from "next-themes"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { CodingQuestionsSidebar } from "@/components/CodingQuestionsSidebar"
@@ -2582,6 +2582,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       setLeftPanelWidth(50);
     }
   }, [isMobile]);
+
+  if (!hasMounted) return null;
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
