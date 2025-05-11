@@ -84,7 +84,7 @@ import type { editor } from "monaco-editor"
 import type { Monaco } from "@monaco-editor/react"
 import { useSession } from "next-auth/react"
 import { useProfilePic } from "@/components/ProfilePicContext"
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, useApolloClient } from '@apollo/client';
 import { RUN_CODE, SUBMIT_CODE } from './graphql/codeExecution';
 import { getLanguageId } from './utils/getLanguageId';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -475,8 +475,10 @@ const LANGUAGE_ICONS: Record<string, React.ReactNode> = {
 };
 
 // Helper to extract language name and version
-const parseLanguageName = (fullName: string) => {
-  // Match patterns like "Python (3.8.1)" or "JavaScript (Node.js 12.14.0)"
+const parseLanguageName = (fullName: string | undefined | null) => {
+  if (!fullName || typeof fullName !== 'string') {
+    return { name: '', version: '' };
+  }
   const match = fullName.match(/^(.+?)\s+\((.+?)\)$/);
   if (match) {
     return { 
@@ -507,12 +509,32 @@ const SAVE_USER_PROBLEM_SETTINGS = gql`
   }
 `;
 
+// GraphQL query for getting user problem settings
+const GET_USER_PROBLEM_SETTINGS = gql`
+  query GetUserProblemSettings($userId: String!, $problemId: String!) {
+    getUserProblemSettings(userId: $userId, problemId: $problemId) {
+      lastLanguage
+    }
+  }
+`;
+
+// GraphQL query for getting user code draft
+const GET_USER_CODE_DRAFT = gql`
+  query GetUserCodeDraft($userId: String!, $problemId: String!, $language: String!) {
+    getUserCodeDraft(userId: $userId, problemId: $problemId, language: $language) {
+      code
+      updatedAt
+    }
+  }
+`;
+
 export default function ProblemClientPage({ codingQuestion, defaultLanguage, preloadCode }: ProblemClientPageProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const { data: authSession, status: authStatus } = useSession()
+  const client = useApolloClient();
   
   // Add authentication debugging
   useEffect(() => {
@@ -525,15 +547,20 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     const pathSegments = pathname.split('/');
     return pathSegments[pathSegments.length - 1];
   }, [pathname]);
-  
+
   // Initialize language correctly based on defaultLanguage
   const processDefaultLanguage = (lang: string): string => {
     if (lang === "Java") return "62"; // Java ID
     return lang || "71"; // Default to Python 3.8.1 if not specified
   };
   
-  const [language, setLanguage] = useState(processDefaultLanguage(defaultLanguage))
-  
+  // 1. Add a loading state for initial code/language
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // 2. Set language and code to empty initially
+  const [language, setLanguage] = useState<string>('');
+  const [code, setCode] = useState<string>('');
+
   // Migrate data from anonymous storage to user storage when logging in
   useEffect(() => {
     if (authStatus === 'authenticated' && authSession?.user?.id && problemId && language) {
@@ -576,7 +603,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   const [fontSize, setFontSize] = useState(14)
   const [tabSize, setTabSize] = useState(4)
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark")
-
+  const [editorLoading, setEditorLoading] = useState(false);
   // Mobile view state
   const [activePanel, setActivePanel] = useState<"problem" | "code" | "results">(isMobile ? "problem" : "code")
 
@@ -678,32 +705,25 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     e.preventDefault()
   }
 
-  const [code, setCode] = useState<string>(preloadCode)
-  
   // Save code to localStorage on each keystroke
   useEffect(() => {
-    if (!code || !problemId || !language) return;
-    
-    // Only save to a single key based on authentication status
+    if (!code || !problemId || !language || editorLoading) return;
     if (authStatus === 'authenticated' && authSession?.user?.id) {
-      // User is authenticated, use their user ID
       const userStorageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
-      console.log(`User authenticated: Saving code to ${userStorageKey}`);
       localStorage.setItem(userStorageKey, code);
-      
+      localStorage.setItem(`${userStorageKey}_timestamp`, Date.now().toString());
       // Optionally clean up any anonymous data for this problem/language
       const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
       if (localStorage.getItem(anonymousKey)) {
-        console.log(`Removing anonymous data from ${anonymousKey}`);
         localStorage.removeItem(anonymousKey);
+        localStorage.removeItem(`${anonymousKey}_timestamp`);
       }
     } else {
-      // User is not authenticated, use anonymous key
       const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
-      console.log(`User not authenticated: Saving code to ${anonymousKey}`);
       localStorage.setItem(anonymousKey, code);
+      localStorage.setItem(`${anonymousKey}_timestamp`, Date.now().toString());
     }
-  }, [code, problemId, language, authStatus, authSession]);
+  }, [code, problemId, language, authStatus, authSession, editorLoading]);
   
   // Load saved code from localStorage on component mount or language change
   useEffect(() => {
@@ -2237,25 +2257,29 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   // Custom setLanguage handler to save code draft and update problem setting
   const handleLanguageChange = useCallback((newLanguage: string) => {
-    // Capture previous language and code before state changes
+    // 1. Capture previous language and code before any state changes
     const prevLanguage = prevLanguageRef.current;
     const prevCode = code;
 
-    // Update UI immediately
-    prevLanguageRef.current = newLanguage;
-    setLanguage(newLanguage);
-
+    // 2. Save code draft and lastLanguage as before (for prevLanguage)
     if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
-      // Compose keys
+      console.log(`[SAVE] Previous language: ${prevLanguage}, new language: ${newLanguage}`);
+      console.log(`[SAVE] Saving previous code to previous language key`);
       const baseKey = `nexacademy_${authSession.user.id}_${problemId}_${prevLanguage}`;
       const draftKey = `${baseKey}_draft`;
-
-      // Get values from localStorage
       const localCode = localStorage.getItem(baseKey) || '';
       const draftCode = localStorage.getItem(draftKey) || '';
-
-      // Only save to DB if localCode and draftCode differ
-      if (localCode !== draftCode) {
+      // Save to localStorage for prevLanguage only
+      localStorage.setItem(baseKey, prevCode);
+      localStorage.setItem(`${baseKey}_timestamp`, Date.now().toString());
+      // Only call mutation if code changed
+      if (
+        authSession.user.id &&
+        problemId &&
+        prevLanguage &&
+        prevCode !== undefined &&
+        localCode !== draftCode
+      ) {
         saveUserCodeDraft({
           variables: {
             input: {
@@ -2273,8 +2297,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           console.error('Failed to save code draft:', err);
         });
       }
-
-      // Save new language to UserProblemSettings (always)
+      // Optionally clean up anonymous data for this problem/language
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${prevLanguage}`;
+      if (localStorage.getItem(anonymousKey)) {
+        localStorage.removeItem(anonymousKey);
+        localStorage.removeItem(`${anonymousKey}_timestamp`);
+      }
       saveUserProblemSettings({
         variables: {
           input: {
@@ -2286,8 +2314,96 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       }).catch(err => {
         console.error('Failed to save user problem settings:', err);
       });
+    } else if (problemId && prevLanguage && prevCode !== undefined) {
+      // Not authenticated, save to anonymous localStorage for prevLanguage only
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${prevLanguage}`;
+      localStorage.setItem(anonymousKey, prevCode);
+      localStorage.setItem(`${anonymousKey}_timestamp`, Date.now().toString());
     }
-  }, [authStatus, authSession, problemId, code, saveUserCodeDraft, saveUserProblemSettings]);
+
+    // 3. Now update prevLanguageRef and setLanguage
+    prevLanguageRef.current = newLanguage;
+    setLanguage(newLanguage);
+
+    // 4. Start loading for the new language
+    setEditorLoading(true);
+    latestLanguageRequestRef.current = newLanguage;
+
+    // 5. Load code for the new language (DB > localStorage > preloadCode)
+    (async () => {
+      let loadedCode = '';
+      let found = false;
+      console.log(`Starting language switch to: ${newLanguage}`);
+      if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
+        try {
+          console.log(`Checking database for language: ${newLanguage}`);
+          const { data: draftData } = await client.query({
+            query: GET_USER_CODE_DRAFT,
+            variables: { userId: authSession.user.id, problemId, language: newLanguage },
+            fetchPolicy: 'network-only',
+          });
+          if (draftData?.getUserCodeDraft?.code) {
+            loadedCode = draftData.getUserCodeDraft.code;
+            found = true;
+            console.log('Found code in DB, using it');
+          } else {
+            console.log('No code found in DB');
+          }
+        } catch (err) {
+          console.error('Error fetching from DB:', err);
+        }
+      }
+      if (!found) {
+        // Try localStorage
+        const userKey = authStatus === 'authenticated' && authSession?.user?.id
+          ? `nexacademy_${authSession.user.id}_${problemId}_${newLanguage}`
+          : `nexacademy_anonymous_${problemId}_${newLanguage}`;
+        const localCode = localStorage.getItem(userKey) || '';
+        if (localCode) {
+          loadedCode = localCode;
+          found = true;
+          console.log('Using localStorage code');
+        } else {
+          console.log('No code found in localStorage');
+        }
+      }
+      if (!found) {
+        console.log('dddd',)
+        // Fallback to preloadCode for the new language from languageOptions
+        const langOption = codingQuestion.languageOptions?.find(
+          (opt: any) => String(opt.language) === String(newLanguage)
+        );
+        console.log(`langOption: ${langOption}`);
+        loadedCode = langOption?.preloadCode || '';
+        console.log(`Final loadedCode (fallback): ${loadedCode ? `length=${loadedCode.length}` : 'empty'}`);
+      }
+      // Only update if this is still the latest requested language
+      if (latestLanguageRequestRef.current === newLanguage) {
+        setCode(loadedCode);
+        setEditorLoading(false);
+      }
+    })();
+  }, [authStatus, authSession, problemId, code, saveUserCodeDraft, saveUserProblemSettings, client, codingQuestion.languageOptions]);
+
+  // Save code to localStorage on each keystroke (for current language only)
+  useEffect(() => {
+    if (!code || !problemId || !language || editorLoading) return;
+    if (authStatus === 'authenticated' && authSession?.user?.id) {
+      const userStorageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      localStorage.setItem(userStorageKey, code);
+      localStorage.setItem(`${userStorageKey}_timestamp`, Date.now().toString());
+      // Optionally clean up any anonymous data for this problem/language
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
+      if (localStorage.getItem(anonymousKey)) {
+        localStorage.removeItem(anonymousKey);
+        localStorage.removeItem(`${anonymousKey}_timestamp`);
+      }
+    } else {
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
+      localStorage.setItem(anonymousKey, code);
+      localStorage.setItem(`${anonymousKey}_timestamp`, Date.now().toString());
+    }
+  }, [code, problemId, language, authStatus, authSession, editorLoading]);
 
   // Save draft on page unload
   useEffect(() => {
@@ -2297,6 +2413,138 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [language, code, saveDraftIfChanged]);
+
+  // Add a ref to track whether initial code has been loaded
+  const initialLoadCompletedRef = useRef(false);
+
+  useEffect(() => {
+    // Only run on mount when user is authenticated AND we haven't loaded initial code yet
+    if (authStatus !== 'authenticated' || !authSession || !authSession.user || !authSession.user.id || !problemId || initialLoadCompletedRef.current) return;
+
+    let isMounted = true;
+
+    async function loadInitialCode() {
+      try {
+        // Mark as loaded to prevent duplicate calls
+        initialLoadCompletedRef.current = true;
+        // Need to check again inside the function
+        if (!authSession || !authSession.user || !authSession.user.id) return;
+        const userId = authSession.user.id;
+        let langToCheck = null;
+        let codeFromDB = null;
+        let dbUpdatedAt = null;
+        // 1. Try to get lastLanguage from UserProblemSettings
+        try {
+          const { data: settingsData } = await client.query({
+            query: GET_USER_PROBLEM_SETTINGS,
+            variables: { userId, problemId },
+            fetchPolicy: 'network-only',
+          });
+          langToCheck = settingsData?.getUserProblemSettings?.lastLanguage || processDefaultLanguage(defaultLanguage);
+        } catch (err) {
+          langToCheck = processDefaultLanguage(defaultLanguage);
+        }
+        // 2. Try to get code draft from DB for langToCheck
+        try {
+          const { data: draftData } = await client.query({
+            query: GET_USER_CODE_DRAFT,
+            variables: { userId, problemId, language: langToCheck },
+            fetchPolicy: 'network-only',
+          });
+          codeFromDB = draftData?.getUserCodeDraft?.code || null;
+          dbUpdatedAt = draftData?.getUserCodeDraft?.updatedAt || null;
+        } catch (err) {
+          codeFromDB = null;
+          dbUpdatedAt = null;
+        }
+        // 3. Get code from localStorage for the same key
+        const localKey = `nexacademy_${userId}_${problemId}_${langToCheck}`;
+        const localDraftKey = `${localKey}_draft`;
+        const localCode = localStorage.getItem(localKey) || '';
+        const localDraftCode = localStorage.getItem(localDraftKey) || '';
+        // Use the draft key if it exists and is newer
+        let localTimestamp = null;
+        try {
+          localTimestamp = localStorage.getItem(`${localKey}_timestamp`);
+        } catch {}
+        // 4. Compare timestamps and pick the latest
+        let useCode = preloadCode;
+        if (codeFromDB && dbUpdatedAt) {
+          // Compare with localStorage timestamp
+          let dbTime = new Date(dbUpdatedAt).getTime();
+          let localTime = localTimestamp ? parseInt(localTimestamp, 10) : 0;
+          if (localTime > dbTime && localCode) {
+            useCode = localCode;
+          } else {
+            useCode = codeFromDB;
+          }
+        } else if (localCode) {
+          useCode = localCode;
+        } else {
+          useCode = preloadCode;
+        }
+        // Set language and code
+        if (isMounted) {
+          setLanguage(langToCheck);
+          setCode(useCode);
+        }
+      } catch (err) {
+        console.error('Error in loadInitialCode:', err);
+      } finally {
+        if (isMounted) setInitialLoading(false);
+      }
+    }
+
+    loadInitialCode();
+    return () => { isMounted = false; };
+  // eslint-disable-next-line
+  }, [authStatus, authSession, problemId]);
+
+
+  const latestLanguageRequestRef = useRef<string | null>(null);
+
+  const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
+
+  // Load saved code from localStorage ONLY on component mount
+  // (Language changes are handled by handleLanguageChange, not this effect)
+  useEffect(() => {
+    if (!problemId || !language) return;
+    
+    // Skip this effect if we've already loaded initial code
+    if (initialLoadCompletedRef.current) return;
+    initialLoadCompletedRef.current = true;
+    
+    let storageKey;
+    
+    // Determine the correct key to load from based on authentication status
+    if (authStatus === 'authenticated' && authSession?.user?.id) {
+      storageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      console.log(`[INITIAL LOAD] User authenticated: Loading from ${storageKey}`);
+    } else {
+      storageKey = `nexacademy_anonymous_${problemId}_${language}`;
+      console.log(`[INITIAL LOAD] User not authenticated: Loading from ${storageKey}`);
+    }
+    
+    // Check if there's saved code in localStorage
+    const savedCode = localStorage.getItem(storageKey);
+    
+    // Add debug log
+    if (savedCode) {
+      console.log(`[INITIAL LOAD] Found saved code (length: ${savedCode.length})`);
+    } else {
+      console.log('[INITIAL LOAD] No saved code found, using preloadCode');
+    }
+    
+    // If there's saved code and it's different from the current code, update the editor
+    if (savedCode && savedCode !== preloadCode) {
+      setCode(savedCode);
+    } else if (preloadCode) {
+      // If no saved code but we have preloadCode, use that
+      setCode(preloadCode);
+    }
+  // Note: we're not including language in the dependency array, 
+  // as language changes are handled by handleLanguageChange
+  }, [problemId, preloadCode, authStatus, authSession]);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
@@ -3327,7 +3575,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </span>
                 </div>
                 {/* Custom Language Dropdown */}
-                <Popover>
+                <Popover open={languageDropdownOpen} onOpenChange={setLanguageDropdownOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -3395,7 +3643,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                       ? 'border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/70 dark:bg-indigo-900/20' 
                                       : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800/60'
                                   } ${isSelected ? 'active' : ''}`}
-                                  onClick={() => handleLanguageChange(langId)}
+                                  onClick={() => {
+                                    handleLanguageChange(langId);
+                                    setLanguageDropdownOpen(false);
+                                  }}
                                 >
                                   <div className="flex items-center gap-3 w-full h-full overflow-hidden">
                                     <div className="language-icon-container flex-shrink-0 w-7 h-7 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm group-hover:from-indigo-50 group-hover:to-indigo-100 dark:group-hover:from-indigo-900/20 dark:group-hover:to-indigo-900/30 transition-all duration-200">
@@ -3408,7 +3659,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                     <div className="flex flex-col leading-tight overflow-hidden flex-1">
                                       <span className="font-medium truncate text-slate-700 dark:text-slate-300 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
                                         {name}
-                                      </span>
+                </span>
                                       {version && (
                                         <span className="version truncate text-xs text-slate-500 dark:text-slate-400 group-hover:text-indigo-500/70 dark:group-hover:text-indigo-400/70 transition-colors">
                                           {version}
@@ -3581,7 +3832,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 dark:from-indigo-600 dark:via-purple-600 dark:to-indigo-700 p-4 relative flex items-center justify-between">
                         <div className="absolute top-0 left-0 right-0 h-px bg-white/20"></div>
                         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:16px_16px]"></div>
-                         <h3 className="text-sm font-medium text-purple-900 dark:text-purple-100 flex items-center">
+                         <h3 className="text-sm font-medium text-purple-900 dark:text-purple-100 flex items-center justify-between">
                           <Settings className="h-4 w-4 mr-2 text-white/80" />
                           <span className="text-white font-semibold">Editor Settings</span>
                          </h3>
@@ -3708,19 +3959,53 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             <div className="flex-1 overflow-auto" style={{ minHeight: 0 }}>
               {/* Editor wrapper with subtle background gradient */}
               <div className="h-full w-full relative bg-gradient-to-br from-slate-800 to-slate-900">
-                {/* Editor component */}
-                <CodeEditor 
-                  code={code} 
-                  onChange={setCode} 
-                  language={language} 
-                  theme={editorTheme} 
-                  fontSize={fontSize} 
-                  tabSize={tabSize}
-                  onEditorMount={(editor, monaco) => {
-                    editorRef.current = editor;
-                    monacoRef.current = monaco;
-                  }}
-                />
+                {editorLoading || initialLoading ? (
+                  <div className="flex items-center justify-center h-full w-full overflow-hidden">
+                    <div className="w-full h-full flex flex-col">
+                      {/* Premium skeleton loader */}
+                      <div className="h-full w-full relative overflow-hidden rounded-md">
+                        {/* Background with subtle gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/5 to-purple-50/5 dark:from-indigo-900/10 dark:to-purple-900/10"></div>
+                        {/* Animated gradient overlay */}
+                        <div className="absolute inset-0 bg-[linear-gradient(110deg,transparent_33%,rgba(79,70,229,0.05)_50%,transparent_66%)] dark:bg-[linear-gradient(110deg,transparent_33%,rgba(79,70,229,0.1)_50%,transparent_66%)] bg-size-200 animate-shimmer"></div>
+                        {/* Content placeholder */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="space-y-8 w-1/2 max-w-md">
+                            <div className="flex items-center space-x-3">
+                              <div className="h-10 w-10 rounded-full bg-indigo-100/20 dark:bg-indigo-900/20 flex items-center justify-center">
+                                <Code className="h-5 w-5 text-indigo-300/40 dark:text-indigo-400/40" />
+                              </div>
+                              <div className="h-3 bg-indigo-200/30 dark:bg-indigo-700/30 rounded-md w-36"></div>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="h-3 bg-slate-200/30 dark:bg-slate-700/30 rounded-md w-full"></div>
+                              <div className="h-3 bg-slate-200/30 dark:bg-slate-700/30 rounded-md w-5/6"></div>
+                              <div className="h-3 bg-slate-200/30 dark:bg-slate-700/30 rounded-md w-4/6"></div>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="h-3 bg-indigo-200/20 dark:bg-indigo-800/20 rounded-md w-full"></div>
+                              <div className="h-3 bg-indigo-200/20 dark:bg-indigo-800/20 rounded-md w-3/4"></div>
+                              <div className="h-3 bg-indigo-200/20 dark:bg-indigo-800/20 rounded-md w-5/6"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <CodeEditor 
+                    code={code} 
+                    onChange={setCode} 
+                    language={language} 
+                    theme={editorTheme} 
+                    fontSize={fontSize} 
+                    tabSize={tabSize}
+                    onEditorMount={(editor, monaco) => {
+                      editorRef.current = editor;
+                      monacoRef.current = monaco;
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -3786,7 +4071,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 <TabsList className="bg-slate-100 dark:bg-slate-800/70 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex">
                   <TabsTrigger
                     value="sample"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3796,7 +4081,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </TabsTrigger>
                   <TabsTrigger
                     value="hidden"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3806,7 +4091,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </TabsTrigger>
                   <TabsTrigger
                     value="custom"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3921,7 +4206,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             <TabsTrigger
                               key={`sample-trigger-${result.id || idx}`}
                               value={`sample-testcase-${idx}`}
-                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
                             >
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -4107,7 +4392,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                             <TabsTrigger
                               key={`trigger-${tc.id}`}
                               value={`testcase-${idx}`}
-                              className="flex-1 rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-300 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                              className="flex-1 rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
                             >
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>

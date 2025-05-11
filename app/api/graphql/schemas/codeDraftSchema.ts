@@ -35,9 +35,14 @@ export const codeDraftTypeDefs = gql`
     message: String!
   }
 
+  type UserProblemSettings {
+    lastLanguage: String!
+  }
+
   extend type Query {
     getUserCodeDraft(userId: String!, problemId: String!, language: String!): UserCodeDraft
     getAllUserCodeDrafts(userId: String!, problemId: String!): [UserCodeDraft!]!
+    getUserProblemSettings(userId: String!, problemId: String!): UserProblemSettings
   }
 
   extend type Mutation {

@@ -75,4 +75,53 @@ export const codeDraftResolvers = {
       }
     },
   },
+  Query: {
+    async getUserCodeDraft(_: any, { userId, problemId, language }: any) {
+      try {
+        const draft = await prisma.userCodeDraft.findUnique({
+          where: {
+            userId_problemId_language: {
+              userId,
+              problemId,
+              language,
+            },
+          },
+        });
+        return draft;
+      } catch (error) {
+        console.error('Error fetching code draft:', error);
+        return null;
+      }
+    },
+    async getAllUserCodeDrafts(_: any, { userId, problemId }: any) {
+      try {
+        const drafts = await prisma.userCodeDraft.findMany({
+          where: {
+            userId,
+            problemId,
+          },
+          orderBy: {
+            updatedAt: 'desc',
+          },
+        });
+        return drafts;
+      } catch (error) {
+        console.error('Error fetching all code drafts:', error);
+        return [];
+      }
+    },
+    async getUserProblemSettings(_: any, { userId, problemId }: any) {
+      const settings = await prisma.userProblemSettings.findUnique({
+        where: {
+          userId_problemId: {
+            userId,
+            problemId,
+          },
+        },
+        select: { lastLanguage: true },
+      });
+      if (!settings) return null;
+      return { lastLanguage: settings.lastLanguage };
+    },
+  },
 };
