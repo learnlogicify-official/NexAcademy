@@ -1227,7 +1227,7 @@ export default function NexPractice() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen w-screen fixed inset-0 overflow-hidden bg-background">
       {/* Sidebar */}
       <Sidebar 
         theme={resolvedTheme as "light" | "dark"} 

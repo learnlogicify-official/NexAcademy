@@ -102,6 +102,7 @@ import { Editor } from "@monaco-editor/react"
 import { ModeToggle } from "@/components/nexpractice/mode-toggle";
 import DOMPurify from 'isomorphic-dompurify';
 import { gql } from '@apollo/client';
+import Link from "next/link"
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -2586,7 +2587,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   if (!hasMounted) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
+    <div className="flex flex-col h-screen w-screen fixed inset-0 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
       {/* Expandable Coding Questions Sidebar - ensure it's completely hidden by default on mobile */}
       <CodingQuestionsSidebar
         currentQuestionId={codingQuestion.questionId || codingQuestion.id}

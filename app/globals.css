@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent body scroll with blank spaces */
+html, body {
+  overflow: hidden;
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+}
+
+/* Ensures main content area only has scrollbars when needed */
+.flex-1.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
