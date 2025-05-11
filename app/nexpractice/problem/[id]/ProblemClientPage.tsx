@@ -604,11 +604,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   const [tabSize, setTabSize] = useState(4)
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark")
   const [editorLoading, setEditorLoading] = useState(false);
-  // Mobile view state
-  const [activePanel, setActivePanel] = useState<"problem" | "code" | "results">(isMobile ? "problem" : "code")
+  // Mobile view state - default to "problem" on mobile
+  const [activePanel, setActivePanel] = useState<"problem" | "code" | "results">("problem")
 
-  // Panel sizes (in percentages)
-  const [leftPanelWidth, setLeftPanelWidth] = useState(isMobile ? 100 : 50)
+  // Panel sizes (in percentages) - preemptively set based on device
+  const isMobileInitial = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  const [leftPanelWidth, setLeftPanelWidth] = useState(isMobileInitial ? 100 : 50)
   const [editorHeight, setEditorHeight] = useState(70)
   const [previousLayout, setPreviousLayout] = useState({ leftWidth: 50, editorHeight: 70 })
 
@@ -640,17 +641,16 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     }
   };
 
-  // Update layout when screen size changes
+  // Update layout when screen size changes and initialize correctly for mobile
   useEffect(() => {
     if (isMobile) {
-      setLeftPanelWidth(100)
-      if (!activePanel) {
-        setActivePanel("problem")
-      }
+      setLeftPanelWidth(100);
+      // Always set activePanel to "problem" when the component is first mounted on mobile
+      setActivePanel("problem");
     } else {
-      setLeftPanelWidth(50)
+      setLeftPanelWidth(50);
     }
-  }, [isMobile, activePanel])
+  }, [isMobile]);
 
   // Handle mouse events for resizing
   useEffect(() => {
@@ -1472,6 +1472,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         toggleResultsPanelFullscreen();
       }
       
+      // Switch to results tab on mobile
+      if (isMobile) {
+        setActivePanel("results");
+      }
+      
       setIsRunning(true);
       setExecutionMessage("Running code...");
       setExecutionStatus("info");
@@ -1564,6 +1569,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       // Make results panel fullscreen when submitting code
       if (!isResultsPanelFullscreen) {
         toggleResultsPanelFullscreen();
+      }
+      
+      // Switch to results tab on mobile
+      if (isMobile) {
+        setActivePanel("results");
       }
       
       setIsSubmitting(true);
@@ -2594,7 +2604,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           </div>
         </div>
 
-        {/* Center section: Run/Submit */}
+        {/* Center section: Run/Submit and Mobile Navigation Tabs */}
         <div className="hidden md:flex flex-1 items-center justify-center gap-3 mx-4 px-4 border-x border-indigo-100 dark:border-indigo-900/40 min-w-0">
           <Button
             size="sm"
@@ -2659,6 +2669,45 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             )}
           </Button>
         </div>
+
+        {/* Mobile Navigation Tabs */}
+        <div className="md:hidden flex-1 flex items-center justify-center">
+          <div className="bg-slate-100 dark:bg-slate-800/80 rounded-lg p-0.5 flex items-center w-full max-w-xs">
+            <button 
+              onClick={() => setActivePanel("problem")} 
+              className={`flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1 text-xs font-medium transition-all
+              ${activePanel === "problem" 
+                ? "bg-white dark:bg-black text-indigo-700 dark:text-indigo-300 shadow-sm" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"}`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Problem</span>
+            </button>
+            <button 
+              onClick={() => setActivePanel("code")} 
+              className={`flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1 text-xs font-medium transition-all
+              ${activePanel === "code" 
+                ? "bg-white dark:bg-black text-indigo-700 dark:text-indigo-300 shadow-sm" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"}`}
+            >
+              <Code className="h-3.5 w-3.5" />
+              <span>Code</span>
+            </button>
+            <button 
+              onClick={() => setActivePanel("results")} 
+              className={`flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1 text-xs font-medium transition-all
+              ${activePanel === "results" 
+                ? "bg-white dark:bg-black text-indigo-700 dark:text-indigo-300 shadow-sm" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"}`}
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              <span>Results</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Empty space for layout balance in mobile */}
+        <div className="md:hidden w-16"></div>
 
         {/* Right section: Actions/Profile */}
         <div className="flex items-center gap-2 min-w-0">
@@ -3594,7 +3643,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     >
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500"></div>
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700/30 shadow-sm flex-shrink-0">
+                        <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900 dark:to-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700/30 shadow-sm flex-shrink-0">
                           {LANGUAGE_ICONS[language as keyof typeof LANGUAGE_ICONS] || (
                             <Code className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
                           )}
@@ -3726,11 +3775,36 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 {/* Move Focus Mode button to the right, before Format */}
               </div>
               <div className="flex items-center gap-2">
+                {/* Mobile Run and Submit buttons */}
+                {isMobile && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 px-3 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50"
+                      onClick={runCode}
+                      disabled={isRunning}
+                    >
+                      {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
+                      {!isRunning && <span>Run</span>}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-9 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white"
+                      onClick={submitCode}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
+                      {!isSubmitting && <span>Submit</span>}
+                    </Button>
+                  </div>
+                )}
+                
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={toggleFocusMode}
-                  className="gap-1.5 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                  className="gap-1.5 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hidden md:flex"
                 >
                   {focusMode ? (
                     <>
@@ -4382,116 +4456,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         </div>
                       </div>
                     </div>
-                  ) : examples.length > 0 ? (
-                    <div className="space-y-4">
-                      {/* Summary badge */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm text-slate-700 dark:text-slate-300">
-                          <span className="font-medium">{examples.length}</span> sample test cases available
-                        </div>
-                        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 font-medium">
-                          <Eye className="h-3 w-3 mr-1.5 opacity-70" />
-                          Run to evaluate
-                      </div>
-                    </div>
-                    
-                      {/* Nested tabs for multiple test cases */}
-                      <Tabs defaultValue={`testcase-0`} className="w-full">
-                        <TabsList className="bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex">
-                          {examples.map((tc: {id: string, input: string, output: string}, idx: number) => (
-                            <TabsTrigger
-                              key={`trigger-${tc.id}`}
-                              value={`testcase-${idx}`}
-                              className="flex-1 rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
-                            >
-                              <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
-                                <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
-                  </div>
-                              <div className="flex items-center justify-center gap-1.5">
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-medium">
-                                  {idx + 1}
-                                </div>
-                                <span className="hidden sm:inline font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test Case {idx + 1}</span>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover:opacity-100 group-data-[state=active]:opacity-0 transition-opacity"></div>
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        
-                        {examples.map((tc: {id: string, input: string, output: string}, idx: number) => (
-                          <TabsContent key={`content-${tc.id}`} value={`testcase-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                  <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10 px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-indigo-500 text-white text-xs font-medium">
-                                    {idx + 1}
-                                  </div>
-                                  <span className="font-medium text-slate-700 dark:text-slate-300">Sample Test Case {idx + 1}</span>
-                    </div>
-                    
-                                <div className="flex items-center">
-                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 font-medium">
-                                    <Info className="h-3 w-3 mr-1" />
-                                    Not evaluated
-                                  </span>
-                          </div>
-                        </div>
-                              
-                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    Input
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(tc.input)}
-                                  </div>
-                      </div>
-                      
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    Expected Output
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(tc.output)}
-                                  </div>
-                                </div>
-                      </div>
-                      
-                              {/* Remove the Run This Test button by eliminating this whole div */}
-                              {/* <div className="flex justify-center p-4 border-t border-slate-200 dark:border-slate-700/50">
-                                <Button 
-                                  size="sm"
-                                  className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 relative overflow-hidden min-w-32"
-                                  onClick={runCode}
-                                  disabled={isRunning}
-                                >
-                                  {isRunning ? (
-                                    <>
-                                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
-                                      <div className="relative z-10 flex items-center space-x-1">
-                                        <span className="flex h-2 w-2 relative">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
-                                        </span>
-                                        <span className="text-xs font-medium text-white animate-pulse">
-                                          {loadingPhrase || "Processing..."}
-                                        </span>
-                          </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Play className="h-3.5 w-3.5 mr-1" />
-                                      Run This Test
-                                    </>
-                                  )}
-                                </Button>
-                              </div> */}
-                        </div>
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                          </div>
                   ) : (
                     <div className="flex items-center justify-center py-16">
                       <div className="text-center">
