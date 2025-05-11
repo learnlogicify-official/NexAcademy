@@ -559,40 +559,134 @@ export function NexEditor({
         <div 
           className="editor-status-bar"
           style={{
-            height: "22px",
-            backgroundColor: theme === "vs-dark" ? "#007acc" : "#0078d4",
-            color: "white",
+            height: "24px",
+            background: theme === "vs-dark" 
+              ? "linear-gradient(90deg, #1a1a1a, #252525, #1a1a1a)" 
+              : "linear-gradient(90deg, #f8f9fa, #f1f3f5, #f8f9fa)",
+            color: theme === "vs-dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)",
             fontSize: "12px",
             display: "flex",
             alignItems: "center",
-            padding: "0 8px",
+            padding: "0 10px",
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
             justifyContent: "space-between",
-            borderTop: theme === "vs-dark" ? "1px solid #1e1e1e" : "1px solid #e5e5e5"
+            borderTop: theme === "vs-dark" ? "1px solid rgba(99, 102, 241, 0.15)" : "1px solid rgba(99, 102, 241, 0.1)",
+            boxShadow: theme === "vs-dark" ? "0 -1px 2px rgba(0, 0, 0, 0.1)" : "0 -1px 2px rgba(0, 0, 0, 0.03)",
+            position: "relative",
+            zIndex: 10,
+            backdropFilter: "blur(8px)"
           }}
         >
+          {/* Premium gradient accent line */}
+          <div style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "1px",
+            background: "linear-gradient(90deg, rgba(99, 102, 241, 0), rgba(99, 102, 241, 0.5), rgba(99, 102, 241, 0))"
+          }}></div>
+          
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            {/* Line and column indicators */}
-            <div>
-              Ln {cursorPosition.lineNumber}, Col {cursorPosition.column}
+            {/* Line and column indicators with subtle styling */}
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              padding: "0 8px",
+              background: theme === "vs-dark" ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+              borderRadius: "4px",
+              height: "18px"
+            }}>
+              <span style={{ color: theme === "vs-dark" ? "#a5b4fc" : "#6366f1", marginRight: "3px", fontWeight: 500 }}>
+                Ln
+              </span> 
+              <span style={{ color: theme === "vs-dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)" }}>
+                {cursorPosition.lineNumber}
+              </span>
+              <span style={{ margin: "0 4px", opacity: 0.5 }}>:</span>
+              <span style={{ color: theme === "vs-dark" ? "#a5b4fc" : "#6366f1", marginRight: "3px", fontWeight: 500 }}>
+                Col
+              </span>
+              <span style={{ color: theme === "vs-dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)" }}>
+                {cursorPosition.column}
+              </span>
             </div>
-            {/* Language */}
-            <div>
-              {getLanguageDisplayName(language)}
+            
+            {/* Language badge with indicator dot */}
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "4px",
+              background: theme === "vs-dark" ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+              borderRadius: "4px",
+              padding: "0 8px",
+              height: "18px"
+            }}>
+              <span style={{ 
+                width: "6px", 
+                height: "6px", 
+                borderRadius: "50%", 
+                backgroundColor: theme === "vs-dark" ? "#a5b4fc" : "#6366f1", 
+                display: "inline-block" 
+              }}></span>
+              <span style={{ fontWeight: 500 }}>
+                {getLanguageDisplayName(language)}
+              </span>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            {/* Tab size */}
-            <div>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {/* Tab size pill */}
+            <div style={{ 
+              padding: "0 6px", 
+              height: "16px", 
+              borderRadius: "3px", 
+              fontSize: "11px", 
+              display: "flex", 
+              alignItems: "center", 
+              background: theme === "vs-dark" ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+              color: theme === "vs-dark" ? "#a5b4fc" : "#6366f1"
+            }}>
               Spaces: {tabSize}
             </div>
-            {/* Font size */}
-            <div>
-              Font: {fontSize}px
+            
+            {/* Font size pill */}
+            <div style={{ 
+              padding: "0 6px", 
+              height: "16px", 
+              borderRadius: "3px", 
+              fontSize: "11px", 
+              display: "flex", 
+              alignItems: "center", 
+              background: theme === "vs-dark" ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+              color: theme === "vs-dark" ? "#a5b4fc" : "#6366f1"
+            }}>
+              {fontSize}px
             </div>
-            {/* Theme */}
-            <div>
-              {theme === "vs-dark" ? "Dark Theme" : "Light Theme"}
+            
+            {/* Theme indicator */}
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              padding: "0 8px", 
+              background: theme === "vs-dark" ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+              borderRadius: "4px",
+              height: "18px"
+            }}>
+              <span style={{ 
+                width: "8px", 
+                height: "8px", 
+                borderRadius: "50%", 
+                backgroundImage: theme === "vs-dark" 
+                  ? "linear-gradient(to bottom right, #6366f1, #a855f7)" 
+                  : "linear-gradient(to bottom right, #818cf8, #c084fc)",
+                display: "inline-block",
+                marginRight: "6px",
+                boxShadow: theme === "vs-dark" ? "0 0 4px rgba(99, 102, 241, 0.5)" : "0 0 4px rgba(99, 102, 241, 0.3)"
+              }}></span>
+              <span style={{ fontWeight: 500 }}>
+                {theme === "vs-dark" ? "Dark" : "Light"}
+              </span>
             </div>
           </div>
         </div>

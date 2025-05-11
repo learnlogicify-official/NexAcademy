@@ -9,7 +9,10 @@ import {
   Award,
   ExternalLink,
   Bookmark,
-  Users
+  Users,
+  Hash,
+  BarChart2,
+  Shield
 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,128 +56,122 @@ const ProblemHeader = ({
   };
 
   return (
-    <div className="mb-2 relative z-10 overflow-hidden">
-      {/* Ultra-compact elegant header with horizontal layout */}
-      <div className="flex items-center space-x-3">
-        {/* Problem number pill with glowing effect */}
-        <div className="relative flex-shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 p-0.5 shadow-lg group">
-          <div className="absolute inset-0 rounded-full blur-sm opacity-50 bg-indigo-500 group-hover:opacity-70 transition-all duration-300"></div>
-          <div className="relative bg-white dark:bg-slate-900 rounded-full px-2.5 py-1 flex items-center gap-1 border border-indigo-100 dark:border-indigo-800/50">
-            <span className="text-xs font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500">#{problemNumber}</span>
-          </div>
-        </div>
+    <div className="mb-4 relative z-10 overflow-hidden">
+      {/* Premium header with glass effect */}
+      <div className="rounded-xl overflow-hidden bg-gradient-to-r from-white/90 to-white/85 dark:from-slate-900/90 dark:to-slate-800/85 shadow-sm backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/40 p-4">
+        {/* Top accent line */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/80 to-indigo-500/0"></div>
         
-        {/* Title and difficulty section */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold truncate">{problemTitle}</h1>
-            {/* Difficulty badge */}
-            <div className="flex-shrink-0">
+        {/* Content container */}
+        <div className="flex flex-col space-y-3">
+          {/* Title and actions row */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">{problemTitle}</h1>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex-shrink-0 flex items-center gap-1.5">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8 rounded-lg text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                    >
+                      <Bookmark className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Bookmark</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8 rounded-lg text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Share</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {!isMobile && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-lg text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                        onClick={toggleLeftPanelExpansion} 
+                        aria-label={isLeftPanelExpanded ? 'Collapse Panel' : 'Expand Panel'}
+                      >
+                        {isLeftPanelExpanded ? (
+                          <Minimize2 className="h-4 w-4" />
+                        ) : (
+                          <Maximize2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isLeftPanelExpanded ? 'Collapse' : 'Expand'}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+          
+          {/* Metadata row with improved display */}
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            {/* Difficulty badge - more prominent */}
+            <div className="flex-shrink-0 order-1">
               {getDifficultyBadge(difficulty)}
             </div>
-          </div>
-          
-          {/* Stats row - very compact */}
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {/* Solved by count */}
-            <div className="flex items-center">
-              <Users className="h-3 w-3 text-blue-500 dark:text-blue-400 mr-0.5" />
-              <span className="font-medium">{solvedBy.toLocaleString()} solved</span>
+            
+            {/* Stats with improved visual hierarchy */}
+            <div className="flex items-center gap-3 order-2">
+              {/* Solved by count */}
+              <div className="flex items-center text-slate-600 dark:text-slate-400">
+                <Users className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400 mr-1.5" />
+                <span className="font-medium">{solvedBy.toLocaleString()}</span>
+              </div>
+              
+              {/* Rating */}
+              <div className="flex items-center text-slate-600 dark:text-slate-400">
+                <Star className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 mr-1.5" />
+                <span className="font-medium">4.8</span>
+              </div>
+              
+              {/* Accept rate */}
+              <div className="flex items-center text-slate-600 dark:text-slate-400">
+                <Shield className="h-3.5 w-3.5 text-green-500 dark:text-green-400 mr-1.5" />
+                <span className="font-medium">68%</span>
+              </div>
             </div>
             
-            {/* Dot separator */}
-            <div className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+            {/* Divider */}
+            <div className="hidden md:block h-4 w-px bg-slate-200 dark:bg-slate-700 order-3"></div>
             
-            {/* Accept rate */}
-            <div className="flex items-center">
-              <Check className="h-3 w-3 text-green-500 dark:text-green-400 mr-0.5" />
-              <span>68% acceptance</span>
-            </div>
-            
-            {/* Dot separator */}
-            <div className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-700"></div>
-            
-            {/* Rating */}
-            <div className="flex items-center">
-              <Star className="h-3 w-3 text-amber-500 dark:text-amber-400 mr-0.5" />
-              <span>4.8</span>
+            {/* Tags section with improved styling */}
+            <div className="flex flex-wrap items-center gap-1.5 order-4 mt-1.5 md:mt-0 w-full md:w-auto">
+              {tags.map((tag, index) => (
+                <Badge 
+                  key={index}
+                  variant="outline" 
+                  className="py-0.5 px-2 h-6 text-xs font-medium bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-slate-200 dark:border-slate-700/50 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  {getTagName(tag)}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>
-        
-        {/* Action buttons with tooltip - compact row */}
-        <div className="flex-shrink-0 flex items-center gap-1.5">
-          {/* Tags section - wrap below main header on small screens */}
-          <div className="hidden sm:flex items-center gap-1 mr-2">
-            {tags.map((tag, index) => (
-              <Badge 
-                key={index}
-                variant="outline" 
-                className="py-0 h-5 text-xs bg-gray-50/80 dark:bg-gray-800/30 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-              >
-                {getTagName(tag)}
-              </Badge>
-            ))}
-          </div>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full">
-                  <Bookmark className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Bookmark</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full">
-                  <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Share</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          {!isMobile && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7 rounded-full"
-                    onClick={toggleLeftPanelExpansion} 
-                    aria-label={isLeftPanelExpanded ? 'Collapse Panel' : 'Expand Panel'}
-                  >
-                    {isLeftPanelExpanded ? (
-                      <Minimize2 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{isLeftPanelExpanded ? 'Collapse' : 'Expand'}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-      </div>
-      
-      {/* Mobile tags row - only shown on smallest screens */}
-      <div className="flex sm:hidden flex-wrap gap-1 mt-2">
-        {tags.map((tag, index) => (
-          <Badge 
-            key={index}
-            variant="outline" 
-            className="py-0 h-5 text-xs bg-gray-50/80 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-          >
-            {getTagName(tag)}
-          </Badge>
-        ))}
       </div>
     </div>
   )

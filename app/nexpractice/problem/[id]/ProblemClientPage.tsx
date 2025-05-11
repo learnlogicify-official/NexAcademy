@@ -2564,6 +2564,25 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     // Do nothing if appTheme is 'system' or undefined
   }, [appTheme]);
 
+  // Add a flag to track if the component has mounted
+  const [hasMounted, setHasMounted] = useState(false)
+  
+  // Set the mounted flag after first render
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  // Update layout when screen size changes and initialize correctly for mobile
+  useEffect(() => {
+    if (isMobile) {
+      setLeftPanelWidth(100);
+      // Always set activePanel to "problem" when the component is first mounted on mobile
+      setActivePanel("problem");
+    } else {
+      setLeftPanelWidth(50);
+    }
+  }, [isMobile]);
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
       {/* Expandable Coding Questions Sidebar - ensure it's completely hidden by default on mobile */}
@@ -2685,40 +2704,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         </div>
 
         {/* Mobile Navigation Tabs */}
-        <div className="md:hidden flex-1 flex items-center justify-center">
-          <div className="bg-slate-100 dark:bg-slate-800/80 rounded-lg p-0.5 flex items-center w-full max-w-xs">
-            <button 
-              onClick={() => setActivePanel("problem")} 
-              className={`flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1 text-xs font-medium transition-all
-              ${activePanel === "problem" 
-                ? "bg-white dark:bg-black text-indigo-700 dark:text-indigo-300 shadow-sm" 
-                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"}`}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span>Problem</span>
-            </button>
-            <button 
-              onClick={() => setActivePanel("code")} 
-              className={`flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1 text-xs font-medium transition-all
-              ${activePanel === "code" 
-                ? "bg-white dark:bg-black text-indigo-700 dark:text-indigo-300 shadow-sm" 
-                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"}`}
-            >
-              <Code className="h-3.5 w-3.5" />
-              <span>Code</span>
-            </button>
-            <button 
-              onClick={() => setActivePanel("results")} 
-              className={`flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1 text-xs font-medium transition-all
-              ${activePanel === "results" 
-                ? "bg-white dark:bg-black text-indigo-700 dark:text-indigo-300 shadow-sm" 
-                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"}`}
-            >
-              <Terminal className="h-3.5 w-3.5" />
-              <span>Results</span>
-            </button>
-          </div>
-        </div>
+       
+          
+
 
         {/* Empty space for layout balance in mobile */}
         <div className="md:hidden w-16"></div>
@@ -2817,9 +2805,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         {/* Left panel - Problem description */}
         <div
           className={`h-full overflow-auto bg-white dark:bg-black ${
-            isMobile ? (activePanel === "problem" ? "block w-full" : "hidden") : "border-r border-indigo-100 dark:border-indigo-900/50"
-          }`}
-          style={{ width: isMobile ? "100%" : `${leftPanelWidth}%` }}
+            hasMounted && isMobile ? (activePanel === "problem" ? "block w-full" : "hidden") : "border-r border-indigo-100 dark:border-indigo-900/50"
+          } ${hasMounted && isMobile ? "pb-24" : ""}`}
+          style={{ width: hasMounted && isMobile ? "100%" : `${leftPanelWidth}%` }}
         >
           <div className="p-3 md:px-5 md:py-3">
             {/* Use the new ProblemHeader component */}
@@ -2837,10 +2825,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
             {/* Problem content tabs with new gradient background */}
             <Tabs defaultValue="description" className="mt-2 mb-5" onValueChange={handleTabChange}>
-              <TabsList className="grid grid-cols-4 bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-indigo-50/90 dark:from-black dark:via-neutral-900 dark:to-black p-1.5 rounded-xl overflow-hidden backdrop-blur-sm border border-indigo-100/90 dark:border-indigo-900/40 shadow-sm">
+              <TabsList className="flex flex-nowrap justify-start overflow-x-auto overflow-y-hidden px-3 scroll-pl-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-indigo-200 dark:scrollbar-thumb-indigo-900/40 bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-indigo-50/90 dark:from-black dark:via-neutral-900 dark:to-black rounded-xl backdrop-blur-sm border border-indigo-100/90 dark:border-indigo-900/40 shadow-sm p-2">
                 <TabsTrigger
                   value="description"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 snap-start data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -2853,7 +2841,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 </TabsTrigger>
                 <TabsTrigger
                   value="solution"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -2866,7 +2854,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 </TabsTrigger>
                 <TabsTrigger
                   value="submissions"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -2879,7 +2867,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 </TabsTrigger>
                 <TabsTrigger
                   value="discussion"
-                  className="rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
+                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
                 >
                   <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                     <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -3622,30 +3610,36 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
         {/* Right panel container */}
         <div
-          className={`flex flex-col h-full ${isMobile && activePanel === "problem" ? "hidden" : ""}`}
-          style={{ width: isMobile ? "100%" : `${100 - leftPanelWidth}%` }}
+          className={`flex flex-col h-full ${hasMounted && isMobile && activePanel === "problem" ? "hidden" : ""}`}
+          style={{ width: hasMounted && isMobile ? "100%" : `${100 - leftPanelWidth}%` }}
         >
           {/* Code editor */}
           <div
             className={`flex flex-col overflow-hidden ${
-              isMobile ? (activePanel === "code" ? "block" : "hidden") : ""
-            }`}
+              hasMounted && isMobile ? (activePanel === "code" ? "block" : "hidden") : ""
+            } ${hasMounted && isMobile ? "pb-24" : ""}`}
             style={{
-              flexBasis: isMobile ? "100%" : `${editorHeight}%`,
+              flexBasis: hasMounted && isMobile ? "100%" : `${editorHeight}%`,
               flexGrow: 0,
               flexShrink: 1,
               minHeight: 0,
-              maxHeight: isMobile ? "100%" : `${editorHeight}%`,
-              height: isMobile ? "100%" : undefined,
+              maxHeight: hasMounted && isMobile ? "100%" : `${editorHeight}%`,
+              height: hasMounted && isMobile ? "100%" : undefined,
               transition: "all 0.3s ease-in-out" // Add smooth transition
             }}
           >
             <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50 flex-shrink-0">
               <div className="flex items-center">
-                <div className="flex items-center mr-4">
-                  <span className="text-base font-semibold text-indigo-700 dark:text-indigo-300 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300">
-                    NexEditor
-                  </span>
+                <div className="flex items-center mr-3 md:mr-4">
+                  {/* Logo - "N" on mobile, "NexEditor" on desktop */}
+                  <div className="flex items-center justify-center w-7 h-7 md:w-auto md:h-auto">
+                    <span className="hidden md:block text-base font-semibold text-indigo-700 dark:text-indigo-300 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300">
+                      NexEditor
+                    </span>
+                    <div className="md:hidden flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold text-lg shadow-sm">
+                      N
+                    </div>
+                  </div>
                 </div>
                 {/* Custom Language Dropdown */}
                 <Popover open={languageDropdownOpen} onOpenChange={setLanguageDropdownOpen}>
@@ -3653,20 +3647,20 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mr-2 flex items-center gap-2 border-indigo-200 dark:border-indigo-800/50 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/90 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 min-w-[180px] h-9 pl-2 pr-3 overflow-hidden group relative"
+                      className="mr-2 flex items-center gap-1 md:gap-2 border-indigo-200 dark:border-indigo-800/50 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/90 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 min-w-[120px] md:min-w-[180px] h-8 md:h-9 pl-1 md:pl-2 pr-2 md:pr-3 overflow-hidden group relative"
                     >
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500"></div>
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900 dark:to-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700/30 shadow-sm flex-shrink-0">
+                      <div className="flex items-center gap-1 md:gap-2 overflow-hidden">
+                        <div className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900 dark:to-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700/30 shadow-sm flex-shrink-0">
                           {LANGUAGE_ICONS[language as keyof typeof LANGUAGE_ICONS] || (
-                            <Code className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+                            <Code className="h-3 w-3 md:h-3.5 md:w-3.5 text-indigo-500 dark:text-indigo-400" />
                           )}
                         </div>
                         <div className="flex flex-col leading-none overflow-hidden">
-                          <span className="font-medium text-sm truncate">
+                          <span className="font-medium text-xs md:text-sm truncate">
                             {parseLanguageName(JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]).name}
                           </span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          <span className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 truncate">
                             {parseLanguageName(JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]).version}
                           </span>
                         </div>
@@ -3790,26 +3784,26 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </div>
               <div className="flex items-center gap-2">
                 {/* Mobile Run and Submit buttons */}
-                {isMobile && (
-                  <div className="flex items-center gap-2">
+                {hasMounted && isMobile && (
+                  <div className="flex items-center gap-1.5">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-9 px-3 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50"
+                      className="h-8 px-2 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50"
                       onClick={runCode}
                       disabled={isRunning}
                     >
-                      {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
-                      {!isRunning && <span>Run</span>}
+                      {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                      {!isRunning && <span className="text-xs ml-1">Run</span>}
                     </Button>
                     <Button
                       size="sm"
-                      className="h-9 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white"
+                      className="h-8 px-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white"
                       onClick={submitCode}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
-                      {!isSubmitting && <span>Submit</span>}
+                      {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      {!isSubmitting && <span className="text-xs ml-1">Submit</span>}
                     </Button>
                   </div>
                 )}
@@ -3835,10 +3829,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 {/* Format button with spinner and tooltip */}
                 <Popover>
                   <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden md:flex text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="hidden md:flex text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                       onClick={formatCode}
                       disabled={isFormatting}
                     >
@@ -3871,7 +3865,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                           <span>Format</span>
                         </>
                       )}
-                </Button>
+                    </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-72 p-3 text-xs" align="end">
                     <div className="text-slate-700 dark:text-slate-300 space-y-2.5">
@@ -4124,15 +4118,15 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           {/* Results panel */}
           <div
             className={`flex flex-col overflow-hidden ${
-              isMobile ? (activePanel === "results" ? "block" : "hidden") : ""
-            }`}
+              hasMounted && isMobile ? (activePanel === "results" ? "block" : "hidden") : ""
+            } ${hasMounted && isMobile ? "pb-24" : ""}`}
             style={{
-              flexBasis: isMobile ? "100%" : `${100 - editorHeight}%`,
-              flexGrow: 1,
-              flexShrink: 1,
+              flexBasis: hasMounted && isMobile ? "100%" : `${100 - editorHeight}%`,
+              flexGrow: 0,
+              flexShrink: 0,
               minHeight: 0,
-              maxHeight: isMobile ? "100%" : `${100 - editorHeight}%`,
-              height: isMobile ? "100%" : undefined,
+              maxHeight: hasMounted && isMobile ? "100%" : `${100 - editorHeight}%`,
+              height: hasMounted && isMobile ? "100%" : undefined,
               transition: "all 0.3s ease-in-out" // Add smooth transition
             }}
           >
@@ -4159,17 +4153,18 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               </div>
             </div>
             
-            <div className="flex-1 relative bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800/80 overflow-auto">
+            {/* Results Content */}
+            <div className="flex-1 relative bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800/80 overflow-auto pb-20">
               {/* Background decorative elements */}
               <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-full blur-3xl -z-0"></div>
               <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-purple-50/30 dark:bg-purple-900/10 rounded-full blur-3xl -z-0"></div>
               
               {/* Tabs for Results Panel */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-4 relative z-10">
-                <TabsList className="bg-slate-100 dark:bg-slate-800/70 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex">
+                <TabsList className="flex flex-nowrap justify-start overflow-x-auto overflow-y-hidden px-3 scroll-pl-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-indigo-200 dark:scrollbar-thumb-indigo-900/40 bg-slate-100 dark:bg-slate-800/70 rounded-lg backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 gap-1.5 p-2">
                   <TabsTrigger
                     value="sample"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-shrink-0 min-w-[140px] px-3 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -4179,7 +4174,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </TabsTrigger>
                   <TabsTrigger
                     value="hidden"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-shrink-0 min-w-[140px] px-3 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -4189,7 +4184,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   </TabsTrigger>
                   <TabsTrigger
                     value="custom"
-                    className="flex-1 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
+                    className="flex-shrink-0 min-w-[140px] px-3 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
                   >
                     <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
                       <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -4299,12 +4294,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     
                       {/* Nested tabs for multiple test cases */}
                       <Tabs defaultValue={`sample-testcase-0`} className="w-full">
-                        <TabsList className="bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex flex-wrap">
+                        <TabsList className="flex flex-nowrap overflow-x-auto px-3 scrollbar-thin scrollbar-thumb-indigo-200 dark:scrollbar-thumb-indigo-900/40 bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 rounded-lg backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 gap-1.5 p-2">
                           {sampleTestResults.map((result, idx) => (
                             <TabsTrigger
                               key={`sample-trigger-${result.id || idx}`}
                               value={`sample-testcase-${idx}`}
-                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                              className="flex-shrink-0 min-w-[85px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
                             >
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -4317,7 +4312,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                     : 'bg-gradient-to-br from-red-500 to-rose-600'}`}>
                                   {result.isCorrect ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                                 </div>
-                                <span className="hidden sm:inline font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test {idx + 1}</span>
+                                <span className="font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test {idx + 1}</span>
                               </div>
                               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover:opacity-100 group-data-[state=active]:opacity-0 transition-opacity"></div>
                             </TabsTrigger>
@@ -4432,81 +4427,108 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                 <div className="flex items-center">
                                   <Cpu className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1.5" />
                                   <span className="text-xs text-slate-500 dark:text-slate-400">Memory Used: {result.memoryUsed || 'N/A'}</span>
-                      </div>
-                    </div>
-                      </div>
+                                </div>
+                              </div>
+                            </div>
                           </TabsContent>
                         ))}
                       </Tabs>
-                      
-                      {/* Performance summary */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
-                      <div className="bg-white dark:bg-black/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
-                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-2">
-                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Execution Time</div>
-                          <div className="font-medium text-slate-700 dark:text-slate-300">
-                            {sampleTestResults[0]?.executionTime || 'N/A'}
-                          </div>
-                      </div>
-                      <div className="bg-white dark:bg-black/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
-                        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
-                          <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Test Cases</div>
-                          <div className="font-medium text-slate-700 dark:text-slate-300">
-                            {sampleTestResults.filter(r => r.isCorrect).length}/{sampleTestResults.length} Passed
-                          </div>
-                      </div>
-                      <div className="bg-white dark:bg-black/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-2">
-                            <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                        </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Memory Usage</div>
-                          <div className="font-medium text-slate-700 dark:text-slate-300">
-                            {sampleTestResults[0]?.memoryUsed || 'N/A'}
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                          <Play className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />
+                    // Display sample test cases when no code has been run
+                    <div className="space-y-4">
+                      {/* Summary banner for sample test cases */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-slate-700 dark:text-slate-300">
+                          <span className="font-medium">{examples.length}</span> sample test cases available
                         </div>
-                        <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">No Results Yet</h3>
-                        <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-4">
-                          Run your code to see results for sample test cases
-                        </p>
-                        <Button 
-                          className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white relative overflow-hidden min-w-40"
-                          onClick={runCode}
-                          disabled={isRunning}
-                        >
-                          {isRunning ? (
-                            <>
-                              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
-                              <div className="relative z-10 flex items-center space-x-1">
-                                <span className="flex h-2 w-2 relative">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
-                                </span>
-                                <span className="text-sm font-medium text-white animate-pulse">
-                                  {loadingPhrase || "Processing..."}
-                                </span>
+                        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200/70 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 shadow-sm">
+                          <Play className="h-3 w-3 mr-1.5" />
+                          Run Code to Test
+                        </div>
                       </div>
-                            </>
-                          ) : (
-                            <>
-                          <Play className="h-4 w-4 mr-2" />
-                          Run Sample Tests
-                            </>
-                          )}
-                    </Button>
+                      
+                      {/* Tabs for each sample testcase */}
+                      <Tabs defaultValue={`example-0`} className="w-full">
+                        <TabsList className="bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex flex-wrap">
+                          {examples.map((example: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
+                            <TabsTrigger
+                              key={`example-trigger-${example.id || idx}`}
+                              value={`example-${idx}`}
+                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
+                            >
+                              <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
+                                <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
+                              </div>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium bg-gradient-to-br from-indigo-500 to-purple-600">
+                                  {idx + 1}
+                                </div>
+                                <span className="hidden sm:inline font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test {idx + 1}</span>
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover:opacity-100 group-data-[state=active]:opacity-0 transition-opacity"></div>
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                        
+                        {examples.map((example: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
+                          <TabsContent key={`example-content-${example.id || idx}`} value={`example-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
+                            <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                              <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium bg-indigo-500">
+                                    {idx + 1}
+                                  </div>
+                                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                                    Sample Test Case
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                    Input
+                                  </div>
+                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                    {formatTestCase(example.input)}
+                                  </div>
+                                </div>
+                                
+                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                    Expected Output
+                                  </div>
+                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                    {formatTestCase(example.output)}
+                                  </div>
+                                </div>
+                                
+                                {/* Explanation if available */}
+                                {example.explanation && (
+                                  <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50 md:col-span-2">
+                                    <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center">
+                                      <Info className="h-3 w-3 mr-1.5 text-indigo-500 dark:text-indigo-400" />
+                                      Explanation
+                                    </div>
+                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                      {formatTestCase(example.explanation)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  Run code to test your solution against this example
+                                </div>
+                              </div>
+                            </div>
+                          </TabsContent>
+                        ))}
+                      </Tabs>
                     </div>
-                  </div>
                   )}
                 </TabsContent>
                 
@@ -4537,6 +4559,44 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           </div>
         </div>
       </div>
+
+      {/* Floating Mobile Navigation Tabs */}
+      {hasMounted && isMobile && (
+        <div className="md:hidden fixed bottom-8 left-0 right-0 flex justify-center z-50 px-4">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-full p-1.5 flex items-center w-full max-w-xs shadow-xl border border-indigo-100/50 dark:border-indigo-800/30">
+            <button 
+              onClick={() => setActivePanel("problem")} 
+              className={`flex-1 py-2.5 px-3 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-300
+              ${activePanel === "problem" 
+                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"}`}
+            >
+              <FileText className="h-4 w-4" />
+              <span>Problem</span>
+            </button>
+            <button 
+              onClick={() => setActivePanel("code")} 
+              className={`flex-1 py-2.5 px-3 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-300
+              ${activePanel === "code" 
+                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"}`}
+            >
+              <Code className="h-4 w-4" />
+              <span>Code</span>
+            </button>
+            <button 
+              onClick={() => setActivePanel("results")} 
+              className={`flex-1 py-2.5 px-3 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-300
+              ${activePanel === "results" 
+                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"}`}
+            >
+              <Terminal className="h-4 w-4" />
+              <span>Results</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 
