@@ -1406,8 +1406,46 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   // Track previous language for code draft saving
   const prevLanguageRef = useRef(language);
 
+  // Add the saveDraftIfChanged function
+  const saveDraftIfChanged = useCallback((languageToSave: string, codeToSave: string) => {
+    if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
+      const baseKey = `nexacademy_${authSession.user.id}_${problemId}_${languageToSave}`;
+      const draftKey = `${baseKey}_draft`;
+      const localCode = localStorage.getItem(baseKey) || '';
+      const draftCode = localStorage.getItem(draftKey) || '';
+      if (localCode !== draftCode) {
+        saveUserCodeDraft({
+          variables: {
+            input: {
+              userId: String(authSession.user.id),
+              problemId: String(problemId),
+              language: String(languageToSave),
+              code: String(codeToSave),
+            }
+          }
+        })
+        .then(() => {
+          localStorage.setItem(draftKey, codeToSave);
+        })
+        .catch(err => {
+          console.error('Failed to save code draft:', err);
+        });
+      }
+    }
+  }, [authStatus, authSession, problemId, saveUserCodeDraft]);
+
   // Add the runCode and submitCode functions
   const runCode = async () => {
+    // Only save draft if local and draft differ
+    if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
+      const baseKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      const draftKey = `${baseKey}_draft`;
+      const localCode = localStorage.getItem(baseKey) || '';
+      const draftCode = localStorage.getItem(draftKey) || '';
+      if (localCode !== draftCode) {
+        saveDraftIfChanged(language, code);
+      }
+    }
     try {
       // Make results panel fullscreen when running code
       if (!isResultsPanelFullscreen) {
@@ -1492,6 +1530,16 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   // Update the submitCode function to also check for partially passing tests correctly
   const submitCode = async () => {
+    // Only save draft if local and draft differ
+    if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
+      const baseKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      const draftKey = `${baseKey}_draft`;
+      const localCode = localStorage.getItem(baseKey) || '';
+      const draftCode = localStorage.getItem(draftKey) || '';
+      if (localCode !== draftCode) {
+        saveDraftIfChanged(language, code);
+      }
+    }
     try {
       // Make results panel fullscreen when submitting code
       if (!isResultsPanelFullscreen) {
@@ -1950,6 +1998,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   
   // Handle tab change to load submissions when the tab becomes active
   const handleTabChange = (value: string) => {
+    saveDraftIfChanged(language, code);
     if (value === 'submissions') {
       setSubmissionsTabActive(true);
     } else {
@@ -2239,6 +2288,15 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       });
     }
   }, [authStatus, authSession, problemId, code, saveUserCodeDraft, saveUserProblemSettings]);
+
+  // Save draft on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveDraftIfChanged(language, code);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [language, code, saveDraftIfChanged]);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
@@ -3322,13 +3380,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         {Object.entries(JUDGE0_LANGUAGES)
                           .filter(([id, name]) => 
                             !searchLanguage || name.toLowerCase().includes(searchLanguage.toLowerCase()))
-                          .map(([langId, langName], index, array) => {
+                          .map(([langId, langName]: [string, string], index: number, array: [string, string][]) => {
                             const { name, version } = parseLanguageName(langName);
-                            const isSelected = language === langId;
-                            
-                            // Add dividers after every 6 items for visual organization
-                            const showDivider = index > 0 && index % 6 === 0 && index !== array.length - 1;
-                            
+                            const isSelected: boolean = language === langId;
+                            const showDivider: boolean = index > 0 && index % 6 === 0 && index !== array.length - 1;
                             return (
                               <Fragment key={`lang-${langId}`}>
                                 {showDivider && (
@@ -3353,7 +3408,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                     <div className="flex flex-col leading-tight overflow-hidden flex-1">
                                       <span className="font-medium truncate text-slate-700 dark:text-slate-300 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
                                         {name}
-                </span>
+                                      </span>
                                       {version && (
                                         <span className="version truncate text-xs text-slate-500 dark:text-slate-400 group-hover:text-indigo-500/70 dark:group-hover:text-indigo-400/70 transition-colors">
                                           {version}
