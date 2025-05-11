@@ -3968,34 +3968,34 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             
             <div className="flex-1 overflow-auto" style={{ minHeight: 0 }}>
               {/* Editor wrapper with subtle background gradient */}
-              <div className="h-full w-full relative bg-gradient-to-br from-slate-800 to-slate-900">
+              <div className="h-full w-full relative bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
                 {editorLoading || initialLoading ? (
                   <div className="flex items-center justify-center h-full w-full overflow-hidden">
                     <div className="w-full h-full flex flex-col">
                       {/* Premium skeleton loader */}
                       <div className="h-full w-full relative overflow-hidden rounded-md">
                         {/* Background with subtle gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/5 to-purple-50/5 dark:from-indigo-900/10 dark:to-purple-900/10"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/40 to-purple-50/40 dark:from-indigo-900/10 dark:to-purple-900/10"></div>
                         {/* Animated gradient overlay */}
                         <div className="absolute inset-0 bg-[linear-gradient(110deg,transparent_33%,rgba(79,70,229,0.05)_50%,transparent_66%)] dark:bg-[linear-gradient(110deg,transparent_33%,rgba(79,70,229,0.1)_50%,transparent_66%)] bg-size-200 animate-shimmer"></div>
                         {/* Content placeholder */}
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="space-y-8 w-1/2 max-w-md">
                             <div className="flex items-center space-x-3">
-                              <div className="h-10 w-10 rounded-full bg-indigo-100/20 dark:bg-indigo-900/20 flex items-center justify-center">
-                                <Code className="h-5 w-5 text-indigo-300/40 dark:text-indigo-400/40" />
+                              <div className="h-10 w-10 rounded-full bg-indigo-100/60 dark:bg-indigo-900/20 flex items-center justify-center">
+                                <Code className="h-5 w-5 text-indigo-400/60 dark:text-indigo-400/40" />
                               </div>
-                              <div className="h-3 bg-indigo-200/30 dark:bg-indigo-700/30 rounded-md w-36"></div>
+                              <div className="h-3 bg-indigo-200/60 dark:bg-indigo-700/30 rounded-md w-36"></div>
                             </div>
                             <div className="space-y-3">
-                              <div className="h-3 bg-slate-200/30 dark:bg-slate-700/30 rounded-md w-full"></div>
-                              <div className="h-3 bg-slate-200/30 dark:bg-slate-700/30 rounded-md w-5/6"></div>
-                              <div className="h-3 bg-slate-200/30 dark:bg-slate-700/30 rounded-md w-4/6"></div>
+                              <div className="h-3 bg-slate-200/60 dark:bg-slate-700/30 rounded-md w-full"></div>
+                              <div className="h-3 bg-slate-200/60 dark:bg-slate-700/30 rounded-md w-5/6"></div>
+                              <div className="h-3 bg-slate-200/60 dark:bg-slate-700/30 rounded-md w-4/6"></div>
                             </div>
                             <div className="space-y-3">
-                              <div className="h-3 bg-indigo-200/20 dark:bg-indigo-800/20 rounded-md w-full"></div>
-                              <div className="h-3 bg-indigo-200/20 dark:bg-indigo-800/20 rounded-md w-3/4"></div>
-                              <div className="h-3 bg-indigo-200/20 dark:bg-indigo-800/20 rounded-md w-5/6"></div>
+                              <div className="h-3 bg-indigo-200/40 dark:bg-indigo-800/20 rounded-md w-full"></div>
+                              <div className="h-3 bg-indigo-200/40 dark:bg-indigo-800/20 rounded-md w-3/4"></div>
+                              <div className="h-3 bg-indigo-200/40 dark:bg-indigo-800/20 rounded-md w-5/6"></div>
                             </div>
                           </div>
                         </div>
@@ -4117,8 +4117,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-300">
                       {/* Summary skeleton */}
                       <div className="flex items-center justify-between mb-2">
-                        <Skeleton className="h-5 w-40" />
-                        <Skeleton className="h-6 w-28 rounded-full" />
+                        <Skeleton className="h-5 w-40 bg-slate-200/70 dark:bg-slate-700/50" />
+                        <Skeleton className="h-6 w-28 rounded-full bg-slate-200/70 dark:bg-slate-700/50" />
                       </div>
                       
                       {/* Test cases skeletons */}
@@ -4126,10 +4126,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         {/* Header skeleton */}
                         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/70 dark:to-slate-800/50 flex justify-between">
                           <div className="flex items-center gap-2">
-                            <Skeleton className="h-6 w-6 rounded-full" />
-                            <Skeleton className="h-5 w-24" />
+                            <Skeleton className="h-6 w-6 rounded-full bg-slate-200/70 dark:bg-slate-700/50" />
+                            <Skeleton className="h-5 w-24 bg-slate-200/70 dark:bg-slate-700/50" />
                           </div>
-                          <Skeleton className="h-6 w-20 rounded-full" />
+                          <Skeleton className="h-6 w-20 rounded-full bg-slate-200/70 dark:bg-slate-700/50" />
                         </div>
                         
                         {/* Content skeleton */}
@@ -4137,24 +4137,24 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                           {/* Input skeleton */}
                           <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
                             <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50">
-                              <Skeleton className="h-4 w-16" />
+                              <Skeleton className="h-4 w-16 bg-slate-200/70 dark:bg-slate-700/50" />
                             </div>
                             <div className="p-3 space-y-2">
-                              <Skeleton className="h-4 w-full" />
-                              <Skeleton className="h-4 w-3/4" />
-                              <Skeleton className="h-4 w-1/2" />
+                              <Skeleton className="h-4 w-full bg-slate-200/70 dark:bg-slate-700/50" />
+                              <Skeleton className="h-4 w-3/4 bg-slate-200/70 dark:bg-slate-700/50" />
+                              <Skeleton className="h-4 w-1/2 bg-slate-200/70 dark:bg-slate-700/50" />
                             </div>
                           </div>
                           
                           {/* Expected Output skeleton */}
                           <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
                             <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50">
-                              <Skeleton className="h-4 w-36" />
+                              <Skeleton className="h-4 w-36 bg-slate-200/70 dark:bg-slate-700/50" />
                             </div>
                             <div className="p-3 space-y-2">
-                              <Skeleton className="h-4 w-full" />
-                              <Skeleton className="h-4 w-2/3" />
-                              <Skeleton className="h-4 w-1/4" />
+                              <Skeleton className="h-4 w-full bg-slate-200/70 dark:bg-slate-700/50" />
+                              <Skeleton className="h-4 w-2/3 bg-slate-200/70 dark:bg-slate-700/50" />
+                              <Skeleton className="h-4 w-1/4 bg-slate-200/70 dark:bg-slate-700/50" />
                             </div>
                           </div>
                           
@@ -4181,8 +4181,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         
                         {/* Footer skeleton */}
                         <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/50" />
+                          <Skeleton className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/50" />
                         </div>
                       </div>
                     </div>

@@ -543,10 +543,14 @@ export function NexEditor({
             width: "100%",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#1e1e1e",
-            color: "white"
+            backgroundColor: theme === "vs-dark" ? "#1e1e1e" : "#ffffff",
+            color: theme === "vs-dark" ? "#ffffff" : "#333333",
+            transition: "background-color 0.2s, color 0.2s"
           }}>
-            <div>Loading editor...</div>
+            <div className="flex items-center gap-2">
+              <div className="animate-spin h-5 w-5 border-2 rounded-full border-r-transparent" style={{ borderColor: theme === "vs-dark" ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)", borderRightColor: "transparent" }}></div>
+              <div>Loading editor...</div>
+            </div>
           </div>
         }
       />
