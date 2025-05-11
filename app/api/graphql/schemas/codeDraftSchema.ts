@@ -24,6 +24,17 @@ export const codeDraftTypeDefs = gql`
     code: String!
   }
 
+  input SaveUserProblemSettingsInput {
+    userId: String!
+    problemId: String!
+    lastLanguage: String!
+  }
+
+  type SaveUserProblemSettingsResponse {
+    success: Boolean!
+    message: String!
+  }
+
   extend type Query {
     getUserCodeDraft(userId: String!, problemId: String!, language: String!): UserCodeDraft
     getAllUserCodeDrafts(userId: String!, problemId: String!): [UserCodeDraft!]!
@@ -31,5 +42,6 @@ export const codeDraftTypeDefs = gql`
 
   extend type Mutation {
     saveCodeDraft(input: SaveCodeDraftInput!): CodeDraftResponse!
+    saveUserProblemSettings(input: SaveUserProblemSettingsInput!): SaveUserProblemSettingsResponse!
   }
 `; 

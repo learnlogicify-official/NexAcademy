@@ -1,6 +1,6 @@
 "use client"
 
-import React, { Fragment, useState, useRef, useEffect, useCallback } from "react"
+import React, { Fragment, useState, useRef, useEffect, useCallback, useMemo } from "react"
 import {
   ChevronLeft,
   ChevronRight,
@@ -101,6 +101,7 @@ import JSConfetti from 'js-confetti'
 import { Editor } from "@monaco-editor/react"
 import { ModeToggle } from "@/components/nexpractice/mode-toggle";
 import DOMPurify from 'isomorphic-dompurify';
+import { gql } from '@apollo/client';
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -486,12 +487,45 @@ const parseLanguageName = (fullName: string) => {
   return { name: fullName, version: "" };
 };
 
+// GraphQL mutation for saving user code draft
+const SAVE_USER_CODE_DRAFT = gql`
+  mutation SaveCodeDraft($input: SaveCodeDraftInput!) {
+    saveCodeDraft(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+// GraphQL mutation for saving user problem setting (language)
+const SAVE_USER_PROBLEM_SETTINGS = gql`
+  mutation SaveUserProblemSettings($input: SaveUserProblemSettingsInput!) {
+    saveUserProblemSettings(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
 export default function ProblemClientPage({ codingQuestion, defaultLanguage, preloadCode }: ProblemClientPageProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-
+  const { data: authSession, status: authStatus } = useSession()
+  
+  // Add authentication debugging
+  useEffect(() => {
+    console.log('Auth session:', authSession);
+    console.log('Auth status:', authStatus);
+  }, [authSession, authStatus]);
+  
+  // Extract problem ID from the URL path
+  const problemId = useMemo(() => {
+    const pathSegments = pathname.split('/');
+    return pathSegments[pathSegments.length - 1];
+  }, [pathname]);
+  
   // Initialize language correctly based on defaultLanguage
   const processDefaultLanguage = (lang: string): string => {
     if (lang === "Java") return "62"; // Java ID
@@ -499,11 +533,42 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   };
   
   const [language, setLanguage] = useState(processDefaultLanguage(defaultLanguage))
+  
+  // Migrate data from anonymous storage to user storage when logging in
+  useEffect(() => {
+    if (authStatus === 'authenticated' && authSession?.user?.id && problemId && language) {
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
+      const userKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      
+      // Check if there's anonymous data but no user data yet
+      const anonymousData = localStorage.getItem(anonymousKey);
+      const userData = localStorage.getItem(userKey);
+      
+      if (anonymousData && !userData) {
+        // Migrate the anonymous data to the user's storage
+        console.log(`Migrating anonymous data from ${anonymousKey} to user storage ${userKey}`);
+        localStorage.setItem(userKey, anonymousData);
+        
+        // Clean up the anonymous data after migration
+        console.log(`Removing migrated anonymous data from ${anonymousKey}`);
+        localStorage.removeItem(anonymousKey);
+        
+        // Notify the user (optional)
+        toast({
+          title: "Your code was saved",
+          description: "We've migrated your previously saved code to your account.",
+          duration: 3000,
+        });
+      }
+    }
+  }, [authStatus, authSession, problemId, language, toast]);
+  
   // Add debug log after initialization
   useEffect(() => {
     console.log("Initial language state:", language);
     console.log("Default language prop:", defaultLanguage);
   }, [language, defaultLanguage]);
+  
   const isMobile = useIsMobile()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { theme: appTheme, setTheme: setAppTheme } = useTheme()
@@ -614,6 +679,65 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   }
 
   const [code, setCode] = useState<string>(preloadCode)
+  
+  // Save code to localStorage on each keystroke
+  useEffect(() => {
+    if (!code || !problemId || !language) return;
+    
+    // Only save to a single key based on authentication status
+    if (authStatus === 'authenticated' && authSession?.user?.id) {
+      // User is authenticated, use their user ID
+      const userStorageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      console.log(`User authenticated: Saving code to ${userStorageKey}`);
+      localStorage.setItem(userStorageKey, code);
+      
+      // Optionally clean up any anonymous data for this problem/language
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
+      if (localStorage.getItem(anonymousKey)) {
+        console.log(`Removing anonymous data from ${anonymousKey}`);
+        localStorage.removeItem(anonymousKey);
+      }
+    } else {
+      // User is not authenticated, use anonymous key
+      const anonymousKey = `nexacademy_anonymous_${problemId}_${language}`;
+      console.log(`User not authenticated: Saving code to ${anonymousKey}`);
+      localStorage.setItem(anonymousKey, code);
+    }
+  }, [code, problemId, language, authStatus, authSession]);
+  
+  // Load saved code from localStorage on component mount or language change
+  useEffect(() => {
+    if (!problemId || !language) return;
+    
+    let storageKey;
+    
+    // Determine the correct key to load from based on authentication status
+    if (authStatus === 'authenticated' && authSession?.user?.id) {
+      storageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
+      console.log(`User authenticated: Loading from ${storageKey}`);
+    } else {
+      storageKey = `nexacademy_anonymous_${problemId}_${language}`;
+      console.log(`User not authenticated: Loading from ${storageKey}`);
+    }
+    
+    // Check if there's saved code in localStorage
+    const savedCode = localStorage.getItem(storageKey);
+    
+    // Add debug log
+    if (savedCode) {
+      console.log(`Found saved code (length: ${savedCode.length})`);
+    } else {
+      console.log('No saved code found, using preloadCode');
+    }
+    
+    // If there's saved code and it's different from the current code, update the editor
+    if (savedCode && savedCode !== preloadCode) {
+      setCode(savedCode);
+    } else if (preloadCode) {
+      // If no saved code but we have preloadCode, use that
+      setCode(preloadCode);
+    }
+  }, [problemId, language, preloadCode, authStatus, authSession]);
 
   // Helper: get difficulty, version, name, etc. from codingQuestion.question
   const problemNumber = codingQuestion.question?.version || 1
@@ -1276,6 +1400,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   // Add the GraphQL mutations
   const [runCodeMutation] = useMutation(RUN_CODE);
   const [submitCodeMutation] = useMutation(SUBMIT_CODE);
+  const [saveUserCodeDraft] = useMutation(SAVE_USER_CODE_DRAFT);
+  const [saveUserProblemSettings] = useMutation(SAVE_USER_PROBLEM_SETTINGS);
+
+  // Track previous language for code draft saving
+  const prevLanguageRef = useRef(language);
 
   // Add the runCode and submitCode functions
   const runCode = async () => {
@@ -2056,6 +2185,60 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     const normalizedName = languageName.split(' ')[0];
     return languageMap[normalizedName] || 'plaintext';
   };
+
+  // Custom setLanguage handler to save code draft and update problem setting
+  const handleLanguageChange = useCallback((newLanguage: string) => {
+    // Capture previous language and code before state changes
+    const prevLanguage = prevLanguageRef.current;
+    const prevCode = code;
+
+    // Update UI immediately
+    prevLanguageRef.current = newLanguage;
+    setLanguage(newLanguage);
+
+    if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
+      // Compose keys
+      const baseKey = `nexacademy_${authSession.user.id}_${problemId}_${prevLanguage}`;
+      const draftKey = `${baseKey}_draft`;
+
+      // Get values from localStorage
+      const localCode = localStorage.getItem(baseKey) || '';
+      const draftCode = localStorage.getItem(draftKey) || '';
+
+      // Only save to DB if localCode and draftCode differ
+      if (localCode !== draftCode) {
+        saveUserCodeDraft({
+          variables: {
+            input: {
+              userId: String(authSession.user.id),
+              problemId: String(problemId),
+              language: String(prevLanguage),
+              code: String(prevCode),
+            }
+          }
+        })
+        .then(() => {
+          localStorage.setItem(draftKey, prevCode);
+        })
+        .catch(err => {
+          console.error('Failed to save code draft:', err);
+        });
+      }
+
+      // Save new language to UserProblemSettings (always)
+      saveUserProblemSettings({
+        variables: {
+          input: {
+            userId: String(authSession.user.id),
+            problemId: String(problemId),
+            lastLanguage: newLanguage,
+          }
+        }
+      }).catch(err => {
+        console.error('Failed to save user problem settings:', err);
+      });
+    }
+  }, [authStatus, authSession, problemId, code, saveUserCodeDraft, saveUserProblemSettings]);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
@@ -3157,7 +3340,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                       ? 'border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/70 dark:bg-indigo-900/20' 
                                       : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800/60'
                                   } ${isSelected ? 'active' : ''}`}
-                                  onClick={() => setLanguage(langId)}
+                                  onClick={() => handleLanguageChange(langId)}
                                 >
                                   <div className="flex items-center gap-3 w-full h-full overflow-hidden">
                                     <div className="language-icon-container flex-shrink-0 w-7 h-7 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm group-hover:from-indigo-50 group-hover:to-indigo-100 dark:group-hover:from-indigo-900/20 dark:group-hover:to-indigo-900/30 transition-all duration-200">
