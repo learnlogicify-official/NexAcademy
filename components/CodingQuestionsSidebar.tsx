@@ -82,9 +82,10 @@ interface CodingQuestionsSidebarProps {
   currentQuestionId: string;
   open: boolean;
   onClose: () => void;
+  className?: string;
 }
 
-export function CodingQuestionsSidebar({ currentQuestionId, open, onClose }: CodingQuestionsSidebarProps) {
+export function CodingQuestionsSidebar({ currentQuestionId, open, onClose, className }: CodingQuestionsSidebarProps) {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -362,7 +363,8 @@ export function CodingQuestionsSidebar({ currentQuestionId, open, onClose }: Cod
       <div
         className={cn(
           "fixed top-0 left-0 h-full z-40 bg-white dark:bg-slate-900 border-r border-indigo-100 dark:border-indigo-900/50 shadow-lg transition-all duration-300 ease-in-out flex flex-col sidebar-container",
-          open ? "translate-x-0 w-80 md:w-96" : "-translate-x-full w-80 md:w-96"
+          open ? "translate-x-0 w-80 md:w-96" : "-translate-x-full w-80 md:w-96",
+          className
         )}
         style={{ minWidth: 300, maxWidth: 420 }}
       >

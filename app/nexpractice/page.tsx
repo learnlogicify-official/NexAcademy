@@ -520,6 +520,8 @@ export default function NexPractice() {
   const tableRef = useRef<HTMLDivElement>(null);
   // Add this state for expanded/collapsed tags
   const [expandedTags, setExpandedTags] = useState(false)
+  // Add state for sidebar open on mobile
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Prevent hydration errors
   useEffect(() => {
@@ -1227,11 +1229,23 @@ export default function NexPractice() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <Sidebar theme={resolvedTheme as "light" | "dark"} />
+      <Sidebar 
+        theme={resolvedTheme as "light" | "dark"} 
+        collapsed={isMobile ? false : true} // Always show full sidebar on mobile when open
+        open={isMobile ? sidebarOpen : true} // Control visibility based on sidebarOpen state on mobile
+        onClose={() => setSidebarOpen(false)}
+        onToggleCollapse={() => {
+          // Handle toggle collapse event if needed
+          console.log("Sidebar toggle collapsed")
+        }}
+      />
       
       {/* Main content area - only this should scroll */}
       <div className="flex flex-1 flex-col overflow-hidden transition-all duration-300">
-        <TopBar onMenuClick={() => {}} />
+        <TopBar onMenuClick={() => {
+          // Toggle sidebar visibility on mobile
+          setSidebarOpen(prevState => !prevState);
+        }} />
         
         {/* Main content with refined scrolling */}
         <main className="flex-1 overflow-y-auto p-0">

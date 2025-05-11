@@ -597,7 +597,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   }, [language, defaultLanguage]);
   
   const isMobile = useIsMobile()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false) // Always closed by default for mobile
   const { resolvedTheme: appTheme, setTheme: setAppTheme } = useTheme()
   const [focusMode, setFocusMode] = useState(false)
   const [fontSize, setFontSize] = useState(14)
@@ -807,8 +807,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         );
     }
   };
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [searchLanguage, setSearchLanguage] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>("Popular");
@@ -2568,12 +2566,23 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
-      {/* Expandable Coding Questions Sidebar */}
+      {/* Expandable Coding Questions Sidebar - ensure it's completely hidden by default on mobile */}
       <CodingQuestionsSidebar
         currentQuestionId={codingQuestion.questionId || codingQuestion.id}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        className={isMobile ? "fixed inset-y-0 left-0 z-50 m-0 rounded-none w-full max-w-sm transform transition-transform duration-300 ease-in-out" +
+          (sidebarOpen ? " translate-x-0" : " -translate-x-full") : ""}
       />
+      
+      {/* Add overlay when sidebar is open on mobile */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       {/* Header with NexPractice theming */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-black dark:via-neutral-900 dark:to-black shadow-sm relative overflow-hidden backdrop-blur-sm z-30">
         {/* Left section: Logo and sidebar toggle */}
@@ -2583,7 +2592,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             onClick={() => setSidebarOpen(true)}
             aria-label="Open questions sidebar"
           >
-            <List className="h-5 w-5" />
+            {/* Replace List icon with a hamburger menu icon (three lines) */}
+            <div className="flex flex-col justify-center items-center w-5 h-5 gap-[3px]">
+              <div className="w-full h-[2px] bg-current rounded-full"></div>
+              <div className="w-full h-[2px] bg-current rounded-full"></div>
+              <div className="w-full h-[2px] bg-current rounded-full"></div>
+            </div>
           </button>
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-105 group">

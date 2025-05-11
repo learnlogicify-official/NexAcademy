@@ -109,7 +109,7 @@ export function Sidebar({
   const pathname = usePathname() || "/"
   const router = useRouter()
   const isMobile = useMobile()
-  const [collapsed, setCollapsed] = useState(propCollapsed || false)
+  const [collapsed, setCollapsed] = useState(propCollapsed !== undefined ? propCollapsed : true)
   const [showNexPracticeModal, setShowNexPracticeModal] = useState(false)
   const [blurBody, setBlurBody] = useState(false)
   const [hoverItem, setHoverItem] = useState<string | null>(null)
@@ -118,20 +118,34 @@ export function Sidebar({
   // Handle hydration mismatch by only enabling hover effects after client mount
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+    
+    // Initialize sidebar state from localStorage or props on mount
+    if (typeof window !== "undefined") {
+      // Prioritize prop value if provided
+      if (propCollapsed !== undefined) {
+        setCollapsed(propCollapsed)
+      } else {
+        // Otherwise check localStorage
+        const savedState = localStorage.getItem("sidebarCollapsed")
+        if (savedState) {
+          setCollapsed(savedState === "true")
+        }
+      }
+    }
+  }, [propCollapsed])
 
   // Update localStorage and dispatch event when sidebar state changes
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && isMounted) {
       localStorage.setItem("sidebarCollapsed", collapsed.toString())
       // Dispatch custom event to notify other components
       window.dispatchEvent(new Event("sidebarStateChange"))
     }
     // If propCollapsed changes, update our local state
-    if (propCollapsed !== undefined && propCollapsed !== collapsed) {
+    if (propCollapsed !== undefined && propCollapsed !== collapsed && isMounted) {
       setCollapsed(propCollapsed)
     }
-  }, [collapsed, propCollapsed])
+  }, [collapsed, propCollapsed, isMounted])
 
   const toggleCollapse = () => {
     const newCollapsedState = !collapsed
@@ -405,41 +419,52 @@ export function Sidebar({
       <aside
         className={cn(
           "h-[calc(100vh-2rem)] my-4 ml-4 rounded-xl transition-all duration-300 ease-in-out relative overflow-hidden",
-          collapsed ? "w-[80px]" : "w-[280px]",
-          isMobile ? "fixed inset-y-0 left-0 z-50" : "relative",
-          isMobile && !open && "-translate-x-full",
+          // Make sure the width is always expanded on mobile when open
+          isMobile ? "w-[280px]" : (collapsed ? "w-[80px]" : "w-[280px]"),
+          isMobile ? "fixed inset-y-0 left-0 z-50 ml-0 my-0 h-full rounded-none" : "relative",
+          // Improved mobile animation - separate logic for mobile and desktop
+          isMobile && !open ? "-translate-x-full opacity-0 pointer-events-none" : "",
+          // Don't make invisible on mobile when collapsed, only when not open
+          isMobile && !open ? "invisible" : "visible",
           className,
         )}
         {...props}
       >
-        {/* Glass morphism container with theme-based gradient */}
+        {/* Glass morphism container with theme-based gradient - only render when not invisible */}
         <div
           className={cn(
             "absolute inset-0 rounded-xl backdrop-blur-2xl bg-gradient-to-br border shadow-[0_4px_24px_rgba(0,0,0,0.1)]",
-            currentTheme.sidebar
+            currentTheme.sidebar,
+            // No backdrop blur on mobile when not open
+            isMobile && !open ? "backdrop-blur-none bg-opacity-0" : ""
           )}
         ></div>
 
         {/* Decorative elements - using ClientOnly wrapper to prevent hydration mismatch */}
         <ClientOnly>
-          <DecorativeElements theme={theme} />
+          {/* Only render decorative elements when not collapsed on mobile */}
+          {!(isMobile && !open) && <DecorativeElements theme={theme} />}
         </ClientOnly>
 
-        {/* Gradient overlay with theme-based accent */}
-        <div 
-          className={cn(
-            "absolute inset-0 rounded-xl bg-gradient-to-b opacity-50",
-            currentTheme.overlay
-          )}
-        ></div>
+        {/* Gradient overlay with theme-based accent - only when not collapsed on mobile */}
+        {!(isMobile && !open) && (
+          <div 
+            className={cn(
+              "absolute inset-0 rounded-xl bg-gradient-to-b opacity-50",
+              currentTheme.overlay
+            )}
+          ></div>
+        )}
 
-        {/* Animated glow effect with theme-based accent */}
-        <div
-          className={cn(
-            "absolute -inset-[1px] rounded-xl bg-gradient-to-r animate-glow-slow",
-            currentTheme.glow
-          )}
-        ></div>
+        {/* Animated glow effect with theme-based accent - only when not collapsed on mobile */}
+        {!(isMobile && !open) && (
+          <div
+            className={cn(
+              "absolute -inset-[1px] rounded-xl bg-gradient-to-r animate-glow-slow",
+              currentTheme.glow
+            )}
+          ></div>
+        )}
 
         {/* Content container */}
         <div className="h-full w-full rounded-xl relative z-10 overflow-hidden flex flex-col">
@@ -447,7 +472,7 @@ export function Sidebar({
           <div
             className={cn(
               `flex items-center gap-2.5 px-4 py-3 border-b ${currentTheme.header} backdrop-blur-md`,
-              collapsed && "justify-center",
+              collapsed && !isMobile && "justify-center", // Only center when collapsed on desktop
             )}
           >
             <div className="relative">
@@ -460,7 +485,8 @@ export function Sidebar({
                 </div>
               </div>
             </div>
-            {!collapsed && (
+            {/* Always show the header text and close button on mobile, otherwise respect collapsed state */}
+            {(!collapsed || isMobile) && (
               <>
                 <div className="flex flex-col">
                   <span className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-indigo-300 dark:via-purple-300 dark:to-pink-300 tracking-tight leading-none">
@@ -468,8 +494,9 @@ export function Sidebar({
                   </span>
                   <div className="h-0.5 w-16 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full mt-1"></div>
                 </div>
+                {/* Close button on mobile, collapse button on desktop */}
                 <button
-                  onClick={toggleCollapse}
+                  onClick={isMobile ? onClose : toggleCollapse}
                   className={`ml-auto h-7 w-7 rounded-md flex items-center justify-center ${currentTheme.text} hover:${currentTheme.textActive} transition-all duration-200 overflow-hidden backdrop-blur-md border border-indigo-100/30 dark:border-indigo-900/20 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 hover:shadow-sm`}
                 >
                   <ChevronLeft size={15} />
@@ -481,7 +508,8 @@ export function Sidebar({
           <ScrollArea className="flex-1 [&_.scrollbar]:hidden [&_.thumb]:hidden">
             {/* Menu section */}
             <div className="py-3">
-              {!collapsed && (
+              {/* Show section header on mobile or when not collapsed */}
+              {(!collapsed || isMobile) && (
                 <div className="px-4 mb-2">
                   <span className={`text-xs ${currentTheme.sectionHeader} font-semibold tracking-wide uppercase leading-none`}>
                     Menu
@@ -498,7 +526,8 @@ export function Sidebar({
                       href={item.href}
                       className={cn(
                         "flex items-center justify-between py-2 relative group",
-                        collapsed ? "px-0 justify-center" : "px-4",
+                        // On mobile, always use expanded style
+                        isMobile ? "px-4" : (collapsed ? "px-0 justify-center" : "px-4"),
                         currentTheme.text,
                         `hover:${currentTheme.textActive} transition-all duration-200`,
                         isActive && `${currentTheme.textActive} ${currentTheme.activeBg} backdrop-blur-sm`,
@@ -530,7 +559,12 @@ export function Sidebar({
                         )}
                       </ClientEffect>
 
-                      <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2.5")}>
+                      <div className={cn(
+                        "flex items-center", 
+                        // On mobile, always use expanded style
+                        // On mobile, always show gap for expanded view
+                        isMobile ? "gap-2.5" : (collapsed ? "justify-center" : "gap-2.5")
+                      )}>
                         <div
                           className={cn(
                             "relative flex items-center justify-center transition-transform duration-200",
@@ -545,9 +579,11 @@ export function Sidebar({
                             )}
                           </ClientEffect>
                         </div>
-                        {!collapsed && <span className={`text-[14px] font-medium tracking-tight ${isActive ? currentTheme.textActive : ""} transform group-hover:translate-x-0.5 transition-transform duration-200`}>{item.name}</span>}
+                        {/* Always show text on mobile or when not collapsed */}
+                        {(!collapsed || isMobile) && <span className={`text-[14px] font-medium tracking-tight ${isActive ? currentTheme.textActive : ""} transform group-hover:translate-x-0.5 transition-transform duration-200`}>{item.name}</span>}
                       </div>
-                      {!collapsed && item.iconRight && (
+                      {/* Show right icon on mobile or when not collapsed */}
+                      {(!collapsed || isMobile) && item.iconRight && (
                         <div className="flex items-center opacity-60 group-hover:opacity-100 transition-opacity duration-200">
                           <item.iconRight className={`h-3.5 w-3.5 ${currentTheme.textMuted}`} />
                         </div>
@@ -560,7 +596,8 @@ export function Sidebar({
 
             {/* Explore Nex section */}
             <div className="py-3">
-              {!collapsed && (
+              {/* Show section header on mobile or when not collapsed */}
+              {(!collapsed || isMobile) && (
                 <div className="px-4 mb-2">
                   <span className={`text-xs ${currentTheme.sectionHeader} font-semibold tracking-wide uppercase leading-none`}>
                     Explore Nex
@@ -586,7 +623,8 @@ export function Sidebar({
                         onClick={handleNexPracticeClick}
                         className={cn(
                           "flex items-center justify-between py-2 relative w-full bg-transparent border-0 cursor-pointer group",
-                          collapsed ? "px-0 justify-center" : "px-4",
+                          // On mobile, always use expanded style
+                          isMobile ? "px-4" : (collapsed ? "px-0 justify-center" : "px-4"),
                           currentTheme.text,
                           `hover:${currentTheme.textActive} transition-all duration-200`,
                           isActive && `${currentTheme.textActive} ${currentTheme.activeBg} backdrop-blur-sm`,
@@ -624,7 +662,8 @@ export function Sidebar({
                             className={cn(
                               "rounded-md flex items-center justify-center relative overflow-hidden transition-transform duration-200",
                               isActive || isHovered ? "scale-110" : "",
-                              collapsed ? "h-9 w-9" : "h-7 w-7",
+                              // Adjust icon size based on whether we're on mobile or in collapsed state
+                              isMobile ? "h-7 w-7" : (collapsed ? "h-9 w-9" : "h-7 w-7"),
                             )}
                           >
                             {/* Glass effect for icon background */}
@@ -644,15 +683,16 @@ export function Sidebar({
 
                             <item.icon className="h-3.5 w-3.5 text-white drop-shadow-md" />
 
-                            {/* Premium indicator on the icon for collapsed state */}
-                            {item.premium && collapsed && (
+                            {/* Premium indicator on the icon for collapsed state - only on desktop */}
+                            {item.premium && collapsed && !isMobile && (
                               <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 border border-white flex items-center justify-center">
                                 <Sparkles className="h-1.5 w-1.5 text-white" />
                               </div>
                             )}
                           </div>
 
-                          {!collapsed && (
+                          {/* Always show text on mobile or when not collapsed */}
+                          {(!collapsed || isMobile) && (
                             <div className="flex items-center">
                               <span className={cn(isActive ? currentTheme.textActive : "", "relative text-[14px] font-medium tracking-tight transform group-hover:translate-x-0.5 transition-transform duration-200")}>
                                 {item.name}
@@ -680,7 +720,8 @@ export function Sidebar({
                       href={item.href}
                       className={cn(
                         "flex items-center justify-between py-2 relative group",
-                        collapsed ? "px-0 justify-center" : "px-4",
+                        // On mobile, always use expanded style
+                        isMobile ? "px-4" : (collapsed ? "px-0 justify-center" : "px-4"),
                         currentTheme.text,
                         `hover:${currentTheme.textActive} transition-all duration-200`,
                         isActive && `${currentTheme.textActive} ${currentTheme.activeBg} backdrop-blur-sm`,
@@ -717,7 +758,8 @@ export function Sidebar({
                           className={cn(
                             "rounded-md flex items-center justify-center relative overflow-hidden transition-transform duration-200",
                             isActive || isHovered ? "scale-110" : "",
-                            collapsed ? "h-9 w-9" : "h-7 w-7",
+                            // Adjust icon size based on whether we're on mobile or in collapsed state
+                            isMobile ? "h-7 w-7" : (collapsed ? "h-9 w-9" : "h-7 w-7"),
                           )}
                         >
                           {/* Glass effect for icon background */}
@@ -737,15 +779,16 @@ export function Sidebar({
 
                           <item.icon className="h-3.5 w-3.5 text-white drop-shadow-md" />
 
-                          {/* Premium indicator on the icon for collapsed state */}
-                          {item.premium && collapsed && (
+                          {/* Premium indicator on the icon for collapsed state - only on desktop */}
+                          {item.premium && collapsed && !isMobile && (
                             <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 border border-white flex items-center justify-center">
                               <Sparkles className="h-1.5 w-1.5 text-white" />
                             </div>
                           )}
                         </div>
 
-                        {!collapsed && (
+                        {/* Always show text on mobile or when not collapsed */}
+                        {(!collapsed || isMobile) && (
                           <div className="flex items-center">
                             <span className={`text-[14px] font-medium tracking-tight ${isActive ? currentTheme.textActive : ""} transform group-hover:translate-x-0.5 transition-transform duration-200`}>{item.name}</span>
                             {/* Premium badge for expanded state */}
@@ -767,8 +810,8 @@ export function Sidebar({
             </div>
           </ScrollArea>
 
-          {/* Expand button at bottom when collapsed */}
-          {collapsed && (
+          {/* Expand button at bottom when collapsed - only show on desktop */}
+          {collapsed && !isMobile && (
             <div className="mt-auto p-4 flex justify-center">
               <button
                 onClick={toggleCollapse}
