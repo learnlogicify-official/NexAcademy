@@ -51,6 +51,9 @@ import Link from "next/link"
 import { apolloClient } from "@/lib/apollo-client"
 import { gql } from "@apollo/client"
 import { motion, AnimatePresence } from "framer-motion"
+// Import both startNexPracticeLoading and stopNexPracticeLoading functions
+import { startNexPracticeLoading, stopNexPracticeLoading } from "@/app/explore-nex/ExploreNexContent"
+import { useRouter } from "next/navigation"
 
 // Create our own useMobile hook since the imported one has an issue
 function useMobile() {
@@ -418,6 +421,7 @@ function SmartRecommendations() {
                 </div>
                 
                 <Button 
+                  onClick={() => navigateToProblem(recommendation.id)}
                   className="w-full mt-3 bg-white/80 hover:bg-white dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
                   size="sm"
                 >
@@ -522,10 +526,34 @@ export default function NexPractice() {
   const [expandedTags, setExpandedTags] = useState(false)
   // Add state for sidebar open on mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const router = useRouter();
 
-  // Prevent hydration errors
+  // Function to navigate to problem with loader animation
+  const navigateToProblem = (problemId: string) => {
+    // Prevent navigation if we're missing a problem ID
+    if (!problemId) return;
+
+    // Start loader animation
+    startNexPracticeLoading();
+    
+    // Dispatch the route change start event
+    window.dispatchEvent(new Event('nexacademy:routeChangeStart'));
+
+    // Navigate to the problem page
+    router.push(`/nexpractice/problem/${problemId}`);
+  };
+
   useEffect(() => {
     setMounted(true)
+    
+    // Stop the NexPractice loading animation when the page is loaded
+    stopNexPracticeLoading()
+    
+    // Dispatch the routeChangeComplete event to signal that page transition is complete
+    // This will be picked up by the explore-nex page if it's still in the background
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('nexacademy:routeChangeComplete'))
+    }
   }, [])
 
   // Function to format difficulty for display
@@ -1694,12 +1722,13 @@ export default function NexPractice() {
                                             </span>
                                             <div className="flex-1 min-w-0">
                                           {problem.questionId ? (
-                                            <Link
-                                              href={`/nexpractice/problem/${problem.questionId}`}
-                                                  className="font-medium text-indigo-700 dark:text-indigo-300 hover:underline line-clamp-1"
+                                            // Replace Link with button that uses our custom navigation
+                                            <button
+                                              onClick={() => navigateToProblem(problem.questionId)}
+                                              className="font-medium text-indigo-700 dark:text-indigo-300 hover:underline line-clamp-1 text-left w-full cursor-pointer bg-transparent border-0"
                                             >
                                               {problem.question?.name || problem.name}
-                                            </Link>
+                                            </button>
                                           ) : (
                                             <span className="text-red-500 flex items-center gap-1" title="Missing questionId">
                                               ⚠️ {problem.question?.name || problem.name}
@@ -1851,7 +1880,10 @@ export default function NexPractice() {
                       ))}
                     </div>
                   
-                    <Button className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white gap-2 shadow-sm border-0">
+                    <Button 
+                      className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white gap-2 shadow-sm border-0"
+                      onClick={() => navigateToProblem(dailyChallenge.id.toString())}
+                    >
                       <Zap className="w-4 h-4" /> Solve Today's Challenge
                     </Button>
                   </CardContent>

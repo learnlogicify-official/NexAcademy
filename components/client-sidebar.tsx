@@ -35,6 +35,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useMobile } from "@/hooks/use-mobile"
 import { useEffect, useState } from "react"
+import { startNexPracticeLoading, startNexPracticeExitAnimation } from "@/app/explore-nex/ExploreNexContent"
 
 // Client-only component for decorative blur elements 
 // This prevents hydration errors from random styling
@@ -277,13 +278,15 @@ export function Sidebar({
   // Handler for NexPractice click
   const handleNexPracticeClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    setBlurBody(true)
-    setShowNexPracticeModal(true)
-    setTimeout(() => {
-      setShowNexPracticeModal(false)
-      setBlurBody(false)
-      router.push("/nexpractice")
-    }, 5000)
+    
+    // Start the loading animation with blur effect
+    startNexPracticeLoading()
+    
+    // Dispatch the route change start event for exploration page to coordinate with
+    window.dispatchEvent(new Event('nexacademy:routeChangeStart'))
+    
+    // Navigate to NexPractice
+    router.push("/nexpractice")
   }
 
   // For mobile: create an overlay when sidebar is open
@@ -342,80 +345,8 @@ export function Sidebar({
   return (
     <>
       {mobileOverlay}
-      {/* Blur overlay and loader modal for NexPractice, rendered at root level for highest z-index */}
-      {blurBody && <div className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[8px] transition-all"></div>}
-      {showNexPracticeModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 animate-fade-in backdrop-blur-sm">
-          <div
-            className="backdrop-blur-2xl bg-black/80 border border-white/10 p-8 flex flex-col items-center animate-fade-in shadow-xl rounded-lg w-[360px]"
-            style={{
-              boxShadow: "0 0 80px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.05)",
-              animation: "fadeScale 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
-            {/* Animated particles - Client-side only rendering to avoid hydration mismatch */}
-            {typeof window !== 'undefined' && (
-              <div className="absolute inset-0 overflow-hidden rounded-lg">
-                {Array.from({ length: 15 }).map((_, i) => {
-                  // Pre-compute these values once for consistent rendering
-                  const width = 3 + (i % 8);
-                  const height = 3 + (i % 8);
-                  const top = (i * 6) % 100;
-                  const left = (i * 7) % 100;
-                  const animationDuration = 10 + (i % 10);
-                  const animationDelay = i % 5;
-                  
-                  return (
-                    <div
-                      key={i}
-                      className="absolute rounded-full bg-indigo-500/20"
-                      style={{
-                        width: `${width}px`,
-                        height: `${height}px`,
-                        top: `${top}%`,
-                        left: `${left}%`,
-                        animation: `float ${animationDuration}s linear infinite`,
-                        animationDelay: `${animationDelay}s`,
-                      }}
-                    ></div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Simplified Code-themed NexAcademy Logo */}
-            <div className="flex flex-col items-center mb-6 relative z-10">
-              <span className="text-2xl font-bold tracking-tight mb-1">
-                <span className="text-indigo-400">nex</span>
-                <span className="text-white">practice</span>
-                <span className="animate-blink text-indigo-400">_</span>
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <Sparkles className="h-4 w-4 text-indigo-400" />
-                <span className="text-xs text-indigo-300">Premium Coding Platform</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-center bg-black/40 rounded-lg p-4 w-full font-mono mb-5 border border-indigo-500/20 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-              <div className="flex items-center w-full">
-                <span className="text-gray-400">$</span>
-                <span
-                  className="ml-2 text-white animate-typewriter overflow-hidden whitespace-nowrap"
-                  style={{ maxWidth: "100%" }}
-                >
-                  loading coding arena...
-                </span>
-                <span className="animate-blink text-indigo-400">█</span>
-              </div>
-            </div>
-
-            {/* Loading indicator */}
-            <div className="w-full h-1.5 bg-gray-800/50 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animate-loading-bar"></div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Remove the blur overlay and loader modal - we'll use the same animation as explore-nex */}
+      
       <aside
         className={cn(
           "h-[calc(100vh-2rem)] my-4 ml-4 rounded-xl transition-all duration-300 ease-in-out relative overflow-hidden",
@@ -621,6 +552,7 @@ export function Sidebar({
                       <button
                         key={item.href}
                         onClick={handleNexPracticeClick}
+                        data-nexapp="nexpractice"
                         className={cn(
                           "flex items-center justify-between py-2 relative w-full bg-transparent border-0 cursor-pointer group",
                           // On mobile, always use expanded style

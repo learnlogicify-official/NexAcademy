@@ -67,7 +67,9 @@ import {
   Moon,
   Sun,
   Type,
-  Indent
+  Indent,
+  Compass,
+  Shuffle
 } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -103,6 +105,15 @@ import { ModeToggle } from "@/components/nexpractice/mode-toggle";
 import DOMPurify from 'isomorphic-dompurify';
 import { gql } from '@apollo/client';
 import Link from "next/link"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { motion, AnimatePresence } from "framer-motion"
+// Import the stopNexPracticeLoading function
+import { stopNexPracticeLoading } from "@/app/explore-nex/ExploreNexContent"
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -529,6 +540,80 @@ const GET_USER_CODE_DRAFT = gql`
   }
 `;
 
+// Animation styles for the component
+const animationStyles = `
+@keyframes popOnHover {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes heartbeat {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(1);
+  }
+  75% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes centerAndBlur {
+  0% {
+    filter: blur(0);
+    opacity: 0;
+  }
+  100% {
+    filter: blur(8px);
+    opacity: 1;
+  }
+}
+
+.random-challenge-icon {
+  transition: all 0.2s ease;
+}
+
+.random-challenge-icon:hover {
+  animation: popOnHover 0.3s ease forwards;
+}
+
+.random-challenge-icon.loading {
+  animation: heartbeat 1.2s ease-in-out infinite;
+}
+
+.background-blur {
+  animation: centerAndBlur 0.8s ease forwards;
+}
+`
+
+// Create a helper function to inject styles on the client side
+const injectStyles = () => {
+  if (typeof document !== 'undefined') {
+    // Check if a style with our id already exists
+    const existingStyle = document.getElementById('nexpractice-animation-styles');
+    if (!existingStyle) {
+      const styleSheet = document.createElement("style");
+      styleSheet.id = 'nexpractice-animation-styles';
+      styleSheet.innerText = animationStyles;
+      document.head.appendChild(styleSheet);
+    }
+  }
+}
+
 export default function ProblemClientPage({ codingQuestion, defaultLanguage, preloadCode }: ProblemClientPageProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -536,6 +621,21 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   const { toast } = useToast()
   const { data: authSession, status: authStatus } = useSession()
   const client = useApolloClient();
+  
+  // Inject styles on client side only after component mounts
+  useEffect(() => {
+    injectStyles();
+    
+    // Clean up the style element when component unmounts
+    return () => {
+      if (typeof document !== 'undefined') {
+        const styleElement = document.getElementById('nexpractice-animation-styles');
+        if (styleElement && styleElement.parentNode) {
+          styleElement.parentNode.removeChild(styleElement);
+        }
+      }
+    };
+  }, []);
   
   // Add authentication debugging
   useEffect(() => {
@@ -551,8 +651,30 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   // Initialize language correctly based on defaultLanguage
   const processDefaultLanguage = (lang: string): string => {
-    if (lang === "Java") return "62"; // Java ID
-    return lang || "71"; // Default to Python 3.8.1 if not specified
+    // Check if the language is in the coding question's language options
+    if (codingQuestion.languageOptions && Array.isArray(codingQuestion.languageOptions)) {
+      // Find the language in the options
+      const languageOption = codingQuestion.languageOptions.find(
+        (option: any) => option.name === lang || option.id === lang
+      );
+      
+      // If found, return its ID
+      if (languageOption) {
+        return languageOption.id;
+      }
+    }
+    
+    // If language not found in options or no options available
+    // Map common language names to their IDs as fallback
+    const languageMap: Record<string, string> = {
+      "Java": "62",
+      "Python": "71",
+      "C++": "54",
+      "JavaScript": "63",
+      "TypeScript": "74"
+    };
+    
+    return languageMap[lang] || "71"; // Default to Python 3.8.1 if not specified or not found
   };
   
   // 1. Add a loading state for initial code/language
@@ -728,6 +850,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   
   // Load saved code from localStorage on component mount or language change
   useEffect(() => {
+
+
+    
     if (!problemId || !language) return;
     
     let storageKey;
@@ -754,10 +879,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     // If there's saved code and it's different from the current code, update the editor
     if (savedCode && savedCode !== preloadCode) {
       setCode(savedCode);
-    } else if (preloadCode) {
-      // If no saved code but we have preloadCode, use that
-      setCode(preloadCode);
-    }
+    } 
   }, [problemId, language, preloadCode, authStatus, authSession]);
 
   // Helper: get difficulty, version, name, etc. from codingQuestion.question
@@ -2396,7 +2518,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   // Save code to localStorage on each keystroke (for current language only)
   useEffect(() => {
-    if (!code || !problemId || !language || editorLoading) return;
+    if (code === undefined || code === null || !problemId || !language || editorLoading) return;
     if (authStatus === 'authenticated' && authSession?.user?.id) {
       const userStorageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
       localStorage.setItem(userStorageKey, code);
@@ -2453,6 +2575,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         } catch (err) {
           langToCheck = processDefaultLanguage(defaultLanguage);
         }
+        console.log("language gkgjkd",langToCheck);
         // 2. Try to get code draft from DB for langToCheck
         try {
           const { data: draftData } = await client.query({
@@ -2466,6 +2589,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           codeFromDB = null;
           dbUpdatedAt = null;
         }
+        console.log("codefromdb",codeFromDB);
         // 3. Get code from localStorage for the same key
         const localKey = `nexacademy_${userId}_${problemId}_${langToCheck}`;
         const localDraftKey = `${localKey}_draft`;
@@ -2477,25 +2601,83 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           localTimestamp = localStorage.getItem(`${localKey}_timestamp`);
         } catch {}
         // 4. Compare timestamps and pick the latest
+        // Get preloadCode from the language option for the current language
+        let preloadCode = (() => {
+          console.log("sss",codingQuestion.languageOptions);
+          if (
+            codingQuestion.languageOptions &&
+            Array.isArray(codingQuestion.languageOptions) &&
+            langToCheck
+          ) {
+            const langOption = codingQuestion.languageOptions.find(
+              (opt: any) =>
+                String(opt.language) === String(langToCheck) ||
+                String(opt.id) === String(langToCheck)
+            );
+            console.log("zzzzz",langOption);
+            if (langOption) {
+              return langOption.preloadCode;
+            }
+          }
+          return "";
+        })();
         let useCode = preloadCode;
+        console.log("vvvvv",useCode);
         if (codeFromDB && dbUpdatedAt) {
           // Compare with localStorage timestamp
           let dbTime = new Date(dbUpdatedAt).getTime();
           let localTime = localTimestamp ? parseInt(localTimestamp, 10) : 0;
           if (localTime > dbTime && localCode) {
             useCode = localCode;
+            // If localCode is newer, save it to DB
+            try {
+              await saveUserCodeDraft({
+                variables: {
+                  input: {
+                    userId: String(userId),
+                    problemId: String(problemId),
+                    language: String(langToCheck),
+                    code: String(localCode),
+                  }
+                }
+              });
+            } catch (err) {
+              console.error('Failed to save newer local code to DB:', err);
+            }
           } else {
+            console.log("code gdhhdh",codeFromDB);
             useCode = codeFromDB;
           }
         } else if (localCode) {
           useCode = localCode;
+          // If only localCode exists (no DB code), save it to DB
+          try {
+            await saveUserCodeDraft({
+              variables: {
+                input: {
+                  userId: String(userId),
+                  problemId: String(problemId),
+                  language: String(langToCheck),
+                  code: String(localCode),
+                }
+              }
+            });
+          } catch (err) {
+            console.error('Failed to save local code to DB:', err);
+          }
         } else {
+          console.log("aaaaaaa",preloadCode);
           useCode = preloadCode;
         }
         // Set language and code
         if (isMounted) {
           setLanguage(langToCheck);
+          console.log("qqqqqqqq",useCode);
           setCode(useCode);
+          console.log("jvgdvfhjdvgf",useCode);
+          // Also update the draft key in localStorage with the loaded code
+
+          localStorage.setItem(localDraftKey, useCode);
         }
       } catch (err) {
         console.error('Error in loadInitialCode:', err);
@@ -2514,47 +2696,45 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
 
-  // Load saved code from localStorage ONLY on component mount
-  // (Language changes are handled by handleLanguageChange, not this effect)
+  // When the page loads, stop the loader animation with a delay
   useEffect(() => {
-    if (!problemId || !language) return;
+    // Reset the initialLoadCompletedRef to ensure code loads properly
+    initialLoadCompletedRef.current = false;
     
-    // Skip this effect if we've already loaded initial code
-    if (initialLoadCompletedRef.current) return;
-    initialLoadCompletedRef.current = true;
+    // Log navigation completion
+    console.log('[NexPractice] Navigation complete, resetting code loading state');
     
-    let storageKey;
+    // Add a small delay before stopping the loader to ensure the editor has time to initialize
+    const timeoutId = setTimeout(() => {
+      // Stop the NexPractice loading animation
+      stopNexPracticeLoading();
+      
+      // Dispatch the routeChangeComplete event
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('nexacademy:routeChangeComplete'));
+      }
+    }, 1000); // 1 second delay to ensure the editor has time to load
     
-    // Determine the correct key to load from based on authentication status
-    if (authStatus === 'authenticated' && authSession?.user?.id) {
-      storageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
-      console.log(`[INITIAL LOAD] User authenticated: Loading from ${storageKey}`);
-    } else {
-      storageKey = `nexacademy_anonymous_${problemId}_${language}`;
-      console.log(`[INITIAL LOAD] User not authenticated: Loading from ${storageKey}`);
-    }
-    
-    // Check if there's saved code in localStorage
-    const savedCode = localStorage.getItem(storageKey);
-    
-    // Add debug log
-    if (savedCode) {
-      console.log(`[INITIAL LOAD] Found saved code (length: ${savedCode.length})`);
-    } else {
-      console.log('[INITIAL LOAD] No saved code found, using preloadCode');
-    }
-    
-    // If there's saved code and it's different from the current code, update the editor
-    if (savedCode && savedCode !== preloadCode) {
-      setCode(savedCode);
-    } else if (preloadCode) {
-      // If no saved code but we have preloadCode, use that
-      setCode(preloadCode);
-    }
-  // Note: we're not including language in the dependency array, 
-  // as language changes are handled by handleLanguageChange
-  }, [problemId, preloadCode, authStatus, authSession]);
+    return () => clearTimeout(timeoutId);
+  }, []);
 
+  const [editorLoaded, setEditorLoaded] = useState(false);
+  const [codeToLoad, setCodeToLoad] = useState<string | null>(null);
+  
+  // When the editor mounts, set the loaded flag
+  const handleEditorDidMount = useCallback((editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+    setEditorLoaded(true);
+    console.log('[Editor] Monaco editor mounted');
+    
+    // If we have code waiting to be loaded, set it now
+    if (codeToLoad) {
+      console.log('[Editor] Setting pending code from codeToLoad');
+      setCode(codeToLoad);
+      setCodeToLoad(null);
+    }
+  }, [codeToLoad]);
+  
+ 
   // Always sync editor theme to match app theme, but only after resolvedTheme is available
   useEffect(() => {
     if (appTheme === 'dark') {
@@ -2606,37 +2786,45 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       )}
       
       {/* Header with NexPractice theming */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-black dark:via-neutral-900 dark:to-black shadow-sm relative overflow-hidden backdrop-blur-sm z-30">
-        {/* Left section: Logo and sidebar toggle */}
-        <div className="flex items-center gap-4 min-w-0 relative z-10">
+      <header className="flex items-center justify-between px-3 py-2 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-black dark:via-neutral-900 dark:to-black shadow-sm relative overflow-hidden backdrop-blur-sm z-30 min-h-[44px]">
+        {/* Left section: Logo, Explore Nex, and sidebar toggle */}
+        <div className="flex items-center gap-3 min-w-0 relative z-10">
           <button
-            className="mr-2 flex items-center justify-center rounded-lg h-9 w-9 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-black border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-neutral-800 text-indigo-700 dark:text-gray-200 shadow-sm transition-all duration-200 hover:scale-105"
+            className="mr-1 flex items-center justify-center rounded-lg h-8 w-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-black border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-neutral-800 text-indigo-700 dark:text-gray-200 shadow-sm transition-all duration-200 hover:scale-105"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open questions sidebar"
           >
-            {/* Replace List icon with a hamburger menu icon (three lines) */}
-            <div className="flex flex-col justify-center items-center w-5 h-5 gap-[3px]">
-              <div className="w-full h-[2px] bg-current rounded-full"></div>
-              <div className="w-full h-[2px] bg-current rounded-full"></div>
-              <div className="w-full h-[2px] bg-current rounded-full"></div>
+            <div className="flex flex-col justify-center items-center w-4 h-4 gap-[2px]">
+              <div className="w-full h-[1.5px] bg-current rounded-full"></div>
+              <div className="w-full h-[1.5px] bg-current rounded-full"></div>
+              <div className="w-full h-[1.5px] bg-current rounded-full"></div>
             </div>
           </button>
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-105 group">
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="relative flex items-center justify-center w-7 h-7 transition-transform hover:scale-105 group">
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-neutral-800 dark:to-neutral-900 rounded-lg transform rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
               <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-neutral-700 dark:to-neutral-800 rounded-lg transform -rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
-              <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-white dark:bg-neutral-900 rounded-lg shadow-inner overflow-hidden">
+              <div className="relative z-10 flex items-center justify-center w-6 h-6 bg-white dark:bg-neutral-900 rounded-lg shadow-inner overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-neutral-900 dark:to-black opacity-40"></div>
                 <div className="relative">
-                  <Code className="w-4 h-4 text-indigo-600 dark:text-gray-200" />
+                  <Code className="w-3.5 h-3.5 text-indigo-600 dark:text-gray-200" />
                   <div className="absolute inset-0 bg-indigo-500/10 dark:bg-gray-200/10 animate-pulse-slow rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </div>
             </div>
             </div>
             <div className="group min-w-0">
-              <h1 className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-blue-200 dark:via-gray-400 dark:to-blue-200 truncate">NexPractice</h1>
-              <div className="h-1 w-10 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 dark:from-blue-900 dark:via-gray-700 dark:to-blue-900 rounded-full group-hover:animate-gradient-x"></div>
+              <h1 className="text-base font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-blue-200 dark:via-gray-400 dark:to-blue-200 truncate">NexPractice</h1>
+              <div className="h-0.5 w-8 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 dark:from-blue-900 dark:via-gray-700 dark:to-blue-900 rounded-full group-hover:animate-gradient-x"></div>
           </div>
+            {/* Explore Nex button with modern explore icon */}
+            <a
+              href="/explore-nex"
+              className="ml-2 flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/80 dark:bg-neutral-800/80 border border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 font-normal hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-sm"
+              style={{ fontSize: '0.92rem' }}
+            >
+              <Compass className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 mr-1" />
+              Explore Nex
+            </a>
           </div>
         </div>
 
@@ -2706,25 +2894,56 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           </Button>
         </div>
 
-        {/* Mobile Navigation Tabs */}
-       
-          
-
-
         {/* Empty space for layout balance in mobile */}
         <div className="md:hidden w-16"></div>
 
         {/* Right section: Actions/Profile */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="hidden md:flex items-center gap-2 mr-2">
-            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-colors gap-1">
-              <Zap className="h-4 w-4 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70" />
-              Random Challenge
-            </Button>
-            <Button variant="ghost" size="sm" className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-colors gap-1">
-              <Sparkles className="h-4 w-4 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70" />
-              Daily Challenge
-            </Button>
+            {/* Random Challenge button with tooltip and animations */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/nexpractice/problem/random"
+                    className="random-challenge-icon flex items-center justify-center rounded-lg h-7 w-7 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-black border border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors group"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const icon = e.currentTarget;
+                      const mainContent = document.querySelector('main');
+                      
+                      // Add loading animation to icon
+                      icon.classList.add('loading');
+                      
+                      // Add blur animation to background
+                      if (mainContent) {
+                        mainContent.classList.add('background-blur');
+                      }
+                      
+                      // Navigate after animation
+                      setTimeout(() => {
+                        window.location.href = '/nexpractice/problem/random';
+                      }, 800);
+                    }}
+                  >
+                    <Shuffle className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 transition-transform group-hover:rotate-12" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Random Challenge</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {/* Remove Daily Challenge button */}
+            {/* Add Back to Practice button */}
+            <a
+              href="/nexpractice"
+              className="ml-2 flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold shadow hover:scale-105 transition-all border border-indigo-200 dark:border-indigo-700/40"
+              style={{ fontSize: '0.95rem' }}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to NexPractice
+            </a>
             <Button variant="ghost" size="icon" className="ml-2 rounded-full hover:bg-indigo-100 dark:hover:bg-slate-800/60 focus:bg-indigo-200 dark:focus:bg-slate-700/80 border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors" onClick={handleFullscreenToggle} aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
               {isFullscreen ? (
                 <Minimize2 className="h-5 w-5 text-indigo-700 dark:text-indigo-200" />
@@ -3637,8 +3856,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                   {/* Logo - "N" on mobile, "NexEditor" on desktop */}
                   <div className="flex items-center justify-center w-7 h-7 md:w-auto md:h-auto">
                     <span className="hidden md:block text-base font-semibold text-indigo-700 dark:text-indigo-300 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300">
-                      NexEditor
-                    </span>
+                    NexEditor
+                  </span>
                     <div className="md:hidden flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold text-lg shadow-sm">
                       N
                     </div>
@@ -3789,7 +4008,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 {/* Mobile Run and Submit buttons */}
                 {hasMounted && isMobile && (
                   <div className="flex items-center gap-1.5">
-                    <Button
+                <Button
                       size="sm"
                       variant="outline"
                       className="h-8 px-2 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50"
@@ -3832,10 +4051,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 {/* Format button with spinner and tooltip */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="hidden md:flex text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden md:flex text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                       onClick={formatCode}
                       disabled={isFormatting}
                     >
@@ -3868,7 +4087,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                           <span>Format</span>
                         </>
                       )}
-                    </Button>
+                </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-72 p-3 text-xs" align="end">
                     <div className="text-slate-700 dark:text-slate-300 space-y-2.5">
@@ -4096,8 +4315,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                     fontSize={fontSize} 
                     tabSize={tabSize}
                     onEditorMount={(editor, monaco) => {
+                      // Keep the editor references
                       editorRef.current = editor;
                       monacoRef.current = monaco;
+                      
+                      // Call our new handler to load code correctly
+                      handleEditorDidMount(editor, monaco);
                     }}
                   />
                 )}
@@ -4430,13 +4653,13 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                 <div className="flex items-center">
                                   <Cpu className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1.5" />
                                   <span className="text-xs text-slate-500 dark:text-slate-400">Memory Used: {result.memoryUsed || 'N/A'}</span>
-                                </div>
-                              </div>
-                            </div>
+                      </div>
+                    </div>
+                      </div>
                           </TabsContent>
                         ))}
                       </Tabs>
-                    </div>
+                        </div>
                   ) : (
                     // Display sample test cases when no code has been run
                     <div className="space-y-4">
@@ -4448,9 +4671,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200/70 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 shadow-sm">
                           <Play className="h-3 w-3 mr-1.5" />
                           Run Code to Test
-                        </div>
                       </div>
-                      
+                    </div>
+                    
                       {/* Tabs for each sample testcase */}
                       <Tabs defaultValue={`example-0`} className="w-full">
                         <TabsList className="bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex flex-wrap">
@@ -4463,7 +4686,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                               <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
-                              </div>
+                  </div>
                               <div className="flex items-center justify-center gap-1.5">
                                 <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium bg-gradient-to-br from-indigo-500 to-purple-600">
                                   {idx + 1}
@@ -4477,7 +4700,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                         
                         {examples.map((example: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
                           <TabsContent key={`example-content-${example.id || idx}`} value={`example-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                            <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
+                  <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
                               <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10">
                                 <div className="flex items-center gap-2">
                                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium bg-indigo-500">
@@ -4486,8 +4709,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                   <span className="font-medium text-slate-700 dark:text-slate-300">
                                     Sample Test Case
                                   </span>
-                                </div>
-                              </div>
+                          </div>
+                        </div>
                               
                               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
@@ -4497,24 +4720,24 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                   <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
                                     {formatTestCase(example.input)}
                                   </div>
-                                </div>
-                                
+                      </div>
+                      
                                 <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
                                   <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
                                     Expected Output
                                   </div>
                                   <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
                                     {formatTestCase(example.output)}
-                                  </div>
                                 </div>
-                                
+                      </div>
+                      
                                 {/* Explanation if available */}
                                 {example.explanation && (
                                   <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50 md:col-span-2">
                                     <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center">
                                       <Info className="h-3 w-3 mr-1.5 text-indigo-500 dark:text-indigo-400" />
                                       Explanation
-                                    </div>
+                          </div>
                                     <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
                                       {formatTestCase(example.explanation)}
                                     </div>
@@ -4527,11 +4750,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                   Run code to test your solution against this example
                                 </div>
                               </div>
-                            </div>
+                        </div>
                           </TabsContent>
                         ))}
                       </Tabs>
-                    </div>
+                  </div>
                   )}
                 </TabsContent>
                 

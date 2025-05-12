@@ -5,7 +5,7 @@ export const codeDraftResolvers = {
   Mutation: {
     async saveCodeDraft(_: any, { input }: any, context: any) {
       const { userId, problemId, language, code } = input;
-      if (!userId || !problemId || !language || !code) {
+      if (!userId || !problemId || !language || code === undefined || code === null) {
         throw new GraphQLError('Missing required fields');
       }
       
