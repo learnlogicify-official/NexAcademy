@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 import ProfilePictureStep from "@/components/onboarding/profile-picture-step"
 import BannerImageStep from "@/components/onboarding/banner-image-step"
 import { useProfilePic } from "@/components/ProfilePicContext"
+import { format } from "date-fns"
 
 // Mock user data
 export const userData = {
@@ -57,6 +58,7 @@ export const userData = {
   email: "ashwin@example.com",
   profilePic: undefined,
   bannerImage: undefined,
+  heatmapData: generateHeatmapData()
 }
 
 // Mock programming languages data
@@ -139,6 +141,7 @@ const projects = [
 // Mock problems solved data
 const problemsData = {
   totalSolved: 87,
+  totalProblems: 3520,
   categories: [
     { name: "Easy", count: 42, color: "#4ade80", textColor: "text-emerald-500", percentage: 48 },
     { name: "Medium", count: 35, color: "#fbbf24", textColor: "text-amber-500", percentage: 40 },
@@ -246,79 +249,46 @@ export const oldUserData = {
   heatmapData: generateHeatmapData(),
 }
 
+interface HeatmapDataEntry {
+  date: string; 
+  count: number; 
+  details?: { 
+    type: string; 
+    title: string; 
+    xp: number; 
+    timestamp: string; 
+  }[]
+}
+
 // Generate mock heatmap data for the last 365 days
-function generateHeatmapData(): { date: string; count: number; details: { type: string; title: string; xp: number; timestamp: string; }[] }[] {
-  const data = []
-  const today = new Date()
-
-  for (let i = 364; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-
-    // Generate random activity count (more likely to be 0-2, occasionally higher)
-    let count = 0
-    const rand = Math.random()
-
-    if (rand < 0.45) {
-      count = 0 // 45% chance of no activity
-    } else if (rand < 0.7) {
-      count = 1 // 25% chance of 1 activity
-    } else if (rand < 0.85) {
-      count = 2 // 15% chance of 2 activities
-    } else if (rand < 0.95) {
-      count = 3 // 10% chance of 3 activities
-    } else {
-      count = 4 + Math.floor(Math.random() * 4) // 5% chance of 4-7 activities
+function generateHeatmapData(): HeatmapDataEntry[] {
+  const result: HeatmapDataEntry[] = [];
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 365);
+  
+  // Generate a sparse set of entries with varying activity levels
+  for (let i = 0; i < 80; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + Math.floor(Math.random() * 365));
+    
+    // Format date as YYYY-MM-DD
+    const dateStr = format(date, "yyyy-MM-dd");
+    
+    // Only add if we don't already have this date
+    if (!result.find(entry => entry.date === dateStr)) {
+      // Random activity count between 1 and 4
+      const count = Math.floor(Math.random() * 4) + 1;
+      
+      result.push({
+        date: dateStr,
+        count,
+        details: generateActivityDetails(count, date)
+      });
     }
-
-    // Create streaks (consecutive days with activity)
-    // Last 7 days have higher chance of activity for current streak
-    if (i < 7) {
-      if (i === 0 || i === 1 || i === 3) {
-        // Today, yesterday, and 3 days ago
-        count = Math.max(count, 1 + Math.floor(Math.random() * 3))
-      }
-    }
-
-    // Create some patterns - more activity on weekends
-    const dayOfWeek = date.getDay()
-    if ((dayOfWeek === 0 || dayOfWeek === 6) && Math.random() > 0.4) {
-      count = Math.max(count, 1 + Math.floor(Math.random() * 4))
-    }
-
-    // Add some "hot" periods (e.g., project weeks)
-    const month = date.getMonth()
-    const day = date.getDate()
-
-    // Project week in March
-    if (month === 2 && day >= 15 && day <= 21) {
-      count = Math.max(count, Math.floor(Math.random() * 5) + 1)
-    }
-
-    // Project week in January
-    if (month === 0 && day >= 10 && day <= 16) {
-      count = Math.max(count, Math.floor(Math.random() * 5) + 1)
-    }
-
-    // Create "HI" pattern in Sep-Oct
-    if ((month === 8 || month === 9) && (day % 7 === 1 || day % 7 === 5)) {
-      count = Math.max(count, 3)
-    }
-    if (month === 8 && day % 7 === 3) {
-      count = Math.max(count, 3)
-    }
-    if (month === 9 && day % 7 === 3) {
-      count = Math.max(count, 3)
-    }
-
-    data.push({
-      date: date.toISOString().split("T")[0],
-      count,
-      details: count > 0 ? generateActivityDetails(count, date) : [],
-    })
   }
-
-  return data
+  
+  return result;
 }
 
 // Generate mock activity details
@@ -361,6 +331,7 @@ function generateActivityDetails(count: number, date: Date): { type: string; tit
 }
 
 interface PublicUser {
+  id?: string | null
   name?: string | null
   username?: string | null
   bio?: string | null
@@ -368,7 +339,31 @@ interface PublicUser {
   bannerImage?: string | null
 }
 
-export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null }) {
+interface EnhancedProfileProps {
+  user?: PublicUser | null
+  userStreak?: any
+  heatmapData?: any[]
+  submissionStats?: any
+  problemsByDifficulty?: {
+    totalSolved: number
+    totalProblems: number
+    categories: {
+      name: string
+      count: number
+      color: string
+      textColor: string
+      percentage: number
+    }[]
+  }
+}
+
+export function EnhancedProfile({ 
+  user: passedUser, 
+  userStreak,
+  heatmapData,
+  submissionStats,
+  problemsByDifficulty
+}: EnhancedProfileProps) {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -389,6 +384,19 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
   const isOwnProfile = signedInUser && user.username === signedInUser.username;
 
   const bannerToShow = isOwnProfile ? bannerImage : user.bannerImage;
+
+  // Use passed heatmap data if available, otherwise use the mock data
+  const activityData = heatmapData || userData.heatmapData;
+  
+  // Use streak data if available
+  const streakCount = userStreak?.currentStreak || userData.streak;
+  const longestStreak = userStreak?.longestStreak || streakCount;
+  
+  // Use problems data if available, otherwise use mock data
+  const problems = problemsByDifficulty || problemsData;
+
+  // Use submission stats if available
+  const hasSubmissionStats = submissionStats && Array.isArray(submissionStats) && submissionStats.length > 0;
 
   return (
     <div className="space-y-8">
@@ -513,7 +521,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground mr-4">
                   <Flame className="h-4 w-4 text-orange-500" />
-                  <span>{userData.streak}-day streak</span>
+                  <span>{streakCount}-day streak</span>
                 </div>
               </div>
 
@@ -554,7 +562,7 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <ProfileHeatmap data={oldUserData.heatmapData} />
+              <ProfileHeatmap data={activityData} submissionStats={submissionStats} />
             </motion.div>
 
             {/* Problems Solved Card (replacing Streak Card) */}
@@ -564,8 +572,9 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <ProblemsSolvedCard
-                totalSolved={problemsData.totalSolved}
-                categories={problemsData.categories}
+                totalSolved={problems.totalSolved}
+                totalProblems={problems.totalProblems}
+                categories={problems.categories}
                 className="bg-white dark:bg-[#18181b]"
               />
             </motion.div>
@@ -623,6 +632,45 @@ export function EnhancedProfile({ user: passedUser }: { user?: PublicUser | null
             >
               <ProgressCard items={progressItems} className="bg-white dark:bg-[#18181b]" />
             </motion.div>
+          </div>
+        </div>
+      </div>
+
+      {/* Display submission stats if available */}
+      {hasSubmissionStats && (
+        <div className="bg-white dark:bg-[#121212] rounded-lg p-6 shadow-sm mb-6">
+          <h3 className="text-lg font-semibold mb-4">Problem Submission Stats</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            {submissionStats.map((stat: any) => (
+              <div key={stat.status || 'UNKNOWN'} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <div className="text-2xl font-bold">{stat.count}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{stat.status || 'Unknown'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Add a streak display component */}
+      <div className="bg-white dark:bg-[#121212] rounded-lg p-6 shadow-sm mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Flame className="h-5 w-5 text-orange-500" />
+          <h3 className="text-lg font-semibold">Streak Stats</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Flame className="h-4 w-4 text-orange-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Current Streak</div>
+            </div>
+            <div className="text-3xl font-bold mt-2">{streakCount} {streakCount === 1 ? 'day' : 'days'}</div>
+          </div>
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-yellow-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Longest Streak</div>
+            </div>
+            <div className="text-3xl font-bold mt-2">{longestStreak} {longestStreak === 1 ? 'day' : 'days'}</div>
           </div>
         </div>
       </div>

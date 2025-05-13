@@ -4619,26 +4619,48 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                               <div className={`px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between
                                 ${result.isCorrect 
                                   ? 'bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10' 
-                                  : 'bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10'}`}>
+                                  : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
+                                    ? 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-900/10'
+                                    : result.verdict === "Compilation Error" || result.compileOutput
+                                      ? 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-900/10'
+                                      : 'bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10'}`}>
                                 <div className="flex items-center gap-2">
                                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium
                                     ${result.isCorrect 
-                                      ? 'bg-green-500' 
-                                      : 'bg-red-500'}`}>
+                                      ? 'bg-green-500'
+                                      : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
+                                        ? 'bg-amber-500'
+                                        : result.verdict === "Compilation Error" || result.compileOutput
+                                          ? 'bg-amber-500'
+                                          : 'bg-red-500'}`}>
                                     {idx + 1}
                                   </div>
                                   <span className="font-medium text-slate-700 dark:text-slate-300">
-                                    {result.isCorrect ? 'Passed' : 'Failed'}
+                                    {result.isCorrect 
+                                      ? 'Passed' 
+                                      : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
+                                        ? 'Time Limit Exceeded'
+                                        : result.verdict === "Compilation Error" || result.compileOutput
+                                          ? 'Compilation Error'
+                                          : 'Failed'}
                                   </span>
                                 </div>
                                 
                                 <div className="flex items-center">
                                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
                                     ${result.isCorrect 
-                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                      : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                        : result.verdict === "Compilation Error" || result.compileOutput
+                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                                     {result.isCorrect ? (
                                       <><Check className="h-3 w-3 mr-1" />Correct</>
+                                    ) : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit") ? (
+                                      <><Clock className="h-3 w-3 mr-1" />Time Limit</>
+                                    ) : result.verdict === "Compilation Error" || result.compileOutput ? (
+                                      <><AlertTriangle className="h-3 w-3 mr-1" />Compile Error</>
                                     ) : (
                                       <><X className="h-3 w-3 mr-1" />Incorrect</>
                                     )}
@@ -4665,8 +4687,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                   </div>
                                 </div>
                                 
-                                {/* Only show the Your Output section if there are no errors/warnings */}
-                                {!(result.stderr || result.compileOutput) && (
+                                {/* Only show the Your Output section if there are no errors/warnings/time limit exceeded */}
+                                {!(result.stderr || result.compileOutput || result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit") || result.verdict === "Compilation Error") && (
                                   <div className={`rounded-lg overflow-hidden md:col-span-2 
                                     ${result.isCorrect 
                                       ? 'border border-green-200 dark:border-green-900/30' 
@@ -4676,41 +4698,62 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                                         ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-400' 
                                         : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/30 text-red-800 dark:text-red-400'}`}>
                                       {result.isCorrect ? (
-                                    <Check className="h-3 w-3 mr-1.5" />
+                                        <Check className="h-3 w-3 mr-1.5" />
                                       ) : (
                                         <X className="h-3 w-3 mr-1.5" />
                                       )}
-                                    Your Output
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-30">
+                                      Your Output
+                                    </div>
+                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-30">
                                       {formatTestCase(result.actualOutput)}
+                                    </div>
                                   </div>
-                                </div>
                                 )}
                                 
-                                {/* Show error messages if there are any */}
-                                {(result.stderr || result.compileOutput) && (
+                                {/* Show Time Limit Exceeded message instead of output */}
+                                {(result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")) && (
+                                  <div className="rounded-lg overflow-hidden border border-amber-200 dark:border-amber-900/30 md:col-span-2">
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 border-b border-amber-200 dark:border-amber-900/30 text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center">
+                                      <Clock className="h-3 w-3 mr-1.5" />
+                                      Time Limit Exceeded
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800/30">
+                                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                                        Your solution took too long to execute. Try optimizing your algorithm to run within the time limit.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Show Compilation Error message */}
+                                {(result.verdict === "Compilation Error" || result.compileOutput) && (
                                   <div className="rounded-lg overflow-hidden border border-amber-200 dark:border-amber-900/30 md:col-span-2">
                                     <div className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 border-b border-amber-200 dark:border-amber-900/30 text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center">
                                       <AlertTriangle className="h-3 w-3 mr-1.5" />
-                                      Errors/Warnings
-                              </div>
-                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-30">
-                                      {result.compileOutput && (
-                                        <div className="mb-2">
-                                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Compile Output:</div>
-                                          <div className="text-red-600 dark:text-red-400 whitespace-pre-wrap">{result.compileOutput}</div>
-                            </div>
-                                      )}
-                                      {result.stderr && (
-                                        <div>
-                                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Standard Error:</div>
-                                          <div className="text-red-600 dark:text-red-400 whitespace-pre-wrap">{result.stderr}</div>
-                    </div>
-                                      )}
-              </div>
-            </div>
-                  )}
+                                      Compilation Error
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800/30">
+                                      <div className="text-sm text-amber-700 dark:text-amber-400 font-mono whitespace-pre-wrap">
+                                        {result.compileOutput || "Your code has syntax errors and could not be compiled."}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Show Runtime Error message */}
+                                {result.stderr && !(result.verdict === "Compilation Error" || result.compileOutput) && (
+                                  <div className="rounded-lg overflow-hidden border border-red-200 dark:border-red-900/30 md:col-span-2">
+                                    <div className="bg-red-50 dark:bg-red-900/20 px-3 py-1.5 border-b border-red-200 dark:border-red-900/30 text-xs font-medium text-red-800 dark:text-red-400 flex items-center">
+                                      <AlertCircle className="h-3 w-3 mr-1.5" />
+                                      Runtime Error
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800/30">
+                                      <div className="text-sm text-red-700 dark:text-red-400 font-mono whitespace-pre-wrap">
+                                        {result.stderr}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">

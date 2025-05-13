@@ -1,3 +1,5 @@
+import { getVerdict, Judge0StatusCode } from './judge0-status';
+
 const JUDGE0_API_URL = process.env.NEXT_PUBLIC_JUDGE0_API_URL || "http://128.199.24.150:2358"
 const JUDGE0_API_KEY = process.env.NEXT_PUBLIC_JUDGE0_API_KEY
 
@@ -165,8 +167,11 @@ async function localFallbackExecution(
             output: output,
             stderr: null,
             compile_output: null,
-            status: { id: 3, description: "Accepted" },
-            verdict: passed ? "Accepted" : "Wrong Answer"
+            status: { 
+              id: passed ? Judge0StatusCode.ACCEPTED : Judge0StatusCode.WRONG_ANSWER, 
+              description: passed ? "Accepted" : "Wrong Answer" 
+            },
+            verdict: passed ? getVerdict(Judge0StatusCode.ACCEPTED) : getVerdict(Judge0StatusCode.WRONG_ANSWER)
           })
         } catch (error: any) {
           results.push({
@@ -175,8 +180,8 @@ async function localFallbackExecution(
             output: null,
             stderr: error.toString(),
             compile_output: null,
-            status: { id: 13, description: "Runtime Error" },
-            verdict: "Runtime Error"
+            status: { id: Judge0StatusCode.RUNTIME_ERROR_OTHER, description: "Runtime Error" },
+            verdict: getVerdict(Judge0StatusCode.RUNTIME_ERROR_OTHER)
           })
         }
       } else {
@@ -187,7 +192,7 @@ async function localFallbackExecution(
           output: "Judge0 API unavailable - execution not possible",
           stderr: null,
           compile_output: "The Judge0 API is currently unreachable. Please check:\n1. Your self-hosted Judge0 instance is running\n2. The NEXT_PUBLIC_JUDGE0_API_URL in .env.local is correct\n3. There are no network connectivity issues",
-          status: { id: 6, description: "Unavailable" },
+          status: { id: Judge0StatusCode.INTERNAL_ERROR, description: "Internal Error" },
           verdict: "API Unreachable"
         })
       }
@@ -438,29 +443,28 @@ export async function runWithJudge0Sequential({
               if (!isCorrect) {
                 hasFailedTestCase = true;
               }
-            } else if (submission.status.id === 4) {
-              verdict = "Wrong Answer";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 5) {
-              verdict = "Memory Limit Exceeded";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 6) {
-              verdict = "Compile Error";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 11) {
-              verdict = "Time Limit Exceeded";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 13) {
-              verdict = "Runtime Error";
+            } else {
+              // Use the standardized verdict function for other status codes
+              verdict = getVerdict(submission.status.id);
               hasFailedTestCase = true;
             }
 
-            // Ensure compile errors are always mapped correctly
-            if (submission.compile_output) {
-              verdict = "Compile Error";
+            // Special handling for time limit exceeded
+            if (submission.status.id === Judge0StatusCode.TIME_LIMIT_EXCEEDED) {
+              verdict = "Time Limit Exceeded";
               hasFailedTestCase = true;
-            } else if (submission.stderr && verdict !== "Compile Error") {
-              verdict = "Runtime Error";
+            }
+            // Special handling for compile errors with output
+            else if (submission.compile_output && submission.compile_output.trim() !== '') {
+              verdict = "Compilation Error";
+              hasFailedTestCase = true;
+            }
+            // Special handling for runtime errors with stderr
+            else if (submission.stderr && submission.stderr.trim() !== '' && verdict !== "Compilation Error") {
+              // Keep the existing verdict if it's one of the specific runtime error types
+              if (![7, 8, 9, 10, 11, 12].includes(submission.status.id)) {
+                verdict = "Runtime Error";
+              }
               hasFailedTestCase = true;
             }
 
@@ -828,29 +832,28 @@ export async function runWithJudge0Batch({
               if (!isCorrect) {
                 hasFailedTestCase = true;
               }
-            } else if (submission.status.id === 4) {
-              verdict = "Wrong Answer";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 5) {
-              verdict = "Memory Limit Exceeded";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 6) {
-              verdict = "Compile Error";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 11) {
-              verdict = "Time Limit Exceeded";
-              hasFailedTestCase = true;
-            } else if (submission.status.id === 13) {
-              verdict = "Runtime Error";
+            } else {
+              // Use the standardized verdict function for other status codes
+              verdict = getVerdict(submission.status.id);
               hasFailedTestCase = true;
             }
 
-            // Ensure compile errors are always mapped correctly
-            if (submission.compile_output) {
-              verdict = "Compile Error";
+            // Special handling for time limit exceeded
+            if (submission.status.id === Judge0StatusCode.TIME_LIMIT_EXCEEDED) {
+              verdict = "Time Limit Exceeded";
               hasFailedTestCase = true;
-            } else if (submission.stderr && verdict !== "Compile Error") {
-              verdict = "Runtime Error";
+            }
+            // Special handling for compile errors with output
+            else if (submission.compile_output && submission.compile_output.trim() !== '') {
+              verdict = "Compilation Error";
+              hasFailedTestCase = true;
+            }
+            // Special handling for runtime errors with stderr
+            else if (submission.stderr && submission.stderr.trim() !== '' && verdict !== "Compilation Error") {
+              // Keep the existing verdict if it's one of the specific runtime error types
+              if (![7, 8, 9, 10, 11, 12].includes(submission.status.id)) {
+                verdict = "Runtime Error";
+              }
               hasFailedTestCase = true;
             }
 

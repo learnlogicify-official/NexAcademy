@@ -256,6 +256,27 @@ export const codeExecutionResolvers = {
 
         if (context.session?.user?.id) {
           try {
+            // Determine the overall status for the submission
+            let status = "PENDING";
+            if (allTestsPassed) {
+              status = "ACCEPTED";
+            } else if (failedTestIndex !== -1) {
+              // Get the verdict from the first failed test case
+              const failedVerdict = executionResults[failedTestIndex]?.verdict || "";
+              
+              if (failedVerdict === "Time Limit Exceeded" || (executionResults[failedTestIndex]?.status?.id === 5)) {
+                status = "TIME_LIMIT_EXCEEDED";
+              } else if (failedVerdict === "Compilation Error" || executionResults[failedTestIndex]?.compile_output) {
+                status = "COMPILATION_ERROR";
+              } else if (failedVerdict === "Runtime Error" || executionResults[failedTestIndex]?.stderr) {
+                status = "RUNTIME_ERROR";
+              } else if (failedVerdict === "Memory Limit Exceeded") {
+                status = "MEMORY_LIMIT_EXCEEDED";
+              } else {
+                status = "WRONG_ANSWER";
+              }
+            }
+            
             const submission = await prisma.problemSubmission.create({
               data: {
                 userId: context.session.user.id,
@@ -267,7 +288,8 @@ export const codeExecutionResolvers = {
                 totalTestcases: judge0TestCases.length,
                 allPassed: allTestsPassed,
                 runtime: formattedResults[0]?.executionTime || null,
-                memory: formattedResults[0]?.memoryUsed ? formattedResults[0].memoryUsed.toString() : null
+                memory: formattedResults[0]?.memoryUsed ? formattedResults[0].memoryUsed.toString() : null,
+                status: status
               }
             });
             

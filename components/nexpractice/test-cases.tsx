@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle } from "lucide-react"
+import { Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Clock, Cpu } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Judge0Result } from "@/utils/judge0"
@@ -12,6 +12,7 @@ interface TestCase {
   id?: string
   input: any // can be string, object, or array
   expectedOutput: any // can be string, object, or array
+  output?: any // can be string, object, or array
   status?: string
 }
 
@@ -106,7 +107,19 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
     if (!judgeResults || judgeResults.length <= index) {
       return null;
     }
-    return judgeResults[index];
+    const result = judgeResults[index];
+    
+    // Handle Time Limit Exceeded cases
+    if (result.status?.id === 5 || 
+        result.verdict === "Time Limit Exceeded" || 
+        result.verdict?.toLowerCase()?.includes("time limit")) {
+      return {
+        ...result,
+        verdict: "Time Limit Exceeded"
+      };
+    }
+    
+    return result;
   };
 
   // Get verdict styling
@@ -114,7 +127,9 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
     if (!verdict) return { 
       background: "bg-gray-50", 
       text: "text-gray-400",
-      icon: null
+      icon: null,
+      border: "border-gray-200",
+      message: null
     };
     
     switch (verdict) {
@@ -122,32 +137,65 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
         return { 
           background: "bg-green-50", 
           text: "text-green-600",
-          icon: <CheckCircle2 className="h-4 w-4" />
+          icon: <CheckCircle2 className="h-4 w-4" />,
+          border: "border-green-200",
+          message: "Your solution passed this test case!"
         };
       case "Wrong Answer":
         return { 
           background: "bg-red-50", 
           text: "text-red-600",
-          icon: <XCircle className="h-4 w-4" />
+          icon: <XCircle className="h-4 w-4" />,
+          border: "border-red-200",
+          message: "Your output doesn't match the expected output."
         };
-      case "Compile Error":
+      case "Time Limit Exceeded":
+        return {
+          background: "bg-purple-50 dark:bg-purple-900/20", 
+          text: "text-purple-800 dark:text-purple-400",
+          icon: <Clock className="h-4 w-4" />,
+          border: "border-purple-200 dark:border-purple-800/30",
+          message: "Your solution exceeded the time limit. Try optimizing your algorithm."
+        };
+      case "Memory Limit Exceeded":
+        return {
+          background: "bg-orange-100",
+          text: "text-orange-700",
+          icon: <Cpu className="h-4 w-4" />,
+          border: "border-orange-300",
+          message: "Your code used too much memory. Try optimizing your memory usage."
+        };
       case "Runtime Error":
         return { 
           background: "bg-amber-50", 
           text: "text-amber-600",
-          icon: <AlertTriangle className="h-4 w-4" />
+          icon: <AlertTriangle className="h-4 w-4" />,
+          border: "border-amber-200",
+          message: "Your code encountered an error during execution."
+        };
+      case "Compilation Error":
+        return { 
+          background: "bg-amber-50", 
+          text: "text-amber-600",
+          icon: <AlertTriangle className="h-4 w-4" />,
+          border: "border-amber-200",
+          message: "Your code has syntax errors and couldn't be compiled."
         };
       case "Running":
         return { 
           background: "bg-blue-50", 
           text: "text-blue-600",
-          icon: <Loader2 className="h-4 w-4 animate-spin" />
+          icon: <Loader2 className="h-4 w-4 animate-spin" />,
+          border: "border-blue-200",
+          message: "Running your code..."
         };
       default:
         return { 
           background: "bg-gray-50", 
           text: "text-gray-400",
-          icon: null
+          icon: null,
+          border: "border-gray-200",
+          message: null
         };
     }
   }
@@ -159,7 +207,7 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
           {cases.map((tc, idx) => {
             const judgeResult = getJudgeResultForCase(idx);
             const verdict = judgeResult?.verdict;
-            const { text, icon } = getVerdictStyle(verdict);
+            const { text, icon, border } = getVerdictStyle(verdict);
             
             return (
           <TabsTrigger
@@ -191,17 +239,22 @@ export function TestCases({ sampleTestCases, judgeResults, loading = false }: Te
         {cases.map((tc, idx) => {
           const judgeResult = getJudgeResultForCase(idx);
           const verdict = judgeResult?.verdict;
-          const { background, text, icon } = getVerdictStyle(verdict);
+          const { background, text, icon, border, message } = getVerdictStyle(verdict);
           
           return (
             <TabsContent key={idx} value={`case${idx + 1}`} className="mt-4">
               <div className="space-y-4 border rounded-md p-4">
                 {/* Result badge shown if we have a verdict */}
                 {verdict && (
-                  <div className={`flex items-center gap-2 ${background} ${text} rounded-md px-3 py-2 border`}>
-                    {icon}
-                    <span className="font-medium">{verdict}</span>
-                    {loading && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+                  <div className={`flex flex-col gap-1 ${background} ${text} rounded-md px-3 py-2 border ${border}`}>
+                    <div className="flex items-center gap-2">
+                      {icon}
+                      <span className="font-medium">{verdict}</span>
+                      {loading && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+                    </div>
+                    {message && (
+                      <p className="text-xs opacity-90 ml-6">{message}</p>
+                    )}
                   </div>
                 )}
                 

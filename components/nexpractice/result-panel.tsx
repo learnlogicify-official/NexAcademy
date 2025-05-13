@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle2, XCircle, AlertTriangle, Clock, Database, Loader2 } from "lucide-react"
+import { CheckCircle2, XCircle, AlertTriangle, Clock, Database, Loader2, Cpu, AlertCircle } from "lucide-react"
 import { Judge0Result } from "@/utils/judge0"
+import { getVerdictStyle, getVerdictDescription } from '@/utils/judge0-status';
 
 // Helper to format output for better display
 function formatOutput(output: string | null): string {
@@ -50,6 +51,31 @@ interface Results {
     current: number
     total: number
     message: string
+  }
+}
+
+// Helper function to render the correct icon based on the icon name string
+function getIconComponent(iconName: string | null) {
+  if (iconName === 'Clock') {
+    console.log('UI Debug: Rendering Clock icon for Time Limit Exceeded');
+  }
+  if (!iconName) return <AlertCircle className="w-4 h-4" />;
+  
+  switch (iconName) {
+    case 'CheckCircle2':
+      return <CheckCircle2 className="w-4 h-4" />;
+    case 'XCircle':
+      return <XCircle className="w-4 h-4" />;
+    case 'AlertTriangle':
+      return <AlertTriangle className="w-4 h-4" />;
+    case 'Clock':
+      return <Clock className="w-4 h-4" />;
+    case 'Cpu':
+      return <Cpu className="w-4 h-4" />;
+    case 'Loader2':
+      return <Loader2 className="w-4 h-4 animate-spin" />;
+    default:
+      return <AlertCircle className="w-4 h-4" />;
   }
 }
 
@@ -216,35 +242,90 @@ export function ResultPanel({ results }: { results: Results | null }) {
           </div>
 
           <div className="space-y-4">
-            {results.judgeResults && results.judgeResults.map((result, index) => (
-              <div key={index} className="border border-blue-100 rounded-md overflow-hidden shadow-sm bg-white">
-                <div className="px-3 py-2 text-sm font-medium flex items-center justify-between bg-blue-50 text-blue-800 border-b border-blue-200">
-                  <span className="flex items-center">
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Test Case {index + 1}: Running
-                  </span>
-                </div>
-                <div className="p-3 space-y-3 text-xs font-mono">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Input:</div>
-                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.input}</div>
+            {results.judgeResults && results.judgeResults.map((result, index) => {
+              // Get the appropriate UI based on whether this test case has finished
+              const isRunning = result.verdict === "In Queue" || result.verdict === "Processing";
+              
+              if (isRunning) {
+                // For running test cases
+                return (
+                  <div key={index} className="border border-blue-100 rounded-md overflow-hidden shadow-sm bg-white">
+                    <div className="px-3 py-2 text-sm font-medium flex items-center justify-between bg-blue-50 text-blue-800 border-b border-blue-200">
+                      <span className="flex items-center">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Test Case {index + 1}: Running
+                      </span>
                     </div>
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
-                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.output}</div>
+                    <div className="p-3 space-y-3 text-xs font-mono bg-white">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Input:</div>
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.input}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.expected}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center py-3">
+                        <Loader2 className="w-5 h-5 animate-spin mr-2 text-blue-600" />
+                        <span className="text-blue-600">Processing your code...</span>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-medium text-gray-500 mb-1">Your Output:</div>
-                    <div className="p-4 rounded flex flex-col items-center justify-center gap-2 border border-blue-100 bg-blue-50 text-blue-700 min-h-[60px]">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Processing...</span>
+                );
+              } else {
+                // For completed test cases, use the verdict styling like in the normal view
+                const verdictStyle = getVerdictStyle(result.verdict);
+                
+                // Get the appropriate icon
+                const icon = getIconComponent(verdictStyle.icon);
+                
+                return (
+                  <div key={index} className="border rounded-md overflow-hidden shadow-sm">
+                    <div className={`px-3 py-2 text-sm font-medium flex items-center justify-between 
+                      ${result.verdict === "Time Limit Exceeded" 
+                        ? "bg-purple-200 text-purple-800 border-b border-purple-300" 
+                        : verdictStyle.header}`}>
+                      <span className="flex items-center gap-1.5">
+                        {result.verdict === "Time Limit Exceeded" 
+                          ? <Clock className="w-4 h-4" /> 
+                          : icon}
+                        Test Case {index + 1}: {result.verdict}
+                      </span>
+                    </div>
+                    <div className="p-3 space-y-3 text-xs font-mono bg-white">
+                      <div className={`px-3 py-2 rounded-md ${
+                        result.verdict === "Time Limit Exceeded" 
+                          ? "bg-purple-200 text-purple-800 border-purple-300"
+                          : verdictStyle.output
+                      }`}>
+                        {result.verdict === "Time Limit Exceeded" 
+                          ? <div className="font-medium">Your code took too long to execute. Try optimizing your algorithm.</div>
+                          : getVerdictDescription(result.verdict)
+                        }
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Input:</div>
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.input}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.expected}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">Your Output:</div>
+                        <div className={`p-2 rounded border whitespace-pre-wrap ${verdictStyle.output} min-h-[40px]`}>
+                          {formatOutput(result.output)}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                );
+              }
+            })}
           </div>
         </div>
       )
@@ -258,13 +339,13 @@ export function ResultPanel({ results }: { results: Results | null }) {
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
             <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-4">
               <CheckCircle2 className="w-10 h-10 text-green-500" />
-                  </div>
+            </div>
             <h2 className="text-xl font-bold text-green-600 mb-1">Congratulations!</h2>
             <p className="text-gray-700 dark:text-gray-300">
-              All {results.summary.passed} of {results.summary.total} test cases passed.
+              All test cases passed successfully!
             </p>
-                </div>
-              </div>
+          </div>
+        </div>
       )
     }
     
@@ -286,32 +367,50 @@ export function ResultPanel({ results }: { results: Results | null }) {
           {results.judgeResults && results.judgeResults.length > 0 && (
             <div className="space-y-4">
               {results.judgeResults.map((result, index) => {
-                // Define color scheme based on verdict
-                let colorScheme = {
-                  header: "bg-red-50 text-red-800 border-red-200",
-                  output: "bg-red-50 text-red-800"
-                }
-                let icon = <XCircle className="w-4 h-4" />
+                // Get verdict styling using our utility
+                const verdictStyle = getVerdictStyle(result.verdict);
+                
+                // Get the appropriate icon
+                const icon = getIconComponent(verdictStyle.icon);
                 
                 return (
                   <div key={index} className="border rounded-md overflow-hidden shadow-sm">
-                    <div className={`px-3 py-2 text-sm font-medium flex items-center justify-between ${colorScheme.header}`}>
+                    <div className={`px-3 py-2 text-sm font-medium flex items-center justify-between 
+                      ${result.verdict === "Time Limit Exceeded" 
+                        ? "bg-purple-200 text-purple-800 border-b border-purple-300" 
+                        : verdictStyle.header}`}>
                       <span className="flex items-center gap-1.5">
-                        {icon}
+                        {result.verdict === "Time Limit Exceeded" 
+                          ? <Clock className="w-4 h-4" /> 
+                          : icon}
                         Failed Test Case: {result.verdict}
                       </span>
                     </div>
                     <div className="p-3 space-y-3 text-xs font-mono bg-white">
+                      <div className={`px-3 py-2 rounded-md ${
+                        result.verdict === "Time Limit Exceeded" 
+                          ? "bg-purple-200 text-purple-800 border-purple-300"
+                          : verdictStyle.output
+                      }`}>
+                        {result.verdict === "Time Limit Exceeded" 
+                          ? <div className="font-medium">Your code took too long to execute. Try optimizing your algorithm.</div>
+                          : getVerdictDescription(result.verdict)
+                        }
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                           <div className="text-xs font-medium text-gray-500 mb-1">Input:</div>
                           <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.input}</div>
                         </div>
                         <div>
-                          <div className="text-xs font-medium text-gray-500 mb-1">Your Output:</div>
-                          <div className={`p-2 rounded border whitespace-pre-wrap ${colorScheme.output} min-h-[40px]`}>
-                            {formatOutput(result.output)}
-                          </div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.expected}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">Your Output:</div>
+                        <div className={`p-2 rounded border whitespace-pre-wrap ${verdictStyle.output} min-h-[40px]`}>
+                          {formatOutput(result.output)}
                         </div>
                       </div>
                       
@@ -363,7 +462,11 @@ export function ResultPanel({ results }: { results: Results | null }) {
               <XCircle className="w-5 h-5" />
               <div className="flex-1">
                 <span className="font-medium">Some test cases failed</span>
-                <div className="text-xs text-red-700 mt-1">Check the failed test cases and try again.</div>
+                <div className="text-xs text-red-700 mt-1">
+                  {results.judgeResults && results.judgeResults.some(r => r.verdict === "Time Limit Exceeded") 
+                    ? <span className="font-medium text-purple-700">Your solution took too long to execute. Try optimizing your algorithm.</span>
+                    : "Check the failed test cases and try again."}
+                </div>
               </div>
             </div>
           )}
@@ -371,98 +474,36 @@ export function ResultPanel({ results }: { results: Results | null }) {
 
         <div className="space-y-4">
           {results.judgeResults && results.judgeResults.map((result, index) => {
-            // Define color scheme based on verdict
-            let colorScheme = {
-              header: "bg-red-50 text-red-800 border-red-200",
-              output: "bg-red-50 text-red-800"
-            }
-            let icon = <XCircle className="w-4 h-4" />
+            // Get verdict styling using our utility
+            const verdictStyle = getVerdictStyle(result.verdict);
             
-            switch (result.verdict) {
-              case "Accepted":
-                colorScheme = { 
-                  header: "bg-green-50 text-green-800 border-green-200",
-                  output: "bg-green-50 text-green-800" 
-                }
-                icon = <CheckCircle2 className="w-4 h-4" />
-                break
-              case "Wrong Answer":
-                // Default is red
-                break
-              case "Compile Error":
-                colorScheme = { 
-                  header: "bg-amber-50 text-amber-800 border-amber-200",
-                  output: "bg-amber-50 text-amber-800" 
-                }
-                icon = <AlertTriangle className="w-4 h-4" />
-                break
-              case "Runtime Error":
-                colorScheme = { 
-                  header: "bg-orange-50 text-orange-800 border-orange-200",
-                  output: "bg-orange-50 text-orange-800" 
-                }
-                icon = <AlertTriangle className="w-4 h-4" />
-                break
-              case "Time Limit Exceeded":
-                colorScheme = { 
-                  header: "bg-blue-50 text-blue-800 border-blue-200",
-                  output: "bg-blue-50 text-blue-800" 
-                }
-                icon = <Clock className="w-4 h-4" />
-                break
-              case "Memory Limit Exceeded":
-                colorScheme = { 
-                  header: "bg-purple-50 text-purple-800 border-purple-200",
-                  output: "bg-purple-50 text-purple-800" 
-                }
-                icon = <Database className="w-4 h-4" />
-                break
-              case "API Subscription Required":
-                colorScheme = { 
-                  header: "bg-blue-50 text-blue-800 border-blue-200",
-                  output: "bg-blue-50 text-blue-800" 
-                }
-                icon = <AlertTriangle className="w-4 h-4" />
-                break
-              case "Language Deprecated":
-                colorScheme = { 
-                  header: "bg-amber-50 text-amber-800 border-amber-200",
-                  output: "bg-amber-50 text-amber-800" 
-                }
-                icon = <AlertTriangle className="w-4 h-4" />
-                break
-              case "Running":
-                colorScheme = { 
-                  header: "bg-blue-50 text-blue-800 border-blue-200",
-                  output: "bg-blue-50 text-blue-800" 
-                }
-                icon = <Loader2 className="w-4 h-4 animate-spin" />
-                break
-              case "Empty Code":
-                colorScheme = { 
-                  header: "bg-amber-50 text-amber-800 border-amber-200",
-                  output: "bg-amber-50 text-amber-800" 
-                }
-                icon = <AlertTriangle className="w-4 h-4" />
-                break
-              case "Comments Only":
-                colorScheme = { 
-                  header: "bg-amber-50 text-amber-800 border-amber-200",
-                  output: "bg-amber-50 text-amber-800" 
-                }
-                icon = <AlertTriangle className="w-4 h-4" />
-                break
-            }
+            // Get the appropriate icon
+            const icon = getIconComponent(verdictStyle.icon);
             
             return (
               <div key={index} className="border rounded-md overflow-hidden shadow-sm">
-                <div className={`px-3 py-2 text-sm font-medium flex items-center justify-between ${colorScheme.header}`}>
+                <div className={`px-3 py-2 text-sm font-medium flex items-center justify-between 
+                  ${result.verdict === "Time Limit Exceeded" 
+                    ? "bg-purple-200 text-purple-800 border-b border-purple-300" 
+                    : verdictStyle.header}`}>
                   <span className="flex items-center gap-1.5">
-                    {icon}
+                    {result.verdict === "Time Limit Exceeded" 
+                      ? <Clock className="w-4 h-4" /> 
+                      : icon}
                     Test Case {index + 1}: {result.verdict}
                   </span>
                 </div>
                 <div className="p-3 space-y-3 text-xs font-mono bg-white">
+                  <div className={`px-3 py-2 rounded-md ${
+                    result.verdict === "Time Limit Exceeded" 
+                      ? "bg-purple-200 text-purple-800 border-purple-300"
+                      : verdictStyle.output
+                  }`}>
+                    {result.verdict === "Time Limit Exceeded" 
+                      ? <div className="font-medium">Your code took too long to execute. Try optimizing your algorithm.</div>
+                      : getVerdictDescription(result.verdict)
+                    }
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <div className="text-xs font-medium text-gray-500 mb-1">Input:</div>
@@ -470,12 +511,12 @@ export function ResultPanel({ results }: { results: Results | null }) {
                     </div>
                     <div>
                       <div className="text-xs font-medium text-gray-500 mb-1">Expected Output:</div>
-                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.output}</div>
+                      <div className="bg-gray-50 p-2 rounded border border-gray-100 whitespace-pre-wrap">{result.expected}</div>
                     </div>
                   </div>
                   <div>
                     <div className="text-xs font-medium text-gray-500 mb-1">Your Output:</div>
-                    <div className={`p-2 rounded border whitespace-pre-wrap ${colorScheme.output} min-h-[40px]`}>
+                    <div className={`p-2 rounded border whitespace-pre-wrap ${verdictStyle.output} min-h-[40px]`}>
                       {formatOutput(result.output)}
                     </div>
                   </div>

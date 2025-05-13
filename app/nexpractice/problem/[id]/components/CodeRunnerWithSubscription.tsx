@@ -5,7 +5,7 @@ import { useMutation, useSubscription } from '@apollo/client';
 import { SUBMIT_CODE, EXECUTION_PROGRESS_SUBSCRIPTION } from '../graphql/codeExecution';
 import { generateUUID } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { formatExecutionTime, formatMemory } from '@/utils/helpers';
 import confetti from 'canvas-confetti';
 import { useXpNotifications, StreakInfo } from '@/hooks/use-xp-notification';
@@ -63,6 +63,42 @@ export default function CodeRunnerWithSubscription({
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const { showSubmissionXpNotification } = useXpNotifications();
 
+  // Helper function to identify Time Limit Exceeded verdicts
+  const isTimeLimitExceeded = (verdict: string, status?: { id: number; description: string }): boolean => {
+    if (!verdict) return false;
+    
+    // Check status.id === 5 (Judge0 status code for Time Limit Exceeded)
+    if (status && status.id === 5) {
+      console.log("Time Limit Exceeded detected via status ID 5");
+      return true;
+    }
+    
+    // Exact match check - this should catch the API response format
+    if (verdict === "Time Limit Exceeded") {
+      console.log("Exact match with 'Time Limit Exceeded'");
+      return true;
+    }
+    
+    // Log the verdict for debugging
+    console.log(`Checking TLE for verdict: "${verdict}"`, { 
+      verdict,
+      asLowerCase: verdict.toLowerCase(),
+      includesTimeLimit: verdict.toLowerCase().includes("time limit"),
+      includesTLE: verdict.toLowerCase().includes("tle"),
+      includesTimeout: verdict.toLowerCase().includes("timeout"),
+      exactMatchLower: verdict.toLowerCase() === "time limit exceeded",
+      exactMatch: verdict === "Time Limit Exceeded",
+      status: status ? `${status.id}: ${status.description}` : 'undefined'
+    });
+    
+    const lowerCaseVerdict = verdict.toLowerCase();
+    return lowerCaseVerdict.includes("time limit") || 
+           lowerCaseVerdict.includes("tle") || 
+           lowerCaseVerdict.includes("timeout") ||
+           lowerCaseVerdict === "time limit exceeded" ||
+           verdict.includes("Status: 5"); // Judge0 status code for TLE
+  };
+
   // Submit code mutation
   const [submitCode] = useMutation(SUBMIT_CODE);
 
@@ -82,6 +118,20 @@ export default function CodeRunnerWithSubscription({
       setResults(progress.results);
       setCompletedTests(progress.completedTests);
       setTotalTests(progress.totalTests);
+      
+      // Debug the verdict values
+      if (progress.results && progress.results.length > 0) {
+        progress.results.forEach((result: TestCaseResult) => {
+          console.log('Result Object:', result);
+          console.log('Verdict:', result.verdict, 'Type:', typeof result.verdict);
+          console.log('Status:', result.status, 'Type:', typeof result.status);
+          
+          // Check if Time Limit Exceeded by status
+          if (result.status && result.status.id === 5) {
+            console.log('TIME LIMIT EXCEEDED detected by status ID 5');
+          }
+        });
+      }
       
       // Check if all tests have completed
       if (progress.completedTests === progress.totalTests) {
@@ -204,7 +254,7 @@ export default function CodeRunnerWithSubscription({
                 ) : (
                   <span className="text-red-600 flex items-center gap-1">
                     <XCircle className="h-4 w-4" />
-                    {results.filter(r => !r.isCorrect).length} tests failed
+                    Some tests failed
                   </span>
                 )}
               </div>
@@ -212,7 +262,15 @@ export default function CodeRunnerWithSubscription({
           </div>
           
           <div className="divide-y">
-            {results.map((result, index) => (
+            {results.map((result, index) => {
+              console.log(`Rendering result ${index}:`, { 
+                verdict: result.verdict,
+                status: result.status,
+                isTimeLimitExceeded: isTimeLimitExceeded(result.verdict, result.status),
+                isCorrect: result.isCorrect
+              });
+              
+              return (
               <div key={result.id || index} className="p-4 flex justify-between items-start">
                 <div className="flex-1">
                   <div className="font-medium">Test Case {index + 1}</div>
@@ -271,13 +329,22 @@ export default function CodeRunnerWithSubscription({
                     <div className={`px-2 py-1 rounded text-sm ${
                       result.isCorrect 
                         ? 'bg-green-100 text-green-800' 
-                        : result.verdict === "Recompiling"
+                        : result.verdict.toLowerCase() === "recompiling"
                           ? 'bg-blue-100 text-blue-800'
-                          : result.verdict === "API Unreachable"
+                          : result.verdict.toLowerCase() === "api unreachable"
                             ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                            : isTimeLimitExceeded(result.verdict, result.status)
+                              ? 'bg-purple-200 text-purple-800 border border-purple-300 shadow-sm'
+                              : 'bg-red-100 text-red-800'
                     }`}>
-                      {result.verdict}
+                      {isTimeLimitExceeded(result.verdict, result.status) ? (
+                        <div className="flex items-center gap-1 font-medium">
+                          <Clock className="h-4 w-4" />
+                          <span>TIME LIMIT EXCEEDED</span>
+                        </div>
+                      ) : (
+                        result.verdict
+                      )}
                     </div>
                   ) : (
                     <div className="px-2 py-1 rounded bg-gray-100 text-gray-800 text-sm">
@@ -286,7 +353,8 @@ export default function CodeRunnerWithSubscription({
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
