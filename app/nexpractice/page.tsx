@@ -54,6 +54,7 @@ import { motion, AnimatePresence } from "framer-motion"
 // Import both startNexPracticeLoading and stopNexPracticeLoading functions
 import { startNexPracticeLoading, stopNexPracticeLoading } from "@/app/explore-nex/ExploreNexContent"
 import { useRouter } from "next/navigation"
+import { CodingQuestionsSidebar } from "@/components/CodingQuestionsSidebar"
 
 // Create our own useMobile hook since the imported one has an issue
 function useMobile() {
@@ -617,12 +618,10 @@ export default function NexPractice() {
   // Function to load more data - replace existing implementation
   const loadMoreData = useCallback(async () => {
     if (isDataLoading || !hasMore) {
-      console.log(`Skipping loadMoreData. isDataLoading=${isDataLoading}, hasMore=${hasMore}`);
       return;
     }
     
     // Set loading indicator for the next page
-    console.log(`Starting loadMoreData, current page: ${currentPage}, total: ${totalProblems}, loaded: ${codingProblems.length}`);
     setIsDataLoading(true);
     
     try {
@@ -631,7 +630,6 @@ export default function NexPractice() {
       
       // Load the next page using our helper function
       const nextPage = currentPage + 1;
-      console.log(`Loading page ${nextPage}`);
       
       // Prepare variables for GraphQL query based on selected filters
       const variables: any = {
@@ -680,7 +678,6 @@ export default function NexPractice() {
         }
       }
       
-      console.log(`Fetching more data with variables:`, JSON.stringify(variables, null, 2));
       
       const { data } = await apolloClient.query({
         query: GET_NEXPRACTICE_DATA,
@@ -714,11 +711,9 @@ export default function NexPractice() {
         const existingIds = new Set(codingProblems.map(p => p.id));
         const newProblems = fetchedProblems.filter((problem: any) => !existingIds.has(problem.id));
         
-        console.log(`Fetched ${fetchedProblems.length} problems, ${newProblems.length} are new after filtering duplicates`);
         
         const totalCount = data.codingQuestions.totalCount || 0;
         
-        console.log(`Lazy loaded ${newProblems.length} more problems. Total available: ${totalCount}`);
         
         // Add the new problems to the existing ones
         if (newProblems.length > 0) {
@@ -736,13 +731,12 @@ export default function NexPractice() {
         const currentLoadedCount = codingProblems.length + newProblems.length;
         const hasMoreItems = newProblems.length > 0 && currentLoadedCount < totalCount;
         
-        console.log(`Loaded so far: ${currentLoadedCount}/${totalCount}, hasMore: ${hasMoreItems}`);
+        
         setHasMore(hasMoreItems);
         
         // If we got fetch results but all were duplicates, and server says there should be more,
         // try loading the next page automatically
         if (fetchedProblems.length > 0 && newProblems.length === 0 && totalCount > codingProblems.length) {
-          console.log("Got only duplicates but more data should exist - trying next page automatically");
           setTimeout(() => loadMoreData(), 500);
         }
         
@@ -766,7 +760,6 @@ export default function NexPractice() {
   useEffect(() => {
     if (!mounted) return;
     
-    console.log("Setting up intersection observer. hasMore:", hasMore, "isDataLoading:", isDataLoading);
     
     const observerOptions = {
       root: null, // use viewport as root
@@ -777,11 +770,10 @@ export default function NexPractice() {
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        console.log("Intersection observer triggered. isIntersecting:", entry.isIntersecting, 
-                    "isDataLoading:", isDataLoading, "hasMore:", hasMore);
+      
         
         if (entry.isIntersecting && !isDataLoading && hasMore) {
-          console.log("Loading more data. Current page:", currentPage);
+          
           loadMoreData();
         }
       },
@@ -791,7 +783,7 @@ export default function NexPractice() {
     // Observe the loading trigger element
     const loaderElement = document.getElementById('loading-trigger');
     if (loaderElement) {
-      console.log("Observing loading trigger element");
+      
       observer.observe(loaderElement);
     } else {
       console.warn("Loading trigger element not found!");
@@ -947,7 +939,6 @@ export default function NexPractice() {
           
           const totalCount = data.codingQuestions.totalCount || 0;
           
-          console.log(`Tag toggled. Fetched ${newProblems.length} problems with tags: [${newSelectedTags.join(', ')}]`);
           
           // Replace problems
           setCodingProblems(newProblems);
@@ -1051,7 +1042,6 @@ export default function NexPractice() {
           
           const totalCount = data.codingQuestions.totalCount || 0;
           
-          console.log(`Cleared tags and fetched ${newProblems.length} problems. Total: ${totalCount}`);
           
           // Replace problems
           setCodingProblems(newProblems);
@@ -1085,7 +1075,6 @@ export default function NexPractice() {
 
   // Helper function to fetch data with specific difficulty and page
   const fetchWithDifficulty = (difficultyValue: string, page: number) => {
-    console.log(`Starting fetchWithDifficulty: difficulty=${difficultyValue}, page=${page}, selected tags: ${selectedTags.length}`);
     
     // Prepare variables for GraphQL query based on selected filters
     const variables: any = {
@@ -1134,11 +1123,9 @@ export default function NexPractice() {
       }
     } else {
       // When "All" is selected, log that we're intentionally not using a difficulty filter
-      console.log("'All' difficulty selected - not applying any difficulty filter");
     }
     
     // Log the query for debugging
-    console.log(`Fetching page ${page} with difficulty "${difficultyValue}":`, JSON.stringify(variables, null, 2));
     
     // Explicitly call Apollo client for reliable data fetching
     return apolloClient.query({
@@ -1171,7 +1158,6 @@ export default function NexPractice() {
         
         const totalCount = data.codingQuestions.totalCount || 0;
         
-        console.log(`Fetched ${newProblems.length} problems. Total count: ${totalCount}. Current page: ${page}`);
         
         // If we're on page 1, replace problems, otherwise append
         if (page === 1) {
@@ -1188,13 +1174,11 @@ export default function NexPractice() {
         const hasMoreItems = newProblems.length === QUESTIONS_PER_PAGE && 
                          loadedCount < totalCount;
                           
-        console.log(`Setting hasMore to ${hasMoreItems}. Current items: ${loadedCount}, Total: ${totalCount}`);
         setHasMore(hasMoreItems);
         setLoadingProblems(false);
         
         // Also process tags data if page 1
         if (page === 1 && data.tags) {
-          console.log("Setting allTags from data");
           setAllTags(data.tags);
           setTagsLoading(false);
         }
@@ -1264,9 +1248,25 @@ export default function NexPractice() {
         onClose={() => setSidebarOpen(false)}
         onToggleCollapse={() => {
           // Handle toggle collapse event if needed
-          console.log("Sidebar toggle collapsed")
         }}
       />
+      
+      {/* Add CodingQuestionsSidebar for question navigation */}
+      <CodingQuestionsSidebar
+        currentQuestionId=""
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        className={isMobile ? "fixed inset-y-0 left-0 z-50 m-0 rounded-none w-full max-w-sm transform transition-transform duration-300 ease-in-out" +
+          (sidebarOpen ? " translate-x-0" : " -translate-x-full") : ""}
+      />
+      
+      {/* Add overlay when sidebar is open on mobile */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       
       {/* Main content area - only this should scroll */}
       <div className="flex flex-1 flex-col overflow-hidden transition-all duration-300">

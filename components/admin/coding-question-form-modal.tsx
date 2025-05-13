@@ -459,7 +459,6 @@ export function CodingQuestionFormModal({
   // Effect to initialize languages from the hook
   useEffect(() => {
     if (hookLanguages && hookLanguages.length > 0) {
-      console.log(`Setting ${hookLanguages.length} languages from hook`);
       setAvailableLanguages(hookLanguages);
     }
   }, [hookLanguages]);
@@ -505,7 +504,6 @@ export function CodingQuestionFormModal({
       console.error('Error fetching editor data:', err);
       // Use hook languages as fallback if available
       if (hookLanguages && hookLanguages.length > 0) {
-        console.log(`Using ${hookLanguages.length} languages from hook after fetch error`);
         setAvailableLanguages(hookLanguages);
       } else {
         // Provide fallback languages if both API and hook fail
@@ -1669,24 +1667,12 @@ export function CodingQuestionFormModal({
 
   // Add tag state handler
   const handleTagsChange = (tags: TagObj[]) => {
-    console.log('handleTagsChange called with:', tags);
     setFormData(prev => {
       const newFormData = { ...prev, tags };
-      console.log('New formData.tags:', newFormData.tags);
       return newFormData;
     });
   };
 
-  // Add this near the top after other useEffect declarations, around line 1003:
-  useEffect(() => {
-    if (availableTags && availableTags.length > 0) {
-      console.log('availableTags structure:', {
-        length: availableTags.length,
-        firstFew: availableTags.slice(0, 3),
-        mappedType: availableTags.map(tag => ({ id: tag.id, name: tag.name })).slice(0, 3)
-      });
-    }
-  }, [availableTags]);
 
   // Update the getLanguageName function to use availableLanguages
   const getLanguageName = (langId: string) => {
@@ -1723,12 +1709,7 @@ export function CodingQuestionFormModal({
         return commonNames[langId];
       }
       
-      // If no match, just return the ID
-      console.log(`Language name not found for ID: ${langId}`, {
-        availableLanguages: availableLanguages.length > 0 ? 
-          availableLanguages.slice(0, 5).map((l: any) => ({id: l.id, name: l.name})) : 
-          'None available'
-      });
+     
       return `Language ID: ${langId}`;
     } catch (error) {
       console.error('Error getting language name:', error);

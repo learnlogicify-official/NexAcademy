@@ -42,16 +42,12 @@ export function useJudge0Languages(initialLanguages: Judge0Language[] = []) {
           if (editorData && Array.isArray(editorData.judge0Languages)) {
             // Enhanced logging to debug duplicate languages
             const languagesCount = editorData.judge0Languages.length;
-            console.log(`[JUDGE0] Fetched ${languagesCount} languages from GraphQL`);
+           
             
             // Check for any languages with is_archived flag
             const archivedCount = editorData.judge0Languages.filter((l: any) => l.is_archived === true).length;
-            if (archivedCount > 0) {
-              console.log(`[JUDGE0] Warning: ${archivedCount} archived languages found`);
-            }
             
-            // Log a sample of the first few languages to verify format
-            console.log('[JUDGE0] Sample languages:', editorData.judge0Languages.slice(0, 3));
+            
             
             setLanguages(editorData.judge0Languages);
             setError(null);

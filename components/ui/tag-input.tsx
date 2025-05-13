@@ -139,7 +139,6 @@ export const TagInput: React.FC<TagInputProps> = ({
 
   // Search function
   const handleSearch = (q: string) => {
-    console.log('Searching for:', q);
     
     if (!q.trim()) {
       setFiltered([]);
@@ -176,7 +175,6 @@ export const TagInput: React.FC<TagInputProps> = ({
         
         // Filter out already selected tags
         tags = tags.filter(tag => !value.some(v => v.id === tag.id));
-        console.log('Filtered tags from API:', tags.length);
         
         setFiltered(tags);
         setShowDropdown(true);
@@ -222,15 +220,10 @@ export const TagInput: React.FC<TagInputProps> = ({
 
   // Show tags on focus
   const handleFocus = () => {
-    console.log('Input focused:', {
-      availableTagsDefined: availableTags !== undefined, 
-      availableTagsLength: availableTags?.length || 0
-    });
     
     // Show all available tags not already selected on focus
     if (availableTags !== undefined) {
       const unselectedTags = availableTags.filter(tag => !value.some(v => v.id === tag.id));
-      console.log('Showing unselected tags on focus:', unselectedTags.length);
       setFiltered(unselectedTags);
       setShowDropdown(unselectedTags.length > 0);
       if (unselectedTags.length > 0) {
@@ -479,7 +472,6 @@ export const TagInput: React.FC<TagInputProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        console.log('Tag button clicked:', tag);
                         handleAdd(tag);
                       }}
                       onMouseEnter={() => setHighlighted(i)}
@@ -498,7 +490,6 @@ export const TagInput: React.FC<TagInputProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    console.log('Create tag button clicked:', input.trim());
                     handleCreateTag(input.trim());
                   }}
                 >

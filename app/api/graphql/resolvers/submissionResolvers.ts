@@ -55,13 +55,7 @@ export const submissionResolvers = {
           });
         }
         
-        // Add detailed logging
-        console.log('GraphQL Submissions Query:', {
-          problemId,
-          userId: requestedUserId,
-          page,
-          pageSize
-        });
+      
         
         // Calculate pagination
         const skip = (page - 1) * pageSize;
@@ -74,7 +68,7 @@ export const submissionResolvers = {
           },
         });
         
-        console.log('Total submissions count:', totalCount);
+        
 
         // Fetch submissions with pagination
         const submissions = await prisma.problemSubmission.findMany({
@@ -98,14 +92,6 @@ export const submissionResolvers = {
           },
         });
         
-        console.log('Submissions fetched:', submissions.length);
-        if (submissions.length > 0) {
-          console.log('First submission:', {
-            id: submissions[0].id,
-            submittedAt: submissions[0].submittedAt,
-            allPassed: submissions[0].allPassed
-          });
-        }
 
         // Add status field based on allPassed
         const submissionsWithStatus = submissions.map(submission => ({

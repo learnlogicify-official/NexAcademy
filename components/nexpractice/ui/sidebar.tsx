@@ -775,7 +775,6 @@ export function ExpandableProblemSidebar() {
 
   // Toggle sidebar expansion
   const toggleSidebar = React.useCallback(() => {
-    console.log('Toggling sidebar, current state:', expanded);
     setExpanded(prev => !prev);
   }, [expanded]);
 

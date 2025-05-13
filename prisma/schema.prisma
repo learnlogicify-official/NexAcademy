@@ -8,34 +8,39 @@ datasource db {
 }
 
 model User {
-  id                String                @id @default(cuid())
-  email             String                @unique
-  password          String
-  name              String?
+  id                 String                @id @default(cuid())
+  email              String                @unique
+  password           String
+  name               String?
   /// @enum {STUDENT|MANAGER|ADMIN|INSTRUCTOR|NON_EDITING_INSTRUCTOR}
   /// - STUDENT: Default role for new users
   /// - MANAGER: Can manage courses and users
   /// - ADMIN: Full system access
   /// - INSTRUCTOR: Can create and edit courses
   /// - NON_EDITING_INSTRUCTOR: Can view courses but not edit them
-  role              Role                  @default(STUDENT)
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  resetToken        String?               @unique
-  resetTokenExp     DateTime?
-  bio               String?               @db.VarChar(200)
-  hasOnboarded      Boolean               @default(false)
-  preferredLanguage String?
-  profilePic        String?
-  username          String?               @unique
-  bannerImage       String?
-  assessments       Assessment[]
-  attempts          Attempt[]
-  enrolledBy        Enrollment[]          @relation("EnrolledByUser")
-  enrolledIn        Enrollment[]          @relation("UserEnrollments")
-  submissions       ProblemSubmission[]
-  userCodeDrafts    UserCodeDraft[]
-  problemSettings   UserProblemSettings[]
+  role               Role                  @default(STUDENT)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  resetToken         String?               @unique
+  resetTokenExp      DateTime?
+  bio                String?               @db.VarChar(200)
+  hasOnboarded       Boolean               @default(false)
+  preferredLanguage  String?
+  profilePic         String?
+  username           String?               @unique
+  bannerImage        String?
+  assessments        Assessment[]
+  attempts           Attempt[]
+  dailyActivities    DailyActivity[]
+  enrolledBy         Enrollment[]          @relation("EnrolledByUser")
+  enrolledIn         Enrollment[]          @relation("UserEnrollments")
+  submissions        ProblemSubmission[]
+  userCodeDrafts     UserCodeDraft[]
+  UserPlatformHandle UserPlatformHandle[]
+  problemSettings    UserProblemSettings[]
+  streak             UserStreak?
+  xp                 UserXP?
+  xpEvents           UserXPEvent[]
 
   @@index([role])
   @@index([role, createdAt])
@@ -474,6 +479,7 @@ model ProblemSubmission {
   memory            String?
   runtimePercentile String?
   memoryPercentile  String?
+  status            String?               @default("PENDING")
   user              User                  @relation(fields: [userId], references: [id])
   userSettings      UserProblemSettings[]
 
@@ -485,6 +491,78 @@ model ProblemSubmission {
   @@index([userId, allPassed])
   @@index([userId, problemId])
   @@index([userId, submittedAt])
+  @@index([status])
+}
+
+model UserXP {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events    UserXPEvent[]
+
+  @@index([userId])
+  @@index([xp])
+}
+
+model UserXPEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  eventType   String
+  awardedXP   Int
+  description String?
+  createdAt   DateTime @default(now())
+  relatedId   String?
+  questionId  String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "UserXPEvent_user_fkey")
+  userXP      UserXP   @relation(fields: [userId], references: [userId], onDelete: Cascade, map: "UserXPEvent_userXP_fkey")
+
+  @@index([userId])
+  @@index([questionId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([userId, questionId, eventType])
+}
+
+model UserStreak {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  currentStreak    Int       @default(0)
+  longestStreak    Int       @default(0)
+  lastActivityDate DateTime?
+  freezeCount      Int       @default(0)
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyActivity {
+  id              String   @id @default(cuid())
+  userId          String
+  activityDate    DateTime
+  xpEarned        Int      @default(0)
+  submissionCount Int      @default(0)
+  practiceCount   Int      @default(0)
+  eventCount      Int      @default(0)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityDate])
+}
+
+model UserPlatformHandle {
+  id        String   @id
+  userId    String
+  platform  String
+  handle    String
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@index([platform])
+  @@index([userId])
 }
 
 /// Valid roles for users:

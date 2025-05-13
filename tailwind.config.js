@@ -83,11 +83,21 @@ module.exports = {
           "50%": { backgroundPosition: "100% 50%" },
           "100%": { backgroundPosition: "0% 50%" },
         },
+        "fadeIn": {
+          "0%": { opacity: 0 },
+          "100%": { opacity: 1 },
+        },
+        "slow-pulse": {
+          "0%, 100%": { opacity: 1 },
+          "50%": { opacity: 0.5 },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "gradient-slow": "gradient-shift 6s ease infinite",
+        "fadeIn": "fadeIn 0.5s ease-in-out",
+        "slow-pulse": "slow-pulse 4s ease-in-out infinite",
       },
     },
   },

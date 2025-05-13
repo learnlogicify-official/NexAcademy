@@ -9,7 +9,6 @@ import { questionService } from '../lib/services/questionService';
 
 async function main() {
   try {
-    console.log('Starting bulk import of coding questions...');
     
     // Replace this ID with the actual folder ID where you want to import questions
     const targetFolderId = 'YOUR_FOLDER_ID_HERE';
@@ -138,10 +137,6 @@ async function main() {
     // Call the bulk import function with all questions at once
     const result = await questionService.bulkImportCodingQuestions(questions);
     
-    console.log(`Successfully imported ${result.length} questions:`);
-    for (const question of result) {
-      console.log(`- ${question.id}: ${question.name}`);
-    }
     
   } catch (error) {
     console.error('Error during bulk import:', error);

@@ -242,7 +242,6 @@ export async function runWithJudge0Sequential({
   const compTimeLimit = Math.min(executionSettings.compilation_time_limit || 5, 5); // Max 20 seconds
 
   // Log the settings we're using
-  console.log(`Using Judge0 settings - wallTimeLimit: ${wallTimeLimit}s, cpuTimeLimit: ${cpuTimeLimit}s, compTimeLimit: ${compTimeLimit}s`);
 
   // Batch processing works best with small batches of 8 test cases max
   const maxBatchSize = 8;
@@ -252,7 +251,6 @@ export async function runWithJudge0Sequential({
     batches.push(testCases.slice(i, i + maxBatchSize));
   }
   
-  console.log(`Processing ${testCases.length} test cases in ${batches.length} batches of max ${maxBatchSize} each`);
   
   // Initialize results array
   const results: Judge0Result[] = new Array(testCases.length).fill(null).map((_, index) => ({
@@ -272,7 +270,6 @@ export async function runWithJudge0Sequential({
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     // Skip remaining batches if a test case has failed
     if (hasFailedTestCase) {
-      console.log(`Skipping batch ${batchIndex + 1}/${batches.length} due to previous failure`);
       
       // Mark all remaining test cases as "Skipped"
       const startIdx = batchIndex * maxBatchSize;
@@ -319,7 +316,6 @@ export async function runWithJudge0Sequential({
         compilation_time_limit: compTimeLimit
       }));
       
-      console.log(`Submitting batch ${batchIndex + 1}/${batches.length} with ${submissions.length} test cases`);
 
       // Create batch submission
       const batchRes = await fetch(`${JUDGE0_API_URL}/submissions/batch?base64_encoded=true`, {
@@ -335,7 +331,6 @@ export async function runWithJudge0Sequential({
         console.error(`Judge0 batch submission error for batch ${batchIndex + 1}:`, errorText);
         
         // Fall back to sequential for this batch
-        console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
         const batchResults = await runWithJudge0Sequential({
           sourceCode, 
           languageId, 
@@ -495,7 +490,6 @@ export async function runWithJudge0Sequential({
         // Check if all submissions in this batch are done
         batchDone = batchCompletedCount === batchTestCases.length;
         if (batchDone) {
-          console.log(`Batch ${batchIndex + 1}/${batches.length} completed`);
           break;
         }
       }
@@ -508,7 +502,6 @@ export async function runWithJudge0Sequential({
       }).filter(idx => idx !== -1);
 
       if (pendingIndices.length > 0) {
-        console.log(`Falling back to sequential execution for ${pendingIndices.length} pending test cases in batch ${batchIndex + 1}`);
         
         for (const idx of pendingIndices) {
           const globalIdx = startIdx + idx;
@@ -566,7 +559,6 @@ export async function runWithJudge0Sequential({
       console.error(`Error processing batch ${batchIndex + 1}:`, error);
       
       // Fall back to sequential for this batch
-      console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
       const batchResults = await runWithJudge0Sequential({
         sourceCode,
         languageId,
@@ -640,7 +632,6 @@ export async function runWithJudge0Batch({
   const compTimeLimit = Math.min(executionSettings.compilation_time_limit || 20, 20); // Max 20 seconds
 
   // Log the settings we're using
-  console.log(`Using Judge0 settings - wallTimeLimit: ${wallTimeLimit}s, cpuTimeLimit: ${cpuTimeLimit}s, compTimeLimit: ${compTimeLimit}s`);
 
   // Batch processing works best with small batches of 8 test cases max
   const maxBatchSize = 8;
@@ -650,7 +641,6 @@ export async function runWithJudge0Batch({
     batches.push(testCases.slice(i, i + maxBatchSize));
   }
   
-  console.log(`Processing ${testCases.length} test cases in ${batches.length} batches of max ${maxBatchSize} each`);
   
   // Initialize results array
   const results: Judge0Result[] = new Array(testCases.length).fill(null).map((_, index) => ({
@@ -670,7 +660,6 @@ export async function runWithJudge0Batch({
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     // Skip remaining batches if a test case has failed
     if (hasFailedTestCase) {
-      console.log(`Skipping batch ${batchIndex + 1}/${batches.length} due to previous failure`);
       
       // Mark all remaining test cases as "Skipped"
       const startIdx = batchIndex * maxBatchSize;
@@ -717,7 +706,6 @@ export async function runWithJudge0Batch({
         compilation_time_limit: compTimeLimit
       }));
       
-      console.log(`Submitting batch ${batchIndex + 1}/${batches.length} with ${submissions.length} test cases`);
 
       // Create batch submission
       const batchRes = await fetch(`${JUDGE0_API_URL}/submissions/batch?base64_encoded=true`, {
@@ -733,7 +721,6 @@ export async function runWithJudge0Batch({
         console.error(`Judge0 batch submission error for batch ${batchIndex + 1}:`, errorText);
         
         // Fall back to sequential for this batch
-        console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
         const batchResults = await runWithJudge0Sequential({
           sourceCode, 
           languageId, 
@@ -893,7 +880,6 @@ export async function runWithJudge0Batch({
         // Check if all submissions in this batch are done
         batchDone = batchCompletedCount === batchTestCases.length;
         if (batchDone) {
-          console.log(`Batch ${batchIndex + 1}/${batches.length} completed`);
           break;
         }
       }
@@ -906,7 +892,6 @@ export async function runWithJudge0Batch({
       }).filter(idx => idx !== -1);
 
       if (pendingIndices.length > 0) {
-        console.log(`Falling back to sequential execution for ${pendingIndices.length} pending test cases in batch ${batchIndex + 1}`);
         
         for (const idx of pendingIndices) {
           const globalIdx = startIdx + idx;
@@ -964,7 +949,6 @@ export async function runWithJudge0Batch({
       console.error(`Error processing batch ${batchIndex + 1}:`, error);
       
       // Fall back to sequential for this batch
-      console.log(`Falling back to sequential execution for batch ${batchIndex + 1}`);
       const batchResults = await runWithJudge0Sequential({
         sourceCode,
         languageId,

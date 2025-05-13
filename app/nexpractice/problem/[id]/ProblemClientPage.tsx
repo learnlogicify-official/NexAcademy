@@ -114,6 +114,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 // Import the stopNexPracticeLoading function
 import { stopNexPracticeLoading } from "@/app/explore-nex/ExploreNexContent"
+import { useXpNotifications } from '@/hooks/use-xp-notification';
+import { triggerStreakModal } from "@/components/problem-solving-wrapper";
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -622,6 +624,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   const { data: authSession, status: authStatus } = useSession()
   const client = useApolloClient();
   
+  // Add XP notification hook
+  const { showSubmissionXpNotification, showXpNotification } = useXpNotifications();
+  
   // Inject styles on client side only after component mounts
   useEffect(() => {
     injectStyles();
@@ -639,8 +644,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   
   // Add authentication debugging
   useEffect(() => {
-    console.log('Auth session:', authSession);
-    console.log('Auth status:', authStatus);
   }, [authSession, authStatus]);
   
   // Extract problem ID from the URL path
@@ -696,11 +699,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       
       if (anonymousData && !userData) {
         // Migrate the anonymous data to the user's storage
-        console.log(`Migrating anonymous data from ${anonymousKey} to user storage ${userKey}`);
         localStorage.setItem(userKey, anonymousData);
         
         // Clean up the anonymous data after migration
-        console.log(`Removing migrated anonymous data from ${anonymousKey}`);
         localStorage.removeItem(anonymousKey);
         
         // Notify the user (optional)
@@ -713,11 +714,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     }
   }, [authStatus, authSession, problemId, language, toast]);
   
-  // Add debug log after initialization
-  useEffect(() => {
-    console.log("Initial language state:", language);
-    console.log("Default language prop:", defaultLanguage);
-  }, [language, defaultLanguage]);
+ 
   
   const isMobile = useIsMobile()
   const [sidebarOpen, setSidebarOpen] = useState(false) // Always closed by default for mobile
@@ -860,21 +857,16 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     // Determine the correct key to load from based on authentication status
     if (authStatus === 'authenticated' && authSession?.user?.id) {
       storageKey = `nexacademy_${authSession.user.id}_${problemId}_${language}`;
-      console.log(`User authenticated: Loading from ${storageKey}`);
+     
     } else {
       storageKey = `nexacademy_anonymous_${problemId}_${language}`;
-      console.log(`User not authenticated: Loading from ${storageKey}`);
+      
     }
     
     // Check if there's saved code in localStorage
     const savedCode = localStorage.getItem(storageKey);
     
-    // Add debug log
-    if (savedCode) {
-      console.log(`Found saved code (length: ${savedCode.length})`);
-    } else {
-      console.log('No saved code found, using preloadCode');
-    }
+   
     
     // If there's saved code and it's different from the current code, update the editor
     if (savedCode && savedCode !== preloadCode) {
@@ -1062,7 +1054,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       
       // Get language ID from the model
       const languageId = model.getLanguageId();
-      console.log("Formatting code for language:", languageId);
       
       // Get the current text
       const text = model.getValue();
@@ -1609,10 +1600,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       // Set a static loading phrase instead of cycling through stages
       setLoadingPhrase("Executing the code...");
       
-      console.log("Selected language:", language);
-      console.log("Language name from JUDGE0_LANGUAGES:", JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]);
+   
       const langId = getLanguageId(language);
-      console.log("Language ID for execution:", langId);
+     
 
       const response = await runCodeMutation({
         variables: {
@@ -1717,10 +1707,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       // Set a static loading phrase
       setLoadingPhrase("Executing the code...");
       
-      console.log("Selected language for submission:", language);
-      console.log("Language name from JUDGE0_LANGUAGES:", JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]);
+    
       const langId = getLanguageId(language);
-      console.log("Language ID for submission:", langId);
+    
 
       // Request to execute all testcases in parallel
       const response = await submitCodeMutation({
@@ -1733,21 +1722,126 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           }
         }
       });
+      console.log('response', response);
+      // Process XP data for notification
+      const xpData = response?.data?.submitCode?.xp;
+      console.log('XP data received:', xpData);
+      
+      // Since the server doesn't provide userXpEvents yet, we'll generate them client-side
+      if (xpData && xpData.awarded) {
+        // Create an array to hold our XP events
+        const generatedXpEvents = [];
+        
+        // Calculate XP based on problem difficulty
+        let difficultyXP = 25; // Default for easy
+        let difficultyLabel = "Easy";
+        
+        // Get the difficulty from the codingQuestion
+        const questionDifficulty = codingQuestion.question?.difficulty || "EASY";
+        console.log('Problem difficulty:', questionDifficulty);
+        
+        // Set XP based on difficulty
+        if (questionDifficulty === "MEDIUM") {
+          difficultyXP = 50;
+          difficultyLabel = "Medium";
+        } else if (questionDifficulty === "HARD" || questionDifficulty === "VERY_HARD") {
+          difficultyXP = 100;
+          difficultyLabel = questionDifficulty === "VERY_HARD" ? "Very Hard" : "Hard";
+        }
+        
+        // First event is the base XP for difficulty level
+        generatedXpEvents.push({
+          amount: difficultyXP,
+          eventType: 'difficulty_xp',
+          description: `${difficultyLabel} Problem Solved`
+        });
+        
+        // If there's a first submission bonus, add it as a separate event
+        if (xpData.amount > difficultyXP) {
+          const firstSubmissionXp = 15; // Match FIRST_SUBMISSION in xp-service.ts
+          generatedXpEvents.push({
+            amount: firstSubmissionXp,
+            eventType: 'first_submission',
+            description: 'First Correct Solution'
+          });
+        }
+        
+        // If there's a streak bonus, add it too (for future implementation)
+        if (response.data?.submitCode?.streakEstablished && response.data?.submitCode?.currentStreak > 1) {
+          // Add streak continuation bonus (for now just a placeholder)
+          generatedXpEvents.push({
+            amount: 0, // Will be updated when server implements streak bonuses
+            eventType: 'streak_bonus',
+            description: `${response.data.submitCode.currentStreak} Day Streak`
+          });
+        }
+        
+        // Enhanced debugging for XP events
+        console.log(`Generated ${generatedXpEvents.length} XP events for ${difficultyLabel} problem:`);
+        generatedXpEvents.forEach((event, index) => {
+          console.log(`XP Event #${index + 1}:`, {
+            amount: event.amount,
+            eventType: event.eventType,
+            description: event.description
+          });
+        });
+        
+        // Display each XP event with appropriate delays
+        generatedXpEvents.forEach((event, index) => {
+          if (event.amount > 0) {
+            setTimeout(() => {
+              showXpNotification(
+                event.amount,
+                event.eventType || 'xp_earned',
+                event.description || 'XP Earned'
+              );
+            }, index * 1500); // Stagger notifications by 1.5 seconds
+          }
+        });
+      }
+      
+      // --- STREAK MODAL TRIGGER ---
+      console.log("Checking for streak data:", {
+        streakEstablished: response.data?.submitCode?.streakEstablished,
+        currentStreak: response.data?.submitCode?.currentStreak,
+        highestStreak: response.data?.submitCode?.highestStreak || response.data?.submitCode?.currentStreak
+      });
+      
+      // Show streak modal only for first correct submission (streakEstablished flag checks for this condition)
+      if (
+        response.data?.submitCode?.streakEstablished &&
+        response.data?.submitCode?.currentStreak
+      ) {
+        console.log("TRIGGERING STREAK MODAL for first correct submission with streak value:", response.data?.submitCode?.currentStreak);
+        // Delay slightly to ensure the DOM is ready for the streak modal
+        setTimeout(() => {
+          triggerStreakModal({
+            streakEstablished: true,
+            currentStreak: response.data.submitCode.currentStreak,
+            highestStreak: response.data.submitCode.highestStreak || response.data.submitCode.currentStreak
+          });
+          
+          // As a fallback, if the streak modal doesn't show up after a delay, 
+          // try to show it again with a more forceful approach
+          setTimeout(() => {
+            // Check if streak modal is visible
+            const isModalVisible = document.querySelector('[data-dialog-name="streak-modal"]');
+            if (!isModalVisible || isModalVisible.getAttribute('data-state') !== 'open') {
+              console.log("Streak modal not visible after initial trigger, trying again with force");
+              triggerStreakModal({
+                streakEstablished: true,
+                currentStreak: response.data.submitCode.currentStreak,
+                highestStreak: response.data.submitCode.highestStreak || response.data.submitCode.currentStreak
+              });
+            }
+          }, 2000);
+        }, 100);
+      }
 
       if (response.data?.submitCode) {
         const { success, message, results, allTestsPassed, totalTests } = response.data.submitCode;
         
-        // Log the results for debugging
-        console.log("API Response results:", results);
-        console.log("Skipped test cases:", results.filter((r: any) => 
-          r.isSkipped || r.verdict === "Skipped" || (r.status && r.status.description === "Skipped")
-        ));
-        console.log("Failed test cases:", results.filter((r: any) => 
-          !r.isCorrect && 
-          !r.isSkipped && 
-          r.verdict !== "Skipped" && 
-          (!r.status || r.status.description !== "Skipped")
-        ));
+     
         
         // Now that we have the response, set the total number of testcases
         setTotalHiddenTestcases(totalTests || results?.length || 0);
@@ -1943,6 +2037,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       setLoadingProgress(0);
       setShowEvaluatingSkeletons(false);
       setSkeletonTab(null);
+      setIsRunning(false);
     }
   };
   
@@ -2089,19 +2184,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       // Clear existing submissions while loading to provide better UX
       setSubmissions([]);
       
-      // Log the entire coding question object to inspect its structure
-      console.log('Coding question object:', codingQuestion);
+    
       
       // Determine the correct problem ID to use - add fallbacks for backward compatibility
       const problemId = codingQuestion.questionId || codingQuestion.id;
-      console.log('Using problemId:', problemId);
+ 
       
-      console.log('Fetching submissions with params:', {
-        problemId,
-        userId: session.user.id,
-        page,
-        pageSize: size
-      });
       
       try {
         const data = await submissionService.getProblemSubmissions({
@@ -2111,7 +2199,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           pageSize: size
         });
         
-        console.log('Submissions response:', data);
+        
         
         if (data && data.submissions) {
           setSubmissions(data.submissions);
@@ -2160,7 +2248,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   // Monitor submissionsTabActive state to fetch submissions automatically
   useEffect(() => {
     if (submissionsTabActive && session?.user?.id && !submissionsInitialized) {
-      console.log('Auto-fetching submissions for the first time');
       fetchSubmissions(1);
       setSubmissionsInitialized(true);
     }
@@ -2394,8 +2481,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
 
     // 2. Save code draft and lastLanguage as before (for prevLanguage)
     if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
-      console.log(`[SAVE] Previous language: ${prevLanguage}, new language: ${newLanguage}`);
-      console.log(`[SAVE] Saving previous code to previous language key`);
       const baseKey = `nexacademy_${authSession.user.id}_${problemId}_${prevLanguage}`;
       const draftKey = `${baseKey}_draft`;
       const localCode = localStorage.getItem(baseKey) || '';
@@ -2464,10 +2549,9 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     (async () => {
       let loadedCode = '';
       let found = false;
-      console.log(`Starting language switch to: ${newLanguage}`);
+      (`Starting language switch to: ${newLanguage}`);
       if (authStatus === 'authenticated' && authSession?.user?.id && problemId) {
         try {
-          console.log(`Checking database for language: ${newLanguage}`);
           const { data: draftData } = await client.query({
             query: GET_USER_CODE_DRAFT,
             variables: { userId: authSession.user.id, problemId, language: newLanguage },
@@ -2476,10 +2560,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           if (draftData?.getUserCodeDraft?.code) {
             loadedCode = draftData.getUserCodeDraft.code;
             found = true;
-            console.log('Found code in DB, using it');
-          } else {
-            console.log('No code found in DB');
-          }
+          } 
         } catch (err) {
           console.error('Error fetching from DB:', err);
         }
@@ -2493,20 +2574,17 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         if (localCode) {
           loadedCode = localCode;
           found = true;
-          console.log('Using localStorage code');
-        } else {
-          console.log('No code found in localStorage');
-        }
+        } 
       }
       if (!found) {
-        console.log('dddd',)
+       
         // Fallback to preloadCode for the new language from languageOptions
         const langOption = codingQuestion.languageOptions?.find(
           (opt: any) => String(opt.language) === String(newLanguage)
         );
-        console.log(`langOption: ${langOption}`);
+        
         loadedCode = langOption?.preloadCode || '';
-        console.log(`Final loadedCode (fallback): ${loadedCode ? `length=${loadedCode.length}` : 'empty'}`);
+      
       }
       // Only update if this is still the latest requested language
       if (latestLanguageRequestRef.current === newLanguage) {
@@ -2575,7 +2653,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         } catch (err) {
           langToCheck = processDefaultLanguage(defaultLanguage);
         }
-        console.log("language gkgjkd",langToCheck);
         // 2. Try to get code draft from DB for langToCheck
         try {
           const { data: draftData } = await client.query({
@@ -2589,7 +2666,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           codeFromDB = null;
           dbUpdatedAt = null;
         }
-        console.log("codefromdb",codeFromDB);
         // 3. Get code from localStorage for the same key
         const localKey = `nexacademy_${userId}_${problemId}_${langToCheck}`;
         const localDraftKey = `${localKey}_draft`;
@@ -2603,7 +2679,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         // 4. Compare timestamps and pick the latest
         // Get preloadCode from the language option for the current language
         let preloadCode = (() => {
-          console.log("sss",codingQuestion.languageOptions);
           if (
             codingQuestion.languageOptions &&
             Array.isArray(codingQuestion.languageOptions) &&
@@ -2614,7 +2689,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                 String(opt.language) === String(langToCheck) ||
                 String(opt.id) === String(langToCheck)
             );
-            console.log("zzzzz",langOption);
             if (langOption) {
               return langOption.preloadCode;
             }
@@ -2622,7 +2696,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           return "";
         })();
         let useCode = preloadCode;
-        console.log("vvvvv",useCode);
         if (codeFromDB && dbUpdatedAt) {
           // Compare with localStorage timestamp
           let dbTime = new Date(dbUpdatedAt).getTime();
@@ -2645,7 +2718,6 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               console.error('Failed to save newer local code to DB:', err);
             }
           } else {
-            console.log("code gdhhdh",codeFromDB);
             useCode = codeFromDB;
           }
         } else if (localCode) {
@@ -2666,15 +2738,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             console.error('Failed to save local code to DB:', err);
           }
         } else {
-          console.log("aaaaaaa",preloadCode);
           useCode = preloadCode;
         }
         // Set language and code
         if (isMounted) {
           setLanguage(langToCheck);
-          console.log("qqqqqqqq",useCode);
           setCode(useCode);
-          console.log("jvgdvfhjdvgf",useCode);
           // Also update the draft key in localStorage with the loaded code
 
           localStorage.setItem(localDraftKey, useCode);
@@ -2701,8 +2770,7 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     // Reset the initialLoadCompletedRef to ensure code loads properly
     initialLoadCompletedRef.current = false;
     
-    // Log navigation completion
-    console.log('[NexPractice] Navigation complete, resetting code loading state');
+
     
     // Add a small delay before stopping the loader to ensure the editor has time to initialize
     const timeoutId = setTimeout(() => {
@@ -2724,11 +2792,11 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   // When the editor mounts, set the loaded flag
   const handleEditorDidMount = useCallback((editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
     setEditorLoaded(true);
-    console.log('[Editor] Monaco editor mounted');
+
     
     // If we have code waiting to be loaded, set it now
     if (codeToLoad) {
-      console.log('[Editor] Setting pending code from codeToLoad');
+
       setCode(codeToLoad);
       setCodeToLoad(null);
     }

@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@apollo/client';
 import { apolloClient } from '@/lib/apollo-client';
 import { NexPracticeLoader } from '@/app/explore-nex/ExploreNexContent';
+import { XpNotificationProvider } from '@/contexts/xp-notification-context';
 
 function OnboardingRedirect() {
   const { data: session, status } = useSession();
@@ -56,8 +57,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <NotistackProvider>
             <ApolloProvider client={apolloClient}>
+              <XpNotificationProvider>
               <NexPracticeLoader />
               {children}
+              </XpNotificationProvider>
             </ApolloProvider>
             <ReactQueryDevtools initialIsOpen={false} />
           </NotistackProvider>

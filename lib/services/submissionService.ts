@@ -51,7 +51,6 @@ export const submissionService = {
     page?: number;
     pageSize?: number;
   }) => {
-    console.log('submissionService.getProblemSubmissions called with params:', params);
     
     try {
       // Make sure problemId is not undefined
@@ -66,7 +65,6 @@ export const submissionService = {
         fetchPolicy: 'network-only', // Don't use cache for this query
       });
       
-      console.log('GraphQL response data:', data);
       
       if (!data?.problemSubmissions) {
         console.error('Missing problemSubmissions in GraphQL response');

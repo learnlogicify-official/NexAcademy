@@ -53,6 +53,16 @@ export const SUBMIT_CODE = gql`
       allTestsPassed
       totalTests
       executionId
+      submissionId
+      xp {
+        awarded
+        amount
+        newTotal
+        levelUp
+        newLevel
+      }
+      streakEstablished
+      currentStreak
     }
   }
 `;

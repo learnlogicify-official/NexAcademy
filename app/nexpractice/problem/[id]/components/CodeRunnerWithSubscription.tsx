@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useMutation, useSubscription } from '@apollo/client';
 import { SUBMIT_CODE, EXECUTION_PROGRESS_SUBSCRIPTION } from '../graphql/codeExecution';
@@ -6,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { formatExecutionTime, formatMemory } from '@/utils/helpers';
 import confetti from 'canvas-confetti';
+import { useXpNotifications, StreakInfo } from '@/hooks/use-xp-notification';
 
 interface TestCaseResult {
   id: string;
@@ -25,6 +28,14 @@ interface ExecutionResult {
   results: TestCaseResult[];
   allTestsPassed: boolean;
   totalTests: number;
+  xp?: {
+    awarded: boolean;
+    amount: number;
+    newTotal: number;
+    levelUp: boolean;
+    newLevel: number | null;
+    streakInfo?: StreakInfo;
+  };
 }
 
 interface CodeRunnerWithSubscriptionProps {
@@ -50,6 +61,7 @@ export default function CodeRunnerWithSubscription({
   const [allTestsPassed, setAllTestsPassed] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const { showSubmissionXpNotification } = useXpNotifications();
 
   // Submit code mutation
   const [submitCode] = useMutation(SUBMIT_CODE);
@@ -113,7 +125,7 @@ export default function CodeRunnerWithSubscription({
     
     try {
       // Submit code with the execution ID for subscription tracking
-      await submitCode({
+      const response = await submitCode({
         variables: {
           input: {
             sourceCode,
@@ -134,6 +146,20 @@ export default function CodeRunnerWithSubscription({
           }
         }
       });
+      
+      // Add debugging logs for XP data
+      console.log('Submission response:', response?.data);
+      
+      // Check if XP was awarded and show notification
+      const xpData = response?.data?.submitCode?.xp;
+      console.log('XP data received:', xpData);
+      
+      if (xpData && xpData.awarded) {
+        console.log('Showing XP notification for:', xpData);
+        showSubmissionXpNotification(xpData);
+      } else {
+        console.log('No XP notification shown - no XP awarded or missing data');
+      }
       
       // The results will come through the subscription
     } catch (error: any) {

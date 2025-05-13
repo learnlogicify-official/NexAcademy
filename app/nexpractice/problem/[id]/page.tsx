@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import ProblemClientPage from "./ProblemClientPage"
+import { ProblemSolvingWrapper } from "@/components/problem-solving-wrapper"
 
 interface ProblemPageProps {
   params: { id: string }
@@ -35,10 +36,12 @@ export default async function CodeChallenge({ params }: ProblemPageProps) {
   }
 
   return (
-    <ProblemClientPage
-      codingQuestion={safeCodingQuestion}
-      defaultLanguage={defaultLanguage}
-      preloadCode={preloadCode}
-    />
+    <ProblemSolvingWrapper>
+      <ProblemClientPage
+        codingQuestion={safeCodingQuestion}
+        defaultLanguage={defaultLanguage}
+        preloadCode={preloadCode}
+      />
+    </ProblemSolvingWrapper>
   )
 }

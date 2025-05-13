@@ -361,16 +361,15 @@ export default async function ProblemPage({ params }: { params: { id: string } }
     // This enhanced version includes detailed debugging and ensures correct localStorage behavior
     const languagePersistenceScript = `
       document.addEventListener('DOMContentLoaded', function() {
-        console.log('[DEBUG] Setting up language persistence handler');
         
         // First, check if there's a saved language in localStorage
         const problemId = "${problemId}";
         const savedLanguage = localStorage.getItem('nexacademy_last_language_' + problemId);
-        console.log('[DEBUG] Found saved language in localStorage:', savedLanguage || 'none');
+        
         
         if (savedLanguage) {
           // Dispatch an event to notify our app about the saved language
-          console.log('[DEBUG] Dispatching savedLanguageLoaded event with language:', savedLanguage);
+        
           window.dispatchEvent(new CustomEvent('nexacademy:savedLanguageLoaded', {
             detail: {
               problemId: problemId,
@@ -383,18 +382,15 @@ export default async function ProblemPage({ params }: { params: { id: string } }
         window.addEventListener('nexacademy:languageChanged', function(e) {
           try {
             if (e.detail && e.detail.problemId && e.detail.language && e.detail.languageName) {
-              console.log('[DEBUG] Language changed event received:', 
-                          'problemId=', e.detail.problemId, 
-                          'languageId=', e.detail.language,
-                          'languageName=', e.detail.languageName);
+             
               
               // Store the full language name instead of just the ID
               localStorage.setItem('nexacademy_last_language_' + e.detail.problemId, e.detail.languageName);
-              console.log('[DEBUG] Saved language to localStorage:', e.detail.languageName);
+             
               
               // Update last-language on server if an API call is requested
               if (e.detail.updateServer) {
-                console.log('[DEBUG] Updating last-language on server for:', e.detail.languageName);
+              
                 
                 fetch('/api/problem/' + e.detail.problemId + '/last-language', {
                   method: 'POST',
@@ -402,7 +398,7 @@ export default async function ProblemPage({ params }: { params: { id: string } }
                   body: JSON.stringify({ language: e.detail.languageName }),
                   credentials: 'include'
                 }).then(response => {
-                  console.log('[DEBUG] Last language update response:', response.status);
+                 
                 }).catch(err => {
                   console.error('[DEBUG] Error updating last language:', err);
                 });
@@ -415,11 +411,8 @@ export default async function ProblemPage({ params }: { params: { id: string } }
         
         // Add a debugging method to the window
         window.debugLastLanguage = function() {
-          console.log('Saved language:', localStorage.getItem('nexacademy_last_language_' + problemId));
-          console.log('All localStorage keys:', Object.keys(localStorage));
         };
-        
-        console.log('[DEBUG] Language persistence handler setup complete');
+
       });
     `;
 
@@ -455,11 +448,9 @@ export default async function ProblemPage({ params }: { params: { id: string } }
           const langToSave = getCurrentLanguage();
           
           if (!langToSave) {
-            console.log('[DEBUG] No language to save to server');
             return;
           }
           
-          console.log('[DEBUG] Saving last language to server on event:', langToSave);
           
           // Using fetch with keepalive for page unload events
           fetch('/api/problem/' + problemId + '/last-language', {
@@ -495,7 +486,7 @@ export default async function ProblemPage({ params }: { params: { id: string } }
         window.__saveLastLanguageToServer = saveLastLanguageToServer;
         
         // Log that we're not syncing on load
-        console.log('[DEBUG] Last language will NOT be synced on page load');
+       
       });
     `;
 

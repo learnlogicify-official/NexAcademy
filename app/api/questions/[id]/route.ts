@@ -230,7 +230,7 @@ export async function PUT(
       );
     }
 
-      console.log(`Updating question ${questionId}, type: ${type}`);
+ 
     
       // First, update the basic question data outside of the transaction
       // This reduces the transaction time
@@ -259,7 +259,7 @@ export async function PUT(
               where: { mcqQuestionId: existingQuestion.mCQQuestion?.id }
           });
 
-            console.log('Updating MCQ question...');
+        
           // Update MCQ question
           await tx.mCQQuestion.update({
             where: { questionId },
@@ -282,7 +282,7 @@ export async function PUT(
               }
             }
           });
-            console.log('MCQ question updated successfully.');
+          
         }
         
         // 3. Handle Coding Question updates
@@ -294,7 +294,7 @@ export async function PUT(
             throw new Error('Coding question not found');
           }
           
-            console.log('Updating basic coding question info...');
+       
             // Update the coding question basic info
           await tx.codingQuestion.update({
             where: { questionId },
@@ -314,7 +314,7 @@ export async function PUT(
                 }
               }
             });
-            console.log('Basic coding question info updated.');
+           
           }
           
           // Return the updated question object
@@ -408,7 +408,7 @@ export async function PUT(
                       };
                     });
                   
-                  console.log(`Languages: ${languagesToDelete.length} to delete, ${languagesToCreate.length} to create, ${languagesToUpdate.length} to update`);
+                 
                   
                   // Execute all operations in parallel
                   if (languagesToDelete.length > 0) {
@@ -516,7 +516,7 @@ export async function PUT(
                       }
                     }));
                   
-                  console.log(`Test cases: ${testCasesToDelete.length} to delete, ${testCasesToCreate.length} to create, ${testCasesToUpdate.length} to update`);
+                 
                   
                   // Execute all operations in parallel
                   await Promise.all([
@@ -614,7 +614,6 @@ export async function PUT(
         
         if (isTransactionTimeoutError && retryCount < MAX_RETRIES) {
           retryCount++;
-          console.log(`Transaction error detected, retrying (${retryCount}/${MAX_RETRIES})...`);
           return processRequest(); // Retry the request
         }
         

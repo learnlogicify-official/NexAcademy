@@ -82,7 +82,6 @@ const questions = [
 
 // Call the bulk import function
 const result = await questionService.bulkImportCodingQuestions(questions);
-console.log(`Imported ${result.length} questions successfully`);
 ```
 
 ### 3. Using the Utility Scripts

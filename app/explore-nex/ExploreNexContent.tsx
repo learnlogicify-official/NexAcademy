@@ -330,7 +330,6 @@ export default function ExploreNexContent() {
     } else {
       // For other apps, just simulate loading
       setTimeout(() => {
-        console.log(`Navigating to ${appId}...`)
         // router.push(`/app/${appId}`)
       }, 3000)
     }

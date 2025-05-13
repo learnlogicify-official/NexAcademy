@@ -3,6 +3,8 @@ import { runWithJudge0, Judge0TestCase, Judge0Result } from '@/utils/judge0';
 import { prisma } from '@/lib/prisma';
 import { createPubSub } from '@graphql-yoga/subscription';
 import { generateUUID } from '@/utils/helpers';
+import { awardXP, XP_REWARDS } from '@/lib/xp-service';
+import { recordActivity } from '@/lib/streak-service';
 
 // Create a pubsub instance for GraphQL subscriptions
 const pubsub = createPubSub();
@@ -247,9 +249,14 @@ export const codeExecutionResolvers = {
         const allTestsPassed = failedTestIndex === -1;
         
         // Store the submission if user is logged in
+        let submissionId = null;
+        let xpInfo = null;
+        let streakInfo = null;
+        let isFirstCorrectSubmission = false;
+
         if (context.session?.user?.id) {
           try {
-            await prisma.problemSubmission.create({
+            const submission = await prisma.problemSubmission.create({
               data: {
                 userId: context.session.user.id,
                 problemId: problemId,
@@ -263,6 +270,128 @@ export const codeExecutionResolvers = {
                 memory: formattedResults[0]?.memoryUsed ? formattedResults[0].memoryUsed.toString() : null
               }
             });
+            
+            submissionId = submission.id;
+            
+            // Award XP if solution is correct
+            if (allTestsPassed) {
+              try {
+                // Get problem difficulty to determine XP amount
+                const codingQuestion = await prisma.codingQuestion.findFirst({
+                  where: { 
+                    questionId: problemId
+                  },
+                  select: { 
+                    difficulty: true 
+                  }
+                });
+                
+                // Determine XP amount based on difficulty
+                let xpAmount = XP_REWARDS.CORRECT_SUBMISSION; // Default for EASY
+                if (codingQuestion?.difficulty === "MEDIUM") {
+                  xpAmount = XP_REWARDS.MEDIUM_DIFFICULTY;
+                } else if (codingQuestion?.difficulty === "HARD") {
+                  xpAmount = XP_REWARDS.HARD_DIFFICULTY;
+                }
+                
+                // Award XP for solving the problem
+                const xpResult = await awardXP(
+                  context.session.user.id,
+                  problemId,
+                  'correct_submission',
+                  xpAmount,
+                  `Solved problem correctly`
+                );
+                
+                let totalXPAwarded = xpResult?.isNewAward ? xpAmount : 0;
+                let newLevel = xpResult?.newLevel;
+                
+                // If this is their first correct submission, award additional XP
+                if (xpResult?.isNewAward) {
+                  // Check if this is their first ever correct submission
+                  const submissionCount = await prisma.problemSubmission.count({
+                    where: {
+                      userId: context.session.user.id,
+                      allPassed: true
+                    }
+                  });
+                  
+                  isFirstCorrectSubmission = submissionCount === 1;
+                  
+                  if (isFirstCorrectSubmission) {
+                    const firstSubmissionResult = await awardXP(
+                      context.session.user.id,
+                      null,
+                      'first_submission',
+                      XP_REWARDS.FIRST_SUBMISSION,
+                      'First correct solution'
+                    );
+                    
+                    totalXPAwarded += XP_REWARDS.FIRST_SUBMISSION;
+                    newLevel = firstSubmissionResult?.newLevel || newLevel;
+                  }
+                }
+                
+                // Record streak activity when user solves a problem correctly
+                try {
+                  console.log('Recording streak activity for user:', context.session.user.id);
+                  const streakResult = await recordActivity(
+                    context.session.user.id,
+                    'submission',
+                    0 // Don't add additional XP here since it's already awarded above
+                  );
+                  
+                  console.log('Streak activity result:', streakResult);
+                  streakInfo = streakResult;
+                  
+                  // IMPORTANT: Log when a streak is established or maintained
+                  if (streakResult.streakUpdated || streakResult.streakMaintained) {
+                    console.log('⭐️ STREAK ESTABLISHED/MAINTAINED ⭐️', {
+                      userId: context.session.user.id,
+                      currentStreak: streakResult.currentStreak,
+                      streakUpdated: streakResult.streakUpdated,
+                      streakMaintained: streakResult.streakMaintained,
+                      longestStreak: streakResult.longestStreak || streakResult.currentStreak
+                    });
+                  } else {
+                    console.log('No streak established or maintained');
+                  }
+                  
+                  // If this is the first submission that updated the streak today
+                  if (streakResult.streakUpdated && !streakResult.streakMaintained) {
+                    console.log('Streak updated - awarding additional XP');
+                    totalXPAwarded += XP_REWARDS.STREAK_DAY;
+                  }
+                  
+                  // Set XP info for response
+                  xpInfo = {
+                    awarded: xpResult?.isNewAward || false,
+                    amount: totalXPAwarded,
+                    newTotal: xpResult?.userXP?.xp || 0,
+                    levelUp: !!newLevel,
+                    newLevel: newLevel || null,
+                    streakInfo: streakResult
+                  };
+                  
+                  console.log('Final XP info with streak:', xpInfo);
+                } catch (streakError) {
+                  console.error("Error updating streak:", streakError);
+                  // Continue even if streak update fails
+                  
+                  // Set XP info without streak information
+                  xpInfo = {
+                    awarded: xpResult?.isNewAward || false,
+                    amount: totalXPAwarded,
+                    newTotal: xpResult?.userXP?.xp || 0,
+                    levelUp: !!newLevel,
+                    newLevel: newLevel || null
+                  };
+                }
+              } catch (xpError) {
+                console.error("Error awarding XP:", xpError);
+                // Continue even if XP award fails
+              }
+            }
           } catch (err) {
             console.error("Failed to store submission:", err);
             // Continue even if storage fails
@@ -277,7 +406,13 @@ export const codeExecutionResolvers = {
           results: formattedResults,
           allTestsPassed,
           totalTests: judge0TestCases.length,
-          executionId
+          executionId,
+          submissionId,
+          xp: xpInfo, // includes XP info
+          // Only show streak modal on first correct submission (submissionCount === 1)
+          streakEstablished: streakInfo ? (streakInfo.streakUpdated && isFirstCorrectSubmission) : false,
+          currentStreak: streakInfo?.currentStreak || 0,
+          highestStreak: streakInfo?.longestStreak || 0
         };
       } catch (error: any) {
         console.error("Error executing submitCode:", error);

@@ -59,24 +59,21 @@ const LANGUAGE_ID_MAP: Record<string, number> = {
  * @returns The Judge0 language ID or 71 (Python 3) as a default
  */
 export function getLanguageId(languageName: string): number {
-  console.log("Getting language ID for:", languageName);
   
   // Special case: for "Java"
   if (languageName === "Java") {
-    console.log("Java exact match detected, returning ID 62");
+   
     return 62;
   }
   
   // If languageName is a language ID, return it directly
   if (!isNaN(Number(languageName))) {
     const numId = Number(languageName);
-    console.log("Language ID is numeric, using directly:", numId);
     return numId;
   }
   
   // Try direct lookup first
   if (LANGUAGE_ID_MAP[languageName]) {
-    console.log("Found direct match:", languageName, "->", LANGUAGE_ID_MAP[languageName]);
     return LANGUAGE_ID_MAP[languageName];
   }
   
@@ -84,34 +81,28 @@ export function getLanguageId(languageName: string): number {
   const normalizedName = languageName.toLowerCase();
   for (const [key, value] of Object.entries(LANGUAGE_ID_MAP)) {
     if (key.toLowerCase() === normalizedName) {
-      console.log("Found case-insensitive match:", key, "->", value);
       return value;
     }
   }
   
   // Try partial match with specific language checks
   if (normalizedName.includes("java")) {
-    console.log("Java match found, returning Java ID:", 62);
     return 62; // Java
   }
   
   if (normalizedName.includes("python") || normalizedName.includes("py")) {
     if (normalizedName.includes("2")) {
-      console.log("Python 2 match found, returning ID:", 70);
       return 70; // Python 2
     } else {
-      console.log("Python 3 match found, returning ID:", 71);
       return 71; // Python 3
     }
   }
   
   if (normalizedName.includes("c++") || normalizedName.includes("cpp")) {
-    console.log("C++ match found, returning ID:", 54);
     return 54; // C++
   }
   
   if (normalizedName === "c" || normalizedName.includes("clang")) {
-    console.log("C match found, returning ID:", 50);
     return 50; // C
   }
   
@@ -119,12 +110,10 @@ export function getLanguageId(languageName: string): number {
   for (const [key, value] of Object.entries(LANGUAGE_ID_MAP)) {
     if (normalizedName.includes(key.toLowerCase()) || 
         key.toLowerCase().includes(normalizedName)) {
-      console.log("Found partial match:", key, "->", value);
       return value;
     }
   }
   
   // Default to Python 3 if no match found
-  console.log("No match found, defaulting to Python 3 (ID: 71)");
   return 71;
 } 

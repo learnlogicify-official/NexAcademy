@@ -21,6 +21,24 @@ export const codeExecutionTypeDefs = gql`
     executionTime: String
     memoryUsed: String
   }
+  
+  # Streak information
+  type StreakInfo {
+    currentStreak: Int!
+    streakUpdated: Boolean!
+    streakMaintained: Boolean!
+    freezeUsed: Boolean!
+  }
+
+  # XP information after submission
+  type XPInfo {
+    awarded: Boolean
+    amount: Int
+    newTotal: Int
+    levelUp: Boolean
+    newLevel: Int
+    streakInfo: StreakInfo
+  }
 
   # Response type for code execution operations
   type CodeExecutionResponse {
@@ -30,6 +48,11 @@ export const codeExecutionTypeDefs = gql`
     allTestsPassed: Boolean!
     totalTests: Int
     executionId: String
+    submissionId: String
+    xp: XPInfo
+    # Only true for the first-ever correct submission to trigger the streak modal
+    streakEstablished: Boolean
+    currentStreak: Int
   }
   
   # Execution progress type for subscriptions
