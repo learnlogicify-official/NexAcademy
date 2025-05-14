@@ -5,6 +5,7 @@ import { createPubSub } from '@graphql-yoga/subscription';
 import { generateUUID } from '@/utils/helpers';
 import { awardXP, XP_REWARDS } from '@/lib/xp-service';
 import { recordActivity } from '@/lib/streak-service';
+import { getUserTimezoneOffset } from '@/utils/streak-helpers';
 
 // Create a pubsub instance for GraphQL subscriptions
 const pubsub = createPubSub();
@@ -152,6 +153,7 @@ export const codeExecutionResolvers = {
         problemId: string; 
         executeInParallel?: boolean; 
         executionId?: string;
+        timezoneOffset?: number;
         judge0Settings?: {
           cpu_time_limit?: number;
           cpu_extra_time?: number;
@@ -171,6 +173,7 @@ export const codeExecutionResolvers = {
           problemId, 
           executeInParallel = false, 
           executionId = generateUUID(),
+          timezoneOffset,
           judge0Settings
         } = input;
         
@@ -354,13 +357,18 @@ export const codeExecutionResolvers = {
                   }
                 }
                 
+                // Use provided timezone offset or get a default value
+                // This ensures accurate streak calculation based on user's timezone
+                const userTimezoneOffset = timezoneOffset ?? getUserTimezoneOffset();
+                
                 // Record streak activity when user solves a problem correctly
                 try {
-                  console.log('Recording streak activity for user:', context.session.user.id);
+                  console.log('Recording streak activity for user:', context.session.user.id, 'with timezone offset:', userTimezoneOffset);
                   const streakResult = await recordActivity(
                     context.session.user.id,
                     'submission',
-                    0 // Don't add additional XP here since it's already awarded above
+                    0, // Don't add additional XP here since it's already awarded above
+                    userTimezoneOffset // Pass timezone offset for accurate date calculation
                   );
                   
                   console.log('Streak activity result:', streakResult);
@@ -373,7 +381,8 @@ export const codeExecutionResolvers = {
                       currentStreak: streakResult.currentStreak,
                       streakUpdated: streakResult.streakUpdated,
                       streakMaintained: streakResult.streakMaintained,
-                      longestStreak: streakResult.longestStreak || streakResult.currentStreak
+                      longestStreak: streakResult.longestStreak || streakResult.currentStreak,
+                      timezoneOffset: userTimezoneOffset
                     });
                   } else {
                     console.log('No streak established or maintained');
@@ -431,8 +440,8 @@ export const codeExecutionResolvers = {
           executionId,
           submissionId,
           xp: xpInfo, // includes XP info
-          // Only show streak modal on first correct submission (submissionCount === 1)
-          streakEstablished: streakInfo ? (streakInfo.streakUpdated && isFirstCorrectSubmission) : false,
+          // Show streak modal when streak is established/updated OR maintained
+          streakEstablished: streakInfo ? (streakInfo.streakUpdated || streakInfo.streakMaintained) : false,
           currentStreak: streakInfo?.currentStreak || 0,
           highestStreak: streakInfo?.longestStreak || 0
         };

@@ -642,7 +642,8 @@ export function CodingDashboard() {
           </Card>
           
           {/* Streak Card */}
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-blue-500/20 to-blue-500/5 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110" />
+          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-blue-500/20 to-blue-500/5 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110" />
             <CardContent className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <div className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -1204,14 +1205,25 @@ function generateRandomPath(points: number) {
   return path;
 }
 
-// Helper function to generate a random SVG path for the mini-chart
+// Helper function to generate SVG path from actual rating history
 function generateRatingsPath(ratings: number[], height: number) {
-  let path = `M 0 ${height}`;
+  if (ratings.length < 2) return generateRandomPath(10);
+  
+  // Find min and max for scaling
+  const minRating = Math.min(...ratings);
+  const maxRating = Math.max(...ratings);
+  const range = maxRating - minRating;
+  
+  // Start path
+  let path = `M 0 ${height - ((ratings[0] - minRating) / range * height)}`;
+  
+  // Add points for each rating
   const increment = 100 / (ratings.length - 1);
   
-  for (let i = 0; i < ratings.length; i++) {
+  for (let i = 1; i < ratings.length; i++) {
     const x = i * increment;
-    const y = height - (ratings[i] / 100) * height;
+    // Invert Y since SVG coordinates start from top
+    const y = height - ((ratings[i] - minRating) / range * height);
     path += ` L ${x} ${y}`;
   }
   

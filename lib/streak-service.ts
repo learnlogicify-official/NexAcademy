@@ -76,16 +76,54 @@ async function checkTablesExist() {
 }
 
 /**
+ * Get start of current day in local timezone
+ * This ensures "today" is calculated based on the user's timezone
+ * @param timezoneOffset Optional timezone offset in minutes (from client)
+ */
+function getStartOfToday(timezoneOffset?: number): Date {
+  const now = new Date();
+  
+  // If timezone offset is provided, use it to adjust the date
+  if (typeof timezoneOffset === 'number') {
+    // Get the difference between user's timezone and UTC in milliseconds
+    const offsetMs = timezoneOffset * 60 * 1000;
+    const userLocalTime = new Date(now.getTime() - offsetMs);
+    
+    // Set to start of day in user's timezone
+    userLocalTime.setUTCHours(0, 0, 0, 0);
+    
+    log(`Using provided timezone offset: ${timezoneOffset} minutes, today date:`, userLocalTime);
+    return userLocalTime;
+  }
+  
+  // If no timezone offset, use server time but carefully normalize to start of day
+  const today = new Date();
+  
+  // Store the UTC date components to create a proper "start of day"
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth();
+  const day = today.getUTCDate();
+  
+  // Create new date at start of day (00:00:00) in UTC
+  const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+  
+  log('Using server timezone, today date:', startOfDay);
+  return startOfDay;
+}
+
+/**
  * Record daily activity for a user, updating their streak information
  * 
  * @param userId User ID
  * @param activityType Type of activity (submission, practice, etc.)
  * @param xpEarned XP earned in this activity session
+ * @param timezoneOffset Optional timezone offset in minutes (from client)
  */
 export async function recordActivity(
   userId: string,
   activityType: 'submission' | 'practice' | 'assessment' | 'event',
-  xpEarned = 0
+  xpEarned = 0,
+  timezoneOffset?: number
 ): Promise<{
   currentStreak: number;
   streakUpdated: boolean;
@@ -94,7 +132,7 @@ export async function recordActivity(
   longestStreak?: number;
 }> {
   try {
-    log('Recording activity for user:', userId, 'type:', activityType);
+    log('Recording activity for user:', userId, 'type:', activityType, 'timezone offset:', timezoneOffset);
     
     // Check if tables exist before trying to use them
     if (!await checkTablesExist()) {
@@ -107,8 +145,9 @@ export async function recordActivity(
       };
     }
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    // Use timezone-aware method to get today's date
+    const today = getStartOfToday(timezoneOffset);
+    log('Today for activity recording:', today.toISOString());
     
     // First, record today's activity - this is simpler and less likely to fail
     try {
@@ -204,20 +243,44 @@ export async function recordActivity(
       if (userStreak) {
         // Determine streak status based on last activity date
         if (userStreak.lastActivityDate) {
+          // Get the last activity date and normalize it using the same timezone logic
           const lastActivity = new Date(userStreak.lastActivityDate);
-          lastActivity.setHours(0, 0, 0, 0);
           
-          const dayDifference = getDayDifference(lastActivity, today);
-          log('Days since last activity:', dayDifference);
-          
-          // Streak is broken if more than 1 day has passed
-          streakBroken = dayDifference > 1;
-          
-          // Same-day activities maintain streak
-          streakMaintained = dayDifference === 0;
-          
-          // Streak is updated if exactly 1 day has passed
-          streakUpdated = dayDifference === 1;
+          // Normalize last activity to start of day in the same timezone context
+          if (typeof timezoneOffset === 'number') {
+            // Adjust to user's timezone
+            const offsetMs = timezoneOffset * 60 * 1000;
+            const localLastActivity = new Date(lastActivity.getTime() - offsetMs);
+            localLastActivity.setUTCHours(0, 0, 0, 0);
+            
+            // Compute day difference in the user's timezone
+            const dayDifference = getDayDifference(localLastActivity, today);
+            log('Days since last activity (timezone adjusted):', dayDifference);
+            
+            // Streak is broken if more than 1 day has passed
+            streakBroken = dayDifference > 1;
+            
+            // Same-day activities maintain streak
+            streakMaintained = dayDifference === 0;
+            
+            // Streak is updated if exactly 1 day has passed
+            streakUpdated = dayDifference === 1;
+          } else {
+            // Legacy behavior - server timezone
+            lastActivity.setHours(0, 0, 0, 0);
+            
+            const dayDifference = getDayDifference(lastActivity, today);
+            log('Days since last activity (server timezone):', dayDifference);
+            
+            // Streak is broken if more than 1 day has passed
+            streakBroken = dayDifference > 1;
+            
+            // Same-day activities maintain streak
+            streakMaintained = dayDifference === 0;
+            
+            // Streak is updated if exactly 1 day has passed
+            streakUpdated = dayDifference === 1;
+          }
           
           // Use streak freeze if available and needed
           if (streakBroken && userStreak.freezeCount > 0) {
@@ -434,10 +497,13 @@ export async function recordActivity(
 
 /**
  * Get user's streak information 
+ * 
+ * @param userId User ID
+ * @param timezoneOffset Optional timezone offset in minutes (from client)
  */
-export async function getUserStreak(userId: string) {
+export async function getUserStreak(userId: string, timezoneOffset?: number) {
   try {
-    log('Getting streak for user:', userId);
+    log('Getting streak for user:', userId, 'timezone offset:', timezoneOffset);
     
     // Check if tables exist before trying to use them
     if (!await checkTablesExist()) {
@@ -467,12 +533,23 @@ export async function getUserStreak(userId: string) {
     }
     
     // Check if streak should be reset due to inactivity
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getStartOfToday(timezoneOffset);
     
     if (userStreak.lastActivityDate) {
-      const lastActivity = new Date(userStreak.lastActivityDate);
-      lastActivity.setHours(0, 0, 0, 0);
+      // Normalize last activity properly based on timezone
+      let lastActivity: Date;
+      
+      if (typeof timezoneOffset === 'number') {
+        // Adjust based on user's timezone
+        const lastActivityDate = new Date(userStreak.lastActivityDate);
+        const offsetMs = timezoneOffset * 60 * 1000;
+        lastActivity = new Date(lastActivityDate.getTime() - offsetMs);
+        lastActivity.setUTCHours(0, 0, 0, 0);
+      } else {
+        // Legacy behavior
+        lastActivity = new Date(userStreak.lastActivityDate);
+        lastActivity.setHours(0, 0, 0, 0);
+      }
       
       const dayDifference = getDayDifference(lastActivity, today);
       log('Day difference for streak check:', dayDifference);
@@ -509,8 +586,18 @@ export async function getUserStreak(userId: string) {
 
 /**
  * Get user's streak calendar for a specific month
+ * 
+ * @param userId User ID
+ * @param month Month (1-12)
+ * @param year Year
+ * @param timezoneOffset Optional timezone offset in minutes (from client)
  */
-export async function getUserStreakCalendar(userId: string, month: number, year: number) {
+export async function getUserStreakCalendar(
+  userId: string, 
+  month: number, 
+  year: number,
+  timezoneOffset?: number
+) {
   try {
     // Check if tables exist before trying to use them
     if (!await checkTablesExist()) {
@@ -522,9 +609,29 @@ export async function getUserStreakCalendar(userId: string, month: number, year:
       };
     }
     
-    // Get start and end of month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // Last day of the requested month
+    // Get start and end of month, adjusted for timezone if provided
+    let startDate: Date;
+    let endDate: Date;
+    
+    if (typeof timezoneOffset === 'number') {
+      // Create dates in UTC but adjusted for user's timezone
+      const offsetMs = timezoneOffset * 60 * 1000;
+      
+      // First day of month in user's timezone
+      startDate = new Date(Date.UTC(year, month - 1, 1));
+      // Last day of month in user's timezone (day 0 of next month)
+      endDate = new Date(Date.UTC(year, month, 0));
+      
+      log('Using timezone-adjusted dates for streak calendar:', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        timezoneOffset
+      });
+    } else {
+      // Legacy behavior
+      startDate = new Date(year, month - 1, 1);
+      endDate = new Date(year, month, 0); // Last day of the requested month
+    }
     
     const activities = await prisma.$queryRaw<DailyActivityData[]>`
       SELECT * FROM "DailyActivity"
@@ -553,9 +660,20 @@ export async function getUserStreakCalendar(userId: string, month: number, year:
       };
     }
     
-    // Fill in days with activities
+    // Fill in days with activities, accounting for timezone
     activities.forEach((activity) => {
-      const day = new Date(activity.activityDate).getDate();
+      let day: number;
+      
+      if (typeof timezoneOffset === 'number') {
+        // Adjust the activity date for the user's timezone
+        const activityDate = new Date(activity.activityDate);
+        const offsetMs = timezoneOffset * 60 * 1000;
+        const localDate = new Date(activityDate.getTime() - offsetMs);
+        day = localDate.getDate();
+      } else {
+        // Legacy behavior
+        day = new Date(activity.activityDate).getDate();
+      }
       
       calendar[day] = {
         hasActivity: true,

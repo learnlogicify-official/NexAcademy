@@ -11,6 +11,7 @@ interface StreakIntegrationProps {
   highestStreak?: number
   sampleActiveDays?: boolean[]
   onCheckStreak?: (showModal: boolean) => void
+  timezoneOffset?: number
 }
 
 /**
@@ -26,7 +27,8 @@ export function StreakIntegration({
   currentStreak,
   highestStreak,
   sampleActiveDays,
-  onCheckStreak
+  onCheckStreak,
+  timezoneOffset
 }: StreakIntegrationProps) {
   const { data: session } = useSession()
   const userId = session?.user?.id
@@ -48,7 +50,7 @@ export function StreakIntegration({
     streakData,
     showStreakModal,
     closeStreakModal
-  } = useStreakModal(userId)
+  } = useStreakModal(userId, timezoneOffset)
   
   // Log when streak modal state changes
   useEffect(() => {
@@ -78,13 +80,18 @@ export function StreakIntegration({
       isClient, 
       hasHandled: hasHandledStreak.current,
       currentStreak,
-      highestStreak
+      highestStreak,
+      timezoneOffset
     })
     
     // Only show the streak modal when streakEstablished is explicitly set to true
     // This happens after a correct submission, not on initial page load
     if (streakEstablished && isClient && !hasHandledStreak.current) {
-      console.log('[StreakIntegration] Streak established, showing modal with:', { currentStreak, highestStreak })
+      console.log('[StreakIntegration] Streak established, showing modal with:', { 
+        currentStreak, 
+        highestStreak,
+        timezoneOffset
+      })
       
       // Debug the actual currentStreak value
       if (typeof currentStreak === 'number') {
@@ -93,8 +100,8 @@ export function StreakIntegration({
         console.log(`[StreakIntegration] Warning: currentStreak is not a number: ${currentStreak}`);
       }
       
-      // Force show the modal
-      showStreakModal(true)
+      // Force show the modal - pass timezoneOffset as second parameter
+      showStreakModal(true, timezoneOffset)
       
       // Mark as handled to prevent infinite loops
       hasHandledStreak.current = true
@@ -105,7 +112,7 @@ export function StreakIntegration({
       console.log('[StreakIntegration] Resetting hasHandledStreak flag')
       hasHandledStreak.current = false
     }
-  }, [streakEstablished, userId, currentStreak, highestStreak, showStreakModal, isClient])
+  }, [streakEstablished, userId, currentStreak, highestStreak, showStreakModal, isClient, timezoneOffset])
   
   // Provide a callback for manual streak checking
   useEffect(() => {

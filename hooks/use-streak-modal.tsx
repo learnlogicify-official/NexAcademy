@@ -8,8 +8,11 @@ import { getCurrentUserStreak } from '@/app/actions/streak-actions'
  * 
  * Shows the streak modal when a new streak is established or maintained
  * Modal now only appears on first correct submission of the day, not on page visit
+ * 
+ * @param userId User ID for streak checking
+ * @param timezoneOffset Optional timezone offset in minutes
  */
-export function useStreakModal(userId?: string) {
+export function useStreakModal(userId?: string, timezoneOffset?: number) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [streakData, setStreakData] = useState({
     currentStreak: 0,
@@ -19,8 +22,8 @@ export function useStreakModal(userId?: string) {
   
   // Log initial state and prop changes
   useEffect(() => {
-    console.log("[useStreakModal] Hook initialized with userId:", userId)
-  }, [userId])
+    console.log("[useStreakModal] Hook initialized with userId:", userId, "timezoneOffset:", timezoneOffset)
+  }, [userId, timezoneOffset])
   
   // Log state changes
   useEffect(() => {
@@ -35,8 +38,11 @@ export function useStreakModal(userId?: string) {
   }, [])
   
   // Function to manually trigger the streak modal (used after streak updates)
-  const showStreakModal = useCallback(async (forceShow = false) => {
-    console.log("[useStreakModal] showStreakModal called with forceShow:", forceShow)
+  const showStreakModal = useCallback(async (forceShow = false, modalTimezoneOffset?: number) => {
+    console.log("[useStreakModal] showStreakModal called with forceShow:", forceShow, "timezoneOffset:", modalTimezoneOffset || timezoneOffset);
+    
+    // Use the passed timezone offset if provided, otherwise use the hook's timezone offset
+    const effectiveTimezoneOffset = modalTimezoneOffset !== undefined ? modalTimezoneOffset : timezoneOffset;
     
     // Force show can work without userId for special cases like after submission
     if (!userId && !forceShow) {
@@ -47,8 +53,8 @@ export function useStreakModal(userId?: string) {
     try {
       // Get streak data from API unless we're force showing
       if (!forceShow) {
-        console.log("[useStreakModal] Fetching streak data from API")
-        const userStreak = await getCurrentUserStreak()
+        console.log("[useStreakModal] Fetching streak data from API with timezone offset:", effectiveTimezoneOffset)
+        const userStreak = await getCurrentUserStreak(effectiveTimezoneOffset)
         
         if (userStreak) {
           console.log("[useStreakModal] Setting streak data from API:", userStreak)
@@ -84,7 +90,7 @@ export function useStreakModal(userId?: string) {
       // Show modal anyway in case of error
       setIsModalOpen(true)
     }
-  }, [userId])
+  }, [userId, timezoneOffset])
   
   // Close the modal
   const closeStreakModal = useCallback(() => {

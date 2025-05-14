@@ -1718,7 +1718,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             sourceCode: code,
             languageId: langId,
             problemId: codingQuestion.questionId,
-            executeInParallel: true // Signal the server to use parallel execution
+            executeInParallel: true, // Signal the server to use parallel execution
+            timezoneOffset: new Date().getTimezoneOffset() // Pass user's timezone offset
           }
         }
       });
@@ -1756,23 +1757,18 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           description: `${difficultyLabel} Problem Solved`
         });
         
-        // If there's a first submission bonus, add it as a separate event
-        if (xpData.amount > difficultyXP) {
-          const firstSubmissionXp = 15; // Match FIRST_SUBMISSION in xp-service.ts
+        // If there's a streak bonus, add it for proper display
+        if (xpData.streakInfo && (xpData.streakInfo.streakUpdated || xpData.streakInfo.streakMaintained)) {
+          // Add streak bonus (5 XP as per STREAK_DAY in xp-service.ts)
+          const streakXp = 5; // Match STREAK_DAY in xp-service.ts
+          const streakDay = xpData.streakInfo.currentStreak;
+          
           generatedXpEvents.push({
-            amount: firstSubmissionXp,
-            eventType: 'first_submission',
-            description: 'First Correct Solution'
-          });
-        }
-        
-        // If there's a streak bonus, add it too (for future implementation)
-        if (response.data?.submitCode?.streakEstablished && response.data?.submitCode?.currentStreak > 1) {
-          // Add streak continuation bonus (for now just a placeholder)
-          generatedXpEvents.push({
-            amount: 0, // Will be updated when server implements streak bonuses
+            amount: streakXp,
             eventType: 'streak_bonus',
-            description: `${response.data.submitCode.currentStreak} Day Streak`
+            description: streakDay > 1 
+              ? `${streakDay}-Day Streak`
+              : 'First Day Streak'
           });
         }
         

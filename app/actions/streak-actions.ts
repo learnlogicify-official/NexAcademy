@@ -6,8 +6,10 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 /**
  * Server action to get the current user's streak data
+ * 
+ * @param timezoneOffset Optional timezone offset in minutes from client
  */
-export async function getCurrentUserStreak() {
+export async function getCurrentUserStreak(timezoneOffset?: number) {
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -19,13 +21,21 @@ export async function getCurrentUserStreak() {
     }
   }
   
-  return getUserStreak(session.user.id)
+  return getUserStreak(session.user.id, timezoneOffset)
 }
 
 /**
  * Server action to get streak calendar data for a specific month
+ * 
+ * @param month Month (1-12)
+ * @param year Year
+ * @param timezoneOffset Optional timezone offset in minutes from client
  */
-export async function getStreakCalendarData(month: number, year: number) {
+export async function getStreakCalendarData(
+  month: number, 
+  year: number, 
+  timezoneOffset?: number
+) {
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -36,7 +46,7 @@ export async function getStreakCalendarData(month: number, year: number) {
     }
   }
   
-  return getUserStreakCalendar(session.user.id, month, year)
+  return getUserStreakCalendar(session.user.id, month, year, timezoneOffset)
 }
 
 /**

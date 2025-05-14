@@ -60,9 +60,17 @@ export const SUBMIT_CODE = gql`
         newTotal
         levelUp
         newLevel
+        streakInfo {
+          currentStreak
+          streakUpdated
+          streakMaintained
+          freezeUsed
+          longestStreak
+        }
       }
       streakEstablished
       currentStreak
+      highestStreak
     }
   }
 `;

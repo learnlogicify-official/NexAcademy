@@ -28,6 +28,7 @@ export const codeExecutionTypeDefs = gql`
     streakUpdated: Boolean!
     streakMaintained: Boolean!
     freezeUsed: Boolean!
+    longestStreak: Int
   }
 
   # XP information after submission
@@ -50,9 +51,10 @@ export const codeExecutionTypeDefs = gql`
     executionId: String
     submissionId: String
     xp: XPInfo
-    # Only true for the first-ever correct submission to trigger the streak modal
+    # Indicates whether a streak was established with this submission
     streakEstablished: Boolean
     currentStreak: Int
+    highestStreak: Int
   }
   
   # Execution progress type for subscriptions
@@ -83,6 +85,8 @@ export const codeExecutionTypeDefs = gql`
     problemId: String!
     executeInParallel: Boolean
     executionId: String
+    # User's timezone offset in minutes for proper streak calculation
+    timezoneOffset: Int
     judge0Settings: Judge0Settings
   }
 
