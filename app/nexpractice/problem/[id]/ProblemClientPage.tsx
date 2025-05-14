@@ -1758,10 +1758,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         });
         
         // If there's a streak bonus, add it for proper display
-        if (xpData.streakInfo && (xpData.streakInfo.streakUpdated || xpData.streakInfo.streakMaintained)) {
+        if (xpData.streakInfo && xpData.streakInfo.streakUpdated) {
           // Add streak bonus (5 XP as per STREAK_DAY in xp-service.ts)
           const streakXp = 5; // Match STREAK_DAY in xp-service.ts
           const streakDay = xpData.streakInfo.currentStreak;
+          
+          console.log(`[Streak XP] Adding streak bonus notification: ${streakDay}-day streak, ${streakXp}XP`);
           
           generatedXpEvents.push({
             amount: streakXp,
@@ -1770,6 +1772,8 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               ? `${streakDay}-Day Streak`
               : 'First Day Streak'
           });
+        } else if (xpData.streakInfo) {
+          console.log('[Streak XP] Streak maintained but not updated - no streak XP notification');
         }
         
         // Enhanced debugging for XP events
@@ -1803,12 +1807,13 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         highestStreak: response.data?.submitCode?.highestStreak || response.data?.submitCode?.currentStreak
       });
       
-      // Show streak modal only for first correct submission (streakEstablished flag checks for this condition)
+      // Show streak modal only for first correct submission that updates a streak (not when streak is just maintained)
+      // The streakEstablished flag will now only be true when a streak is actually updated
       if (
         response.data?.submitCode?.streakEstablished &&
         response.data?.submitCode?.currentStreak
       ) {
-        console.log("TRIGGERING STREAK MODAL for first correct submission with streak value:", response.data?.submitCode?.currentStreak);
+        console.log("TRIGGERING STREAK MODAL for streak update/establishment:", response.data?.submitCode?.currentStreak);
         // Delay slightly to ensure the DOM is ready for the streak modal
         setTimeout(() => {
           triggerStreakModal({

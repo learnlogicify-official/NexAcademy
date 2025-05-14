@@ -440,8 +440,8 @@ export const codeExecutionResolvers = {
           executionId,
           submissionId,
           xp: xpInfo, // includes XP info
-          // Show streak modal when streak is established/updated OR maintained
-          streakEstablished: streakInfo ? (streakInfo.streakUpdated || streakInfo.streakMaintained) : false,
+          // Show streak modal ONLY when streak is established/updated NOT when just maintained
+          streakEstablished: streakInfo ? streakInfo.streakUpdated : false,
           currentStreak: streakInfo?.currentStreak || 0,
           highestStreak: streakInfo?.longestStreak || 0
         };

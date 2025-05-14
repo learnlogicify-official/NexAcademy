@@ -612,7 +612,11 @@ export function EnhancedProfile({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.6 }}
             >
-              <ProjectsCard projects={projects} className="bg-white dark:bg-[#18181b]" />
+              <ProjectsCard 
+                projects={projects} 
+                className="bg-white dark:bg-[#18181b]" 
+                isOwnProfile={isOwnProfile}
+              />
             </motion.div>
 
             {/* Achievements Card */}

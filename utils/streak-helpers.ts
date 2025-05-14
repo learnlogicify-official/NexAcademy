@@ -13,11 +13,11 @@ export function getUserTimezoneOffset(): number {
  * Process a GraphQL submission response and show the streak modal if applicable
  * 
  * This function extracts streak data from GraphQL responses and triggers
- * the streak modal when a streak is established or maintained.
+ * the streak modal when a streak is established or updated (new day added).
  * 
- * NOTE: The streak modal will only be shown when a user submits a correct solution,
- * not when just visiting the page. This is controlled by the streakEstablished flag
- * from the GraphQL response.
+ * NOTE: The streak modal will only be shown when a user submits a correct solution 
+ * that actually updates their streak (not just maintains it). This is controlled 
+ * by the streakEstablished flag from the GraphQL response.
  * 
  * @param response The GraphQL response from a code submission
  * @param userId The current user's ID
@@ -34,12 +34,12 @@ export async function processStreakResponse(
     console.log("[processStreakResponse] Using client timezone offset:", timezoneOffset);
   }
 
-  // Check if we have streak data in the response
+  // Check if we have streak data in the response and streak was actually updated (not just maintained)
   if (
     response?.submitCode?.streakEstablished && 
     response?.submitCode?.currentStreak
   ) {
-    // If streak is established in the response, use that data
+    // If streak is established/updated in the response, use that data
     const currentStreak = response.submitCode.currentStreak
     
     // Get the user's highest streak
@@ -48,13 +48,13 @@ export async function processStreakResponse(
       const userStreak = await getCurrentUserStreak(timezoneOffset)
       const highestStreak = userStreak?.longestStreak || currentStreak
       
-      console.log("[processStreakResponse] Streak established:", {
+      console.log("[processStreakResponse] Streak established/updated:", {
         currentStreak,
         highestStreak,
         timezoneOffset
       });
       
-      // Trigger the streak modal - only happens for correct submissions
+      // Trigger the streak modal - only happens for submissions that update the streak
       triggerStreakModal({
         streakEstablished: true,
         currentStreak,
@@ -73,7 +73,7 @@ export async function processStreakResponse(
     }
   }
   
-  // Return null if no streak was established or there was an error
+  // Return null if no streak was established/updated or there was an error
   return null
 }
 

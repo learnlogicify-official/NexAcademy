@@ -29,6 +29,7 @@ export function SignInForm() {
   const { enqueueSnackbar } = useSnackbar();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGithubLoading, setIsGithubLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,6 +74,19 @@ export function SignInForm() {
       enqueueSnackbar("An error occurred. Please try again.", { variant: "error" });
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGithubSignIn = async () => {
+    try {
+      setIsGithubLoading(true);
+      await signIn("github", {
+        callbackUrl: "/dashboard",
+      });
+    } catch (error) {
+      enqueueSnackbar("An error occurred. Please try again.", { variant: "error" });
+    } finally {
+      setIsGithubLoading(false);
     }
   };
 
@@ -123,20 +137,37 @@ export function SignInForm() {
         </div>
       </div>
 
-      <Button
-        variant="outline"
-        type="button"
-        disabled={isGoogleLoading}
-        onClick={handleGoogleSignIn}
-        className="w-full"
-      >
-        {isGoogleLoading ? (
-          <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Icons.google className="mr-2 h-4 w-4" />
-        )}
-        Google
-      </Button>
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          type="button"
+          disabled={isGoogleLoading}
+          onClick={handleGoogleSignIn}
+          className="w-full"
+        >
+          {isGoogleLoading ? (
+            <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Icons.google className="mr-2 h-4 w-4" />
+          )}
+          Google
+        </Button>
+        
+        <Button
+          variant="outline"
+          type="button"
+          disabled={isGithubLoading}
+          onClick={handleGithubSignIn}
+          className="w-full"
+        >
+          {isGithubLoading ? (
+            <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Icons.github className="mr-2 h-4 w-4" />
+          )}
+          GitHub
+        </Button>
+      </div>
     </div>
   );
 } 

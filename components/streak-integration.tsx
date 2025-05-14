@@ -19,7 +19,7 @@ interface StreakIntegrationProps {
  * 
  * Can be used in two ways:
  * 1. Automatic: When streakEstablished is true, it shows the streak modal
- *    Note: streakEstablished is now only true for first correct submissions
+ *    Note: streakEstablished is now only true for submissions that update a streak (not just maintain it)
  * 2. Manual: Call the onCheckStreak callback to check and potentially show the modal
  */
 export function StreakIntegration({

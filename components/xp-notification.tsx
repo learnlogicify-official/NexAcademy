@@ -64,6 +64,8 @@ export function XpNotification({
     }
   }, [autoClose, autoCloseTime, onClose]);
 
+  // Only show streak notification if it was actually UPDATED (not just maintained)
+  // This ensures we only show the streak notification for first submission of the day
   const showStreakNotification = streakInfo && streakInfo.streakUpdated && !streakInfo.streakMaintained;
 
   return (

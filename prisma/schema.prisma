@@ -29,6 +29,8 @@ model User {
   profilePic         String?
   username           String?               @unique
   bannerImage        String?
+  githubUsername     String?
+  githubAccessToken  String?
   assessments        Assessment[]
   attempts           Attempt[]
   dailyActivities    DailyActivity[]

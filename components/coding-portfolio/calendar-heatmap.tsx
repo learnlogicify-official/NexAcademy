@@ -75,8 +75,8 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
 
       // Move to next day
       currentDate = addDays(currentDate, 1)
-    }
-
+      }
+      
     // Add this week to the grid if it has at least one non-null day
     if (week.some((d) => d !== null)) {
       calendarGrid.push(week)
@@ -107,8 +107,8 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
 
     // Find the verdict with the highest count
     return activity.verdictSummary.reduce((prev, current) => (prev.count > current.count ? prev : current))
-  }
-
+    }
+    
   // Get color based on activity level for activity mode
   const getActivityColor = (level: number) => {
     if (level === 0) return "bg-gray-200 dark:bg-[#2C2C2C]"
@@ -148,7 +148,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
 
     return activity.verdictSummary
   }
-
+  
   // Helper function to get readable status
   const getReadableStatus = (status: string | null) => {
     if (!status) return "Unknown"
@@ -179,7 +179,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
         return "#94a3b8" // slate
     }
   }
-
+  
   // Get month labels with their positions
   const getMonthLabels = () => {
     const months = []
@@ -190,7 +190,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
       // Get the first non-null date in this week
       const firstValidDate = weeks[i].find((d) => d !== null)
       if (!firstValidDate) continue
-
+      
       const month = format(firstValidDate, "MMM")
       if (month !== currentMonth) {
         if (currentMonth !== null) {
@@ -219,12 +219,12 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
   }
 
   const monthLabels = getMonthLabels()
-
+  
   // Calculate fixed width for each week
   const weekWidth = 14 // Width of each week column in pixels
   const weekGap = 2 // Gap between weeks in pixels
   const monthGap = 8 // Gap between months in pixels
-
+  
   // Calculate activity stats
   const totalDays = data.length
   const activeDays = data.filter((day) => day.count > 0).length
@@ -267,7 +267,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
   }
 
   const verdictTotals = getVerdictTotals()
-
+  
   return (
     <div className="w-full bg-white dark:bg-[#121212] p-4 rounded-lg flex flex-col">
       <div className="flex justify-between items-center mb-4">
@@ -276,7 +276,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Coding Activity</h3>
         </div>
       </div>
-
+        
       {/* Compact Verdict Stats */}
       {verdictTotals && (
         <div className="flex flex-wrap gap-2 mb-4">
@@ -321,11 +321,11 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
                     if (day === null) {
                       return <div key={dayIndex} className="h-3 w-3" /> // Empty placeholder
                     }
-
+                    
                     const activityLevel = getActivityLevel(day)
                     const isToday = isSameDay(day, today)
                     const isFutureDay = day > today
-
+                    
                     // Color cells based on activity level
                     let cellColor = "bg-gray-200 dark:bg-[#2C2C2C]"
                     if (!isFutureDay && activityLevel > 0) {
@@ -336,15 +336,15 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
                       <TooltipProvider key={dayIndex}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <motion.div
+                      <motion.div
                               className={`h-3 w-3 rounded-[2px] ${cellColor} ${
                                 isToday ? "ring-1 ring-primary ring-offset-1 ring-offset-background" : ""
                               } hover:opacity-80 transition-opacity`}
-                              initial={{ scale: 0.8, opacity: 0 }}
-                              animate={{ scale: 1, opacity: isFutureDay ? 0.2 : 1 }}
-                              transition={{
-                                delay: weekIndex * 0.01 + dayIndex * 0.002,
-                                duration: 0.2,
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: isFutureDay ? 0.2 : 1 }}
+                        transition={{
+                          delay: weekIndex * 0.01 + dayIndex * 0.002,
+                          duration: 0.2,
                               }}
                             />
                           </TooltipTrigger>
@@ -373,7 +373,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
                                 <div className="text-xs text-right text-gray-500">
                                   {activityLevel} total submissions
                                 </div>
-                              </div>
+                          </div>
                             )}
                           </TooltipContent>
                         </Tooltip>
@@ -384,7 +384,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
               )
             })}
           </div>
-
+            
           <div className="flex mt-2">
             {monthLabels.map((label, i) => {
               // Calculate the width of this month based on number of weeks
@@ -408,7 +408,7 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
           </div>
         </div>
       </div>
-
+      
       {/* Color Legend */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
         <div className="flex items-center justify-between">
@@ -438,4 +438,4 @@ export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) 
       </div>
     </div>
   )
-}
+} 
