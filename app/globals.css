@@ -845,6 +845,41 @@ html, body {
   background: #4a4a4a;
 }
 
+/* Hide scrollbar for scrollbar-hide class */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Premium dashboard animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Fix for animated stroke-dashoffset in SVG circles */
+.group-hover\:stroke-dashoffset-0 {
+  stroke-dashoffset: 0 !important;
+}
+
+.group-hover\:stroke-dashoffset-70 {
+  stroke-dashoffset: 70 !important;
+}
+
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
   .scrollbar-hide::-webkit-scrollbar {

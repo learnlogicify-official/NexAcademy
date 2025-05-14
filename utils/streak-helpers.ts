@@ -7,6 +7,10 @@ import { triggerStreakModal } from "@/components/problem-solving-wrapper"
  * This function extracts streak data from GraphQL responses and triggers
  * the streak modal when a streak is established or maintained.
  * 
+ * NOTE: The streak modal will only be shown when a user submits a correct solution,
+ * not when just visiting the page. This is controlled by the streakEstablished flag
+ * from the GraphQL response.
+ * 
  * @param response The GraphQL response from a code submission
  * @param userId The current user's ID
  */
@@ -27,7 +31,7 @@ export async function processStreakResponse(
       const userStreak = await getCurrentUserStreak()
       const highestStreak = userStreak?.longestStreak || currentStreak
       
-      // Trigger the streak modal
+      // Trigger the streak modal - only happens for correct submissions
       triggerStreakModal({
         streakEstablished: true,
         currentStreak,
@@ -50,6 +54,9 @@ export async function processStreakResponse(
 
 /**
  * Show the streak modal directly based on streak data
+ * 
+ * NOTE: This function is for manual triggering only. For normal use,
+ * the streak modal will be shown automatically on correct submission.
  * 
  * @param currentStreak The user's current streak count
  * @param highestStreak The user's highest streak count

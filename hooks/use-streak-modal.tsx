@@ -7,7 +7,7 @@ import { getCurrentUserStreak } from '@/app/actions/streak-actions'
  * Custom hook to manage streak modal display logic
  * 
  * Shows the streak modal when a new streak is established or maintained
- * Uses local storage to avoid showing the modal multiple times on the same day
+ * Modal now only appears on first correct submission of the day, not on page visit
  */
 export function useStreakModal(userId?: string) {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -27,49 +27,14 @@ export function useStreakModal(userId?: string) {
     console.log("[useStreakModal] State changed:", { isModalOpen, streakData, hasCheckedInitial })
   }, [isModalOpen, streakData, hasCheckedInitial])
   
-  // Function to check if the streak modal should be shown
+  // Function to check if the streak modal should be shown - no longer runs automatically,
+  // will only be triggered by a correct submission via the showStreakModal function
   const checkAndShowStreakModal = useCallback(async () => {
-    console.log("[useStreakModal] Checking if modal should be shown for user:", userId)
-    if (!userId) return
-    
-    // Skip if we've already performed the initial check
-    if (hasCheckedInitial) {
-      console.log("[useStreakModal] Initial check already performed, skipping")
-      return
-    }
-    
-    // Create a key specific to this user and today's date
-    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-    const storageKey = `streak-modal-shown-${userId}-${today}`
-    
-    // Check if we've already shown the modal today
-    const alreadyShown = localStorage.getItem(storageKey)
-    if (alreadyShown) return
-    
-    try {
-      // Get the user's current streak information using server action
-      const userStreak = await getCurrentUserStreak()
-      
-      // If user has an active streak (at least 1 day), show the modal
-      if (userStreak && userStreak.currentStreak > 0) {
-        setStreakData({
-          currentStreak: userStreak.currentStreak,
-          highestStreak: userStreak.longestStreak
-        })
-        setIsModalOpen(true)
-        
-        // Mark that we've shown the modal today
-        localStorage.setItem(storageKey, 'true')
-      }
-    } catch (error) {
-      console.error('Error checking streak for modal:', error)
-    } finally {
-      // Mark that we've performed the initial check
-      setHasCheckedInitial(true)
-    }
-  }, [userId, hasCheckedInitial])
+    console.log("[useStreakModal] checkAndShowStreakModal is now a no-op - only shows on successful submission")
+    setHasCheckedInitial(true)
+  }, [])
   
-  // Function to manually trigger the streak modal (useful after streak updates)
+  // Function to manually trigger the streak modal (used after streak updates)
   const showStreakModal = useCallback(async (forceShow = false) => {
     console.log("[useStreakModal] showStreakModal called with forceShow:", forceShow)
     
@@ -131,14 +96,9 @@ export function useStreakModal(userId?: string) {
     // Only run on client side
     if (typeof window === 'undefined') return
     
-    // Check if we should show the modal on initial load
+    // Mark as checked, but no longer automatically show the modal on page load
     if (userId && !hasCheckedInitial) {
-      // Add a slight delay to ensure DOM is fully loaded
-      const timer = setTimeout(() => {
-        checkAndShowStreakModal()
-      }, 1000)
-      
-      return () => clearTimeout(timer)
+      setHasCheckedInitial(true)
     }
   }, [userId, hasCheckedInitial, checkAndShowStreakModal])
   

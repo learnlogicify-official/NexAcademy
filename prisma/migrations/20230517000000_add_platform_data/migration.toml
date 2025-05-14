@@ -1,0 +1,5 @@
+# Prisma Migration Engine - Migration configuration
+# This file was created manually as part of a migration to add the PlatformData model
+
+migration_name = "20230517000000_add_platform_data"
+checksum = "2a29ee3f89c42bce8daed3903b3ea1ce9af90c7f86a7e05d1a5ae37e4e4ae23c" # This is a placeholder, not used since this is a manual migration 

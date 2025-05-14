@@ -212,6 +212,7 @@ export function Sidebar({
   // Choose menu items based on current path
   const menuItems = isNexPracticePath ? nexPracticeMenuItems : defaultMenuItems
 
+  // Practice learning services
   const serviceItems = [
     {
       name: "NexLearn",
@@ -254,6 +255,13 @@ export function Sidebar({
       icon: Code,
       iconBg: "bg-gradient-to-br from-sky-500 to-indigo-600",
       premium: true,
+    },
+    {
+      name: "Coding Portfolio",
+      href: "/coding-portfolio",
+      icon: Terminal,
+      iconBg: "bg-gradient-to-br from-indigo-500 to-purple-600",
+      premium: false,
     },
     {
       name: "NexCompete",

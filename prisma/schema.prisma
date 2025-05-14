@@ -37,6 +37,7 @@ model User {
   submissions        ProblemSubmission[]
   userCodeDrafts     UserCodeDraft[]
   UserPlatformHandle UserPlatformHandle[]
+  platformData       PlatformData[]
   problemSettings    UserProblemSettings[]
   streak             UserStreak?
   xp                 UserXP?
@@ -495,12 +496,12 @@ model ProblemSubmission {
 }
 
 model UserXP {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  xp        Int      @default(0)
-  level     Int      @default(1)
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String        @id @default(cuid())
+  userId    String        @unique
+  xp        Int           @default(0)
+  level     Int           @default(1)
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   events    UserXPEvent[]
 
   @@index([userId])
@@ -563,6 +564,20 @@ model UserPlatformHandle {
   @@unique([userId, platform])
   @@index([platform])
   @@index([userId])
+}
+
+model PlatformData {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform   String
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, platform])
+  @@index([userId])
+  @@index([platform])
 }
 
 /// Valid roles for users:

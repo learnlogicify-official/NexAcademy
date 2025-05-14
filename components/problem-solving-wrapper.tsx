@@ -31,6 +31,9 @@ let pendingStreakData: {
  * 
  * This component listens for submission success events and triggers the streak modal
  * when a streak is established. It's designed to work with GraphQL-based submissions.
+ * 
+ * IMPORTANT: The streak modal is ONLY shown when a user makes a correct submission,
+ * not on initial page load. This is controlled by the streakEstablished flag.
  */
 export function ProblemSolvingWrapper({ children }: ProblemSolvingWrapperProps) {
   const [streakData, setStreakData] = useState({
@@ -49,6 +52,7 @@ export function ProblemSolvingWrapper({ children }: ProblemSolvingWrapperProps) 
     console.log("[ProblemSolvingWrapper] Direct show modal call with data:", data);
     const { streakEstablished, currentStreak, highestStreak } = data || {};
     
+    // Only show the modal if streakEstablished is true (after a successful submission)
     if (streakEstablished) {
       setStreakData({
         streakEstablished: true,
@@ -126,6 +130,12 @@ export function triggerStreakModal(data: {
   highestStreak?: number 
 }) {
   console.log("[triggerStreakModal] Called with data:", data);
+  
+  // Don't proceed if streakEstablished is not true
+  if (!data.streakEstablished) {
+    console.log("[triggerStreakModal] streakEstablished is not true, not showing modal");
+    return false;
+  }
   
   // Store the data for later use if handler isn't available
   pendingStreakData = data;

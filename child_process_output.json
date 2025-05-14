@@ -1,0 +1,84 @@
+Navigating to https://www.hackerearth.com/@sachin_official...
+Timeout waiting for selector, proceeding with dump anyway
+Saved HTML dump and screenshot for debugging
+Page title: "Sachin Nandha Sabarish J | Developer Profile on HackerEarth."
+{
+  "platform": "hackerearth",
+  "username": "sachin_official",
+  "totalSolved": 111,
+  "rating": 1792,
+  "contests": 0,
+  "badges": 30,
+  "ratingHistory": [
+    {
+      "name": "April Circuits '17",
+      "date": "21 Apr 2017, 03:30 PM",
+      "rating": 1423,
+      "rank": 1137,
+      "url": "https://www.hackerearth.com/challenges/competitive/april-circuits-17/"
+    },
+    {
+      "name": "May Easy '17",
+      "date": "01 May 2017, 04:30 PM",
+      "rating": 1433,
+      "rank": 215,
+      "url": "https://www.hackerearth.com/challenges/competitive/may-easy-17/"
+    },
+    {
+      "name": "May Circuits '19",
+      "date": "24 May 2019, 03:30 PM",
+      "rating": 1464,
+      "rank": 916,
+      "url": "https://www.hackerearth.com/challenges/competitive/may-circuits-19/"
+    },
+    {
+      "name": "August Circuits '19",
+      "date": "24 Aug 2019, 03:30 PM",
+      "rating": 1379,
+      "rank": 1479,
+      "url": "https://www.hackerearth.com/challenges/competitive/august-circuits-19/"
+    },
+    {
+      "name": "January Circuits '20",
+      "date": "18 Jan 2020, 03:30 PM",
+      "rating": 1334,
+      "rank": 1895,
+      "url": "https://www.hackerearth.com/challenges/competitive/january-circuits-20/"
+    },
+    {
+      "name": "February Circuits '21",
+      "date": "20 Feb 2021, 03:30 PM",
+      "rating": 1280,
+      "rank": 2113,
+      "url": "https://www.hackerearth.com/challenges/competitive/february-circuits-21-2/"
+    },
+    {
+      "name": "September Circuits '23",
+      "date": "15 Sep 2023, 04:00 PM",
+      "rating": 1433,
+      "rank": 282,
+      "url": "https://www.hackerearth.com/challenges/competitive/september-circuits-23/"
+    },
+    {
+      "name": "October Easy '23",
+      "date": "07 Oct 2023, 04:00 AM",
+      "rating": 1646,
+      "rank": 37,
+      "url": "https://www.hackerearth.com/challenges/competitive/october-easy-23/"
+    },
+    {
+      "name": "DSA Coding Contest - October '23",
+      "date": "14 Oct 2023, 04:00 AM",
+      "rating": 1737,
+      "rank": 31,
+      "url": "https://www.hackerearth.com/challenges/competitive/dsa-coding-contest-october-23/"
+    },
+    {
+      "name": "October Circuits '23",
+      "date": "20 Oct 2023, 04:00 PM",
+      "rating": 1792,
+      "rank": 129,
+      "url": "https://www.hackerearth.com/challenges/competitive/october-circuits-23/"
+    }
+  ]
+}

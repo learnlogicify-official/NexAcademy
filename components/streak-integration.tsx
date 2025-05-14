@@ -70,7 +70,7 @@ export function StreakIntegration({
     }
   }, [closeStreakModal, onCheckStreak])
   
-  // Show streak modal when streak is established
+  // Show streak modal when streak is established - ONLY ON SUCCESSFUL SUBMISSION
   useEffect(() => {
     console.log("[StreakIntegration] Checking streak established:", { 
       streakEstablished, 
@@ -81,8 +81,8 @@ export function StreakIntegration({
       highestStreak
     })
     
-    // IMPORTANT: Allow the modal to show even if userId is not available yet
-    // This happens when streak is established before session is loaded
+    // Only show the streak modal when streakEstablished is explicitly set to true
+    // This happens after a correct submission, not on initial page load
     if (streakEstablished && isClient && !hasHandledStreak.current) {
       console.log('[StreakIntegration] Streak established, showing modal with:', { currentStreak, highestStreak })
       
@@ -98,55 +98,6 @@ export function StreakIntegration({
       
       // Mark as handled to prevent infinite loops
       hasHandledStreak.current = true
-      
-      // Force update the DOM immediately to ensure modal shows
-      setTimeout(() => {
-        try {
-          // Note: This is a faster way to ensure the streak modal appears promptly
-          const dialog = document.querySelector('[data-dialog-name="streak-modal"]');
-          if (dialog) {
-            console.log('[StreakIntegration] Found streak modal dialog, ensuring visibility');
-            dialog.setAttribute('data-state', 'open');
-            dialog.setAttribute('aria-hidden', 'false');
-            (dialog as HTMLElement).style.display = 'flex';
-            (dialog as HTMLElement).style.opacity = '1';
-            (dialog as HTMLElement).style.pointerEvents = 'auto';
-            
-            // Also ensure the background overlay is visible
-            const overlay = document.querySelector('.fixed.inset-0.z-50.bg-black.bg-opacity-80');
-            if (overlay) {
-              (overlay as HTMLElement).style.opacity = '1';
-              (overlay as HTMLElement).style.pointerEvents = 'auto';
-            }
-          }
-        } catch (e) {
-          console.error('[StreakIntegration] Error forcing dialog visibility:', e);
-        }
-      }, 50);
-      
-      // DEVELOPMENT ONLY: Force the dialog to be visible by directly manipulating DOM
-      // This is a last resort to ensure modal appears
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          // Give the state change time to apply, then check if the modal is actually visible
-          setTimeout(() => {
-            console.log('[StreakIntegration] Development-only check for modal visibility');
-            // Access dialog element and force it to be visible if needed
-            const dialog = document.querySelector('[role="dialog"]');
-            if (dialog) {
-              // @ts-ignore - Force the modal to be visible
-              dialog.setAttribute('data-state', 'open');
-              dialog.setAttribute('aria-hidden', 'false');
-              dialog.setAttribute('style', 'pointer-events: auto; opacity: 1;');
-              console.log('[StreakIntegration] Forced dialog to be visible');
-            } else {
-              console.log('[StreakIntegration] Could not find dialog element');
-            }
-          }, 100);
-        } catch (e) {
-          console.error('[StreakIntegration] Error forcing dialog visibility:', e);
-        }
-      }
     }
     
     // Reset the handled flag when streakEstablished changes to false
