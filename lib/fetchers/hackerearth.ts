@@ -219,7 +219,7 @@ export async function fetchHackerEarthProfile(username: string): Promise<Platfor
             const countMatch = countText.match(/(\d+)/);
             if (countMatch) {
               const count = parseInt(countMatch[1]);
-              if (count > 0) {
+        if (count > 0) {
                 problemsByDifficulty[categoryName] = count;
                 console.log(`Found category: ${categoryName} = ${count}`);
               }

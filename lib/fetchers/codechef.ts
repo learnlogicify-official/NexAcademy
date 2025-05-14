@@ -530,7 +530,7 @@ export async function fetchCodechefProfile(username: string): Promise<PlatformPr
 
     // Add recentHeatmap (last 183 days)
     const recentHeatmap = fullHeatmap.slice(-183);
-
+    
     return {
       platform: 'codechef',
       username,

@@ -1,168 +1,196 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { format, subDays, isSameDay, addDays, isSameMonth } from "date-fns"
 import { motion } from "framer-motion"
-import { format, isSameDay, isSameMonth, differenceInDays } from "date-fns"
+import { Calendar, Info, Code, CheckCircle, XCircle, Clock, AlertTriangle, Zap, BarChart } from "lucide-react"
 
-interface ActivityPoint {
-  date: string;
-  count: number;
-  platform?: string; // Optional platform identifier
+interface ActivityDetail {
+  type: string
+  title: string
+  xp: number
+  timestamp: string
+  status?: string | null
+  color?: string
 }
 
-interface CalendarHeatmapProps {
-  data: ActivityPoint[];
-  colorScheme?: 'green' | 'blue' | 'purple' | 'amber'; // Color scheme options
+interface VerdictSummary {
+  status: string
+  readableStatus: string
+  count: number
+  color: string
 }
 
-export function CalendarHeatmap({ data, colorScheme = 'green' }: CalendarHeatmapProps) {
-  const [weeks, setWeeks] = useState<(Date | null)[][]>([])
-  const [activityMap, setActivityMap] = useState<Map<string, number>>(new Map())
-  const [platformMap, setPlatformMap] = useState<Map<string, string>>(new Map())
-  const [maxCount, setMaxCount] = useState(0)
-  
-  // Generate calendar data structure
-  useEffect(() => {
-    if (!data || data.length === 0) return
-    
-    // Create a map of date to count
-    const map = new Map<string, number>()
-    const platformsMap = new Map<string, string>()
-    let max = 0
-    
-    data.forEach(point => {
-      // Format to YYYY-MM-DD if not already
-      let dateStr = point.date;
-      if (dateStr.includes('T')) {
-        dateStr = dateStr.split('T')[0];
+interface ActivityData {
+  date: string
+  count: number
+  details?: ActivityDetail[]
+  verdictSummary?: VerdictSummary[]
+  verdictCounts?: {
+    [key: string]: number
+  }
+}
+
+interface ProfileHeatmapProps {
+  data: ActivityData[]
+  submissionStats?: {
+    status: string
+    readableStatus: string
+    count: number
+    color: string
+  }[]
+}
+
+export function CalendarHeatmap({ data, submissionStats }: ProfileHeatmapProps) {
+  // Generate calendar grid properly
+  const today = new Date()
+  const startDate = subDays(today, 364) // Go back ~1 year
+
+  // Find the first Sunday before or on our start date - this is our actual grid start
+  let gridStartDate = startDate
+  while (gridStartDate.getDay() !== 0) {
+    // 0 = Sunday
+    gridStartDate = subDays(gridStartDate, 1)
+  }
+
+  // Process dates to avoid duplicates - generate a clean 53x7 grid (53 weeks max)
+  const calendarGrid: Date[][] = []
+
+  // Generate grid row by row (each row = 1 week)
+  let currentDate = gridStartDate
+  while (currentDate <= today) {
+    const week: Date[] = []
+
+    // Fill in days for this week (Sun-Sat)
+    for (let i = 0; i < 7; i++) {
+      // Only add dates up to today
+      if (currentDate <= today) {
+        week.push(new Date(currentDate))
+      } else {
+        // For future dates, add null
+        week.push(null as any) // Using any to allow null in the grid
       }
-      
-      const currentCount = map.get(dateStr) || 0
-      const newCount = currentCount + point.count
-      map.set(dateStr, newCount)
-      
-      // Save platform info if available
-      if (point.platform) {
-        platformsMap.set(dateStr, point.platform)
-      }
-      
-      // Track max count for color intensity
-      if (newCount > max) max = newCount
-    })
-    
-    setActivityMap(map)
-    setPlatformMap(platformsMap)
-    setMaxCount(max > 0 ? max : 1)
-    
-    // Generate weeks for the last 16 weeks (112 days)
-    const today = new Date()
-    const daysAgo = new Date()
-    daysAgo.setDate(today.getDate() - 111) // Go back approximately 16 weeks
-    
-    // Start from Sunday of the week containing daysAgo
-    const startDate = new Date(daysAgo)
-    startDate.setDate(startDate.getDate() - startDate.getDay()) // Move to Sunday
-    
-    // Generate weeks
-    const weeksArray: (Date | null)[][] = []
-    let currentWeek: (Date | null)[] = []
-    
-    // Fill in any missing days at the beginning to align with days of week
-    for (let i = 0; i < startDate.getDay(); i++) {
-      currentWeek.push(null) // Null represents an empty cell
+
+      // Move to next day
+      currentDate = addDays(currentDate, 1)
     }
-    
-    // Generate the grid day by day until we reach today
-    const currentDate = new Date(startDate)
-    while (differenceInDays(currentDate, today) <= 0) {
-      const dayOfWeek = currentDate.getDay()
-      
-      if (dayOfWeek === 0 && currentWeek.length > 0) {
-        weeksArray.push(currentWeek)
-        currentWeek = []
-      }
-      
-      currentWeek.push(new Date(currentDate))
-      currentDate.setDate(currentDate.getDate() + 1)
+
+    // Add this week to the grid if it has at least one non-null day
+    if (week.some((d) => d !== null)) {
+      calendarGrid.push(week)
     }
-    
-    // Add the last week if it's not empty
-    if (currentWeek.length > 0) {
-      weeksArray.push(currentWeek)
-    }
-    
-    setWeeks(weeksArray)
-  }, [data])
-  
-  // Get activity level for a specific date (0-4)
-  const getActivityLevel = (date: Date): number => {
+  }
+
+  // Use calendarGrid instead of weeks
+  const weeks = calendarGrid
+
+  // Get activity level for a specific date
+  const getActivityLevel = (date: Date) => {
     const dateString = format(date, "yyyy-MM-dd")
-    const count = activityMap.get(dateString) || 0
+    const activity = data.find((d) => d.date === dateString)
+
+    if (!activity) return 0
     
-    if (count === 0) return 0
-    
-    // Determine level based on percentage of max
-    const percentage = count / maxCount
-    if (percentage <= 0.25) return 1
-    if (percentage <= 0.5) return 2
-    if (percentage <= 0.75) return 3
-    return 4
+    return activity.count
   }
-  
-  // Get color based on activity level
-  const getActivityColor = (level: number): string => {
-    const schemeBase = colorScheme === 'blue' ? 'blue' : 
-                      colorScheme === 'purple' ? 'indigo' : 
-                      colorScheme === 'amber' ? 'amber' : 'green';
-    
-    if (level === 0) return "bg-slate-200 dark:bg-slate-700/50"
-    if (level === 1) return `bg-${schemeBase}-200 dark:bg-${schemeBase}-900/70`
-    if (level === 2) return `bg-${schemeBase}-300 dark:bg-${schemeBase}-800/70`
-    if (level === 3) return `bg-${schemeBase}-400 dark:bg-${schemeBase}-700/70`
-    return `bg-${schemeBase}-500 dark:bg-${schemeBase}-600/70`
+
+  // Get dominant verdict for a date (for coloring)
+  const getDominantVerdict = (date: Date) => {
+    const dateString = format(date, "yyyy-MM-dd")
+    const activity = data.find((d) => d.date === dateString)
+
+    if (!activity || !activity.verdictSummary || activity.verdictSummary.length === 0) {
+      return null
+    }
+
+    // Find the verdict with the highest count
+    return activity.verdictSummary.reduce((prev, current) => (prev.count > current.count ? prev : current))
   }
-  
-  // Get safe CSS classname for activity level
-  const getSafeActivityColor = (level: number): string => {
-    switch(colorScheme) {
-      case 'blue':
-        if (level === 0) return "bg-slate-200 dark:bg-slate-700/50"
-        if (level === 1) return "bg-blue-200 dark:bg-blue-900/70"
-        if (level === 2) return "bg-blue-300 dark:bg-blue-800/70"
-        if (level === 3) return "bg-blue-400 dark:bg-blue-700/70"
-        return "bg-blue-500 dark:bg-blue-600/70"
-      case 'purple':
-        if (level === 0) return "bg-slate-200 dark:bg-slate-700/50"
-        if (level === 1) return "bg-indigo-200 dark:bg-indigo-900/70"
-        if (level === 2) return "bg-indigo-300 dark:bg-indigo-800/70"
-        if (level === 3) return "bg-indigo-400 dark:bg-indigo-700/70"
-        return "bg-indigo-500 dark:bg-indigo-600/70"
-      case 'amber':
-        if (level === 0) return "bg-slate-200 dark:bg-slate-700/50"
-        if (level === 1) return "bg-amber-200 dark:bg-amber-900/70"
-        if (level === 2) return "bg-amber-300 dark:bg-amber-800/70"
-        if (level === 3) return "bg-amber-400 dark:bg-amber-700/70"
-        return "bg-amber-500 dark:bg-amber-600/70"
-      default: // Green
-        if (level === 0) return "bg-slate-200 dark:bg-slate-700/50"
-        if (level === 1) return "bg-green-200 dark:bg-green-900/70"
-        if (level === 2) return "bg-green-300 dark:bg-green-800/70"
-        if (level === 3) return "bg-green-400 dark:bg-green-700/70"
-        return "bg-green-500 dark:bg-green-600/70"
+
+  // Get color based on activity level for activity mode
+  const getActivityColor = (level: number) => {
+    if (level === 0) return "bg-gray-200 dark:bg-[#2C2C2C]"
+    if (level === 1) return "bg-green-200 dark:bg-green-900"
+    if (level === 2) return "bg-green-400 dark:bg-green-700"
+    if (level === 3) return "bg-green-500 dark:bg-green-600"
+    return "bg-green-600 dark:bg-green-500"
+  }
+
+  // Get activity details for a specific date
+  const getActivityDetails = (date: Date) => {
+    const dateString = format(date, "yyyy-MM-dd")
+    const activity = data.find((d) => d.date === dateString)
+
+    if (!activity || !activity.details) return []
+
+    return activity.details
+  }
+
+  // Get verdict summary for a date
+  const getVerdictSummary = (date: Date) => {
+    const dateString = format(date, "yyyy-MM-dd")
+    const activity = data.find((d) => d.date === dateString)
+
+    if (!activity || !activity.verdictSummary) {
+      // If verdictSummary isn't available, try to compute from verdictCounts
+      if (activity?.verdictCounts) {
+        return Object.entries(activity.verdictCounts).map(([status, count]) => ({
+          status,
+          readableStatus: getReadableStatus(status),
+          count,
+          color: getColorForStatus(status),
+        }))
+      }
+      return []
+    }
+
+    return activity.verdictSummary
+  }
+
+  // Helper function to get readable status
+  const getReadableStatus = (status: string | null) => {
+    if (!status) return "Unknown"
+
+    // Replace underscores with spaces and capitalize each word
+    return status
+      .split("_")
+      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(" ")
+  }
+
+  // Helper function to get color for status
+  const getColorForStatus = (status: string | null) => {
+    switch (status) {
+      case "ACCEPTED":
+        return "#4ade80" // green
+      case "WRONG_ANSWER":
+        return "#f87171" // red
+      case "TIME_LIMIT_EXCEEDED":
+        return "#fbbf24" // amber
+      case "COMPILATION_ERROR":
+        return "#a78bfa" // purple
+      case "RUNTIME_ERROR":
+        return "#fb7185" // rose
+      case "MEMORY_LIMIT_EXCEEDED":
+        return "#60a5fa" // blue
+      default:
+        return "#94a3b8" // slate
     }
   }
-  
+
   // Get month labels with their positions
   const getMonthLabels = () => {
-    const months: { month: string; startWeek: number; endWeek: number }[] = []
-    let currentMonth: string | null = null
+    const months = []
+    let currentMonth = null
     let monthStartWeek = 0
 
     for (let i = 0; i < weeks.length; i++) {
       // Get the first non-null date in this week
-      const firstValidDate = weeks[i].find(d => d !== null)
+      const firstValidDate = weeks[i].find((d) => d !== null)
       if (!firstValidDate) continue
-      
+
       const month = format(firstValidDate, "MMM")
       if (month !== currentMonth) {
         if (currentMonth !== null) {
@@ -191,39 +219,93 @@ export function CalendarHeatmap({ data, colorScheme = 'green' }: CalendarHeatmap
   }
 
   const monthLabels = getMonthLabels()
-  
+
   // Calculate fixed width for each week
   const weekWidth = 14 // Width of each week column in pixels
   const weekGap = 2 // Gap between weeks in pixels
   const monthGap = 8 // Gap between months in pixels
-  
+
   // Calculate activity stats
-  const totalDays = activityMap.size
-  const totalActivities = Array.from(activityMap.values()).reduce((sum, count) => sum + count, 0)
-  
-  const today = new Date()
-  
+  const totalDays = data.length
+  const activeDays = data.filter((day) => day.count > 0).length
+  const totalActivities = data.reduce((sum, day) => sum + day.count, 0)
+  const activityPercentage = Math.round((activeDays / totalDays) * 100)
+
+  // Get verdict icon
+  const getVerdictIcon = (status: string) => {
+    switch (status) {
+      case "ACCEPTED":
+        return <CheckCircle className="h-3 w-3 text-green-500" />
+      case "WRONG_ANSWER":
+        return <XCircle className="h-3 w-3 text-red-500" />
+      case "TIME_LIMIT_EXCEEDED":
+        return <Clock className="h-3 w-3 text-amber-500" />
+      case "COMPILATION_ERROR":
+        return <AlertTriangle className="h-3 w-3 text-purple-500" />
+      case "RUNTIME_ERROR":
+        return <Zap className="h-3 w-3 text-rose-500" />
+      case "MEMORY_LIMIT_EXCEEDED":
+        return <Code className="h-3 w-3 text-blue-500" />
+      default:
+        return <Info className="h-3 w-3 text-slate-500" />
+    }
+  }
+
+  // Format total counts for each verdict type
+  const getVerdictTotals = () => {
+    if (!submissionStats || submissionStats.length === 0) return null
+
+    const totals: Record<string, number> = {}
+    let total = 0
+
+    submissionStats.forEach((stat) => {
+      totals[stat.status] = stat.count
+      total += stat.count
+    })
+
+    return { totals, total }
+  }
+
+  const verdictTotals = getVerdictTotals()
+
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-500 dark:text-slate-400 mb-2">
-        <div>Sun</div>
-        <div>Mon</div>
-        <div>Tue</div>
-        <div>Wed</div>
-        <div>Thu</div>
-        <div>Fri</div>
-        <div>Sat</div>
+    <div className="w-full bg-white dark:bg-[#121212] p-4 rounded-lg flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-green-500" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Coding Activity</h3>
+        </div>
       </div>
-        
-      <div className="overflow-x-auto pr-2 scrollbar-hide">
-        <div className="flex flex-col min-w-[650px]">
+
+      {/* Compact Verdict Stats */}
+      {verdictTotals && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {submissionStats?.map((stat, i) => (
+            <div 
+              key={i} 
+              className="flex items-center gap-1 text-xs bg-gray-50 dark:bg-gray-800/70 px-2 py-1 rounded"
+            >
+              {getVerdictIcon(stat.status)}
+              <span className="font-medium" style={{ color: stat.color }}>
+                {stat.readableStatus}
+              </span>
+              <span>{stat.count}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-1 text-xs bg-gray-50 dark:bg-gray-800/70 px-2 py-1 rounded">
+            <BarChart className="h-3 w-3 text-gray-500" />
+            <span className="font-medium">Total:</span>
+            <span>{verdictTotals.total}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="min-w-[600px] max-w-[890px] overflow-x-auto custom-scrollbar">
+        <div className="flex flex-col">
           <div className="flex gap-[2px]">
             {weeks.map((week, weekIndex) => {
               // Check if this week starts a new month
-              const isNewMonth = weekIndex > 0 && 
-                weeks[weekIndex][0] && 
-                weeks[weekIndex-1][0] && 
-                !isSameMonth(weeks[weekIndex][0] as Date, weeks[weekIndex-1][0] as Date)
+              const isNewMonth = weekIndex > 0 && !isSameMonth(weeks[weekIndex][0], weeks[weekIndex - 1][0])
 
               return (
                 <div
@@ -237,61 +319,72 @@ export function CalendarHeatmap({ data, colorScheme = 'green' }: CalendarHeatmap
                   {week.map((day, dayIndex) => {
                     // Skip rendering for null days
                     if (day === null) {
-                      return <div key={dayIndex} className="h-3 w-3" />; // Empty placeholder
+                      return <div key={dayIndex} className="h-3 w-3" /> // Empty placeholder
                     }
-                    
+
                     const activityLevel = getActivityLevel(day)
                     const isToday = isSameDay(day, today)
                     const isFutureDay = day > today
-                    
+
                     // Color cells based on activity level
-                    let cellColor = getSafeActivityColor(activityLevel);
-                    
-                    // Format date for tooltip
-                    const formattedDate = format(day, "MMM d, yyyy");
-                    const count = activityMap.get(format(day, "yyyy-MM-dd")) || 0;
+                    let cellColor = "bg-gray-200 dark:bg-[#2C2C2C]"
+                    if (!isFutureDay && activityLevel > 0) {
+                      cellColor = getActivityColor(activityLevel)
+                    }
 
                     return (
-                      <motion.div
-                        key={dayIndex}
-                        className={`h-3 w-3 rounded-[2px] ${cellColor} relative group/cell cursor-pointer
-                          ${isToday ? "ring-1 ring-primary ring-offset-1 ring-offset-background" : ""}`}
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: isFutureDay ? 0.2 : 1 }}
-                        whileHover={{ scale: 1.5, zIndex: 10 }}
-                        transition={{
-                          delay: weekIndex * 0.01 + dayIndex * 0.002,
-                          duration: 0.2,
-                          whileHover: { type: "spring", stiffness: 300, damping: 10 }
-                        }}
-                        title={`${formattedDate}: ${count} submissions`}
-                      >
-                        {/* Enhanced tooltip */}
-                        <motion.div 
-                          className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded invisible 
-                            group-hover/cell:visible opacity-0 group-hover/cell:opacity-100 min-w-[100px] z-20 pointer-events-none shadow-lg"
-                          initial={{ opacity: 0, y: 5 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2, delay: 0.1 }}
-                        >
-                          <div className="font-semibold">{formattedDate}</div>
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span>Submissions:</span>
-                            <span className={count > 0 ? "text-green-400" : "text-slate-400"}>
-                              {count}
-                            </span>
-                          </div>
-                          {/* Arrow */}
-                          <div className="absolute left-1/2 bottom-0 -mb-1 w-2 h-2 bg-slate-800 transform rotate-45 -translate-x-1/2"></div>
-                        </motion.div>
-                      </motion.div>
-                    );
+                      <TooltipProvider key={dayIndex}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <motion.div
+                              className={`h-3 w-3 rounded-[2px] ${cellColor} ${
+                                isToday ? "ring-1 ring-primary ring-offset-1 ring-offset-background" : ""
+                              } hover:opacity-80 transition-opacity`}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: isFutureDay ? 0.2 : 1 }}
+                              transition={{
+                                delay: weekIndex * 0.01 + dayIndex * 0.002,
+                                duration: 0.2,
+                              }}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent className="w-64">
+                            {isFutureDay ? (
+                              <p className="text-xs">Future date</p>
+                            ) : activityLevel === 0 ? (
+                              <p className="text-sm">{format(day, "MMMM d, yyyy")} - No submissions</p>
+                            ) : (
+                              <div className="space-y-2">
+                                <p className="text-sm font-medium border-b pb-1">{format(day, "MMMM d, yyyy")}</p>
+
+                                <div className="flex flex-col gap-1.5">
+                                  {/* Verdict Summary */}
+                                  {getVerdictSummary(day).map((verdict, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: verdict.color }} />
+                                      <div className="flex-1 flex justify-between items-center">
+                                        <span className="text-xs font-medium">{verdict.readableStatus}</span>
+                                        <span className="text-xs">{verdict.count} submissions</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="text-xs text-right text-gray-500">
+                                  {activityLevel} total submissions
+                                </div>
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )
                   })}
                 </div>
-              );
+              )
             })}
           </div>
-            
+
           <div className="flex mt-2">
             {monthLabels.map((label, i) => {
               // Calculate the width of this month based on number of weeks
@@ -301,7 +394,7 @@ export function CalendarHeatmap({ data, colorScheme = 'green' }: CalendarHeatmap
               return (
                 <div
                   key={i}
-                  className="text-xs text-slate-500 dark:text-slate-400"
+                  className="text-xs text-gray-500 dark:text-gray-400"
                   style={{
                     width: `${monthWidth}px`,
                     marginLeft: i === 0 ? 0 : `${monthGap}px`,
@@ -310,58 +403,39 @@ export function CalendarHeatmap({ data, colorScheme = 'green' }: CalendarHeatmap
                 >
                   {label.month}
                 </div>
-              );
+              )
             })}
           </div>
         </div>
       </div>
-      
-      {/* Color Legend and Stats */}
-      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
-        <div className="flex items-center">
-          <span className="text-slate-500 dark:text-slate-400 mr-2">Less</span>
-          <div className="flex gap-0.5">
-            <div className="w-3 h-3 rounded-sm bg-slate-200 dark:bg-slate-700/50"></div>
-            {colorScheme === 'green' && (
-              <>
-                <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-green-300 dark:bg-green-800/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-green-400 dark:bg-green-700/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-green-500 dark:bg-green-600/70"></div>
-              </>
-            )}
-            {colorScheme === 'blue' && (
-              <>
-                <div className="w-3 h-3 rounded-sm bg-blue-200 dark:bg-blue-900/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-blue-300 dark:bg-blue-800/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-blue-400 dark:bg-blue-700/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-blue-500 dark:bg-blue-600/70"></div>
-              </>
-            )}
-            {colorScheme === 'purple' && (
-              <>
-                <div className="w-3 h-3 rounded-sm bg-indigo-200 dark:bg-indigo-900/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-indigo-300 dark:bg-indigo-800/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-indigo-400 dark:bg-indigo-700/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-indigo-500 dark:bg-indigo-600/70"></div>
-              </>
-            )}
-            {colorScheme === 'amber' && (
-              <>
-                <div className="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-900/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-amber-300 dark:bg-amber-800/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-amber-400 dark:bg-amber-700/70"></div>
-                <div className="w-3 h-3 rounded-sm bg-amber-500 dark:bg-amber-600/70"></div>
-              </>
-            )}
+
+      {/* Color Legend */}
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-xs text-gray-500">
+            <span>Less</span>
+            <div className="flex gap-0.5 mx-2">
+              <div className="w-3 h-3 rounded-sm bg-gray-200 dark:bg-[#2C2C2C]"></div>
+              <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900"></div>
+              <div className="w-3 h-3 rounded-sm bg-green-400 dark:bg-green-700"></div>
+              <div className="w-3 h-3 rounded-sm bg-green-500 dark:bg-green-600"></div>
+              <div className="w-3 h-3 rounded-sm bg-green-600 dark:bg-green-500"></div>
+            </div>
+            <span>More</span>
           </div>
-          <span className="text-slate-500 dark:text-slate-400 ml-2">More</span>
-        </div>
-        <div className="text-slate-500 dark:text-slate-400">
-          <span className="mr-4">Days: <strong>{totalDays}</strong></span>
-          <span>Activities: <strong>{totalActivities}</strong></span>
+          <div className="text-xs text-gray-600 dark:text-gray-300">
+            <span className="mr-4">
+              Active days: <strong>{activeDays}</strong> ({activityPercentage}%)
+            </span>
+            <span className="mr-4">
+              Total submissions: <strong>{totalActivities}</strong>
+            </span>
+            <span>
+              Daily average: <strong>{(totalActivities / Math.max(1, activeDays)).toFixed(1)}</strong>
+            </span>
+          </div>
         </div>
       </div>
     </div>
   )
-} 
+}

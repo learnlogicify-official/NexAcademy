@@ -188,10 +188,8 @@ export function CodingDashboard() {
       }))
   ]);
   
-  // Instead of just counting unique days, sum submissions and Codeforces activities
-  const totalActiveDays = totalSubmissions + 
-    profiles.filter(p => p.platform === 'codeforces' && p.data?.recentActivity)
-      .reduce((sum, p) => sum + p.data.recentActivity.length, 0);
+  // Use the count of unique days rather than summing submission counts
+  const totalActiveDays = allActiveDates.size;
   
   const currentStreak = Math.max(...profiles.map(p => p.stats?.streak || 0), 0)
   const maxStreak = Math.max(...profiles.map(p => p.stats?.totalActiveDays || 0), 8) // Default to 8 if no data
@@ -209,6 +207,58 @@ export function CodingDashboard() {
   
   // Get all activity data for heatmap
   const allActivityData = profiles.flatMap(p => p.activityHeatmap || [])
+  
+  // Transform activity data for the calendar heatmap
+  const transformedActivityData = allActivityData.map(activity => {
+    // Normalize the date to YYYY-MM-DD format to avoid timezone issues
+    let normalizedDate = activity.date;
+    
+    // If the date includes time information, strip it out
+    if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
+      normalizedDate = normalizedDate.split('T')[0];
+    }
+    
+    // If it looks like a Date object, format it
+    if (typeof normalizedDate === 'object' && normalizedDate !== null && 'getFullYear' in normalizedDate) {
+      const d = normalizedDate as Date;
+      normalizedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    
+    return {
+      date: normalizedDate,
+      count: activity.count,
+      // Add single submission category
+      verdictSummary: [
+        {
+          status: "SUBMISSION",
+          readableStatus: "Submissions",
+          count: activity.count,
+          color: "#4ade80"
+        }
+      ]
+    };
+  });
+  
+  // Deduplicate days (in case same day appears in multiple platforms)
+  const dateMap = new Map();
+  transformedActivityData.forEach(item => {
+    const existingItem = dateMap.get(item.date);
+    if (existingItem) {
+      // Merge the counts
+      existingItem.count += item.count;
+      // Update verdict summary
+      existingItem.verdictSummary[0].count += item.count;
+    } else {
+      dateMap.set(item.date, item);
+    }
+  });
+  
+  const uniqueActivityData = Array.from(dateMap.values());
+  
+  // Generate submission stats summary - just one category for all submissions
+  const submissionStats = [
+    { status: "SUBMISSION", readableStatus: "Submissions", count: totalSubmissions, color: "#4ade80" }
+  ];
   
   // Platform-specific metrics
   const platformMetrics = SUPPORTED_PLATFORMS.map(platform => {
@@ -362,18 +412,9 @@ export function CodingDashboard() {
   }
   
   return (
-    <div className="space-y-12 py-8 px-4 rounded-2xl bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 backdrop-blur-sm border border-white/10 dark:border-slate-800/10 shadow-xl">
-      {/* Back to Dashboard button */}
-      <div className="flex justify-between items-center">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-colors"
-          onClick={() => window.location.href = '/dashboard'}
-        >
-          ← Back to Dashboard
-        </Button>
-        
+    <div className="space-y-12">
+      {/* Refresh data button */}
+      <div className="flex justify-end">
         <Button 
           variant="outline" 
           size="sm" 
@@ -590,7 +631,7 @@ export function CodingDashboard() {
                 </div>
                 <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
                   <span>Last 14 days</span>
-                  <span>{(totalActiveDays / allActiveDates.size * 100).toFixed(0)}% active</span>
+                  <span>{Math.round((totalActiveDays / 365) * 100)}% active in past year</span>
                 </div>
               </div>
             </CardContent>
@@ -731,7 +772,7 @@ export function CodingDashboard() {
           <CardContent className="p-0 relative z-10">
             <div className="px-6 pt-6 pb-2">
               <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-md">
-                <CalendarHeatmap data={allActivityData} />
+                <CalendarHeatmap data={uniqueActivityData} submissionStats={submissionStats} />
               </div>
             </div>
           </CardContent>
@@ -892,47 +933,7 @@ export function CodingDashboard() {
                   }
                 </div>
                 
-                {/* Recent contests */}
-                {allContests.length > 0 && (
-                  <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
-                    <h3 className="text-sm font-medium mb-3 flex items-center">
-                      <Trophy className="h-4 w-4 text-amber-500 mr-2" />
-                      Recent Contests
-                    </h3>
-                    <div className="space-y-2.5 max-h-[200px] overflow-y-auto pr-2 scrollbar-thin">
-                      {allContests.slice(0, 5).map((contest, index) => {
-                        const platform = SUPPORTED_PLATFORMS.find(p => p.id === contest.platform);
-                        const date = new Date(contest.date);
-                        return (
-                          <div 
-                            key={`${contest.name}-${index}`} 
-                            className="flex items-center gap-3 p-2.5 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 border border-slate-100 dark:border-slate-800 hover:border-primary/30 dark:hover:border-primary/50 group/contest"
-                          >
-                            <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-md group-hover/contest:bg-slate-200 dark:group-hover/contest:bg-slate-700 transition-colors">
-                              {platform && (
-                                <img src={platform.icon} alt={platform.name} className="h-4 w-4 flex-shrink-0" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{contest.name}</div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400 flex gap-2 mt-0.5">
-                                <span>
-                                  {date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                </span>
-                                {contest.rank > 0 && (
-                                  <span className="text-amber-500 flex items-center">
-                                    <Award className="h-3 w-3 mr-0.5" />
-                                    Rank: {contest.rank}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+               
               </div>
             </CardContent>
           </Card>

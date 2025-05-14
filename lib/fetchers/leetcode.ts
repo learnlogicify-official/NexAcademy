@@ -238,44 +238,44 @@ export async function fetchLeetCodeProfile(username: string): Promise<PlatformPr
       }
       
       // Return the profile with all collected data
-      return {
-        platform: 'leetcode',
-        username,
-        totalSolved: data.totalSolved || 0,
+        return {
+          platform: 'leetcode',
+          username,
+          totalSolved: data.totalSolved || 0,
         rank: globalRanking,
         rating: contestRating || data.contributionPoints || 0,
         badges: 0, // LeetCode doesn't have a badges system like other platforms
-        score: data.contributionPoints || 0,
-        problemsByDifficulty,
-        contestHistory,
-        activityHeatmap,
-        stats: {
-          streak,
+          score: data.contributionPoints || 0,
+          problemsByDifficulty,
+          contestHistory,
+          activityHeatmap,
+          stats: {
+            streak,
           totalActiveDays,
           maxStreak: streak, // LeetCode API doesn't provide max streak, use current streak
           contributionPoints: data.contributionPoints
-        }
-      };
+          }
+        };
     } catch (graphqlError) {
       console.warn('Failed to fetch LeetCode data via GraphQL:', graphqlError);
       
       // Fall back to the basic data we already have
-      return {
-        platform: 'leetcode',
-        username,
-        totalSolved: data.totalSolved || 0,
+    return {
+      platform: 'leetcode',
+      username,
+      totalSolved: data.totalSolved || 0,
         rank: globalRanking,
         rating: contestRating || data.contributionPoints || 0,
         badges: 0,
-        score: data.contributionPoints || 0,
-        problemsByDifficulty,
+      score: data.contributionPoints || 0,
+      problemsByDifficulty,
         contestHistory: [],
         activityHeatmap: [],
         stats: {
           streak: 0,
           totalActiveDays: 0
         }
-      };
+    };
     }
   } catch (error: any) {
     // If first approach fails, try a direct web scraping approach
@@ -319,7 +319,7 @@ export async function fetchLeetCodeProfile(username: string): Promise<PlatformPr
       const solvedMatch = solvedText.match(/(\d+)/);
       if (solvedMatch) {
         totalSolved = parseInt(solvedMatch[1]);
-      }
+            }
       
       // Extract problem counts by difficulty
       $('[data-cy="difficulty-count"]').each((i, elem) => {
@@ -341,7 +341,7 @@ export async function fetchLeetCodeProfile(username: string): Promise<PlatformPr
       const rankingMatch = rankingText.match(/(\d+)/);
       if (rankingMatch) {
         ranking = rankingMatch[1];
-      }
+            }
       
       // Try to extract contest rating
       const ratingText = $('[data-cy="contest-rating"]').text().trim();
