@@ -603,7 +603,7 @@ export function EnhancedProfile({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
-              <ContactLinksCard links={contactLinks} email={userData.email} className="bg-white dark:bg-[#18181b]" isOwnProfile={isOwnProfile} />
+              <ContactLinksCard links={contactLinks} email={userData.email} className="bg-white dark:bg-[#18181b]" isOwnProfile={isOwnProfile} key={`contact-${Math.random()}`} />
             </motion.div>
 
             {/* Projects Card */}
@@ -616,6 +616,7 @@ export function EnhancedProfile({
                 projects={projects} 
                 className="bg-white dark:bg-[#18181b]" 
                 isOwnProfile={isOwnProfile}
+                key={`projects-${Math.random()}`}
               />
             </motion.div>
 

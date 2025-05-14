@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
 // Generate a GitHub OAuth URL with custom state that includes user ID
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Get current user session
     const session = await getServerSession(authOptions);
@@ -16,10 +16,15 @@ export async function GET() {
       );
     }
     
-    // Generate a random state for CSRF protection
+    // Get return URL from query params, defaulting to profile page
+    const searchParams = request.nextUrl.searchParams;
+    const returnTo = searchParams.get("returnTo") || "/profile";
+    
+    // Generate a random state for CSRF protection, include returnTo URL
     const state = Buffer.from(JSON.stringify({
       userId: session.user.id,
       timestamp: Date.now(),
+      returnTo
     })).toString('base64');
     
     // Store state in a cookie for verification when GitHub redirects back

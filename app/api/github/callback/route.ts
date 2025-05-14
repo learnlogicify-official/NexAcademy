@@ -21,11 +21,16 @@ export async function GET(request: NextRequest) {
       return renderCallbackPage(false, "Invalid state parameter. Please try again.");
     }
     
-    // Decode state to get userId
+    // Decode state to get userId and returnTo
     let userId;
+    let returnTo = "/profile";
     try {
       const decoded = JSON.parse(Buffer.from(stateParam, 'base64').toString());
       userId = decoded.userId;
+      // Extract returnTo path if it exists
+      if (decoded.returnTo) {
+        returnTo = decoded.returnTo;
+      }
     } catch (error) {
       return renderCallbackPage(false, "Invalid state format");
     }
@@ -74,7 +79,7 @@ export async function GET(request: NextRequest) {
     });
     
     // Return success page that will communicate with the opener window
-    return renderCallbackPage(true);
+    return renderCallbackPage(true, undefined, returnTo);
     
   } catch (error) {
     console.error("Error handling GitHub callback:", error);
@@ -83,7 +88,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Render HTML page that communicates with opener window
-function renderCallbackPage(success: boolean, errorMessage?: string) {
+function renderCallbackPage(success: boolean, errorMessage?: string, returnTo?: string) {
   const html = `
   <!DOCTYPE html>
   <html>
@@ -133,14 +138,19 @@ function renderCallbackPage(success: boolean, errorMessage?: string) {
         if (window.opener && !window.opener.closed) {
           try {
             window.opener.githubOAuthCallback(${success}, ${errorMessage ? `"${errorMessage}"` : "undefined"});
+            
+            // Close this window after a short delay
+            setTimeout(() => {
+              window.close();
+            }, 1500);
           } catch (e) {
             console.error("Error communicating with opener:", e);
+            // If communication fails, redirect to returnTo path
+            ${returnTo ? `window.location.href = "${returnTo}";` : ''}
           }
-          
-          // Close this window after a short delay
-          setTimeout(() => {
-            window.close();
-          }, 2000);
+        } else {
+          // If opener is not available, redirect to returnTo path
+          ${returnTo ? `window.location.href = "${returnTo}";` : ''}
         }
       </script>
     </body>

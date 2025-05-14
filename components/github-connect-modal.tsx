@@ -1,10 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Github, Loader2 } from "lucide-react"
+
+// Add TypeScript declaration for the window property
+declare global {
+  interface Window {
+    githubOAuthCallback?: (success: boolean, error?: string) => void;
+  }
+}
 
 interface GitHubConnectModalProps {
   isOpen: boolean
@@ -16,6 +23,16 @@ export function GitHubConnectModal({ isOpen, onClose, onSuccess }: GitHubConnect
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  
+  // Add cleanup effect when component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up the global callback when component unmounts
+      if (window.githubOAuthCallback) {
+        delete window.githubOAuthCallback;
+      }
+    }
+  }, [])
 
   const connectGitHub = async () => {
     try {
@@ -44,9 +61,10 @@ export function GitHubConnectModal({ isOpen, onClose, onSuccess }: GitHubConnect
         setIsConnecting(false)
       }
       
-      // Open the GitHub OAuth popup
+      // Open the GitHub OAuth popup with returnTo parameter to ensure proper navigation
+      const currentPath = window.location.pathname
       const popup = window.open(
-        `/api/github/connect`, 
+        `/api/github/connect?returnTo=${encodeURIComponent(currentPath)}`, 
         'github-oauth', 
         `width=${width},height=${height},left=${left},top=${top}`
       )

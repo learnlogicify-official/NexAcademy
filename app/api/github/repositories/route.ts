@@ -42,7 +42,7 @@ export async function GET() {
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized', connected: false },
         { status: 401 }
       );
     }
@@ -65,6 +65,8 @@ export async function GET() {
         Authorization: `Bearer ${user.githubAccessToken}`,
         Accept: 'application/vnd.github.v3+json',
       },
+      // Avoid caching
+      cache: 'no-store'
     });
 
     if (!response.ok) {
@@ -72,16 +74,23 @@ export async function GET() {
       console.error('GitHub API error:', errorData);
       
       if (response.status === 401) {
-        // Token might be expired or revoked
+        // Token might be expired or revoked - clear the token in our database
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { 
+            githubAccessToken: null
+          }
+        });
+        
         return NextResponse.json(
-          { error: 'GitHub authentication failed', connected: false },
+          { error: 'GitHub authentication failed - please reconnect your account', connected: false },
           { status: 200 }
         );
       }
       
       return NextResponse.json(
-        { error: 'Failed to fetch GitHub repositories' },
-        { status: response.status }
+        { error: 'Failed to fetch GitHub repositories', connected: false },
+        { status: 200 }
       );
     }
 
@@ -102,7 +111,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching GitHub repositories:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', connected: false },
       { status: 500 }
     );
   }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -35,59 +35,90 @@ export function ProjectsCard({ projects: initialProjects, className, isOwnProfil
   const [isLoading, setIsLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  useEffect(() => {
-    // Initial check for GitHub connection
-    if (isOwnProfile && session?.user) {
-      checkGitHubConnection()
-    }
-  }, [isOwnProfile, session])
-
-  const checkGitHubConnection = async () => {
+  // Memoize these functions to prevent unnecessary re-renders
+  const checkGitHubConnection = useCallback(async () => {
+    if (!session?.user) return;
+    
     try {
+      setIsLoading(true);
       // Check GitHub connection status via API
-      const response = await fetch('/api/github/refresh')
-      const data = await response.json()
+      const response = await fetch('/api/github/refresh', {
+        // Use no-cache to ensure we get fresh data
+        cache: 'no-cache'
+      });
+      const data = await response.json();
       
       if (data.githubConnected) {
-        setGithubConnected(true)
+        setGithubConnected(true);
         // If we're connected, fetch repositories
-        fetchGitHubRepositories()
+        fetchGitHubRepositories();
       } else {
-        setGithubConnected(false)
-        setGithubProjects([])
+        setGithubConnected(false);
+        setGithubProjects([]);
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error("Error checking GitHub connection:", error)
-      setGithubConnected(false)
-      setGithubProjects([])
+      console.error("Error checking GitHub connection:", error);
+      setGithubConnected(false);
+      setGithubProjects([]);
+      setIsLoading(false);
     }
-  }
+  }, [session]);
 
-  const fetchGitHubRepositories = async () => {
+  const fetchGitHubRepositories = useCallback(async () => {
     try {
-      setIsLoading(true)
-      const response = await fetch('/api/github/repositories')
-      const data = await response.json()
+      setIsLoading(true);
+      const response = await fetch('/api/github/repositories', {
+        // Use no-cache to ensure we get fresh data
+        cache: 'no-cache'
+      });
+      const data = await response.json();
       
       if (data.connected && data.repositories) {
-        setGithubConnected(true)
-        setGithubProjects(data.repositories)
+        setGithubConnected(true);
+        setGithubProjects(data.repositories);
       } else {
-        setGithubConnected(false)
-        setGithubProjects([])
+        setGithubConnected(false);
+        setGithubProjects([]);
       }
     } catch (error) {
-      console.error('Error fetching GitHub repositories:', error)
-      setGithubProjects([])
+      console.error('Error fetching GitHub repositories:', error);
+      setGithubProjects([]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  }, []);
+
+  // Initial check when component mounts or session changes
+  useEffect(() => {
+    if (isOwnProfile && session?.user) {
+      checkGitHubConnection();
+    }
+  }, [isOwnProfile, session, checkGitHubConnection]);
+
+  // Set up a visibility change listener to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isOwnProfile && session?.user) {
+        checkGitHubConnection();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh when the window gets focus
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [isOwnProfile, session, checkGitHubConnection]);
 
   const handleConnectSuccess = async () => {
     // Re-check connection and fetch repositories
-    await checkGitHubConnection()
-  }
+    await checkGitHubConnection();
+  };
 
   // GitHub connection message template
   const renderGitHubMessage = () => {
@@ -96,7 +127,7 @@ export function ProjectsCard({ projects: initialProjects, className, isOwnProfil
         <div className="text-center text-gray-500 dark:text-gray-400 py-8">
           <p>No projects to display</p>
         </div>
-      )
+      );
     }
 
     return (
@@ -133,8 +164,8 @@ export function ProjectsCard({ projects: initialProjects, className, isOwnProfil
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <>
@@ -155,6 +186,25 @@ export function ProjectsCard({ projects: initialProjects, className, isOwnProfil
               >
                 <Github className="h-3.5 w-3.5" />
                 Connect GitHub
+              </Button>
+            )}
+            {isOwnProfile && githubConnected && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex items-center gap-1 text-xs"
+                onClick={fetchGitHubRepositories}
+                disabled={isLoading}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M16 12C16 14.2091 14.2091 16 12 16C9.79086 16 8 14.2091 8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 16V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 3V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M16 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 12H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Refresh
               </Button>
             )}
           </div>
@@ -230,6 +280,11 @@ export function ProjectsCard({ projects: initialProjects, className, isOwnProfil
                     )}
                   </motion.div>
                 ))
+              ) : githubConnected && githubProjects.length === 0 ? (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                  <p>No GitHub repositories found</p>
+                  <p className="text-sm mt-2">Try creating some public repositories or refreshing</p>
+                </div>
               ) : (
                 renderGitHubMessage()
               )}
