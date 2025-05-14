@@ -7,7 +7,8 @@ This guide provides instructions on setting up and using the GitHub integration 
 - OAuth integration with GitHub
 - Display public repositories on the user's profile page
 - Show repository stats like stars and forks
-- Connect GitHub directly from the profile page
+- Connect GitHub directly from the profile page via a modal popup
+- Display GitHub username in the contact info section
 
 ## Setup Instructions
 
@@ -47,17 +48,33 @@ The GitHub integration adds the following fields to the `User` model:
 
 ### Connecting GitHub Account
 
-Users can connect their GitHub account in two ways:
+Users can connect their GitHub account in three ways:
 
 1. **During sign-in**: 
    - Click the GitHub button on the sign-in page
    - Authorize NexAcademy to access your GitHub account
 
-2. **From profile page**:
+2. **From projects card on profile page**:
    - Visit your profile page
    - Find the "Projects" card
    - Click "Connect GitHub" button
+   - A modal will appear with connection options
    - Authorize NexAcademy to access your GitHub account
+
+3. **From contact card on profile page**:
+   - Visit your profile page
+   - Find the "Contact" card
+   - Click "Connect GitHub" link
+   - A modal will appear with connection options
+   - Authorize NexAcademy to access your GitHub account
+
+### User Experience
+
+The GitHub connection flow is designed to be seamless:
+- Users don't have to leave the current page during connection
+- A modal popup explains the permissions being requested
+- After successful connection, GitHub repositories are automatically loaded
+- The GitHub username appears in the contact section
 
 ### Viewing GitHub Repositories
 

@@ -603,7 +603,7 @@ export function EnhancedProfile({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
-              <ContactLinksCard links={contactLinks} email={userData.email} className="bg-white dark:bg-[#18181b]" />
+              <ContactLinksCard links={contactLinks} email={userData.email} className="bg-white dark:bg-[#18181b]" isOwnProfile={isOwnProfile} />
             </motion.div>
 
             {/* Projects Card */}
