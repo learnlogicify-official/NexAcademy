@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { signIn } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Github, Loader2 } from "lucide-react"
@@ -15,53 +15,61 @@ interface GitHubConnectModalProps {
 export function GitHubConnectModal({ isOpen, onClose, onSuccess }: GitHubConnectModalProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   const connectGitHub = async () => {
     try {
       setIsConnecting(true)
       setError(null)
       
-      // Use signIn with redirect: false to get the result
-      const result = await signIn("github", {
-        redirect: false,
-        callbackUrl: window.location.href
-      })
+      // Instead of using signIn, which changes the session, we'll use a custom API endpoint
+      // that just initiates the OAuth flow for connection purposes only
       
-      if (result?.error) {
-        setError(result.error)
-        return
+      // Create a popup window for GitHub OAuth
+      const width = 600
+      const height = 700
+      const left = window.screenX + (window.innerWidth - width) / 2
+      const top = window.screenY + (window.innerHeight - height) / 2
+      
+      // Store a callback function in window for the popup to call when done
+      window.githubOAuthCallback = (success: boolean, error?: string) => {
+        if (success) {
+          // OAuth was successful
+          onSuccess?.()
+          onClose()
+        } else if (error) {
+          // OAuth failed with an error
+          setError(error)
+        }
+        setIsConnecting(false)
       }
       
-      // If successful, check connection status
-      if (result?.ok) {
-        // Check GitHub connection status via API
-        await checkGitHubConnection()
-      }
+      // Open the GitHub OAuth popup
+      const popup = window.open(
+        `/api/github/connect`, 
+        'github-oauth', 
+        `width=${width},height=${height},left=${left},top=${top}`
+      )
       
-      // Close the modal regardless
-      onClose()
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        setError("Popup blocked by browser. Please allow popups for this site.")
+        setIsConnecting(false)
+      } else {
+        // Set up a check to ensure the popup wasn't closed prematurely
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed)
+            if (isConnecting) {
+              setError("Connection was canceled or interrupted.")
+              setIsConnecting(false)
+            }
+          }
+        }, 1000)
+      }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.")
-    } finally {
       setIsConnecting(false)
-    }
-  }
-
-  const checkGitHubConnection = async () => {
-    try {
-      // Small delay to ensure the GitHub connection has been processed
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Call the refresh endpoint to check connection status
-      const response = await fetch('/api/github/refresh')
-      const data = await response.json()
-      
-      if (data.githubConnected) {
-        // Connection was successful
-        onSuccess?.()
-      }
-    } catch (error) {
-      console.error("Error checking GitHub connection:", error)
     }
   }
 
