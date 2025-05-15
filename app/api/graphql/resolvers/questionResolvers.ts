@@ -441,26 +441,23 @@ export const questionResolvers = {
     // Get coding questions directly from the coding question table
     codingQuestions: async (_: any, args: any, context: Context) => {
       try {
-        validateAuth(context);
+        const user = validateAuth(context);
         
         const { 
           page = 1, 
           limit = 20,
           search,
           tagIds = [],
-          difficulty
+          difficulty,
+          userStatus
         } = args;
 
-       
-
         // Build where conditions
-        const where: any = {};
-        
+        let where: any = {};
         // Apply difficulty filter
         if (difficulty) {
           where.difficulty = difficulty;
         }
-        
         // Apply tag filter
         if (tagIds && tagIds.length > 0) {
           where.tags = {
@@ -471,7 +468,6 @@ export const questionResolvers = {
             }
           };
         }
-        
         // Apply search filter
         if (search) {
           where.OR = [
@@ -479,44 +475,79 @@ export const questionResolvers = {
             { question: { name: { contains: search, mode: "insensitive" } } }
           ];
         }
-        
-        try {
-          // Get total count first
-          const totalCount = await prisma.codingQuestion.count({ where });
-          
-          // Fetch coding questions with their related data
-          const codingQuestions = await prisma.codingQuestion.findMany({
+
+        // User status filtering
+        if (userStatus) {
+          // Get all coding question IDs
+          const allQuestions = await prisma.codingQuestion.findMany({
             where,
-            include: {
-              question: {
-                select: {
-                  id: true,
-                  name: true,
-                  status: true,
-                  folder: true
-                }
-              },
-              languageOptions: true,
-              testCases: true,
-              tags: true
-            },
-            orderBy: { createdAt: 'desc' },
-            distinct: ['questionId'], // Ensure uniqueness by questionId
-            skip: (page - 1) * limit,
-            take: limit
+            select: { questionId: true }
           });
-          
-       
-          
-          // Return the results in the expected format
-          return {
-            codingQuestions,
-            totalCount
-          };
-        } catch (prismaError: any) {
-          console.error('Prisma error in codingQuestions resolver:', prismaError);
-          throw new Error(`Database error: ${prismaError.message}`);
+          const allIds = allQuestions.map(q => q.questionId);
+
+          // Get all submissions for this user for these questions
+          const userSubs = await prisma.problemSubmission.findMany({
+            where: {
+              userId: user.id,
+              problemId: { in: allIds }
+            },
+            select: { problemId: true, allPassed: true }
+          });
+
+          // Map of problemId to submission status
+          const statusMap: Record<string, { hasAccepted: boolean; hasAttempt: boolean }> = {};
+          for (const sub of userSubs) {
+            if (!statusMap[sub.problemId]) {
+              statusMap[sub.problemId] = { hasAccepted: false, hasAttempt: false };
+            }
+            if (sub.allPassed) statusMap[sub.problemId].hasAccepted = true;
+            statusMap[sub.problemId].hasAttempt = true;
+          }
+
+          let filteredIds: string[] = [];
+          if (userStatus === "COMPLETED") {
+            filteredIds = allIds.filter(id => statusMap[id]?.hasAccepted);
+          } else if (userStatus === "IN_PROGRESS") {
+            filteredIds = allIds.filter(id => statusMap[id]?.hasAttempt && !statusMap[id]?.hasAccepted);
+          } else if (userStatus === "NOT_STARTED") {
+            filteredIds = allIds.filter(id => !statusMap[id]);
+          }
+
+          // If no matches, return empty
+          if (filteredIds.length === 0) {
+            return { codingQuestions: [], totalCount: 0 };
+          }
+
+          where.questionId = { in: filteredIds };
         }
+
+        // Get total count first
+        const totalCount = await prisma.codingQuestion.count({ where });
+        // Fetch coding questions with their related data
+        const codingQuestions = await prisma.codingQuestion.findMany({
+          where,
+          include: {
+            question: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                folder: true
+              }
+            },
+            languageOptions: true,
+            testCases: true,
+            tags: true
+          },
+          orderBy: { createdAt: 'desc' },
+          distinct: ['questionId'],
+          skip: (page - 1) * limit,
+          take: limit
+        });
+        return {
+          codingQuestions,
+          totalCount
+        };
       } catch (error) {
         console.error('Error in codingQuestions resolver:', error);
         return {
@@ -747,7 +778,7 @@ export const questionResolvers = {
       }
     },
     
-    // Add new resolver for problemLanguages - fetches enabled languages for a problem
+    // Get languages supported for a specific problem
     problemLanguages: async (_: any, { id }: { id: string }, context: Context) => {
       try {
         validateAuth(context);
@@ -793,6 +824,83 @@ export const questionResolvers = {
       } catch (error) {
         console.error('Error in problemLanguages resolver:', error);
         return [];
+      }
+    },
+
+    // Get counts of user's problem statuses (completed, in progress, not started)
+    userProblemCounts: async (_: any, __: any, context: Context) => {
+      try {
+        const user = validateAuth(context);
+        
+        // Find all coding questions
+        const allCodingQuestions = await prisma.question.findMany({
+          where: {
+            type: "CODING",
+            status: "READY"
+          },
+          select: {
+            id: true
+          }
+        });
+        
+        const total = allCodingQuestions.length;
+        
+        if (total === 0) {
+          return {
+            total: 0,
+            completed: 0,
+            inProgress: 0,
+            notStarted: 0
+          };
+        }
+        
+        // Get all question IDs
+        const questionIds = allCodingQuestions.map(q => q.id);
+        
+        // Find all completed problems (where at least one submission was accepted)
+        const completedProblems = await prisma.problemSubmission.groupBy({
+          by: ['problemId'],
+          where: {
+            userId: user.id,
+            allPassed: true,
+            problemId: {
+              in: questionIds
+            }
+          }
+        });
+        
+        // Find problems in progress (where user has at least one submission but none were accepted)
+        const inProgressProblems = await prisma.problemSubmission.groupBy({
+          by: ['problemId'],
+          where: {
+            userId: user.id,
+            allPassed: false,
+            problemId: {
+              in: questionIds,
+              notIn: completedProblems.map(p => p.problemId)
+            }
+          }
+        });
+        
+        // Calculate counts
+        const completedCount = completedProblems.length;
+        const inProgressCount = inProgressProblems.length;
+        const notStartedCount = total - completedCount - inProgressCount;
+        
+        return {
+          total,
+          completed: completedCount,
+          inProgress: inProgressCount,
+          notStarted: notStartedCount
+        };
+      } catch (error) {
+        console.error('Error fetching user problem counts:', error);
+        return {
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          notStarted: 0
+        };
       }
     }
   },
@@ -1428,6 +1536,106 @@ export const questionResolvers = {
           }
         });
       }));
+    }
+  },
+
+  CodingQuestion: {
+    // Add a resolver for user submission status
+    userSubmissionStatus: async (parent: any, _: any, context: Context) => {
+      try {
+        const user = validateAuth(context);
+        
+        // Return null if no user is authenticated
+        if (!user) {
+          return null;
+        }
+        
+        // Find all user submissions for this problem
+        const submissions = await prisma.problemSubmission.findMany({
+          where: {
+            problemId: parent.questionId,
+            userId: user.id
+          },
+          orderBy: {
+            submittedAt: 'desc'
+          }
+        });
+        
+        // If no submissions found, return default values
+        if (!submissions || submissions.length === 0) {
+          return {
+            hasAccepted: false,
+            attemptCount: 0,
+            lastSubmittedAt: null
+          };
+        }
+        
+        // Check if any submission has been accepted (all test cases passed)
+        const hasAccepted = submissions.some(sub => sub.allPassed);
+        
+        // Return the submission status
+        return {
+          hasAccepted,
+          attemptCount: submissions.length,
+          lastSubmittedAt: submissions[0].submittedAt // First submission is the most recent due to ordering
+        };
+      } catch (error) {
+        console.error('Error getting user submission status:', error);
+        return {
+          hasAccepted: false,
+          attemptCount: 0,
+          lastSubmittedAt: null
+        };
+      }
+    },
+    solvedByCount: async (parent: any) => {
+      // Count unique users with at least one accepted submission for this problem
+      const solvedUsers = await prisma.problemSubmission.findMany({
+        where: {
+          problemId: parent.questionId,
+          allPassed: true
+        },
+        select: {
+          userId: true
+        },
+        distinct: ['userId']
+      });
+      return solvedUsers.length;
+    },
+    totalSubmissions: async (parent: any) => {
+      // Count all submissions for this problem
+      return await prisma.problemSubmission.count({
+        where: {
+          problemId: parent.questionId
+        }
+      });
+    },
+    acceptedSubmissions: async (parent: any) => {
+      // Count all accepted submissions for this problem
+      return await prisma.problemSubmission.count({
+        where: {
+          problemId: parent.questionId,
+          allPassed: true
+        }
+      });
+    },
+    accuracy: async (parent: any) => {
+      // Calculate accuracy as acceptedSubmissions / totalSubmissions * 100
+      const [accepted, total] = await Promise.all([
+        prisma.problemSubmission.count({
+          where: {
+            problemId: parent.questionId,
+            allPassed: true
+          }
+        }),
+        prisma.problemSubmission.count({
+          where: {
+            problemId: parent.questionId
+          }
+        })
+      ]);
+      if (total === 0) return 0;
+      return Math.round((accepted / total) * 100);
     }
   }
 }; 

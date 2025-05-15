@@ -19,6 +19,12 @@ export const questionTypeDefs = gql`
     EXTREME
   }
 
+  enum UserProblemStatus {
+    COMPLETED
+    IN_PROGRESS
+    NOT_STARTED
+  }
+
   type Folder {
     id: ID!
     name: String!
@@ -77,6 +83,11 @@ export const questionTypeDefs = gql`
     testCases: [TestCase!]!
     tags: [Tag!]!
     question: Question
+    userSubmissionStatus: UserSubmissionStatus
+    solvedByCount: Int!
+    totalSubmissions: Int!
+    acceptedSubmissions: Int!
+    accuracy: Float!
   }
 
   type MCQOption {
@@ -211,6 +222,19 @@ export const questionTypeDefs = gql`
     codingCount: Int!
   }
 
+  type UserProblemCounts {
+    total: Int!
+    completed: Int!
+    inProgress: Int!
+    notStarted: Int!
+  }
+
+  type UserSubmissionStatus {
+    hasAccepted: Boolean!
+    attemptCount: Int!
+    lastSubmittedAt: String
+  }
+
   type CodingQuestionsResponse {
     codingQuestions: [CodingQuestion!]!
     totalCount: Int!
@@ -254,6 +278,7 @@ export const questionTypeDefs = gql`
       search: String
       tagIds: [ID!]
       difficulty: QuestionDifficulty
+      userStatus: UserProblemStatus
     ): CodingQuestionsResponse!
     
     question(id: ID!): Question
@@ -278,6 +303,8 @@ export const questionTypeDefs = gql`
     problemDetail(id: ID!): ProblemDetail
     
     problemLanguages(id: ID!): [LanguageOption!]!
+    
+    userProblemCounts: UserProblemCounts!
   }
 
   extend type Mutation {

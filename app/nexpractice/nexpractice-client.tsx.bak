@@ -75,14 +75,13 @@ const GET_ALL_TAGS = gql`
 `;
 
 const GET_CODING_PROBLEMS = gql`
-  query GetCodingProblems($page: Int, $limit: Int, $search: String, $tagIds: [ID!], $difficulty: QuestionDifficulty, $userStatus: UserProblemStatus) {
+  query GetCodingProblems($page: Int, $limit: Int, $search: String, $tagIds: [ID!], $difficulty: QuestionDifficulty) {
     codingQuestions(
       page: $page
       limit: $limit
       search: $search
       tagIds: $tagIds
       difficulty: $difficulty
-      userStatus: $userStatus
     ) {
       codingQuestions {
         id
@@ -98,31 +97,22 @@ const GET_CODING_PROBLEMS = gql`
           id
           name
           status
+          solvedByCount
+          accuracy
         }
-        userSubmissionStatus {
-          hasAccepted
-          attemptCount
-          lastSubmittedAt
-        }
-        solvedByCount
-        totalSubmissions
-        acceptedSubmissions
-        accuracy
       }
       totalCount
     }
+    
+    # Get overall question stats
     questionStats(
       type: CODING
       status: READY
     ) {
       total
       codingCount
-    }
-    userProblemCounts {
-      total
-      completed
-      inProgress
-      notStarted
+      # Count of problems the user has solved (if this field exists in your schema)
+      acceptedSolvedCount
     }
   }
 `;
@@ -1045,10 +1035,6 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
     inProgress: 0,
     notStarted: 0
   })
-  // Add pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const itemsPerPage = 10
   const router = useRouter()
   
   // Replace useQuery with useLazyQuery to control when the queries are executed
@@ -1060,150 +1046,68 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
       fetchPolicy: "cache-and-network" // Always fetch from network but update cache
     });
     
-  // Only fetch tags when switching to the Problems tab
+  // Fetch data when Problems tab is selected
   useEffect(() => {
     if (activeDashboardTab === "problems") {
+      // Trigger queries when problems tab is clicked
       fetchTags();
-    }
-    // eslint-disable-next-line
-  }, [activeDashboardTab]);
-  
-  // Only fetch problems when tab is selected or when filters/pagination change
-  useEffect(() => {
-    if (activeDashboardTab === "problems") {
-      let userStatus: "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | undefined = undefined;
-      if (activeTab === "completed") userStatus = "COMPLETED";
-      else if (activeTab === "inProgress") userStatus = "IN_PROGRESS";
-      else if (activeTab === "notStarted") userStatus = "NOT_STARTED";
       fetchProblems({
         variables: {
-          page: currentPage,
-          limit: itemsPerPage,
+          page: 1,
+          limit: 10,
           search: searchQuery || undefined,
           tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-          difficulty: difficulty !== "All" ? difficulty.toUpperCase() : undefined,
-          userStatus
+          difficulty: difficulty !== "All" ? difficulty.toUpperCase() : undefined
         }
       });
     }
-  }, [activeDashboardTab, fetchProblems, searchQuery, selectedTags, difficulty, currentPage, itemsPerPage, activeTab]);
+  }, [activeDashboardTab, fetchTags, fetchProblems, searchQuery, selectedTags, difficulty]);
   
-  // Reset to page 1 when filters change
+  // Re-run query when search/filters are changed, but only if we're on the problems tab
   useEffect(() => {
-    if (currentPage !== 1) {
-      setCurrentPage(1);
+    if (activeDashboardTab === "problems") {
+      fetchProblems({
+        variables: {
+          page: 1,
+          limit: 10,
+          search: searchQuery || undefined,
+          tagIds: selectedTags.length > 0 ? selectedTags : undefined,
+          difficulty: difficulty !== "All" ? difficulty.toUpperCase() : undefined
+        }
+      });
     }
-  }, [searchQuery, selectedTags, difficulty, activeTab]);
+  }, [searchQuery, selectedTags, difficulty, fetchProblems, activeDashboardTab]);
   
-  // Update the useEffect to set problem counts and total pages when data is received
+  // Update problem counts when data is received
   useEffect(() => {
     if (problemsData) {
       // Get total count from questionStats
       const totalProblems = problemsData.questionStats?.total || 0;
       
-      // Use the actual user problem counts from the GraphQL response
-      const userCounts = problemsData.userProblemCounts || {
-        total: totalProblems,
-        completed: 0,
-        inProgress: 0,
-        notStarted: totalProblems
-      };
+      // Get completed count directly from API (if available)
+      // Or use the fallback calculation
+      const completedCount = problemsData.questionStats?.acceptedSolvedCount || Math.floor(totalProblems * 0.3);
+      
+      // Since we don't have in-progress count from API, estimate it
+      const inProgressCount = Math.floor(totalProblems * 0.2);
+      
+      // Not started is the remainder
+      const notStartedCount = totalProblems - completedCount - inProgressCount;
       
       setProblemCounts({
-        total: userCounts.total || totalProblems,
-        completed: userCounts.completed || 0,
-        inProgress: userCounts.inProgress || 0,
-        notStarted: userCounts.notStarted || totalProblems
+        total: totalProblems,
+        completed: completedCount,
+        inProgress: inProgressCount,
+        notStarted: Math.max(0, notStartedCount) // Ensure non-negative
       });
-      
-      // Calculate total pages
-      const totalItems = problemsData.codingQuestions.totalCount || 0;
-      const calculatedPages = Math.ceil(totalItems / itemsPerPage);
-      setTotalPages(calculatedPages > 0 ? calculatedPages : 1);
     }
-  }, [problemsData, itemsPerPage]);
-  
-  // Remove the problemCounts declaration from here (we moved it up)
+  }, [problemsData]);
 
   // Memoized tags data to prevent unnecessary re-renders
   const allTags = useMemo(() => {
     if (!tagsData?.tags) return [];
-    return tagsData.tags.map((tag: { id: string; name: string; _count: { codingQuestions: number } }) => ({
+  return tagsData.tags.map((tag: { id: string; name: string; _count: { codingQuestions: number } }) => ({
       id: tag.id,
-      name: tag.name,
-      count: tag._count.codingQuestions
-    }));
-  }, [tagsData?.tags]);
-  
-  // Memoized problems data converted to UI format
-  const formattedProblems = useMemo(() => {
-    if (!problemsData?.codingQuestions?.codingQuestions) return [];
-    
-    return problemsData.codingQuestions.codingQuestions.map((problem: any, index: number) => {
-      // Map difficulty from enum to display format
-      const difficultyMap: Record<string, string> = {
-        EASY: "Easy",
-        MEDIUM: "Medium",
-        HARD: "Hard",
-        VERY_HARD: "Very Hard",
-        EXTREME: "Extreme"
-      };
-      
-      // Calculate the actual index based on pagination
-      const problemNumber = (currentPage - 1) * itemsPerPage + index + 1;
-      
-      // Determine problem status based on user submission data
-      const userStatus = problem.userSubmissionStatus || { hasAccepted: false, attemptCount: 0 };
-      let status = "Not Started";
-      if (userStatus.hasAccepted) {
-        status = "Completed";
-      } else if (userStatus.attemptCount > 0) {
-        status = "In Progress";
-      }
-      return {
-        id: problem.questionId,
-        title: problem.question.name,
-        difficulty: difficultyMap[problem.difficulty as keyof typeof difficultyMap] || String(problem.difficulty),
-        tags: problem.tags.map((tag: { name: string }) => tag.name),
-        completion: Math.floor(Math.random() * 100), // Random completion percent for demo
-        description: problem.questionText,
-        status: status,
-        lastAttempt: userStatus.lastSubmittedAt ? new Date(userStatus.lastSubmittedAt).toLocaleDateString() : "-",
-        attempts: userStatus.attemptCount || 0,
-        timeSpent: status === "Not Started" ? "-" : `${Math.floor(Math.random() * 45) + 5} min`, // Still using random for demo
-        solvedByCount: problem.solvedByCount || 0,
-        accuracy: problem.accuracy || 0,
-        acceptedSubmissions: problem.acceptedSubmissions || 0,
-        totalSubmissions: problem.totalSubmissions || 0,
-        premium: false, // Removed premium flag as requested
-        problemNumber // Add the problem number for display
-      };
-    });
-  }, [problemsData?.codingQuestions?.codingQuestions, currentPage, itemsPerPage]);
-
-  // Filter problems based on selected criteria - memoized for performance
-  const filteredProblems = useMemo(() => {
-    if (problemsLoading) return [];
-    return formattedProblems;
-  }, [formattedProblems, problemsLoading]);
-
-  useEffect(() => {
-    setMounted(true)
-    
-    // Track loading states separately
-    setTagsLoading(tagsQueryLoading);
-    setLoadingProblems(problemsLoading);
-  }, [tagsQueryLoading, problemsLoading])
-
-  if (!mounted) return null
-
-  // Toggle tag selection
-  const toggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter((t) => t !== tag))
-    } else {
-      setSelectedTags([...selectedTags, tag])
-    }
   }
 
   // Clear all selected tags
@@ -1251,98 +1155,10 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
     }
   }
 
-  // Helper for smart pagination range
-  function getPaginationRange(currentPage: number, totalPages: number, siblingCount = 1) {
-    const totalPageNumbers = siblingCount * 2 + 5;
-    if (totalPages <= totalPageNumbers) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const leftSiblingIndex = Math.max(currentPage - siblingCount, 1);
-    const rightSiblingIndex = Math.min(currentPage + siblingCount, totalPages);
-    const showLeftEllipsis = leftSiblingIndex > 2;
-    const showRightEllipsis = rightSiblingIndex < totalPages - 1;
-    const range: (number | string)[] = [];
-    range.push(1);
-    if (showLeftEllipsis) range.push('...');
-    for (let i = leftSiblingIndex; i <= rightSiblingIndex; i++) {
-      if (i !== 1 && i !== totalPages) range.push(i);
-    }
-    if (showRightEllipsis) range.push('...');
-    if (totalPages > 1) range.push(totalPages);
-    return range;
-  }
-
-  // Pagination controls component
-  function PaginationControls() {
-    const range = getPaginationRange(currentPage, totalPages);
-    return (
-      <div className="flex justify-center my-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 px-4"
-            onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1 || problemsLoading}
-          >
-            Previous
-          </Button>
-          {range.map((page, idx) =>
-            typeof page === 'number' ? (
-              <Button
-                key={page}
-                variant="outline"
-                size="sm"
-                className={`h-9 w-9 ${page === currentPage ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800" : ""}`}
-                onClick={() => setCurrentPage(page)}
-                disabled={problemsLoading}
-              >
-                {page}
-              </Button>
-            ) : (
-              <span key={"ellipsis-" + idx} className="text-slate-400 dark:text-slate-600">...</span>
-            )
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 px-4"
-            onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages || problemsLoading}
-          >
-            Next
-          </Button>
-          {problemsLoading && (
-            <span className="flex items-center justify-center ml-2">
-              <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Helper to format solvedByCount as 1, 2, ..., 999, 1k, 1.1k, ...
-  function formatSolvedByCount(count: number) {
-    if (count < 1000) return count.toString();
-    if (count < 10000) return (count / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-    return Math.floor(count / 1000) + "k";
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 dark:from-slate-950 dark:to-slate-900">
-      {/* Add shimmer animation keyframes */}
-      <style jsx global>{`
-        @keyframes shimmer {
-          100% {
-            transform: translateX(100%);
-          }
-        }
-      `}</style>
-      
+
+
       {/* Main content */}
       <main className="container py-6">
         {/* Hero section */}
@@ -2140,18 +1956,10 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
               </div>
 
               {/* Innovative Problem Cards Grid */}
-              <div className="space-y-4" id="problems-section">
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                    {!loadingProblems ? `${filteredProblems.length} Problems Found` : (
-                      <span className="flex items-center">
-                        <svg className="animate-spin mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading Problems...
-                      </span>
-                    )}
+                    {!loadingProblems ? `${filteredProblems.length} Problems Found` : "Loading Problems..."}
                   </h3>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="h-9 gap-1">
@@ -2169,10 +1977,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                 {loadingProblems ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm animate-pulse relative overflow-hidden">
-                        {/* Add shimmer effect */}
-                        <div className="absolute top-0 -inset-x-full h-full transform translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_1.5s_infinite]"></div>
-                        
+                      <div key={i} className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm animate-pulse">
                         <div className="flex justify-between items-start mb-4">
                           <div className="w-3/4 h-6 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
                           <div className="w-16 h-6 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
@@ -2213,19 +2018,22 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                       solvedByCount: number;
                       accuracy: number;
                       premium: boolean;
-                      problemNumber: number;
-                      acceptedSubmissions: number;
-                      totalSubmissions: number;
                     }, index: number) => {
-                      // Get top color based on difficulty
-                      const difficultyColor = problem.difficulty === "Easy"
+                      // Determine status color
+                      const statusColor = problem.status === "Completed"
                         ? "bg-green-500 dark:bg-green-600"
-                        : problem.difficulty === "Medium"
+                        : problem.status === "In Progress"
                           ? "bg-yellow-500 dark:bg-yellow-600"
-                          : "bg-red-500 dark:bg-red-600";
+                          : problem.status === "Failed"
+                            ? "bg-red-500 dark:bg-red-600"
+                            : "bg-slate-400 dark:bg-slate-600";
 
-                      // Determine if solved by the user
-                      const isSolved = problem.status === "Completed";
+                      // Determine difficulty color
+                      const difficultyColor = problem.difficulty === "Easy"
+                        ? "from-green-500 to-emerald-600 border-green-400 dark:border-green-700"
+                        : problem.difficulty === "Medium"
+                          ? "from-yellow-500 to-amber-600 border-yellow-400 dark:border-yellow-700"
+                          : "from-red-500 to-rose-600 border-red-400 dark:border-red-700";
 
                       return (
                         <motion.div
@@ -2236,78 +2044,62 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                           whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
                           className="relative bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300"
                         >
-                          {/* Difficulty color indicator */}
-                          <div className={`absolute top-0 left-0 w-full h-1.5 ${difficultyColor}`}></div>
+                          {/* Status indicator */}
+                          <div className={`absolute top-0 left-0 w-full h-1 ${statusColor}`}></div>
 
                           {/* Problem number badge */}
-                          <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-700 dark:text-blue-300 text-sm font-medium">
-                            {problem.problemNumber}
+                          <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-700 dark:text-blue-300 text-sm font-medium">
+                            {index + 1}
                           </div>
 
-                          {/* Solved indicator */}
-                          {isSolved && (
-                            <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center text-green-600 dark:text-green-400">
-                              <CheckCircle className="w-4 h-4" />
-                            </div>
-                          )}
-                          {!isSolved && problem.status === "In Progress" && (
-                            <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900/50 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-                              <StarHalf className="w-4 h-4" />
+                          {/* Premium badge */}
+                          {problem.premium && (
+                            <div className="absolute top-4 right-4 flex items-center gap-1 bg-gradient-to-r from-amber-200 to-yellow-300 dark:from-amber-700 dark:to-yellow-600 px-2 py-1 rounded-full text-xs font-semibold text-amber-900 dark:text-amber-100 shadow-sm">
+                              <Crown className="h-3 w-3" />
+                              PREMIUM
                             </div>
                           )}
 
-                          <div className="p-5 pt-12">
-                            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                              {problem.title}
-                            </h3>
+                          <div className="p-6 pt-12">
+                            <div className="mb-3">
+                              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2 pr-16">
+                                {problem.title}
+                              </h3>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 min-h-[40px]">
+                                {problem.description}
+                              </p>
+                            </div>
 
-                            <div className="flex flex-wrap gap-1.5 mb-3">
-                              <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                problem.difficulty === "Easy" 
-                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
-                                  : problem.difficulty === "Medium"
-                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              }`}>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              <div className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${difficultyColor} text-white shadow-sm`}>
                                 {problem.difficulty}
                               </div>
                               {problem.tags.slice(0, 2).map((tag: string, idx: number) => (
-                                <div key={idx} className="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                <div key={idx} className="px-3 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                   {tag}
                                 </div>
                               ))}
                               {problem.tags.length > 2 && (
-                                <div className="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                <div className="px-3 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                   +{problem.tags.length - 2}
                                 </div>
                               )}
                             </div>
 
                             <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-xs">
-                                  <Users className="h-3 w-3" />
-                                  <span>{formatSolvedByCount(problem.solvedByCount)}</span>
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-sm">
+                                  <Users className="h-3.5 w-3.5" />
+                                  <span>{(problem.solvedByCount / 1000).toFixed(1)}k</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-xs">
-                                  <CheckCircle className="h-3 w-3" />
+                                <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-sm">
+                                  <CheckCircle className="h-3.5 w-3.5" />
                                   <span>{problem.accuracy}%</span>
-                                  <span className="ml-1 text-[10px] text-slate-400 dark:text-slate-500">({problem.acceptedSubmissions}/{problem.totalSubmissions})</span>
                                 </div>
                               </div>
 
-                              <Button 
-                                size="sm" 
-                                variant="default"
-                                className={`px-3 h-8 text-white ${
-                                  isSolved
-                                    ? "bg-green-500 hover:bg-green-600"
-                                    : problem.status === "In Progress"
-                                      ? "bg-yellow-500 hover:bg-yellow-600"
-                                      : "bg-blue-500 hover:bg-blue-600"
-                                }`}
-                              >
-                                {isSolved ? "Solved" : problem.status === "In Progress" ? "In Progress" : "Solve"}
+                              <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-sm">
+                                Solve
                               </Button>
                             </div>
                           </div>
@@ -2331,7 +2123,29 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                 )}
 
                 {filteredProblems.length > 0 && (
-                  <PaginationControls />
+                  <div className="flex justify-center mt-8">
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="h-9 px-4">
+                        Previous
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 w-9 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                        1
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 w-9">
+                        2
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 w-9">
+                        3
+                      </Button>
+                      <span className="text-slate-400 dark:text-slate-600">...</span>
+                      <Button variant="outline" size="sm" className="h-9 w-9">
+                        12
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 px-4">
+                        Next
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -3042,12 +2856,12 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
               <div className="space-y-6">
                 {/* Enhanced Skill Analysis */}
                 <Card className="border-none rounded-xl shadow-md overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/40 backdrop-blur-sm pb-3 w-full">
+                  <CardHeader className="bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/40 backdrop-sm pb-3 w-full">
                     <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                       <Gauge className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Skill Analysis
                     </CardTitle>
                     <CardDescription className="text-slate-600 dark:text-slate-400">
-                      Your strengths and areas for improvement
+                      Detailed breakdown of your coding skills
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
