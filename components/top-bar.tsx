@@ -66,7 +66,7 @@ export function TopBar({
   const derivedCourseTitle = courseTitle || (isCoursePage ? "Python Basics" : "")
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border px-4 bg-card">
+    <header className="flex h-16 items-center justify-between bg-card backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/30 pr-2 md:pr-4">
       <div className="flex items-center">
         {/* Show hamburger menu on mobile and tablet */}
         {isMobile && (

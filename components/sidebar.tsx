@@ -8,7 +8,7 @@ import type { SidebarProps } from './client-sidebar'
 
 // Dynamically import the Sidebar with SSR disabled
 const ClientSidebar = dynamic<SidebarProps>(
-  () => import('./client-sidebar').then((mod) => mod.Sidebar),
+  () => import('./client-sidebar').then((mod) => mod.ClientSidebar),
   { ssr: false }
 )
 

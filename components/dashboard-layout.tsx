@@ -19,7 +19,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const effectiveSidebarOpen = isMobile ? sidebarOpen : true
 
   return (
-    <div className="flex h-screen w-screen fixed inset-0 overflow-hidden bg-background">
+    <div className="flex h-screen w-full bg-background">
       {/* Sidebar - Note that it's already equipped with a hamburger menu on mobile via TopBar */}
       <Sidebar
         className={isMobile ? "" : `transition-all duration-300 ease-in-out ${sidebarCollapsed ? "w-16" : "w-72"}`}
