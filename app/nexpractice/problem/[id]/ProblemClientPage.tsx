@@ -69,7 +69,8 @@ import {
   Type,
   Indent,
   Compass,
-  Shuffle
+  Shuffle,
+  Flame
 } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -1773,7 +1774,18 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
               : 'First Day Streak'
           });
         } else if (xpData.streakInfo) {
-          console.log('[Streak XP] Streak maintained but not updated - no streak XP notification');
+          // Check if the problem was already solved before (no streak update/maintenance)
+          if (!xpData.awarded) {
+            console.log('[Streak XP] Problem already solved - not counting for streak');
+            // Add an informational message about streak (0 XP, just a message)
+            generatedXpEvents.push({
+              amount: 0,
+              eventType: 'streak_info',
+              description: 'Already solved problems don\'t count for streaks'
+            });
+          } else {
+            console.log('[Streak XP] Streak maintained but not updated - no streak XP notification');
+          }
         }
         
         // Enhanced debugging for XP events
@@ -3196,6 +3208,17 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
                       dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description) }}
                     />
                   </article>
+                  
+                  {/* Streak information card */}
+                  <div className="mx-4 mt-3 mb-5 p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5 mb-1">
+                      <Flame className="h-4 w-4" /> About Streaks
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      To maintain your streak, solve at least one <strong>new problem</strong> each day. 
+                      Re-solving previously completed problems doesn't count towards your streak.
+                    </p>
+                  </div>
                 </div>
                 
                 {/* Example test cases with test-case-card styling */}

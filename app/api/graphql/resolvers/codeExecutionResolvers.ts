@@ -364,34 +364,65 @@ export const codeExecutionResolvers = {
                 // Record streak activity when user solves a problem correctly
                 try {
                   console.log('Recording streak activity for user:', context.session.user.id, 'with timezone offset:', userTimezoneOffset);
-                  const streakResult = await recordActivity(
-                    context.session.user.id,
-                    'submission',
-                    0, // Don't add additional XP here since it's already awarded above
-                    userTimezoneOffset // Pass timezone offset for accurate date calculation
-                  );
                   
-                  console.log('Streak activity result:', streakResult);
-                  streakInfo = streakResult;
-                  
-                  // IMPORTANT: Log when a streak is established or maintained
-                  if (streakResult.streakUpdated || streakResult.streakMaintained) {
-                    console.log('⭐️ STREAK ESTABLISHED/MAINTAINED ⭐️', {
+                  // First check if this problem was already solved by the user
+                  const previousCorrectSubmission = await prisma.problemSubmission.findFirst({
+                    where: {
                       userId: context.session.user.id,
-                      currentStreak: streakResult.currentStreak,
-                      streakUpdated: streakResult.streakUpdated,
-                      streakMaintained: streakResult.streakMaintained,
-                      longestStreak: streakResult.longestStreak || streakResult.currentStreak,
-                      timezoneOffset: userTimezoneOffset
-                    });
-                  } else {
-                    console.log('No streak established or maintained');
-                  }
+                      problemId: problemId,
+                      allPassed: true,
+                      // Exclude the current submission we just created
+                      id: { not: submissionId }
+                    }
+                  });
                   
-                  // If this is the first submission that updated the streak today
-                  if (streakResult.streakUpdated && !streakResult.streakMaintained) {
-                    console.log('Streak updated - awarding additional XP');
-                    totalXPAwarded += XP_REWARDS.STREAK_DAY;
+                  // Only count this submission for streak if it's a new problem (not previously solved)
+                  if (!previousCorrectSubmission) {
+                    console.log('New problem solved - recording for streak');
+                    const streakResult = await recordActivity(
+                      context.session.user.id,
+                      'submission',
+                      0, // Don't add additional XP here since it's already awarded above
+                      userTimezoneOffset // Pass timezone offset for accurate date calculation
+                    );
+                    
+                    console.log('Streak activity result:', streakResult);
+                    streakInfo = streakResult;
+                    
+                    // IMPORTANT: Log when a streak is established or maintained
+                    if (streakResult.streakUpdated || streakResult.streakMaintained) {
+                      console.log('⭐️ STREAK ESTABLISHED/MAINTAINED ⭐️', {
+                        userId: context.session.user.id,
+                        currentStreak: streakResult.currentStreak,
+                        streakUpdated: streakResult.streakUpdated,
+                        streakMaintained: streakResult.streakMaintained,
+                        longestStreak: streakResult.longestStreak || streakResult.currentStreak,
+                        timezoneOffset: userTimezoneOffset
+                      });
+                    } else {
+                      console.log('No streak established or maintained');
+                    }
+                    
+                    // If this is the first submission that updated the streak today
+                    if (streakResult.streakUpdated && !streakResult.streakMaintained) {
+                      console.log('Streak updated - awarding additional XP');
+                      totalXPAwarded += XP_REWARDS.STREAK_DAY;
+                    }
+                  } else {
+                    console.log('Problem already solved previously - not counting for streak');
+                    // Get the current streak information without updating it
+                    const userStreak = await prisma.userStreak.findFirst({
+                      where: { userId: context.session.user.id }
+                    });
+                    
+                    // Set streak info for the response
+                    streakInfo = {
+                      currentStreak: userStreak?.currentStreak || 0,
+                      streakUpdated: false,
+                      streakMaintained: false,
+                      freezeUsed: false,
+                      longestStreak: userStreak?.longestStreak
+                    };
                   }
                   
                   // Set XP info for response
@@ -401,7 +432,7 @@ export const codeExecutionResolvers = {
                     newTotal: xpResult?.userXP?.xp || 0,
                     levelUp: !!newLevel,
                     newLevel: newLevel || null,
-                    streakInfo: streakResult
+                    streakInfo: streakInfo
                   };
                   
                   console.log('Final XP info with streak:', xpInfo);

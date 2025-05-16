@@ -518,7 +518,17 @@ export const questionResolvers = {
             return { codingQuestions: [], totalCount: 0 };
           }
 
-          where.questionId = { in: filteredIds };
+          // Reset where to only filter by questionId and re-apply top-level filters
+          where = {
+            questionId: { in: filteredIds }
+          };
+          if (difficulty) where.difficulty = difficulty;
+          if (search) {
+            where.OR = [
+              { questionText: { contains: search, mode: "insensitive" } },
+              { question: { name: { contains: search, mode: "insensitive" } } }
+            ];
+          }
         }
 
         // Get total count first

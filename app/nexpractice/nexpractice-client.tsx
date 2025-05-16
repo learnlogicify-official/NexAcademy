@@ -1069,12 +1069,17 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
   }, [activeDashboardTab]);
   
   // Only fetch problems when tab is selected or when filters/pagination change
+  // Note: tagIds expects an array of tag IDs, not tag names
   useEffect(() => {
     if (activeDashboardTab === "problems") {
       let userStatus: "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | undefined = undefined;
       if (activeTab === "completed") userStatus = "COMPLETED";
       else if (activeTab === "inProgress") userStatus = "IN_PROGRESS";
       else if (activeTab === "notStarted") userStatus = "NOT_STARTED";
+      
+      // Log the tags being sent to the query for debugging
+      console.log("Sending tag IDs to query:", selectedTags);
+      
       fetchProblems({
         variables: {
           page: currentPage,
@@ -1199,6 +1204,9 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
 
   // Toggle tag selection
   const toggleTag = (tag: string) => {
+    console.log("Toggling tag ID:", tag);
+    console.log("Current selectedTags:", selectedTags);
+    
     if (selectedTags.includes(tag)) {
       setSelectedTags(selectedTags.filter((t) => t !== tag))
     } else {
@@ -1766,7 +1774,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
 
               {/* Smart Recommendations */}
               <Card className="md:col-span-3 border-none rounded-xl overflow-hidden shadow-md">
-                <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-950/30 dark:to-cyan-950/40 backdrop-blur-sm pb-3 w-full">
+                <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-950/30 dark:to-cyan-950/40 backdrop-sm pb-3 w-full">
                   <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                     <Sparkles className="w-5 h-5 text-blue-500" /> Recommended For You
                   </CardTitle>
@@ -1920,13 +1928,13 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                               .sort((a: { count: number }, b: { count: number }) => b.count - a.count)
                               .slice(0, 12) // Show only top 12 tags by default
                               .map((tag: { id: string; name: string; count: number }) => {
-                                const isSelected = selectedTags.includes(tag.name);
+                                const isSelected = selectedTags.includes(tag.id);
                                 return (
                                   <motion.div
                                     key={tag.id}
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
-                                    onClick={() => toggleTag(tag.name)}
+                                    onClick={() => toggleTag(tag.id)}
                                     className={`relative cursor-pointer rounded-full overflow-hidden transition-all duration-300 ${isSelected
                                       ? "shadow-md"
                                       : "shadow-sm hover:shadow"
@@ -2005,7 +2013,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                               .sort((a: { count: number }, b: { count: number }) => b.count - a.count)
                               .slice(12) // Skip the first 12 tags that are already shown
                               .map((tag: { id: string; name: string; count: number }) => {
-                                const isSelected = selectedTags.includes(tag.name);
+                                const isSelected = selectedTags.includes(tag.id);
                                 return (
                                   <motion.div
                                     key={tag.id}
@@ -2014,7 +2022,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                                     transition={{ duration: 0.2 }}
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
-                                    onClick={() => toggleTag(tag.name)}
+                                    onClick={() => toggleTag(tag.id)}
                                     className={`relative cursor-pointer rounded-full overflow-hidden transition-all duration-300 ${isSelected
                                       ? "shadow-md"
                                       : "shadow-sm hover:shadow"
@@ -2194,7 +2202,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                   </div>
                 ) : filteredProblems.length > 0 ? (
                   <motion.div
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-3"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
@@ -2217,15 +2225,21 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                       acceptedSubmissions: number;
                       totalSubmissions: number;
                     }, index: number) => {
-                      // Get top color based on difficulty
-                      const difficultyColor = problem.difficulty === "Easy"
-                        ? "bg-green-500 dark:bg-green-600"
-                        : problem.difficulty === "Medium"
-                          ? "bg-yellow-500 dark:bg-yellow-600"
-                          : "bg-red-500 dark:bg-red-600";
+                      // Get difficulty styling
+                      const difficultyStyles = {
+                        Easy: "bg-gradient-to-r from-green-500 to-emerald-600 text-white",
+                        Medium: "bg-gradient-to-r from-yellow-500 to-amber-600 text-white",
+                        Hard: "bg-gradient-to-r from-red-500 to-rose-600 text-white",
+                        "Very Hard": "bg-gradient-to-r from-purple-500 to-purple-700 text-white",
+                        Extreme: "bg-gradient-to-r from-slate-700 to-slate-900 text-white"
+                      };
 
-                      // Determine if solved by the user
-                      const isSolved = problem.status === "Completed";
+                      // Status styles
+                      const statusStyles = {
+                        "Completed": "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 ring-1 ring-green-600/20 dark:ring-green-400/20",
+                        "In Progress": "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-600/20 dark:ring-amber-400/20",
+                        "Not Started": "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 ring-1 ring-slate-600/10 dark:ring-slate-400/10"
+                      };
 
                       return (
                         <motion.div
@@ -2233,81 +2247,109 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
-                          whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
-                          className="relative bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300"
+                          whileHover={{ y: -2, boxShadow: "0 8px 20px -4px rgba(0, 0, 0, 0.1), 0 6px 8px -4px rgba(0, 0, 0, 0.05)" }}
+                          className="relative bg-white dark:bg-slate-900/80 backdrop-blur-sm rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800/80 shadow-sm transition-all duration-300 group"
                         >
-                          {/* Difficulty color indicator */}
-                          <div className={`absolute top-0 left-0 w-full h-1.5 ${difficultyColor}`}></div>
-
-                          {/* Problem number badge */}
-                          <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-700 dark:text-blue-300 text-sm font-medium">
-                            {problem.problemNumber}
-                          </div>
-
-                          {/* Solved indicator */}
-                          {isSolved && (
-                            <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center text-green-600 dark:text-green-400">
-                              <CheckCircle className="w-4 h-4" />
-                            </div>
-                          )}
-                          {!isSolved && problem.status === "In Progress" && (
-                            <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900/50 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-                              <StarHalf className="w-4 h-4" />
-                            </div>
-                          )}
-
-                          <div className="p-5 pt-12">
-                            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                              {problem.title}
-                            </h3>
-
-                            <div className="flex flex-wrap gap-1.5 mb-3">
-                              <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                problem.difficulty === "Easy" 
-                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
-                                  : problem.difficulty === "Medium"
-                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              }`}>
+                          <div className="flex items-center">
+                            {/* Left: Problem number and difficulty */}
+                            <div className="flex-shrink-0 pl-3 pr-4 py-3 flex flex-col items-center justify-center border-r border-slate-100 dark:border-slate-800/50">
+                              <span className="text-xl font-bold text-slate-800 dark:text-slate-200">{problem.problemNumber}</span>
+                              <div className={`mt-1.5 text-xs font-medium px-2 py-1 rounded-full ${difficultyStyles[problem.difficulty as keyof typeof difficultyStyles] || difficultyStyles.Medium}`}>
                                 {problem.difficulty}
                               </div>
-                              {problem.tags.slice(0, 2).map((tag: string, idx: number) => (
-                                <div key={idx} className="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                  {tag}
-                                </div>
-                              ))}
-                              {problem.tags.length > 2 && (
-                                <div className="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                  +{problem.tags.length - 2}
-                                </div>
-                              )}
                             </div>
 
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-xs">
-                                  <Users className="h-3 w-3" />
-                                  <span>{formatSolvedByCount(problem.solvedByCount)}</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 text-xs">
-                                  <CheckCircle className="h-3 w-3" />
-                                  <span>{problem.accuracy}%</span>
-                                  <span className="ml-1 text-[10px] text-slate-400 dark:text-slate-500">({problem.acceptedSubmissions}/{problem.totalSubmissions})</span>
+                            {/* Middle: Problem info */}
+                            <div className="flex-grow px-3 py-3">
+                              <div className="flex items-start justify-between">
+                                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mr-2">
+                                  {problem.title}
+                                </h3>
+                                <div className={`flex-shrink-0 px-2 py-1 text-xs font-medium rounded-full ${statusStyles[problem.status as keyof typeof statusStyles] || statusStyles["Not Started"]}`}>
+                                  {problem.status}
                                 </div>
                               </div>
 
+                              {/* Tags row */}
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                {problem.tags.slice(0, 3).map((tag: string, idx: number) => (
+                                  <div key={idx} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400">
+                                    {tag}
+                                  </div>
+                                ))}
+                                {problem.tags.length > 3 && (
+                                  <div className="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                                    +{problem.tags.length - 3}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Stats row */}
+                              <div className="flex items-center mt-2 text-[10px] text-slate-500 dark:text-slate-500 space-x-3">
+                                <div className="flex items-center gap-1">
+                                  <Users className="h-3 w-3 text-slate-400" />
+                                  <span className="text-slate-600 dark:text-slate-400">{formatSolvedByCount(problem.solvedByCount)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-500" />
+                                  <span className="text-slate-600 dark:text-slate-400">{problem.accuracy}%</span>
+                                </div>
+                                {problem.attempts > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3 text-slate-400" />
+                                    <span>{problem.timeSpent}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right: Action button */}
+                            <div className="flex-shrink-0 pr-3 pl-2">
                               <Button 
-                                size="sm" 
-                                variant="default"
-                                className={`px-3 h-8 text-white ${
-                                  isSolved
-                                    ? "bg-green-500 hover:bg-green-600"
-                                    : problem.status === "In Progress"
-                                      ? "bg-yellow-500 hover:bg-yellow-600"
-                                      : "bg-blue-500 hover:bg-blue-600"
+                                size="sm"
+                                variant="ghost"
+                                className={`h-8 w-8 rounded-full p-0 ${problem.status === "Completed"
+                                  ? "text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
+                                  : problem.status === "In Progress"
+                                    ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-900/20"
+                                    : "text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20"
                                 }`}
                               >
-                                {isSolved ? "Solved" : problem.status === "In Progress" ? "In Progress" : "Solve"}
+                                {problem.status === "Completed" ? (
+                                  <CheckCircle className="h-5 w-5" />
+                                ) : problem.status === "In Progress" ? (
+                                  <StarHalf className="h-5 w-5" />
+                                ) : (
+                                  <ArrowUpDown className="h-5 w-5" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Bottom action row (reveals on hover) */}
+                          <div className="h-0 group-hover:h-10 overflow-hidden transition-all duration-300 border-t border-slate-100 dark:border-slate-800/50 opacity-0 group-hover:opacity-100">
+                            <div className="flex items-center justify-between px-3 py-2">
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                  <Info className="h-3 w-3 mr-1" />
+                                  Details
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                  <BookOpen className="h-3 w-3 mr-1" />
+                                  Notes
+                                </Button>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                className={`h-6 px-3 text-xs text-white ${problem.status === "Completed"
+                                  ? "bg-green-500 hover:bg-green-600"
+                                  : problem.status === "In Progress"
+                                    ? "bg-amber-500 hover:bg-amber-600"
+                                    : "bg-blue-500 hover:bg-blue-600"
+                                }`}
+                                onClick={() => router.push(`/nexpractice/problem/${problem.id}`)}
+                              >
+                                {problem.status === "Completed" ? "Solve Again" : problem.status === "In Progress" ? "Continue" : "Solve"}
                               </Button>
                             </div>
                           </div>
@@ -2832,7 +2874,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
               {/* Performance Overview */}
               <div className="md:col-span-2 space-y-6">
                 <Card className="border-none rounded-xl shadow-md overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-950/30 dark:to-cyan-950/40 backdrop-blur-sm pb-3 w-full">
+                  <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-950/30 dark:to-cyan-950/40 backdrop-sm pb-3 w-full">
                     <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                       <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Performance Overview
                     </CardTitle>
@@ -3042,7 +3084,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
               <div className="space-y-6">
                 {/* Enhanced Skill Analysis */}
                 <Card className="border-none rounded-xl shadow-md overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/40 backdrop-blur-sm pb-3 w-full">
+                  <CardHeader className="bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/40 backdrop-sm pb-3 w-full">
                     <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                       <Gauge className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Skill Analysis
                     </CardTitle>

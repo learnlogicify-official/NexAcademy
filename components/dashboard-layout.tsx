@@ -8,6 +8,11 @@ import { TopBar } from "@/components/top-bar"
 import { useMobile } from "@/hooks/use-mobile"
 import { useTheme } from "next-themes"
 
+/**
+ * @deprecated Use the DashboardShell in app/dashboard-shell.tsx instead
+ * This component is kept for backward compatibility but new pages should use
+ * the persistent shell structure under app/(dashboard)
+ */
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false) // Default closed for mobile
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)

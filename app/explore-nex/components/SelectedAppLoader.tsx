@@ -51,48 +51,13 @@ export const SelectedAppLoader: React.FC<SelectedAppLoaderProps> = ({
             </motion.div>
           </div>
 
-          {/* Loading spinner */}
+          {/* Loading spinner - Updated to use blue spinner */}
           {isLoading && (
-            <div className="absolute inset-0 rounded-full">
-              {/* Outer ring */}
-              <motion.div
-                className="absolute inset-0 rounded-full border-4 border-white border-opacity-20 border-t-transparent"
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Number.POSITIVE_INFINITY, duration: 1.5, ease: "linear" }}
-              />
-
-              {/* Inner ring */}
-              <motion.div
-                className="absolute inset-3 rounded-full border-4 border-white border-opacity-40 border-b-transparent"
-                animate={{ rotate: -360 }}
-                transition={{ repeat: Number.POSITIVE_INFINITY, duration: 2, ease: "linear" }}
-              />
-
-              {/* Loading dots */}
-              {[...Array(8)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-2 h-2 rounded-full bg-white"
-                  style={{
-                    top: "50%",
-                    left: "50%",
-                    marginLeft: -4,
-                    marginTop: -4,
-                    transformOrigin: "center calc(-50% + 4px)",
-                    transform: `rotate(${i * 45}deg) translateY(-40px)`,
-                  }}
-                  animate={{
-                    opacity: [0.2, 1, 0.2],
-                    scale: [0.8, 1, 0.8],
-                  }}
-                  transition={{
-                    repeat: Number.POSITIVE_INFINITY,
-                    duration: 1.5,
-                    delay: i * 0.15,
-                    ease: "easeInOut",
-                  }}
-                />
-              ))}
+            <div className="absolute -inset-4 flex items-center justify-center">
+              <div className="relative h-[140px] w-[140px]">
+                <div className="absolute inset-0 rounded-full border-4 border-blue-200 dark:border-blue-800 opacity-75"></div>
+                <div className="absolute inset-0 rounded-full border-t-4 border-blue-600 dark:border-blue-400 animate-spin"></div>
+              </div>
             </div>
           )}
 

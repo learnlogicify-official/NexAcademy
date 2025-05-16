@@ -34,3 +34,8 @@ export function stopNexPracticeLoading() {
   globalExitAnimationState = false;
   notifyListeners();
 }
+
+// Expose the function to the global window object
+if (typeof window !== 'undefined') {
+  (window as any).stopNexPracticeLoading = stopNexPracticeLoading;
+}
