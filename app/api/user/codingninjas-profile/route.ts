@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    console.log(`Fetching Coding Ninjas profile for username: ${username}`);
     
     // Determine the script path relative to the project root
     const scriptPath = path.join(process.cwd(), 'scripts', 'fetch-codingninjas.js');

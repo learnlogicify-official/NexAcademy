@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
@@ -355,7 +354,6 @@ export default function ConnectPlatformsPage() {
       if (!response.ok) throw new Error("Failed to fetch platform handles")
       
       const data = await response.json()
-      console.log("Loaded platform handles:", data.handles)
       
       // Create a map of platform ID to handle
       const handleMap: Record<string, string> = {}
@@ -378,8 +376,7 @@ export default function ConnectPlatformsPage() {
       
       // On connect page, don't automatically fetch profile data for platforms
       // This prevents platform fetchers from being called by default
-      console.log(`Found ${Object.keys(handleMap).length} connected platforms`)
-      console.log("Skipping automatic data refresh on connect page")
+
       
     } catch (error) {
       console.error("Error fetching platform handles:", error)
@@ -593,248 +590,232 @@ export default function ConnectPlatformsPage() {
   });
 
   return (
-    <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-black">
-        <div className="container max-w-6xl py-12">
-          {/* Header section with animated gradient underline */}
-          <div className="relative mb-12">
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex justify-between items-center"
-            >
-              <div>
-                <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 mb-3">
-                  Connect Platforms
-                </h1>
-                <p className="text-slate-600 dark:text-slate-300 max-w-xl">
-                  Link your coding profiles to showcase your achievements and track your progress
-                  across multiple platforms.
+    <div className="bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-black p-4 md:p-6 lg:p-8">
+      <div className="container max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Connect Platforms</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Connect your coding platforms to aggregate your coding portfolio
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/coding-portfolio/dashboard" className="flex items-center gap-1">
+              <span>Dashboard</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        
+        {/* Step by step guide card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="mb-12"
+        >
+          <div className="rounded-xl overflow-hidden border-[1.5px] border-indigo-100 dark:border-indigo-900/30 bg-gradient-to-br from-indigo-50/80 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/10 backdrop-blur-sm">
+            <div className="grid md:grid-cols-4">
+              {/* Step 1 */}
+              <div className="relative p-5 border-b md:border-r md:border-b-0 border-indigo-100 dark:border-indigo-900/30">
+                <div className="flex items-center gap-3 mb-2 relative z-10">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold">1</div>
+                  <h3 className="font-semibold text-indigo-900 dark:text-indigo-300">Enter Username</h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
+                  Add your handle for each platform you want to connect
                 </p>
+                <PlusCircle className="absolute bottom-4 right-4 text-indigo-300 dark:text-indigo-700 opacity-70" />
               </div>
-              <Link href="/coding-portfolio">
-                <Button variant="outline" className="rounded-lg hover:shadow-md transition-all duration-300 border-1.5 border-slate-200 dark:border-slate-800">
-                  <ArrowRight className="h-4 w-4 mr-2" />
-                  View Portfolio
-                </Button>
-              </Link>
+              
+              {/* Step 2 */}
+              <div className="relative p-5 border-b md:border-r md:border-b-0 border-indigo-100 dark:border-indigo-900/30">
+                <div className="flex items-center gap-3 mb-2 relative z-10">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 font-bold">2</div>
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-300">Connect</h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
+                  Link your profile to verify your account ownership
+                </p>
+                <Zap className="absolute bottom-4 right-4 text-purple-300 dark:text-purple-700 opacity-70" />
+              </div>
+              
+              {/* Step 3 */}
+              <div className="relative p-5 border-b md:border-r md:border-b-0 border-indigo-100 dark:border-indigo-900/30">
+                <div className="flex items-center gap-3 mb-2 relative z-10">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 font-bold">3</div>
+                  <h3 className="font-semibold text-pink-900 dark:text-pink-300">Refresh Data</h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
+                  Load your latest stats and achievements
+                </p>
+                <RefreshCw className="absolute bottom-4 right-4 text-pink-300 dark:text-pink-700 opacity-70" />
+              </div>
+              
+              {/* Step 4 */}
+              <div className="relative p-5">
+                <div className="flex items-center gap-3 mb-2 relative z-10">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 font-bold">4</div>
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-300">Showcase Progress</h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
+                  View unified stats in your coding portfolio
+                </p>
+                <Trophy className="absolute bottom-4 right-4 text-amber-300 dark:text-amber-700 opacity-70" />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+        
+        {/* Platform connection section */}
+        {loading ? (
+          <div className="min-h-[400px] flex flex-col items-center justify-center p-12">
+            <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 rounded-full bg-indigo-100 dark:bg-indigo-900/30 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-dashed animate-spin"></div>
+              <Loader2 className="h-16 w-16 animate-spin text-indigo-500 absolute inset-0" />
+            </div>
+            <h3 className="text-xl font-medium mb-3 text-indigo-600 dark:text-indigo-400">Loading connections</h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-sm text-center">
+              Retrieving your platform connections and preparing your dashboard...
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Filter and stats bar */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8"
+            >
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold">Programming Platforms</h2>
+                <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                  {SUPPORTED_PLATFORMS.length} Available
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+                  <button
+                    onClick={() => setActiveFilter('all')}
+                    className={`px-3 py-1.5 text-sm transition-colors ${
+                      activeFilter === 'all' 
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter('connected')}
+                    className={`px-3 py-1.5 text-sm transition-colors ${
+                      activeFilter === 'connected' 
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    Connected
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter('unconnected')}
+                    className={`px-3 py-1.5 text-sm transition-colors ${
+                      activeFilter === 'unconnected' 
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    Unconnected
+                  </button>
+                </div>
+                
+                <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300">
+                  Connected: <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                    {Object.values(platformStatuses).filter(status => status === "verified").length}
+                  </span>/{SUPPORTED_PLATFORMS.length}
+                </div>
+              </div>
             </motion.div>
             
-            {/* Animated gradient underline */}
-            <div className="absolute -bottom-4 left-0 h-0.5 w-36 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+            {/* No results message */}
+            {filteredPlatforms.length === 0 && (
+              <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="mx-auto w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                  <AlertTriangle className="h-8 w-8 text-amber-500" />
+                </div>
+                <h3 className="text-xl font-medium mb-2">No platforms found</h3>
+                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  No platforms match your current filter. Please try a different filter.
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setActiveFilter('all')}
+                >
+                  Show All Platforms
+                </Button>
+              </div>
+            )}
+            
+            {/* Platform cards */}
+            <div className="grid gap-6">
+              {filteredPlatforms.map((platform) => (
+                <PlatformCard
+                  key={platform.id}
+                  platform={platform}
+                  status={platformStatuses[platform.id]}
+                  handle={platformHandles[platform.id]}
+                  isRefreshing={!!refreshing[platform.id]}
+                  isConnecting={connectionInProgress === platform.id}
+                  onConnect={() => connectPlatform(platform.id)}
+                  onRefresh={() => refreshPlatformData(platform.id)}
+                  onDisconnect={() => disconnectPlatform(platform.id)}
+                  onInputChange={(value) => handleInputChange(platform.id, value)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+        
+        {/* Footer section with tips */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.6 }}
+          className="mt-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+        >
+          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
+              <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <h3 className="font-medium">Pro Tips</h3>
           </div>
-          
-          {/* Step by step guide card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="mb-12"
-          >
-            <div className="rounded-xl overflow-hidden border-[1.5px] border-indigo-100 dark:border-indigo-900/30 bg-gradient-to-br from-indigo-50/80 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/10 backdrop-blur-sm">
-              <div className="grid md:grid-cols-4">
-                {/* Step 1 */}
-                <div className="relative p-5 border-b md:border-r md:border-b-0 border-indigo-100 dark:border-indigo-900/30">
-                  <div className="flex items-center gap-3 mb-2 relative z-10">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold">1</div>
-                    <h3 className="font-semibold text-indigo-900 dark:text-indigo-300">Enter Username</h3>
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
-                    Add your handle for each platform you want to connect
-                  </p>
-                  <PlusCircle className="absolute bottom-4 right-4 text-indigo-300 dark:text-indigo-700 opacity-70" />
-                </div>
-                
-                {/* Step 2 */}
-                <div className="relative p-5 border-b md:border-r md:border-b-0 border-indigo-100 dark:border-indigo-900/30">
-                  <div className="flex items-center gap-3 mb-2 relative z-10">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 font-bold">2</div>
-                    <h3 className="font-semibold text-purple-900 dark:text-purple-300">Connect</h3>
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
-                    Link your profile to verify your account ownership
-                  </p>
-                  <Zap className="absolute bottom-4 right-4 text-purple-300 dark:text-purple-700 opacity-70" />
-                </div>
-                
-                {/* Step 3 */}
-                <div className="relative p-5 border-b md:border-r md:border-b-0 border-indigo-100 dark:border-indigo-900/30">
-                  <div className="flex items-center gap-3 mb-2 relative z-10">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 font-bold">3</div>
-                    <h3 className="font-semibold text-pink-900 dark:text-pink-300">Refresh Data</h3>
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
-                    Load your latest stats and achievements
-                  </p>
-                  <RefreshCw className="absolute bottom-4 right-4 text-pink-300 dark:text-pink-700 opacity-70" />
-                </div>
-                
-                {/* Step 4 */}
-                <div className="relative p-5">
-                  <div className="flex items-center gap-3 mb-2 relative z-10">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 font-bold">4</div>
-                    <h3 className="font-semibold text-amber-900 dark:text-amber-300">Showcase Progress</h3>
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 pl-11">
-                    View unified stats in your coding portfolio
-                  </p>
-                  <Trophy className="absolute bottom-4 right-4 text-amber-300 dark:text-amber-700 opacity-70" />
-                </div>
+          <div className="p-5 grid md:grid-cols-2 gap-4">
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <Star className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h4 className="font-medium mb-1">Keep data updated</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Refresh your data regularly to keep your portfolio current with your latest achievements
+                </p>
               </div>
             </div>
-          </motion.div>
-          
-          {/* Platform connection section */}
-          {loading ? (
-            <div className="min-h-[400px] flex flex-col items-center justify-center p-12">
-              <div className="relative w-16 h-16 mb-6">
-                <div className="absolute inset-0 rounded-full bg-indigo-100 dark:bg-indigo-900/30 animate-ping opacity-20"></div>
-                <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-dashed animate-spin"></div>
-                <Loader2 className="h-16 w-16 animate-spin text-indigo-500 absolute inset-0" />
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-xl font-medium mb-3 text-indigo-600 dark:text-indigo-400">Loading connections</h3>
-              <p className="text-slate-500 dark:text-slate-400 max-w-sm text-center">
-                Retrieving your platform connections and preparing your dashboard...
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Filter and stats bar */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-                className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8"
-              >
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-semibold">Programming Platforms</h2>
-                  <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full font-medium">
-                    {SUPPORTED_PLATFORMS.length} Available
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                    <button
-                      onClick={() => setActiveFilter('all')}
-                      className={`px-3 py-1.5 text-sm transition-colors ${
-                        activeFilter === 'all' 
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setActiveFilter('connected')}
-                      className={`px-3 py-1.5 text-sm transition-colors ${
-                        activeFilter === 'connected' 
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      Connected
-                    </button>
-                    <button
-                      onClick={() => setActiveFilter('unconnected')}
-                      className={`px-3 py-1.5 text-sm transition-colors ${
-                        activeFilter === 'unconnected' 
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      Unconnected
-                    </button>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300">
-                    Connected: <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                      {Object.values(platformStatuses).filter(status => status === "verified").length}
-                    </span>/{SUPPORTED_PLATFORMS.length}
-                  </div>
-                </div>
-              </motion.div>
-              
-              {/* No results message */}
-              {filteredPlatforms.length === 0 && (
-                <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                    <AlertTriangle className="h-8 w-8 text-amber-500" />
-                  </div>
-                  <h3 className="text-xl font-medium mb-2">No platforms found</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                    No platforms match your current filter. Please try a different filter.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setActiveFilter('all')}
-                  >
-                    Show All Platforms
-                  </Button>
-                </div>
-              )}
-              
-              {/* Platform cards */}
-              <div className="grid gap-6">
-                {filteredPlatforms.map((platform) => (
-                  <PlatformCard
-                    key={platform.id}
-                    platform={platform}
-                    status={platformStatuses[platform.id]}
-                    handle={platformHandles[platform.id]}
-                    isRefreshing={!!refreshing[platform.id]}
-                    isConnecting={connectionInProgress === platform.id}
-                    onConnect={() => connectPlatform(platform.id)}
-                    onRefresh={() => refreshPlatformData(platform.id)}
-                    onDisconnect={() => disconnectPlatform(platform.id)}
-                    onInputChange={(value) => handleInputChange(platform.id, value)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-          
-          {/* Footer section with tips */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.6 }}
-            className="mt-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
-          >
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
-                <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <h3 className="font-medium">Pro Tips</h3>
-            </div>
-            <div className="p-5 grid md:grid-cols-2 gap-4">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                  <Star className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <h4 className="font-medium mb-1">Keep data updated</h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Refresh your data regularly to keep your portfolio current with your latest achievements
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <h4 className="font-medium mb-1">Highlight strengths</h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Connect platforms where you have the strongest performance to showcase your abilities
-                  </p>
-                </div>
+              <div>
+                <h4 className="font-medium mb-1">Highlight strengths</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Connect platforms where you have the strongest performance to showcase your abilities
+                </p>
               </div>
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 } 

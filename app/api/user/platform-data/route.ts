@@ -154,7 +154,6 @@ export async function POST(request: NextRequest) {
       // Store the data
       const result = await storePlatformData(user.id, platform, platformData);
       
-      console.log(`Platform data ${result.updated ? 'updated' : 'created'} for ${platform} (ID: ${result.id})`);
 
       return NextResponse.json({
         success: true,
@@ -218,7 +217,6 @@ export async function GET(request: NextRequest) {
       // If refresh is requested, call the profile-data endpoint to refresh the data
       if (refresh) {
         try {
-          console.log('Refreshing platform data from profile-data endpoint');
           
           // First, get all platform handles
           const handlesResponse = await fetch(`${request.nextUrl.origin}/api/user/platform-handles`, {
@@ -262,7 +260,6 @@ export async function GET(request: NextRequest) {
             throw new Error('Failed to refresh profile data');
           }
           
-          console.log('Successfully refreshed platform data');
         } catch (refreshError) {
           console.error('Error refreshing platform data:', refreshError);
           // Continue execution to at least return the existing data
@@ -275,7 +272,6 @@ export async function GET(request: NextRequest) {
       // Type assertion to handle platformData.length safely
       const platformDataArray = Array.isArray(platformData) ? platformData : [];
       
-      console.log(`Retrieved ${platformDataArray.length} platform data records for user ${user.id}`);
 
       return NextResponse.json({
         platformData,
@@ -344,7 +340,6 @@ export async function DELETE(request: NextRequest) {
       // Delete platform data
       await deletePlatformData(user.id, platform);
       
-      console.log(`Deleted platform data for ${platform} (user: ${user.id})`);
 
       return NextResponse.json({
         success: true,

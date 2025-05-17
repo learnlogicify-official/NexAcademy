@@ -2571,8 +2571,8 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
           <TabsContent value="contests" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Upcoming Contests */}
-              <div className="md:col-span-2 space-y-6">
-                <Card className="border-none rounded-xl shadow-md overflow-hidden">
+              <div className="md:col-span-2 space-y-6 flex flex-col">
+                <Card className="border-none rounded-xl shadow-md overflow-hidden flex-grow">
                   <CardHeader className="bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-950/30 dark:to-orange-950/40 backdrop-blur-sm pb-3 w-full">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
@@ -2586,7 +2586,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                       Participate in coding competitions to test your skills
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-6">
+                  <CardContent className="p-6 flex-grow">
                     <div className="space-y-4">
                       {upcomingContests.map((contest) => (
                         <div
@@ -2648,7 +2648,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                   </CardContent>
                 </Card>
 
-                <Card className="border-none rounded-xl shadow-md overflow-hidden">
+                <Card className="border-none rounded-xl shadow-md overflow-hidden flex-grow">
                   <CardHeader className="bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-900/40 dark:to-slate-800/40 backdrop-blur-sm pb-3 w-full">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
@@ -2662,7 +2662,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                       Review your performance in previous contests
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-6">
+                  <CardContent className="p-6 flex-grow">
                     <div className="space-y-4">
                       <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
                         <div className="p-4">
@@ -2698,56 +2698,6 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                               <span className="text-[10px] text-green-600 dark:text-green-400">B</span>
                               <CheckCircle className="h-3 w-3 text-green-500" />
                             </div>
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30">
-                              <span className="text-[10px] text-green-600 dark:text-green-400">C</span>
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            </div>
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30">
-                              <span className="text-[10px] text-red-600 dark:text-red-400">D</span>
-                              <XCircle className="h-3 w-3 text-red-500" />
-                            </div>
-                          </div>
-
-                          <Button variant="outline" size="sm" className="w-full">
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
-                        <div className="p-4">
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <h3 className="font-medium text-slate-800 dark:text-slate-200">
-                                Biweekly Contest 127
-                              </h3>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                May 4, 2025 • Completed
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
-                              <Trophy className="h-3 w-3" />
-                              Rank: 512
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-1">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              <span className="text-sm text-slate-700 dark:text-slate-300">2/4 problems solved</span>
-                            </div>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Score: 850 points</span>
-                          </div>
-
-                          <div className="grid grid-cols-4 gap-2 mb-4">
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30">
-                              <span className="text-[10px] text-green-600 dark:text-green-400">A</span>
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            </div>
-                            <div className="flex flex-col items-center p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30">
-                              <span className="text-[10px] text-green-600 dark:text-green-400">B</span>
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            </div>
                             <div className="flex flex-col items-center p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30">
                               <span className="text-[10px] text-red-600 dark:text-red-400">C</span>
                               <XCircle className="h-3 w-3 text-red-500" />
@@ -2769,8 +2719,8 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
               </div>
 
               {/* Contest Stats */}
-              <div>
-                <Card className="border-none rounded-xl shadow-md overflow-hidden sticky top-24">
+              <div className="flex flex-col h-full">
+                <Card className="border-none rounded-xl shadow-md overflow-hidden sticky top-24 h-full flex-grow flex flex-col">
                   <CardHeader className="bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-950/30 dark:to-orange-950/40 backdrop-blur-sm pb-3 w-full">
                     <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                       <Award className="w-5 h-5 text-amber-600 dark:text-amber-400" /> Your Contest Stats
@@ -2779,81 +2729,83 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
                       Performance in competitive programming
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="space-y-6">
-                      <div className="flex justify-center">
-                        <div className="relative w-32 h-32">
-                          <div className="absolute inset-0 rounded-full border-8 border-slate-100 dark:border-slate-800"></div>
-                          <div
-                            className="absolute inset-0 rounded-full border-8 border-transparent border-t-amber-500 dark:border-t-amber-400"
-                            style={{ transform: 'rotate(45deg)' }}
-                          ></div>
-                          <div className="absolute inset-0 flex items-center justify-center flex-col">
-                            <span className="text-3xl font-bold text-amber-600 dark:text-amber-400">1254</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Rating</span>
+                  <CardContent className="p-6 flex-grow flex flex-col">
+                    <div className="space-y-6 flex flex-col h-full justify-between">
+                      <div className="space-y-6">
+                        <div className="flex justify-center">
+                          <div className="relative w-32 h-32">
+                            <div className="absolute inset-0 rounded-full border-8 border-slate-100 dark:border-slate-800"></div>
+                            <div
+                              className="absolute inset-0 rounded-full border-8 border-transparent border-t-amber-500 dark:border-t-amber-400"
+                              style={{ transform: 'rotate(45deg)' }}
+                            ></div>
+                            <div className="absolute inset-0 flex items-center justify-center flex-col">
+                              <span className="text-3xl font-bold text-amber-600 dark:text-amber-400">1254</span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400">Rating</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800/50">
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Contests</div>
-                          <div className="text-lg font-bold text-slate-800 dark:text-slate-200">24</div>
-                        </div>
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800/50">
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Global Rank</div>
-                          <div className="text-lg font-bold text-slate-800 dark:text-slate-200">#1,254</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Rating History</h4>
-                        <div className="h-24 w-full">
-                          <svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none">
-                            <defs>
-                              <linearGradient id="contestGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#f59e0b" />
-                                <stop offset="100%" stopColor="#d97706" />
-                              </linearGradient>
-                              <linearGradient id="contestFill" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
-                                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.05" />
-                              </linearGradient>
-                            </defs>
-                            <path
-                              d="M0,80 C20,70 40,85 60,75 C80,65 100,90 120,80 C140,70 160,60 180,50 C200,40 220,60 240,50 C260,40 280,30 300,20"
-                              fill="none"
-                              stroke="url(#contestGradient)"
-                              strokeWidth="2"
-                            />
-                            <path
-                              d="M0,80 C20,70 40,85 60,75 C80,65 100,90 120,80 C140,70 160,60 180,50 C200,40 220,60 240,50 C260,40 280,30 300,20 L300,100 L0,100 Z"
-                              fill="url(#contestFill)"
-                            />
-                          </svg>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Achievements</h4>
-                        <div className="flex justify-between">
-                          <div className="flex flex-col items-center">
-                            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1">
-                              <Trophy className="h-5 w-5" />
-                            </div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Top 10%</span>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800/50">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Contests</div>
+                            <div className="text-lg font-bold text-slate-800 dark:text-slate-200">24</div>
                           </div>
-                          <div className="flex flex-col items-center">
-                            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1">
-                              <Flame className="h-5 w-5" />
-                            </div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">5 Streak</span>
+                          <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800/50">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Global Rank</div>
+                            <div className="text-lg font-bold text-slate-800 dark:text-slate-200">#1,254</div>
                           </div>
-                          <div className="flex flex-col items-center">
-                            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1">
-                              <Award className="h-5 w-5" />
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Rating History</h4>
+                          <div className="h-24 w-full">
+                            <svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none">
+                              <defs>
+                                <linearGradient id="contestGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="#f59e0b" />
+                                  <stop offset="100%" stopColor="#d97706" />
+                                </linearGradient>
+                                <linearGradient id="contestFill" x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
+                                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.05" />
+                                </linearGradient>
+                              </defs>
+                              <path
+                                d="M0,80 C20,70 40,85 60,75 C80,65 100,90 120,80 C140,70 160,60 180,50 C200,40 220,60 240,50 C260,40 280,30 300,20"
+                                fill="none"
+                                stroke="url(#contestGradient)"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M0,80 C20,70 40,85 60,75 C80,65 100,90 120,80 C140,70 160,60 180,50 C200,40 220,60 240,50 C260,40 280,30 300,20 L300,100 L0,100 Z"
+                                fill="url(#contestFill)"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Achievements</h4>
+                          <div className="flex justify-between">
+                            <div className="flex flex-col items-center">
+                              <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1">
+                                <Trophy className="h-5 w-5" />
+                              </div>
+                              <span className="text-xs text-slate-600 dark:text-slate-400">Top 10%</span>
                             </div>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">Gold</span>
+                            <div className="flex flex-col items-center">
+                              <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1">
+                                <Flame className="h-5 w-5" />
+                              </div>
+                              <span className="text-xs text-slate-600 dark:text-slate-400">5 Streak</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-1">
+                                <Award className="h-5 w-5" />
+                              </div>
+                              <span className="text-xs text-slate-600 dark:text-slate-400">Gold</span>
+                            </div>
                           </div>
                         </div>
                       </div>

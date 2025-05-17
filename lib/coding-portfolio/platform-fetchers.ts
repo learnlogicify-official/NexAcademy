@@ -1,0 +1,139 @@
+import { fetchLeetCodeProfile } from '@/lib/fetchers/leetcode';
+import { fetchCodechefProfile } from '@/lib/fetchers/codechef';
+import { fetchCodeforcesProfile } from '@/lib/fetchers/codeforces';
+import { fetchGFGProfile } from '@/lib/fetchers/gfg';
+import { PlatformProfile } from '@/lib/fetchers/types';
+import { exec as execCb } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
+import https from 'https';
+import http from 'http';
+
+const execPromise = promisify(execCb);
+
+/**
+ * Fetch platform-specific data for the given platform and username
+ */
+export async function fetchPlatformData(
+  platform: string,
+  username: string,
+  apiKey?: string | null,
+  serverHost?: string // Optional parameter for server host when called from server
+): Promise<any> {
+  try {
+    console.log(`Fetching data for ${platform}/${username}`);
+    
+    let profileData: PlatformProfile | null = null;
+    
+    // Special handling for platforms that require custom approaches
+    if (platform.toLowerCase() === 'hackerrank') {
+      console.log('Using standalone script for HackerRank');
+      try {
+        const scriptPath = path.join(process.cwd(), 'scripts', 'fetch-hackerrank.js');
+        const { stdout, stderr } = await execPromise(`node "${scriptPath}" "${username}"`);
+        if (stderr) {
+          console.error('Error from HackerRank script:', stderr);
+          throw new Error(stderr);
+        }
+        profileData = JSON.parse(stdout);
+      } catch (error) {
+        console.error('Failed to execute HackerRank script:', error);
+        throw error;
+      }
+    } else if (platform.toLowerCase() === 'hackerearth') {
+      console.log('Using direct API call for HackerEarth');
+      profileData = await fetchPlatformFromAPI(
+        `/api/user/hackerearth-profile?username=${encodeURIComponent(username)}`,
+        serverHost
+      );
+    } else if (platform.toLowerCase() === 'codingninjas') {
+      console.log('Using direct API call for CodingNinjas');
+      profileData = await fetchPlatformFromAPI(
+        `/api/user/codingninjas-profile?username=${encodeURIComponent(username)}`,
+        serverHost
+      );
+    } else {
+      // Use the direct fetchers for other platforms
+      switch (platform.toLowerCase()) {
+        case 'leetcode':
+          profileData = await fetchLeetCodeProfile(username);
+          break;
+        case 'codechef':
+          profileData = await fetchCodechefProfile(username);
+          break;
+        case 'codeforces':
+          profileData = await fetchCodeforcesProfile(username);
+          break;
+        case 'geeksforgeeks':
+          profileData = await fetchGFGProfile(username);
+          break;
+        default:
+          throw new Error(`Unsupported platform: ${platform}`);
+      }
+    }
+    
+    // Process the data to standardize it for our database
+    return {
+      ...profileData,
+      platform,
+      username,
+      // Keep the raw data for reference
+      rawData: profileData
+    };
+  } catch (error) {
+    console.error(`Error fetching ${platform} data for ${username}:`, error);
+    return {
+      platform,
+      username,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      rawData: {},
+      totalSolved: 0,
+      rating: 0,
+      rank: '',
+      activityHeatmap: []
+    };
+  }
+}
+
+/**
+ * Helper function to fetch from internal API routes
+ */
+async function fetchPlatformFromAPI(apiPath: string, serverHost?: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    // Determine protocol based on host
+    const isHttps = !serverHost || serverHost.includes('localhost') || serverHost.startsWith('127.0.0.1') ? false : true;
+    const httpModule = isHttps ? https : http;
+    
+    // Construct full URL
+    const host = serverHost || 'localhost:3000';
+    const fullPath = `${isHttps ? 'https' : 'http'}://${host}${apiPath}`;
+    console.log(`Making request to: ${fullPath}`);
+    
+    const req = httpModule.get(fullPath, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`API request failed with status code ${res.statusCode}`));
+        return;
+      }
+      
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const parsedData = JSON.parse(data);
+          resolve(parsedData.profile);
+        } catch (e: unknown) {
+          reject(new Error(`Failed to parse API response: ${e instanceof Error ? e.message : String(e)}`));
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      reject(error);
+    });
+    
+    req.end();
+  });
+} 

@@ -31,7 +31,6 @@ async function ensurePlatformDataTable() {
     
     // @ts-ignore - We know this returns a boolean
     if (!tableExists[0].exists) {
-      console.log('PlatformData table does not exist, creating it...');
       
       // Create the table
       await prisma.$executeRaw`
@@ -68,7 +67,6 @@ async function ensurePlatformDataTable() {
         ON DELETE CASCADE ON UPDATE CASCADE;
       `;
       
-      console.log('PlatformData table created successfully');
     }
     return true;
   } catch (error) {
@@ -80,7 +78,6 @@ async function ensurePlatformDataTable() {
 // Function to store platform data using raw SQL
 async function storePlatformData(userId: string, platform: string, data: any) {
   try {
-    console.log(`Storing data for platform ${platform} for user ${userId}...`);
     
     // First, check if the record exists
     const existingRecord = await prisma.$queryRaw`
@@ -95,7 +92,6 @@ async function storePlatformData(userId: string, platform: string, data: any) {
     if (Array.isArray(existingRecord) && existingRecord.length > 0) {
       // @ts-ignore - We know this returns an object with an id
       const recordId = existingRecord[0].id;
-      console.log(`Updating existing record (id: ${recordId}) for ${platform}`);
       
       // Update the existing record
       await prisma.$executeRaw`
@@ -106,7 +102,6 @@ async function storePlatformData(userId: string, platform: string, data: any) {
     } else {
       // Insert a new record
       const id = uuidv4();
-      console.log(`Creating new record (id: ${id}) for ${platform}`);
       
       await prisma.$executeRaw`
         INSERT INTO "PlatformData" ("id", "userId", "platform", "data", "createdAt", "updatedAt")
@@ -114,7 +109,6 @@ async function storePlatformData(userId: string, platform: string, data: any) {
       `;
     }
     
-    console.log(`Successfully stored ${platform} data in database`);
     return true;
   } catch (error) {
     console.error(`Error storing platform data for ${platform}:`, error);
@@ -127,13 +121,11 @@ async function savePlatformData(userId: string, profile: any) {
   if (profile.error) return false;
   
   try {
-    console.log(`Saving ${profile.platform} data directly to database...`);
     
     // Store the data directly in the database
     const result = await storePlatformData(userId, profile.platform, profile);
     
     if (result) {
-      console.log(`Successfully stored ${profile.platform} data in database`);
       return true;
     } else {
       console.error(`Failed to store ${profile.platform} data in database`);
@@ -146,7 +138,6 @@ async function savePlatformData(userId: string, profile: any) {
 }
 
 export async function GET(request: NextRequest) {
-  console.log('Profile data API request received:', request.nextUrl.searchParams.toString());
   
   try {
     // Verify authenticated user
@@ -181,7 +172,6 @@ export async function GET(request: NextRequest) {
       codingninjas: searchParams.get('codingninjas'),
     };
 
-    console.log('Fetching profiles for handles:', handles);
 
     // Create a map of which platform uses which fetcher function
     const fetchers = {
@@ -194,7 +184,6 @@ export async function GET(request: NextRequest) {
     
     // Fetch profiles in parallel with timeouts to prevent hanging requests
     const fetchWithTimeout = async (platform: string, username: string, timeoutMs = 15000) => {
-      console.log(`Starting fetch for ${platform} profile: ${username}`);
       const startTime = Date.now();
       
       try {
@@ -203,7 +192,6 @@ export async function GET(request: NextRequest) {
         // Special case for Coding Ninjas - call our dedicated API instead
         if (platform === 'codingninjas') {
           // Use our dedicated Node.js API route for Coding Ninjas
-          console.log('Proxying request to dedicated Coding Ninjas API route');
           const response = await fetch(`${request.nextUrl.origin}/api/user/codingninjas-profile?username=${encodeURIComponent(username)}`, {
             signal: AbortSignal.timeout(timeoutMs)
           });
@@ -216,7 +204,6 @@ export async function GET(request: NextRequest) {
           return data.profile;
         } else if (platform === 'hackerrank') {
           // Use our dedicated Node.js script for HackerRank
-          console.log('Proxying request to standalone HackerRank script');
           const scriptPath = path.join(process.cwd(), 'scripts', 'fetch-hackerrank.js');
           const { stdout, stderr } = await execPromise(`node "${scriptPath}" "${username}"`);
           if (stderr) {
@@ -227,7 +214,6 @@ export async function GET(request: NextRequest) {
           return data;
         } else if (platform === 'hackerearth') {
           // Use our dedicated Node.js API route for HackerEarth
-          console.log('Proxying request to dedicated HackerEarth API route');
           const response = await fetch(`${request.nextUrl.origin}/api/user/hackerearth-profile?username=${encodeURIComponent(username)}`, {
             signal: AbortSignal.timeout(timeoutMs)
           });
@@ -263,7 +249,6 @@ export async function GET(request: NextRequest) {
         const result = await Promise.race([fetchPromise, timeoutPromise]);
         const duration = Date.now() - startTime;
         
-        console.log(`Completed fetch for ${platform} in ${duration}ms: ${result.error ? 'Error' : 'Success'}`);
         return result;
       } catch (error: any) {
         const duration = Date.now() - startTime;
@@ -285,13 +270,9 @@ export async function GET(request: NextRequest) {
         return fetchWithTimeout(platform, handle as string, timeout);
       });
     
-    console.log(`Started ${fetchPromises.length} profile fetch requests`);
     
     // Wait for all fetches to complete
     const profiles = await Promise.all(fetchPromises);
-    
-    console.log(`Completed all profile fetches: ${profiles.length} results`);
-    console.log(`Success rate: ${profiles.filter(p => !p.error).length}/${profiles.length}`);
 
     // Ensure the PlatformData table exists before saving profiles
     const tableExists = await ensurePlatformDataTable();
@@ -306,8 +287,6 @@ export async function GET(request: NextRequest) {
     
     const saveResults = await Promise.all(savePromises);
     const savedCount = saveResults.filter(Boolean).length;
-    
-    console.log(`Saved ${savedCount}/${saveResults.length} platform profiles to database`);
 
     return NextResponse.json({
       profiles,

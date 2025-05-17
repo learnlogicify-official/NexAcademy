@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
       where: { userId }
     });
 
-    console.log(`Retrieved ${handles.length} platform handles for user ${userId}`);
     
     return NextResponse.json({ handles });
   } catch (error) {
@@ -84,7 +83,6 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date()
         }
       });
-      console.log(`Updated platform handle: ${platform}/${handle} for user ${userId}`);
     } else {
       // Create new handle
       result = await prisma.userPlatformHandle.create({
@@ -98,7 +96,6 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date()
         }
       });
-      console.log(`Created new platform handle: ${platform}/${handle} for user ${userId}`);
     }
     
     return NextResponse.json({ success: true, handle: result });
@@ -144,7 +141,6 @@ export async function DELETE(request: NextRequest) {
       }
     });
     
-    console.log(`Deleted platform handle: ${platform} for user ${userId}, count: ${result.count}`);
     
     return NextResponse.json({ success: true });
   } catch (error) {

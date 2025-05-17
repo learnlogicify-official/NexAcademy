@@ -111,6 +111,36 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      if (token.id) {
+        // Fetch additional user data from database
+        const userData = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            id: true,
+            role: true,
+            bio: true,
+            profilePic: true,
+            username: true,
+            createdAt: true
+          }
+        });
+        
+        if (userData) {
+          return {
+            ...session,
+            user: {
+              ...session.user,
+              id: userData.id,
+              role: userData.role,
+              bio: userData.bio,
+              profilePic: userData.profilePic,
+              username: userData.username,
+              joinDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : undefined
+            },
+          };
+        }
+      }
+      
       return {
         ...session,
         user: {

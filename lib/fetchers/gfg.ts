@@ -165,59 +165,120 @@ export async function fetchGFGProfile(username: string): Promise<PlatformProfile
       badges = 5;  // From the sample profile which has 5 achievement levels
     }
     
-    // Extract activity data from the profile
-    const activityHeatmap: ActivityPoint[] = [];
-    const activityMap = new Map<string, number>();
+    // Extract activity heatmap data from HTML
+    let activityHeatmap: ActivityPoint[] = [];
     
-    // Try to find submission count for the year
-    const yearSubmissionsText = $('div:contains("submissions in current year")').text();
-    console.log(`Found year submissions text: "${yearSubmissionsText}"`);
-    const yearSubmissionsMatch = yearSubmissionsText.match(/(\d+)\s+submissions/);
-    if (yearSubmissionsMatch && yearSubmissionsMatch[1]) {
-      const yearSubmissions = parseInt(yearSubmissionsMatch[1]);
-      if (yearSubmissions > 0) {
-        // Create synthetic activity data based on the submission count
-        const today = new Date();
-        const submissionsPerDay = Math.ceil(yearSubmissions / 60); // Spread over 2 months
+    try {
+      console.log('Extracting GeeksForGeeks activity heatmap data...');
+      const html = response.data;
+      
+      // Method 1: Try to find submissionActivityMap variable
+      const activityMapRegex = /submissionActivityMap\s*=\s*({[^;]+});/;
+      const activityMatch = html.match(activityMapRegex);
+      
+      if (activityMatch && activityMatch[1]) {
+        console.log('Found submissionActivityMap data');
+        try {
+          // Replace single quotes with double quotes for JSON parsing
+          const jsonStr = activityMatch[1].replace(/'/g, '"');
+          const activityData = JSON.parse(jsonStr);
+          
+          // Convert to the format used in the app
+          activityHeatmap = Object.entries(activityData).map(([date, count]) => ({
+            date,
+            count: typeof count === 'number' ? count : parseInt(count as string)
+          }));
+          
+          console.log(`Extracted ${activityHeatmap.length} activity points from submissionActivityMap`);
+        } catch (e) {
+          console.error('Error parsing submissionActivityMap data:', e);
+        }
+      }
+      
+      // Method 2: If no data found, look for date patterns in script tags
+      if (activityHeatmap.length === 0) {
+        console.log('Searching for date patterns in script tags...');
+        const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/g;
+        let scriptMatch;
+        let scriptCount = 0;
         
-        for (let i = 0; i < 60; i++) {
-          if (Math.random() > 0.5) { // Only add data points for some days
-            const date = new Date(today);
-            date.setDate(today.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            activityMap.set(dateStr, Math.ceil(Math.random() * submissionsPerDay * 3));
+        while ((scriptMatch = scriptRegex.exec(html)) !== null) {
+          scriptCount++;
+          const scriptContent = scriptMatch[1];
+          
+          // Look for date strings in ISO format (YYYY-MM-DD)
+          const datePattern = /["'](\d{4}-\d{2}-\d{2})["']\s*:\s*(\d+)/g;
+          let dateMatch;
+          let dateCount = 0;
+          const dateMap: Record<string, number> = {};
+          
+          while ((dateMatch = datePattern.exec(scriptContent)) !== null) {
+            dateCount++;
+            const date = dateMatch[1];
+            const count = parseInt(dateMatch[2]);
+            dateMap[date] = count;
+          }
+          
+          if (dateCount > 0) {
+            console.log(`Found ${dateCount} date entries in script #${scriptCount}`);
+            
+            // Convert to the format used in the app
+            activityHeatmap = Object.entries(dateMap).map(([date, count]) => ({
+              date,
+              count
+            }));
+            
+            console.log(`Extracted ${activityHeatmap.length} activity points from script tag`);
+            break;
+          }
+        }
+        
+        if (activityHeatmap.length === 0) {
+          console.log(`Examined ${scriptCount} script tags, no activity data found`);
+        }
+      }
+      
+      // Method 3: Try alternative patterns if still no data
+      if (activityHeatmap.length === 0) {
+        console.log('Trying alternative patterns for activity data...');
+        const alternativePatterns = [
+          /userSubmissions\s*=\s*({[^;]+});/,
+          /activityData\s*=\s*({[^;]+});/,
+          /heatmap_data\s*=\s*({[^;]+});/,
+          /window\.activity\s*=\s*({[^;]+});/
+        ];
+        
+        for (const pattern of alternativePatterns) {
+          const match = html.match(pattern);
+          if (match && match[1]) {
+            console.log(`Found data matching pattern: ${pattern}`);
+            try {
+              const jsonStr = match[1].replace(/'/g, '"');
+              const data = JSON.parse(jsonStr);
+              
+              // Check if it's a map of dates to counts
+              if (typeof data === 'object' && !Array.isArray(data)) {
+                activityHeatmap = Object.entries(data).map(([date, count]) => ({
+                  date,
+                  count: typeof count === 'number' ? count : parseInt(count as string)
+                }));
+                
+                console.log(`Extracted ${activityHeatmap.length} activity points from alternative pattern`);
+                break;
+              }
+            } catch (e) {
+              console.log(`Could not parse data for pattern ${pattern}:`, e);
+            }
           }
         }
       }
-    }
-    
-    // Extract problem names from the lists on the page
-    const solvedProblems: string[] = [];
-    $('li, .problem-item').each((i, elem) => {
-      const problemName = $(elem).text().trim();
-      if (problemName && problemName.length > 0 && problemName.length < 100 && !problemName.match(/^\d+$/)) {
-        solvedProblems.push(problemName);
+      
+      // Sort heatmap by date
+      if (activityHeatmap.length > 0) {
+        activityHeatmap.sort((a, b) => a.date.localeCompare(b.date));
       }
-    });
-    
-    // If we have solved problems, add them as activity data points
-    if (solvedProblems.length > 0) {
-      // Create dates for the last few months, distributing the problems across them
-      const today = new Date();
-      for (let i = 0; i < Math.min(solvedProblems.length, 90); i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - Math.floor(Math.random() * 90)); // Random date in last 90 days
-        const dateStr = date.toISOString().split('T')[0];
-        activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1);
-      }
-    }
-    
-    // Add inferred activity data
-    if (activityMap.size > 0) {
-      activityHeatmap.push(...Array.from(activityMap.entries())
-        .map(([date, count]) => ({ date, count }))
-        .sort((a, b) => a.date.localeCompare(b.date))
-      );
+    } catch (activityError) {
+      console.error('Error extracting activity data:', activityError);
     }
     
     console.log(`GFG profile fetched successfully - Username: ${username}, Solved: ${solved}, Score: ${score}`);

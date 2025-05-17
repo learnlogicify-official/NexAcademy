@@ -1,63 +1,82 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarHeatmap } from "@/components/coding-portfolio/calendar-heatmap"
-import { BarChart2, Award, Code, Trophy, CheckCircle, RefreshCw, Loader2 } from "lucide-react"
-import Image from "next/image"
+import { ActivityCalendar, type CalendarData } from "@/components/coding-portfolio/activity-calendar"
+import { ProfileHeatmap } from "@/components/profile-heatmap"
+import { PortfolioHeatmap, type ActivityData } from "@/components/coding-portfolio/portfolio-heatmap"
+import { ProblemsSolvedCard } from "@/components/problems-solved-card"
+import {
+  Code,
+  Trophy,
+  Loader2,
+  Calendar,
+  ArrowUp,
+  ArrowDown,
+  Target,
+  Award,
+  Sigma,
+  Sparkles,
+  CheckCircle2,
+  Star,
+  BarChart3,
+  TrendingUp,
+  Flame,
+  Clock,
+  ChevronDown,
+  Filter,
+  CalendarDays,
+  BarChart4,
+  LineChart,
+  PieChart,
+  Zap,
+  Info,
+  ExternalLink,
+} from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import type { PlatformProfile } from "./types"
 
 // A modern, premium dashboard to showcase and track coding profiles and activity across platforms
 // Designed with glass-morphism, premium animations, and elegant data visualization
 
-interface PlatformProfile {
-  platform: string;
-  username: string;
-  totalSolved?: number;
-  rank?: number | string;
-  rating?: number;
-  contests?: number;
-  badges?: number;
-  score?: number;
-  problemsByDifficulty?: Record<string, number>;
-  error?: string;
-  contestHistory?: Array<{
-    name: string;
-    date: string;
-    rank: number;
-    rating?: number;
-  }>;
-  activityHeatmap?: Array<{
-    date: string;
-    count: number;
-  }>;
-  stats?: {
-    streak?: number;
-    totalActiveDays?: number;
-  };
-  data?: any;
+// Define interface for ProfileHeatmap data
+interface HeatmapData {
+  date: string
+  count: number
+  verdictSummary?: Array<{
+    status: string
+    readableStatus: string
+    count: number
+    color: string
+  }>
 }
 
-interface PlatformHandle {
-  id: string;
-  userId: string;
-  platform: string;
-  handle: string;
-  verified: boolean;
-  createdAt: string;
-  updatedAt: string;
+interface PlatformProblem {
+  id: string
+  name: string
+  color: string
+  icon: string
+  count: number
+  percentage: number
 }
 
-interface PlatformData {
-  id: string;
-  userId: string;
-  platform: string;
-  data: any;
-  createdAt: string;
-  updatedAt: string;
+interface CodingDashboardProps {
+  totalSolved?: number
+  activeDays?: number
+  totalContests?: number
+  streak?: number
+  maxStreak?: number
+  calendarData?: CalendarData[]
+  easyCount?: number
+  mediumCount?: number
+  hardCount?: number
+  platformProblems?: PlatformProblem[]
+  platforms?: PlatformProfile[] // Add this line to accept platforms prop
+  statsCardWeeklyTrend?: number // Add this prop
 }
 
 const SUPPORTED_PLATFORMS = [
@@ -68,1165 +87,1993 @@ const SUPPORTED_PLATFORMS = [
   { id: "hackerrank", name: "HackerRank", icon: "/images/platforms/hackerrank.svg", color: "#00EA64" },
   { id: "hackerearth", name: "HackerEarth", icon: "/images/platforms/hackerearth.svg", color: "#2C3454" },
   { id: "codingninjas", name: "CodeStudio", icon: "/images/platforms/codingninjas.svg", color: "#FC4F41" },
-];
+]
 
-export function CodingDashboard() {
-  const { data: session } = useSession()
+export function CodingDashboard({ 
+  totalSolved: propsTotalSolved, 
+  activeDays: propsActiveDays, 
+  totalContests = 0, 
+  streak = 0, 
+  maxStreak = 0, 
+  calendarData: propsCalendarData,
+  easyCount = 0,
+  mediumCount = 0,
+  hardCount = 0,
+  platformProblems = [],
+  platforms = [], // Add default empty array
+  statsCardWeeklyTrend // Add prop
+}: CodingDashboardProps) {
   const { toast } = useToast()
-  const [platformHandles, setPlatformHandles] = useState<PlatformHandle[]>([])
   const [profiles, setProfiles] = useState<PlatformProfile[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  // Initialize loading to false if we already have calendar data
+  const [loading, setLoading] = useState(!propsCalendarData || propsCalendarData.length === 0)
   const [activeTab, setActiveTab] = useState("overview")
-  
+  const [calendarData, setCalendarData] = useState<CalendarData[]>(propsCalendarData || [])
+  const [calendarTheme, setCalendarTheme] = useState({
+    light: ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
+    dark: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
+  })
+  const [timeRange, setTimeRange] = useState("year")
+  const [activityView, setActivityView] = useState("calendar")
+
   useEffect(() => {
-    fetchPlatformData()
-  }, [])
-  
+    // If platforms are provided, use them directly
+    if (platforms.length > 0) {
+      setProfiles(platforms);
+      setLoading(false);
+    } else {
+      // Otherwise try to fetch data
+      fetchPlatformData();
+    }
+  }, [platforms])
+
+  useEffect(() => {
+    // Use prop calendar data if provided, otherwise keep the mock data
+    if (propsCalendarData && propsCalendarData.length > 0) {
+      console.log("Using provided calendar data:", propsCalendarData);
+      setCalendarData(propsCalendarData);
+      setLoading(false); // End loading when we have the real data
+    }
+  }, [propsCalendarData])
+
   const fetchPlatformData = async () => {
     setLoading(true)
     try {
-      // Fetch platform handles
-      const handlesResponse = await fetch("/api/user/platform-handles")
-      if (!handlesResponse.ok) throw new Error("Failed to fetch platform handles")
-      const handlesData = await handlesResponse.json()
-      setPlatformHandles(handlesData.handles || [])
-      
-      // Directly fetch platform data from the database instead of calling fetchers
-      const platformDataResponse = await fetch("/api/user/platform-data")
-      if (!platformDataResponse.ok) throw new Error("Failed to fetch platform data")
-      
-      const platformData = await platformDataResponse.json()
-      console.log("Retrieved platform data from database:", platformData)
-      
-      // Convert the database-stored data to the profile format
-      if (platformData && platformData.platformData) {
-        const profilesFromDb = platformData.platformData.map((item: any) => {
-          // Parse the stored JSON data
-          const parsedData = typeof item.data === 'string' 
-            ? JSON.parse(item.data) 
-            : item.data;
-            
-          // Map platform IDs if needed
-          let platformId = item.platform;
-          if (platformId === 'gfg') platformId = 'geeksforgeeks';
-          
-          // Create profile object from stored data
-          return {
-            platform: platformId,
-            username: parsedData.username || '',
-            totalSolved: parsedData.totalSolved,
-            rank: parsedData.rank,
-            rating: parsedData.rating,
-            score: parsedData.score,
-            contests: parsedData.contests,
-            badges: parsedData.badges,
-            problemsByDifficulty: parsedData.problemsByDifficulty,
-            contestHistory: parsedData.contestHistory,
-            activityHeatmap: parsedData.activityHeatmap,
-            stats: parsedData.stats,
-            data: parsedData // <-- ensure raw data is always available
-          };
-        });
-        
-        setProfiles(profilesFromDb);
+      // Fetch platform data for the current logged in user from the backend API
+      // Assumes you have an endpoint like /api/coding-portfolio/profiles that returns PlatformProfile[] for the current user
+      const res = await fetch("/api/coding-portfolio/profiles", {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch platform data");
       }
+
+      const userProfiles: PlatformProfile[] = await res.json();
+      setProfiles(userProfiles);
+
+      // Only process activity data if we don't have prop data
+      if ((!propsCalendarData || propsCalendarData.length === 0) && userProfiles.length > 0) {
+        // Process activity data for the calendar
+        const allActivityData = userProfiles.flatMap((p) => p.activityHeatmap || []);
+
+        // Deduplicate and merge counts for the same date
+        const dateMap = new Map<string, number>();
+        allActivityData.forEach((item) => {
+          const existingCount = dateMap.get(item.date) || 0;
+          dateMap.set(item.date, existingCount + item.count);
+        });
+
+        // Convert to CalendarData format
+        const processedData: CalendarData[] = Array.from(dateMap.entries()).map(([date, count]) => ({
+          date,
+          count,
+          level: getLevelForCount(count),
+        }));
+
+        setCalendarData(processedData);
+      }
+
+      setLoading(false);
     } catch (error) {
-      console.error("Error fetching data:", error)
+      console.error("Error fetching data:", error);
       toast({
         title: "Error",
         description: "Failed to load your coding profile data",
         variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      });
+      setLoading(false);
     }
   }
-  
-  const refreshData = async () => {
-    setRefreshing(true)
-    try {
-      // Instead of refetching from external APIs, just refresh from database
-      const refreshResponse = await fetch("/api/user/platform-data?refresh=true")
-      if (!refreshResponse.ok) throw new Error("Failed to refresh platform data")
-      
-      // Fetch the updated data
-      await fetchPlatformData()
-      
-      toast({
-        title: "Success",
-        description: "Your coding data has been refreshed",
-      })
-    } catch (error) {
-      console.error("Error refreshing data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to refresh your coding data",
-        variant: "destructive",
-      })
-    } finally {
-      setRefreshing(false)
-    }
+
+  // Helper function to determine level based on count
+  const getLevelForCount = (count: number): 0 | 1 | 2 | 3 | 4 => {
+    if (count === 0) return 0
+    if (count <= 1) return 1
+    if (count <= 3) return 2
+    if (count <= 5) return 3
+    return 4
   }
-  
+
   // Calculate total metrics
-  const totalSolved = profiles.reduce((acc, profile) => acc + (profile.totalSolved || 0), 0)
-  const totalSubmissions = profiles.flatMap(p => p.activityHeatmap || []).reduce((acc, day) => acc + day.count, 0)
-  // Unique active days: collect all dates from activityHeatmap and codeforces recentActivity, normalize, and count unique
-  const allActiveDates = new Set([
-    ...profiles.flatMap(profile =>
-      (profile.activityHeatmap || []).map(day => {
+  const calculatedTotalSolved = profiles.reduce((acc, profile) => acc + (profile.totalSolved || 0), 0)
+  // Use provided prop value if available, otherwise use calculated value
+  const totalSolved = propsTotalSolved !== undefined ? propsTotalSolved : calculatedTotalSolved
+  const totalSubmissions = profiles.flatMap((p) => p.activityHeatmap || []).reduce((acc, day) => acc + day.count, 0)
+
+  // Unique active days: collect all dates from activityHeatmap and count unique
+  const allActiveDates = new Set(
+    profiles.flatMap((profile) =>
+      (profile.activityHeatmap || []).map((day) => {
         // Normalize date to YYYY-MM-DD
-        const d = new Date(day.date);
-        return isNaN(d.getTime()) ? day.date : d.toISOString().split('T')[0];
-      })
+        const d = new Date(day.date)
+        return isNaN(d.getTime()) ? day.date : d.toISOString().split("T")[0]
+      }),
     ),
-    ...profiles.filter(p => p.platform === 'codeforces' && p.data?.recentActivity)
-      .flatMap(p => p.data.recentActivity.map((a: any) => {
-        const d = new Date(a.date);
-        return isNaN(d.getTime()) ? a.date : d.toISOString().split('T')[0];
-      }))
-  ]);
-  
-  // Use the count of unique days rather than summing submission counts
-  const totalActiveDays = allActiveDates.size;
-  
-  const currentStreak = Math.max(...profiles.map(p => p.stats?.streak || 0), 0)
-  const maxStreak = Math.max(...profiles.map(p => p.stats?.totalActiveDays || 0), 8) // Default to 8 if no data
-  
+  )
+
+  // Use provided prop value if available, otherwise use calculated value
+  const totalActiveDays = propsActiveDays !== undefined ? propsActiveDays : allActiveDates.size
+  // Use the props for streaks and contests
+  const currentStreak = streak
+  const bestStreak = maxStreak
+  const contestsCount = totalContests
+
   // Get problems by difficulty across all platforms
   const problemsByDifficulty: Record<string, number> = {}
-  profiles.forEach(profile => {
-    if (profile.problemsByDifficulty) {
-      Object.entries(profile.problemsByDifficulty).forEach(([difficulty, count]) => {
-        const normalizedDifficulty = difficulty.toLowerCase()
-        problemsByDifficulty[normalizedDifficulty] = (problemsByDifficulty[normalizedDifficulty] || 0) + count
+  
+  // Use props values if provided, otherwise compute from profiles
+  if (easyCount > 0 || mediumCount > 0 || hardCount > 0) {
+    problemsByDifficulty.easy = easyCount;
+    problemsByDifficulty.medium = mediumCount;
+    problemsByDifficulty.hard = hardCount;
+  } else {
+    profiles.forEach((profile) => {
+      const profileDifficulties = profile.problemsByDifficulty || {}
+      Object.entries(profileDifficulties).forEach(([difficulty, count]) => {
+        problemsByDifficulty[difficulty] = (problemsByDifficulty[difficulty] || 0) + (count as number)
       })
-    }
-  })
-  
-  // Get all activity data for heatmap
-  const allActivityData = profiles.flatMap(p => p.activityHeatmap || [])
-  
-  // Transform activity data for the calendar heatmap
-  const transformedActivityData = allActivityData.map(activity => {
-    // Normalize the date to YYYY-MM-DD format to avoid timezone issues
-    let normalizedDate = activity.date;
-    
-    // If the date includes time information, strip it out
-    if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
-      normalizedDate = normalizedDate.split('T')[0];
-    }
-    
-    // If it looks like a Date object, format it
-    if (typeof normalizedDate === 'object' && normalizedDate !== null && 'getFullYear' in normalizedDate) {
-      const d = normalizedDate as Date;
-      normalizedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
-    
-    return {
-      date: normalizedDate,
-      count: activity.count,
-      // Add single submission category
-      verdictSummary: [
-        {
-          status: "SUBMISSION",
-          readableStatus: "Submissions",
-          count: activity.count,
-          color: "#4ade80"
-        }
-      ]
-    };
-  });
-  
-  // Deduplicate days (in case same day appears in multiple platforms)
-  const dateMap = new Map();
-  transformedActivityData.forEach(item => {
-    const existingItem = dateMap.get(item.date);
-    if (existingItem) {
-      // Merge the counts
-      existingItem.count += item.count;
-      // Update verdict summary
-      existingItem.verdictSummary[0].count += item.count;
-    } else {
-      dateMap.set(item.date, item);
-    }
-  });
-  
-  const uniqueActivityData = Array.from(dateMap.values());
-  
-  // Generate submission stats summary - just one category for all submissions
-  const submissionStats = [
-    { status: "SUBMISSION", readableStatus: "Submissions", count: totalSubmissions, color: "#4ade80" }
-  ];
-  
+    })
+  }
+
   // Platform-specific metrics
-  const platformMetrics = SUPPORTED_PLATFORMS.map(platform => {
-    const profile = profiles.find(p => p.platform === platform.id)
-    // For GFG, do not use score as rating
-    let rating = profile?.rating || 0;
-    if (platform.id === 'geeksforgeeks') {
-      // GFG does not have a contest rating, so set to 0 (will display N/A)
-      rating = 0;
-    }
+  const platformMetrics = SUPPORTED_PLATFORMS.map((platform) => {
+    const profile = profiles.find((p) => p.platform === platform.id)
     return {
       ...platform,
       connected: !!profile,
       totalSolved: profile?.totalSolved || 0,
-      rating,
-      username: profile?.username || '',
-      rank: (profile?.rank !== undefined && profile?.rank !== null && profile?.rank !== '') ? profile.rank : 'N/A',
+      rating: profile?.rating || 0,
+      username: profile?.username || "",
+      rank: profile?.rank !== undefined && profile?.rank !== null && profile?.rank !== "" ? profile.rank : "N/A",
+      data: profile?.data // Add the data property for use in special cases
     }
   })
-  
-  // User profile from session
-  const user = session?.user
-  
-  // Build a unified contest list from all possible sources
-  let allContests: any[] = [];
-  profiles.forEach(profile => {
-    const { platform, contestHistory, data } = profile;
-    // contestHistory for all platforms except hackerrank
-    if (platform !== 'hackerrank' && contestHistory && Array.isArray(contestHistory)) {
-      allContests = allContests.concat(
-        contestHistory.map(contest => ({ ...contest, platform }))
-      );
-    }
-    // HackerRank: ratingHistory[].events[]
-    if (platform === 'hackerrank' && data?.ratingHistory) {
-      data.ratingHistory.forEach((history: any) => {
-        if (Array.isArray(history.events)) {
-          allContests = allContests.concat(
-            history.events.map((event: any) => ({
-              name: event.contest_name || event.name || 'Unnamed Contest',
-              date: event.date,
-              rank: event.rank,
-              rating: event.rating,
-              platform
-            }))
-          );
-        }
-      });
-    }
-    // HackerEarth: ratingHistory[]
-    if (platform === 'hackerearth' && data?.ratingHistory) {
-      allContests = allContests.concat(
-        data.ratingHistory.map((event: any) => ({
-          name: event.name,
-          date: event.date,
-          rank: event.rank,
-          rating: event.rating,
-          platform
-        }))
-      );
-    }
-    // Coding Ninjas: contestHistory (if present)
-    if (platform === 'codingninjas' && data?.contestHistory) {
-      allContests = allContests.concat(
-        data.contestHistory.map((contest: any) => ({ ...contest, platform }))
-      );
-    }
-  });
-  // Deduplicate by name+date+platform
-  allContests = allContests.filter((c, i, arr) =>
-    arr.findIndex(x => x.name === c.name && x.date === c.date && x.platform === c.platform) === i
-  );
-  // Sort by date descending
-  allContests.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Debug: log contest count per platform
-  const contestCountPerPlatform = SUPPORTED_PLATFORMS.reduce((acc, platform) => {
-    acc[platform.id] = allContests.filter(c => c.platform === platform.id).length;
-    return acc;
-  }, {} as Record<string, number>);
-  console.log('Contest count per platform:', contestCountPerPlatform);
+  // Calculate activity trends
+  const getActivityTrend = () => {
+    // Sort dates
+    const sortedDates = [...calendarData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  // Extra debug for HackerRank: sum of events in data.ratingHistory
-  const hackerRankProfile = profiles.find(p => p.platform === 'hackerrank');
-  let hackerrankEventCount = 0;
-  if (hackerRankProfile && hackerRankProfile.data?.ratingHistory) {
-    hackerrankEventCount = hackerRankProfile.data.ratingHistory.reduce((sum: number, history: any) => {
-      if (Array.isArray(history.events)) {
-        return sum + history.events.length;
+    if (sortedDates.length < 14) return { trend: 0, percentage: 0 }
+
+    // Get last 7 days and previous 7 days
+    const last7Days = sortedDates.slice(-7)
+    const previous7Days = sortedDates.slice(-14, -7)
+
+    const last7Sum = last7Days.reduce((sum, day) => sum + day.count, 0)
+    const previous7Sum = previous7Days.reduce((sum, day) => sum + day.count, 0)
+
+    if (previous7Sum === 0) return { trend: 1, percentage: 100 }
+
+    const trend = last7Sum - previous7Sum
+    const percentage = Math.round((trend / previous7Sum) * 100)
+
+    return { trend, percentage }
+  }
+
+  const activityTrend = getActivityTrend()
+
+  // Calculate most active day of week
+  const getMostActiveDayOfWeek = () => {
+    const dayCount = [0, 0, 0, 0, 0, 0, 0] // Sun to Sat
+
+    calendarData.forEach((day) => {
+      const date = new Date(day.date)
+      if (!isNaN(date.getTime())) {
+        const dayOfWeek = date.getDay()
+        dayCount[dayOfWeek] += day.count
       }
-      return sum;
-    }, 0);
-  }
-  console.log('HackerRank contest count (sum of events in ratingHistory):', hackerrankEventCount);
+    })
 
-  // Extra debug for HackerEarth: count of ratingHistory
-  const hackerEarthProfile = profiles.find(p => p.platform === 'hackerearth');
-  let hackerearthContestCount = 0;
-  if (hackerEarthProfile && hackerEarthProfile.data?.ratingHistory) {
-    hackerearthContestCount = Array.isArray(hackerEarthProfile.data.ratingHistory)
-      ? hackerEarthProfile.data.ratingHistory.length
-      : 0;
-  }
-  console.log('HackerEarth contest count (ratingHistory.length):', hackerearthContestCount);
+    const maxCount = Math.max(...dayCount)
+    const mostActiveDay = dayCount.indexOf(maxCount)
 
-  const totalContests = allContests.length;
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    return { day: days[mostActiveDay], count: maxCount }
+  }
+
+  const mostActiveDay = getMostActiveDayOfWeek()
+
+  // Calculate average daily submissions
+  const getAverageDailySubmissions = () => {
+    if (calendarData.length === 0) return 0
+
+    const totalSubmissions = calendarData.reduce((sum, day) => sum + day.count, 0)
+    const activeDays = calendarData.filter((day) => day.count > 0).length
+
+    return activeDays > 0 ? Math.round((totalSubmissions / activeDays) * 10) / 10 : 0
+  }
+
+  const averageDailySubmissions = getAverageDailySubmissions()
+
+  // Generate monthly activity data for bar chart
+  const getMonthlyActivityData = () => {
+    const monthlyData = Array(12).fill(0)
+    const currentYear = new Date().getFullYear()
+
+    calendarData.forEach((day) => {
+      const date = new Date(day.date)
+      if (!isNaN(date.getTime()) && date.getFullYear() === currentYear) {
+        const month = date.getMonth()
+        monthlyData[month] += day.count
+      }
+    })
+
+    return monthlyData
+  }
+
+  const monthlyActivityData = getMonthlyActivityData()
+  const maxMonthlyActivity = Math.max(...monthlyActivityData)
   
+  // Transform CalendarData to format needed for ProfileHeatmap
+  const transformToHeatmapData = (): ActivityData[] => {
+    const filteredData = filterCalendarDataByTimeRange(calendarData, timeRange);
+    return filteredData.map(item => ({
+      date: item.date,
+      count: item.count,
+      verdictSummary: [
+        {
+          status: "ACCEPTED",
+          readableStatus: "Accepted",
+          count: item.count,
+          color: "#4ade80"
+        }
+      ]
+    }));
+  };
+
+  // Main dashboard tabs
+  const [activeMainTab, setActiveMainTab] = useState("overview")
+  
+  // Filter calendar data based on selected time range
+  const filterCalendarDataByTimeRange = (data: CalendarData[], range: string): CalendarData[] => {
+    if (!data.length) return [];
+    
+    const now = new Date();
+    const cutoffDate = new Date();
+    
+    switch (range) {
+      case "month":
+        cutoffDate.setMonth(now.getMonth() - 1);
+        break;
+      case "quarter":
+        cutoffDate.setMonth(now.getMonth() - 3);
+        break;
+      case "year":
+      default:
+        cutoffDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+    
+    return data.filter(item => {
+      const itemDate = new Date(item.date);
+      return itemDate >= cutoffDate && itemDate <= now;
+    });
+  };
+  console.log("profiles",profiles);
+  // Find the last three contests across LeetCode, Codeforces, and CodeChef
+  // Gather all contest histories from all connected platforms, flatten, and find the last three contests with platform name and rank
+  const recentContests = profiles
+    .flatMap((profile) =>
+      (profile.contestHistory || []).map((contest: any) => ({
+        ...contest,
+        platform: profile.platform,
+        platformName:
+          SUPPORTED_PLATFORMS.find((pl) => pl.id === profile.platform)?.name || profile.platform,
+        platformIcon:
+          SUPPORTED_PLATFORMS.find((pl) => pl.id === profile.platform)?.icon,
+        platformColor:
+          SUPPORTED_PLATFORMS.find((pl) => pl.id === profile.platform)?.color,
+        rank: contest.rank || contest.position || contest.standing || 0,
+      }))
+    )
+    .filter((c: any) => c.date)
+    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+  console.log(recentContests);
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-3 text-lg">Loading your coding profiles...</span>
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-blue-100 dark:bg-blue-900/30 animate-ping opacity-20"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
+        </div>
+        <span className="ml-3 text-lg font-medium bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
+          Loading your coding journey...
+        </span>
       </div>
     )
   }
-  
-  if (platformHandles.length === 0) {
+
+  if (profiles.length === 0) {
     return (
       <div className="text-center py-16">
-        <h2 className="text-2xl font-semibold mb-4">No platforms connected</h2>
+        <div className="inline-flex rounded-full bg-blue-100 dark:bg-blue-900/30 p-6 mb-6">
+          <Code className="h-12 w-12 text-blue-600 dark:text-blue-400" />
+        </div>
+        <h2 className="text-2xl font-semibold mb-4 bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
+          No platforms connected
+        </h2>
         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
           Connect your competitive programming profiles to see all your stats in one place.
         </p>
-      </div>
-    )
-  }
-  
-  // Show a message if platforms are connected but no data is found
-  if (platformHandles.length > 0 && profiles.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <h2 className="text-2xl font-semibold mb-4">No data found</h2>
-        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          You have connected platforms, but we couldn't find any stored data.
-        </p>
-        <Button onClick={refreshData} disabled={refreshing}>
-          {refreshing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Refreshing...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh Data
-            </>
-          )}
+        <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
+          <a href="/coding-portfolio/connect">Connect Platforms</a>
         </Button>
       </div>
     )
   }
-  
+
+  // --- Platform-wise contest counts ---
+  const platformContestCounts: Record<string, number> = {};
+  profiles.forEach(profile => {
+    const data: any = profile.data || {};
+    let count = 0;
+    if (profile.platform === 'hackerrank') {
+      if (Array.isArray(data.ratingHistory)) {
+        data.ratingHistory.forEach((entry: any) => {
+          if (Array.isArray(entry.events)) {
+            count += entry.events.length;
+          }
+        });
+      }
+    } else if (profile.platform === 'hackerearth') {
+      if (Array.isArray(data.ratingHistory)) {
+        count += data.ratingHistory.length;
+      }
+    } else {
+      if (Array.isArray(data.contests)) {
+        count += data.contests.length;
+      } else if (Array.isArray(data.contestHistory)) {
+        count += data.contestHistory.length;
+      } else if (typeof data.contests === 'number') {
+        count += data.contests;
+      }
+    }
+    platformContestCounts[profile.platform] = count;
+  });
+
+  // Calculate last solved label from calendarData
+  let lastSolvedLabel = "Never";
+  if (calendarData && calendarData.length > 0) {
+    const activeDays = calendarData.filter(day => day.count > 0);
+    if (activeDays.length > 0) {
+      const lastDateStr = activeDays.reduce((latest, day) =>
+        new Date(day.date) > new Date(latest) ? day.date : latest,
+        activeDays[0].date
+      );
+      const lastDate = new Date(lastDateStr);
+      const today = new Date();
+      lastDate.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+      const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) lastSolvedLabel = "Today";
+      else if (diffDays === 1) lastSolvedLabel = "Yesterday";
+      else lastSolvedLabel = `${diffDays} days ago`;
+    }
+  }
+
   return (
-    <div className="space-y-12">
-      {/* Refresh data button */}
-      <div className="flex justify-end">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={refreshData} 
-          disabled={refreshing} 
-          className="relative overflow-hidden group border-primary/25 dark:border-primary/40 hover:border-primary dark:hover:border-primary transition-all duration-300"
-        >
-          {refreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500" />
-          )}
-          <span className="ml-2 text-sm">Refresh Data</span>
-          
-          {/* Border animation */}
-          <span className="absolute inset-0 border border-primary/40 rounded opacity-0 group-hover:opacity-100 group-hover:animate-ping" />
-        </Button>
-      </div>
-      
-      {/* User profile summary section */}
-      <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-slate-50/90 to-slate-100/90 dark:from-slate-900/90 dark:to-slate-800/90 backdrop-blur-lg p-8 shadow-lg border border-white/30 dark:border-slate-700/30 animate-fadeIn">
-        {/* Decorative elements */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-72 h-20 bg-gradient-to-tr from-blue-500/10 to-transparent rounded-full blur-3xl" />
-        
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
-          {user?.image && (
-            <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden border-4 border-white dark:border-slate-800 shadow-lg ring-2 ring-primary/20 dark:ring-primary/30">
-              <Image 
-                src={user.image}
-                alt={user.name || "User"} 
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
-          
-          <div className="flex-1 text-center md:text-left space-y-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{user?.name}</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">{user?.email}</p>
-            </div>
-            
-            <div className="flex flex-col md:flex-row gap-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-primary/10 dark:bg-primary/20">
-                  <Code className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Total Problems</div>
-                  <div className="font-bold text-xl">{totalSolved}</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-green-500/10 dark:bg-green-500/20">
-                  <Trophy className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Contests</div>
-                  <div className="font-bold text-xl">{totalContests}</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-amber-500/10 dark:bg-amber-500/20">
-                  <CalendarIcon className="h-5 w-5 text-amber-500" />
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Active Days</div>
-                  <div className="font-bold text-xl">{totalActiveDays}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Connected Platforms */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6 flex items-center text-slate-800 dark:text-slate-200">
-          <span className="relative">
-            Connected Platforms
-            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-primary/70 to-transparent"></span>
-          </span>
-        </h2>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          {SUPPORTED_PLATFORMS.map(platform => {
-            const profile = profiles.find(p => p.platform === platform.id);
-            const isConnected = !!profile;
-            
-            return (
-              <div 
-                key={platform.id}
-                className={`p-5 rounded-xl border transition-all duration-300 group ${isConnected 
-                  ? 'bg-gradient-to-b from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:scale-105 hover:border-primary/30 dark:hover:border-primary/40' 
-                  : 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 opacity-40 hover:opacity-60'
-                }`}
-                style={{
-                  boxShadow: isConnected ? `0 4px 12px ${adjustColor(platform.color, 95)}` : 'none'
-                }}
+    <div className="space-y-10 relative">
+      <div className="mt-6">
+        <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
+          <div className="border-b border-slate-200 dark:border-slate-800">
+            <TabsList className="bg-transparent h-12 p-0 w-full justify-start gap-3">
+              <TabsTrigger
+                value="overview"
+                className="z-20 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none bg-transparent px-2 h-12"
               >
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 flex items-center justify-center mb-3 relative">
-                    <div className={`absolute inset-0 rounded-full ${isConnected ? `bg-${platform.color}/10` : 'bg-transparent'} transition-all duration-300 group-hover:scale-110`}></div>
-                    <img 
-                      src={platform.icon} 
-                      alt={platform.name} 
-                      className="w-8 h-8 z-10 transition-all duration-300 group-hover:scale-110" 
-                    />
-                    {isConnected && (
-                      <div className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs p-1 rounded-full z-10 shadow-sm">
-                        <CheckCircle className="h-3 w-3" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="font-medium text-center text-sm">{platform.name}</div>
-                  {isConnected && (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate w-full text-center">
-                      @{profile.username}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Top Stats Row */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6 flex items-center text-slate-800 dark:text-slate-200">
-          <span className="relative">
-            Statistics
-            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-primary/70 to-transparent"></span>
-          </span>
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Total Questions Card */}
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110" />
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Questions</div>
-                <div className="p-2.5 rounded-lg bg-primary/10 dark:bg-primary/20 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                  <Code className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              <div className="text-4xl font-bold mb-4">{totalSolved}</div>
-              
-              {/* Mini distribution bar */}
-              <div className="space-y-1">
-                <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-slate-200/50 dark:bg-slate-700/50">
-                  {Object.entries(problemsByDifficulty).map(([difficulty, count]) => {
-                    // Calculate colors based on difficulty
-                    let color;
-                    switch(difficulty.toLowerCase()) {
-                      case 'easy': color = 'bg-green-500'; break;
-                      case 'medium': color = 'bg-yellow-500'; break;
-                      case 'hard': color = 'bg-red-500'; break;
-                      case 'basic': color = 'bg-blue-500'; break;
-                      case 'school': color = 'bg-teal-500'; break;
-                      default: color = 'bg-slate-500'; break;
-                    }
-                    
-                    // Calculate width percentage based on count
-                    const percentage = (count / totalSolved) * 100;
-                    
-                    return (
-                      <div 
-                        key={difficulty}
-                        className={`${color} h-full rounded-full transition-all duration-500 group-hover:scale-y-125`}
-                        style={{ width: `${percentage}%` }}
-                        title={`${difficulty}: ${count} (${percentage.toFixed(1)}%)`}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>By difficulty</span>
-                  <span>{Object.keys(problemsByDifficulty).length} levels</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Active Days Card */}
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-green-500/20 to-green-500/5 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110" />
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Days</div>
-                <div className="p-2.5 rounded-lg bg-green-500/10 dark:bg-green-500/20 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                  <CalendarIcon className="h-5 w-5 text-green-500" />
-                </div>
-              </div>
-              <div className="text-4xl font-bold mb-4">{totalActiveDays}</div>
-              
-              {/* Mini activity indicator */}
-              <div className="space-y-1">
-                <div className="flex h-12 gap-0.5 items-end">
-                  {Array.from({ length: 14 }).map((_, i) => {
-                    // Random heights for now, would be replaced with actual data
-                    const heights = ['h-1', 'h-2', 'h-3', 'h-4', 'h-5', 'h-6', 'h-7', 'h-8', 'h-9', 'h-10'];
-                    const height = heights[Math.floor(Math.random() * heights.length)];
-                    return (
-                      <div key={i} className="flex-1 flex items-end">
-                        <div className={`w-full ${height} bg-green-500/60 dark:bg-green-500/70 rounded-sm transition-all duration-300 group-hover:scale-y-110`} />
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Last 14 days</span>
-                  <span>{Math.round((totalActiveDays / 365) * 100)}% active in past year</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Contests Card */}
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110" />
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Contests</div>
-                <div className="p-2.5 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                  <Trophy className="h-5 w-5 text-amber-500" />
-                </div>
-              </div>
-              <div className="text-4xl font-bold mb-4">{totalContests}</div>
-              
-              {/* Platform distribution mini-bar */}
-              <div className="space-y-1">
-                <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full">
-                  {profiles
-                    .filter(p => allContests.filter(c => c.platform === p.platform).length > 0)
-                    .map(profile => {
-                      // Find platform color
-                      const platform = SUPPORTED_PLATFORMS.find(p => p.id === profile.platform);
-                      const color = platform?.color || '#94a3b8';
-                      const contestsCount = allContests.filter(c => c.platform === profile.platform).length;
-                      
-                      // Calculate percentage
-                      const percentage = (contestsCount / totalContests) * 100;
-                      
-                      return (
-                        <div 
-                          key={profile.platform}
-                          className="h-full rounded-full transition-all duration-500 group-hover:scale-y-125"
-                          style={{ width: `${percentage}%`, backgroundColor: color }}
-                          title={`${platform?.name}: ${contestsCount} (${percentage.toFixed(1)}%)`}
-                        />
-                      );
-                    })
-                  }
-                </div>
-                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>By platform</span>
-                  <span>Last: {allContests[0]?.name || 'None'}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Streak Card */}
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-blue-500/20 to-blue-500/5 rounded-full blur-3xl transition-all duration-500 group-hover:scale-110" />
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Current Streak
-                </div>
-                <div className="p-2.5 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                  <Award className="h-5 w-5 text-blue-500" />
-                </div>
-              </div>
-              <div className="text-4xl font-bold mb-4">{currentStreak}</div>
-              
-              <div className="space-y-1">
-                <div className="relative h-2 w-full bg-slate-200/70 dark:bg-slate-700/50 rounded-full overflow-hidden">
-                  <div 
-                    className="absolute h-full bg-gradient-to-r from-blue-500 to-indigo-500 left-0 top-0 rounded-full transition-all duration-500 group-hover:scale-105"
-                    style={{ width: `${Math.min(100, (currentStreak / maxStreak) * 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Current</span>
-                  <span>Max: {maxStreak}</span>
-                </div>
-              </div>
-              
-              {/* Flame icon for hot streaks */}
-              {currentStreak > 3 && (
-                <div className="absolute right-4 bottom-4 text-amber-500 animate-pulse">
-                  <FlameIcon className="h-10 w-10 opacity-70" />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      
-      {/* Activity Heatmap */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6 flex items-center text-slate-800 dark:text-slate-200">
-          <span className="relative">
-            Activity Heatmap
-            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-primary/70 to-transparent"></span>
-          </span>
-        </h2>
-        
-        <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-          <div className="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-gradient-to-tr from-green-500/10 to-transparent rounded-full blur-3xl" />
-          
-          <CardHeader className="pb-2 relative z-10">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-primary/10 dark:bg-primary/20">
-                  <CalendarIcon className="h-5 w-5 text-primary" />
-                </div>
-                <CardTitle>Coding Activity</CardTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-sm px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <span className="font-medium text-primary">{totalSubmissions}</span> submissions
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          
-          <div className="px-6 pt-4 pb-2 border-b border-slate-100 dark:border-slate-800 relative z-10">
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {/* Contribution summary by platform */}
-              {SUPPORTED_PLATFORMS.filter(platform => 
-                profiles.some(p => p.platform === platform.id && 
-                  p.activityHeatmap && p.activityHeatmap.length > 0)
-              ).map(platform => {
-                const profile = profiles.find(p => p.platform === platform.id);
-                const count = profile?.activityHeatmap?.reduce((sum, day) => sum + day.count, 0) || 0;
-                
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="contests"
+                className="z-20 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none bg-transparent px-2 h-12"
+              >
+                Contest Analysis
+              </TabsTrigger>
+              {profiles.map((profile) => {
+                const platform = SUPPORTED_PLATFORMS.find((p) => p.id === profile.platform)
                 return (
-                  <div key={platform.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 hover:shadow-md hover:border-primary/30 dark:hover:border-primary/50 transition-all duration-300">
-                    <img src={platform.icon} alt={platform.name} className="h-4 w-4" />
-                    <span className="text-xs font-medium">{count}</span>
-                  </div>
-                );
+                  <TabsTrigger
+                    key={profile.platform}
+                    value={profile.platform}
+                    className="z-20 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none bg-transparent px-2 h-12"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-md overflow-hidden bg-white dark:bg-slate-800 p-0.5 flex items-center justify-center">
+                        <img
+                          src={platform?.icon || "/placeholder.svg"}
+                          alt={platform?.name || profile.platform}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <span>{platform?.name || profile.platform}</span>
+                    </div>
+                  </TabsTrigger>
+                )
               })}
-            </div>
+            </TabsList>
           </div>
-          
-          <CardContent className="p-0 relative z-10">
-            <div className="px-6 pt-6 pb-2">
-              <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-md">
-                <CalendarHeatmap data={uniqueActivityData} submissionStats={submissionStats} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* Problems & Contests */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Problems Solved */}
-        <div>
-          <h2 className="text-xl font-semibold mb-6 flex items-center text-slate-800 dark:text-slate-200">
-            <span className="relative">
-              Problems Solved
-              <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-primary/70 to-transparent"></span>
-            </span>
-          </h2>
-          
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-            <div className="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl" />
-            <CardContent className="p-8 relative z-10">
-              <div className="flex flex-col gap-6">
-                <div className="flex justify-center">
-                  <div className="relative w-52 h-52 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/40 rounded-full border border-slate-200 dark:border-slate-700 shadow-inner transition-all duration-500 group-hover:scale-105">
-                    <span className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-primary to-primary/70">{totalSolved}</span>
-                    <span className="text-sm text-slate-500 dark:text-slate-400 mt-1">problems solved</span>
-                    
-                    {/* Circular ring */}
-                    <svg className="absolute inset-0 w-full h-full -rotate-90 transition-all duration-700 group-hover:rotate-0" viewBox="0 0 100 100">
-                      <circle 
-                        cx="50" cy="50" r="45" 
-                        fill="none" 
-                        stroke="rgba(203, 213, 225, 0.2)" 
-                        strokeWidth="3"
-                        className="dark:stroke-slate-700/30"
-                      />
-                      <circle 
-                        cx="50" cy="50" r="45" 
-                        fill="none" 
-                        stroke="rgba(79, 70, 229, 0.6)" 
-                        strokeWidth="4"
-                        strokeDasharray="282.7"
-                        strokeDashoffset="56.6"
-                        strokeLinecap="round"
-                        className="transition-all duration-1000 group-hover:stroke-dashoffset-0"
-                      />
-                    </svg>
+
+          {/* Overview Tab Content */}
+          <TabsContent value="overview" className="mt-4">
+            <div className="space-y-8">
+              {/* Activity Heatmap */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/20 dark:from-blue-500/20 dark:to-blue-600/30 border border-blue-100 dark:border-blue-800/50 shadow-sm">
+                      <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 dark:from-blue-400 dark:to-blue-300">
+                      Activity Heatmap
+                    </h2>
+                  </div>
+                  <div className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-xs font-medium text-blue-600 dark:text-blue-400 shadow-sm">
+                    {totalActiveDays} active days
                   </div>
                 </div>
-                
-                {/* Platform breakdown */}
-                <div className="grid grid-cols-2 gap-3">
-                  {SUPPORTED_PLATFORMS.filter(platform => {
-                    const profile = profiles.find(p => p.platform === platform.id);
-                    return (profile?.totalSolved || 0) > 0;
-                  }).map(platform => {
-                    const profile = profiles.find(p => p.platform === platform.id);
-                    const totalSolvedCount = profile?.totalSolved ?? 0;
-                    const percentage = (totalSolvedCount / totalSolved * 100).toFixed(1);
-                    
-                    return (
-                      <div 
-                        key={platform.id} 
-                        className="flex items-center p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-slate-100 dark:border-slate-800 group/item"
-                        style={{
-                          background: `linear-gradient(to right, ${adjustColor(platform.color, 97)} 0%, rgba(255,255,255,0) 50%)`,
-                        }}
-                      >
-                        <img src={platform.icon} alt={platform.name} className="w-5 h-5 mr-3 transition-all duration-300 group-hover/item:scale-110" />
-                        <div className="flex-1 flex justify-between items-center">
-                          <span className="font-medium text-sm">{platform.name}</span>
-                          <div className="flex flex-col items-end">
-                            <span className="font-bold text-sm">{totalSolvedCount}</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">{percentage}%</span>
+
+                <Card className="group overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-white via-slate-50/90 to-blue-50/30 dark:from-slate-900 dark:via-slate-800/90 dark:to-blue-900/20">
+                  {/* Premium decorative elements - make them not block pointer events */}
+                  <div className="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                  <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-200/10 via-transparent to-transparent opacity-60 dark:from-blue-800/10 pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+                  {/* 3D-like top accent bar */}
+                  <div className="relative h-2 w-full bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600 shadow-lg overflow-hidden pointer-events-none">
+                    <div className="absolute inset-0 bg-white opacity-20 w-1/2 blur-sm transform -translate-x-full group-hover:translate-x-full transition-transform duration-1500 pointer-events-none"></div>
+                  </div>
+
+                  <CardHeader className="pb-2 relative z-10">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      {/* Activity insights */}
+                      <div className="flex flex-wrap gap-3">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                            <Zap className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Current Streak</span>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              {currentStreak} days
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/30">
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Weekly Trend</span>
+                            <span
+                              className={`text-xs font-semibold ${(statsCardWeeklyTrend ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                            >
+                              {(statsCardWeeklyTrend ?? 0) >= 0 ? "+" : ""}
+                              {(statsCardWeeklyTrend ?? 0)}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <div className="p-1 rounded-md bg-amber-100 dark:bg-amber-900/30">
+                            <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Most Active</span>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              {mostActiveDay.day.slice(0, 3)}
+                            </span>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Contests Section */}
-        <div>
-          <h2 className="text-xl font-semibold mb-6 flex items-center text-slate-800 dark:text-slate-200">
-            <span className="relative">
-              Contest Participation
-              <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-primary/70 to-transparent"></span>
-            </span>
-          </h2>
-          
-          <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-            <div className="absolute -top-32 -left-32 w-64 h-64 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full blur-3xl" />
-            <CardContent className="p-8 relative z-10">
-              <div className="flex flex-col h-full">
-                <div className="flex justify-center mb-6">
-                  <div className="relative w-52 h-52 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/40 rounded-full border border-slate-200 dark:border-slate-700 shadow-inner transition-all duration-500 group-hover:scale-105">
-                    <span className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-amber-500 to-amber-600">{totalContests}</span>
-                    <span className="text-sm text-slate-500 dark:text-slate-400 mt-1">contests joined</span>
-                    
-                    {/* Circular ring */}
-                    <svg className="absolute inset-0 w-full h-full -rotate-90 transition-all duration-700 group-hover:rotate-0" viewBox="0 0 100 100">
-                      <circle 
-                        cx="50" cy="50" r="45" 
-                        fill="none" 
-                        stroke="rgba(203, 213, 225, 0.2)" 
-                        strokeWidth="3"
-                        className="dark:stroke-slate-700/30"
-                      />
-                      <circle 
-                        cx="50" cy="50" r="45" 
-                        fill="none" 
-                        stroke="rgba(245, 158, 11, 0.6)" 
-                        strokeWidth="4"
-                        strokeDasharray="282.7"
-                        strokeDashoffset="140"
-                        strokeLinecap="round"
-                        className="transition-all duration-1000 group-hover:stroke-dashoffset-70"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                
-                {/* Platform Contest Counts */}
-                <div className="grid grid-cols-2 gap-3">
-                  {profiles.filter(p => allContests.filter(c => c.platform === p.platform).length > 0)
-                    .sort((a, b) => {
-                      const aCount = allContests.filter(c => c.platform === a.platform).length;
-                      const bCount = allContests.filter(c => c.platform === b.platform).length;
-                      return bCount - aCount;
-                    })
-                    .map(profile => {
-                      const platform = SUPPORTED_PLATFORMS.find(p => p.id === profile.platform);
-                      const contestsCount = allContests.filter(c => c.platform === profile.platform).length;
-                      const percentage = (contestsCount / totalContests * 100).toFixed(1);
-                      
-                      return (
-                        <div 
-                          key={profile.platform} 
-                          className="flex items-center p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-slate-100 dark:border-slate-800 group/item"
-                          style={{
-                            background: `linear-gradient(to right, ${adjustColor(platform?.color || '#94a3b8', 97)} 0%, rgba(255,255,255,0) 50%)`,
-                          }}
-                        >
-                          <img src={platform?.icon} alt={platform?.name} className="w-5 h-5 mr-3 transition-all duration-300 group-hover/item:scale-110" />
-                          <div className="flex-1 flex justify-between items-center">
-                            <span className="font-medium text-sm">{platform?.name}</span>
-                            <div className="flex flex-col items-end">
-                              <span className="font-bold text-sm">{contestsCount}</span>
-                              <span className="text-xs text-slate-500 dark:text-slate-400">{percentage}%</span>
+
+                      {/* Controls */}
+                     
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-2 relative z-10">
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-md p-6 bg-white dark:bg-slate-900">
+                        <div>
+                          {calendarData.length > 0 ? (
+                            <PortfolioHeatmap 
+                              data={calendarData}
+                              weeklyTrend={statsCardWeeklyTrend}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-center">
+                              <Calendar className="h-12 w-12 text-blue-500/50 mb-3" />
+                              <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-1">No activity data yet</h3>
+                              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+                                Start solving problems on your connected platforms to see your activity heatmap here.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Activity insights */}
+                    <div className="px-4 pb-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <Flame className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Best Streak</div>
+                            <div className="flex items-baseline">
+                              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">{bestStreak}</span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">days</span>
                             </div>
                           </div>
                         </div>
-                      );
-                    })
-                  }
-                </div>
-                
-               
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      
-      {/* Contest Rankings */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6 flex items-center text-slate-800 dark:text-slate-200">
-          <span className="relative">
-            Contest Rankings
-            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-primary/70 to-transparent"></span>
-          </span>
-        </h2>
-        
-        <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-slate-50/80 dark:from-slate-900 dark:to-slate-800/80">
-          <div className="absolute -top-32 right-32 w-64 h-64 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-gradient-to-tr from-amber-500/10 to-transparent rounded-full blur-3xl" />
-          
-          <CardHeader className="relative z-10">
-            <CardTitle className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-amber-500/10 dark:bg-amber-500/20">
-                <Trophy className="h-5 w-5 text-amber-500" />
-              </div>
-              Platform Ratings
-            </CardTitle>
-          </CardHeader>
-          
-          <CardContent className="relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {platformMetrics
-                .filter(p => p.connected && p.rating > 0)
-                .map(platform => {
-                  // Find the highest rating for this platform (max value)
-                  const profile = profiles.find(p => p.platform === platform.id);
-                  const contestHistory = profile?.contestHistory || [];
-                  const allRatings = contestHistory
-                    .filter(c => c.rating !== undefined)
-                    .map(c => c.rating as number);
-                  
-                  // Find max rating from history or use current
-                  const maxRating = allRatings.length > 0 
-                    ? Math.max(...allRatings, platform.rating) 
-                    : platform.rating;
-                  
-                  // Calculate rating change percentage if history exists
-                  let changePercent = 0;
-                  let changeDirection = 'neutral';
-                  
-                  if (allRatings.length >= 2) {
-                    // Get the rating from two contests ago to compare with current
-                    const oldRating = allRatings[allRatings.length - 2] || allRatings[0];
-                    const currentRating = platform.rating;
-                    
-                    if (oldRating !== currentRating) {
-                      changePercent = +((currentRating - oldRating) / oldRating * 100).toFixed(1);
-                      changeDirection = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'neutral';
-                    }
-                  }
-                  
-                  return (
-                    <div 
-                      key={platform.id} 
-                      className="group/card overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] bg-white/50 dark:bg-slate-900/50 p-0.5"
-                    >
-                      <div className="relative h-full p-4 rounded-lg overflow-hidden"
-                        style={{ 
-                          background: `linear-gradient(135deg, ${adjustColor(platform.color, 97)} 0%, rgba(255,255,255,0) 60%)` 
-                        }}
-                      >
-                        <div className="absolute bottom-0 right-0 w-24 h-24 opacity-10" style={{ background: `radial-gradient(circle, ${platform.color} 0%, transparent 70%)` }}></div>
-                        
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-8 h-8 rounded-md overflow-hidden bg-white p-1 shadow-sm border border-slate-100 dark:border-slate-700">
-                            <img 
-                              src={platform.icon} 
-                              alt={platform.name} 
-                              className="w-full h-full object-contain transition-all duration-300 group-hover/card:scale-110" 
-                            />
+
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                            <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                           </div>
-                          <h3 className="font-semibold">{platform.name}</h3>
+                          <div>
+                            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Daily Average</div>
+                            <div className="flex items-baseline">
+                              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                                {averageDailySubmissions}
+                              </span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">submissions</span>
+                            </div>
+                          </div>
                         </div>
+
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <PieChart className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Consistency</div>
+                            <div className="flex items-baseline">
+                              <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                                {Math.round((totalActiveDays / 365) * 100)}%
+                              </span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">of days active</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              Most Productive
+                            </div>
+                            <div className="flex items-baseline">
+                              <span className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                {mostActiveDay.day.slice(0, 3)}
+                              </span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">
+                                ({mostActiveDay.count} submissions)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Problems & Contests */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Problems Solved - PREMIUM VERSION */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/20 dark:from-blue-500/20 dark:to-blue-600/30 border border-blue-100 dark:border-blue-800/50 shadow-sm">
+                        <Code className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 dark:from-blue-400 dark:to-blue-300">
+                        Problems Solved
+                      </h2>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-xs font-medium text-blue-600 dark:text-blue-400 shadow-sm">
+                      {totalSolved} total problems
+                    </div>
+                  </div>
+
+                  {/* Problems Solved - ULTRA PREMIUM VERSION */}
+                  <Card className="group overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-white via-slate-50/90 to-blue-50/30 dark:from-slate-900 dark:via-slate-800/90 dark:to-blue-900/20">
+                    {/* Premium decorative elements - make them not block pointer events */}
+                    <div className="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                    <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-200/10 via-transparent to-transparent opacity-60 dark:from-blue-800/10 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+                    {/* 3D-like top accent bar */}
+                    <div className="relative h-2 w-full bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600 shadow-lg overflow-hidden pointer-events-none">
+                      <div className="absolute inset-0 bg-white opacity-20 w-1/2 blur-sm transform -translate-x-full group-hover:translate-x-full transition-transform duration-1500 pointer-events-none"></div>
+                    </div>
+
+                    <CardHeader className="pb-2 relative z-10">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        {/* Activity insights */}
+                        <div className="flex flex-wrap gap-3">
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                              <Zap className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">Current Streak</span>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {currentStreak} days
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/30">
+                              <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">Weekly Trend</span>
+                              <span
+                                className={`text-xs font-semibold ${(statsCardWeeklyTrend ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                              >
+                                {(statsCardWeeklyTrend ?? 0) >= 0 ? "+" : ""}
+                                {(statsCardWeeklyTrend ?? 0)}%
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="p-1 rounded-md bg-amber-100 dark:bg-amber-900/30">
+                              <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">Most Active</span>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {mostActiveDay.day.slice(0, 3)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Controls */}
                         
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="text-3xl font-bold" style={{ color: platform.color }}>
-                              {platform.rating > 0 ? platform.rating : 'N/A'}
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="p-0 relative z-10">
+                      <div className="flex flex-col">
+                        {/* Header section with 3D effect */}
+                        <div className="relative p-5 pb-0 overflow-hidden">
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-xl"></div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-300">
+                                  <Code className="h-6 w-6 text-white" />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-md">
+                                  <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                                    <CheckCircle2 className="h-3 w-3 text-white" />
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                  Your coding challenge progress
+                                </p>
+                              </div>
+                            </div>
+
+                           
+                          </div>
+                        </div>
+
+                        {/* Main content with 3D card effect */}
+                        <div className="p-5">
+                          <div className="relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-800/50 dark:to-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-lg p-5 transform group-hover:-translate-y-1 transition-all duration-300">
+                            {/* Subtle pattern overlay */}
+                            <div
+                              className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
+                              style={{
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%239C92AC' fillOpacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                              }}
+                            />
+
+                            <div className="flex flex-col md:flex-row gap-6 items-center">
+                              {/* Left side - Counter with 3D effect */}
+                              <div className="relative mb-4 md:mb-0">
+                                <div className="relative w-40 h-40 rounded-full bg-gradient-to-b from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border border-blue-100 dark:border-blue-900/50 shadow-[0_10px_25px_-5px_rgba(59,130,246,0.3)] dark:shadow-[0_10px_25px_-5px_rgba(59,130,246,0.2)] flex flex-col items-center justify-center transform group-hover:scale-105 transition-all duration-500">
+                                  {/* Animated glow effect */}
+                                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-500/20 dark:to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl"></div>
+
+                                  {/* 3D-like ring */}
+                                  <div className="absolute inset-0 rounded-full border-8 border-white dark:border-slate-800 opacity-20"></div>
+
+                                  {/* Counter */}
+                                  <div className="relative">
+                                    <span className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-600 drop-shadow-sm">
+                                      {totalSolved}
+                                    </span>
+
+                                    
+                                  </div>
+                                  <span className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                                    problems solved
+                                  </span>
+
+                                  {/* Circular progress ring with premium styling */}
+                                  <svg
+                                    className="absolute inset-0 w-full h-full -rotate-90 transition-all duration-1000 group-hover:rotate-0"
+                                    viewBox="0 0 100 100"
+                                  >
+                                    <defs>
+                                      <linearGradient id="problemsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.7" />
+                                        <stop offset="50%" stopColor="#8B5CF6" stopOpacity="0.7" />
+                                        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.7" />
+                                      </linearGradient>
+                                      <filter id="glow">
+                                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+                                        <feMerge>
+                                          <feMergeNode in="coloredBlur" />
+                                          <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                      </filter>
+                                    </defs>
+                                    <circle
+                                      cx="50"
+                                      cy="50"
+                                      r="45"
+                                      fill="none"
+                                      stroke="rgba(203, 213, 225, 0.2)"
+                                      strokeWidth="2.5"
+                                      className="dark:stroke-slate-700/30"
+                                    />
+                                    <circle
+                                      cx="50"
+                                      cy="50"
+                                      r="45"
+                                      fill="none"
+                                      stroke="url(#problemsGradient)"
+                                      strokeWidth="3"
+                                      strokeDasharray="282.7"
+                                      strokeDashoffset="56.6"
+                                      strokeLinecap="round"
+                                      filter="url(#glow)"
+                                      className="transition-all duration-1500 ease-out-quart group-hover:stroke-dashoffset-0"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+
+                              {/* Right side - Difficulty breakdown */}
+                              <div className="flex-1 space-y-4">
+                                {/* Difficulty breakdown with premium styling */}
+                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-3 shadow-sm">
+                                  <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    Difficulty Breakdown
+                                  </h4>
+
+                                  <div className="space-y-1.5">
+                                    {/* Easy problems */}
+                                    <div>
+                                      <div className="flex justify-between items-center mb-0.5">
+                                        <div className="flex items-center">
+                                          <div className="w-2.5 h-2.5 rounded-sm bg-green-500 mr-1.5"></div>
+                                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                            Easy
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                                          {problemsByDifficulty.easy || 0}
+                                        </span>
+                                      </div>
+                                      <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all duration-1000 ease-out-quart"
+                                          style={{
+                                            width: `${((problemsByDifficulty.easy || 0) / totalSolved) * 100}%`,
+                                            boxShadow: "0 0 8px rgba(74, 222, 128, 0.5)",
+                                          }}
+                                        ></div>
+                                      </div>
+                                    </div>
+
+                                    {/* Medium problems */}
+                                    <div>
+                                      <div className="flex justify-between items-center mb-0.5">
+                                        <div className="flex items-center">
+                                          <div className="w-2.5 h-2.5 rounded-sm bg-yellow-500 mr-1.5"></div>
+                                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                            Medium
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
+                                          {problemsByDifficulty.medium || 0}
+                                        </span>
+                                      </div>
+                                      <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-1000 ease-out-quart"
+                                          style={{
+                                            width: `${((problemsByDifficulty.medium || 0) / totalSolved) * 100}%`,
+                                            boxShadow: "0 0 8px rgba(234, 179, 8, 0.5)",
+                                          }}
+                                        ></div>
+                                      </div>
+                                    </div>
+
+                                    {/* Hard problems */}
+                                    <div>
+                                      <div className="flex justify-between items-center mb-0.5">
+                                        <div className="flex items-center">
+                                          <div className="w-2.5 h-2.5 rounded-sm bg-red-500 mr-1.5"></div>
+                                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                            Hard
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-red-600 dark:text-red-400">
+                                          {problemsByDifficulty.hard || 0}
+                                        </span>
+                                      </div>
+                                      <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-full transition-all duration-1000 ease-out-quart"
+                                          style={{
+                                            width: `${((problemsByDifficulty.hard || 0) / totalSolved) * 100}%`,
+                                            boxShadow: "0 0 8px rgba(239, 68, 68, 0.5)",
+                                          }}
+                                        ></div>
+                                      </div>
+                                    </div>
+
+                                    {/* Others problems */}
+                                    <div>
+                                      <div className="flex justify-between items-center mb-0.5">
+                                        <div className="flex items-center">
+                                          <div className="w-2.5 h-2.5 rounded-sm bg-blue-500 mr-1.5"></div>
+                                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                            Others
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                                          {Math.max(0, totalSolved - ((problemsByDifficulty.easy || 0) + (problemsByDifficulty.medium || 0) + (problemsByDifficulty.hard || 0)))}
+                                        </span>
+                                      </div>
+                                      <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-1000 ease-out-quart"
+                                          style={{
+                                            width: `${(Math.max(0, totalSolved - ((problemsByDifficulty.easy || 0) + (problemsByDifficulty.medium || 0) + (problemsByDifficulty.hard || 0))) / totalSolved) * 100}%`,
+                                            boxShadow: "0 0 8px rgba(59, 130, 246, 0.5)",
+                                          }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Platform distribution - Full width */}
+                            <div className="mt-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-3 shadow-sm">
+                              <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                Platform Distribution
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                                {platformProblems.length > 0 ? (
+                                  platformProblems.map((platform) => (
+                                    <div
+                                      key={platform.id}
+                                      className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 group/platform"
+                                    >
+                                      <div className="flex-shrink-0 w-6 h-6 rounded-md bg-white dark:bg-slate-700 shadow-sm p-1 border border-slate-100 dark:border-slate-600 flex items-center justify-center">
+                                        <img
+                                          src={platform.icon || "/placeholder.svg"}
+                                          alt={platform.name}
+                                          className="w-full h-full object-contain transition-all duration-300 group-hover/platform:scale-110"
+                                        />
+                                      </div>
+                                      <div className="flex-grow min-w-0 flex flex-col">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 break-normal mr-1.5">
+                                            {platform.name}
+                                          </span>
+                                          <span className="text-xs font-bold flex-shrink-0" style={{ color: platform.color }}>
+                                            {platform.count}
+                                          </span>
+                                        </div>
+                                        <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mt-0.5">
+                                          <div
+                                            className="h-full rounded-full transition-all duration-1000 ease-out-quart"
+                                            style={{
+                                              width: `${platform.percentage}%`,
+                                              background: `linear-gradient(90deg, ${platform.color}90, ${platform.color})`,
+                                              boxShadow: `0 0 10px ${platform.color}50`,
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  SUPPORTED_PLATFORMS.filter((platform) => {
+                                    const profile = profiles.find((p) => p.platform === platform.id)
+                                    return (profile?.totalSolved || 0) > 0
+                                  }).map((platform) => {
+                                    const profile = profiles.find((p) => p.platform === platform.id)
+                                    const totalSolvedCount = profile?.totalSolved ?? 0
+                                    const percentage = ((totalSolvedCount / totalSolved) * 100).toFixed(1)
+
+                                    return (
+                                      <div
+                                        key={platform.id}
+                                        className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 group/platform"
+                                      >
+                                        <div className="flex-shrink-0 w-6 h-6 rounded-md bg-white dark:bg-slate-700 shadow-sm p-1 border border-slate-100 dark:border-slate-600 flex items-center justify-center">
+                                          <img
+                                            src={platform.icon || "/placeholder.svg"}
+                                            alt={platform.name}
+                                            className="w-full h-full object-contain transition-all duration-300 group-hover/platform:scale-110"
+                                          />
+                                        </div>
+                                        <div className="flex-grow min-w-0 flex flex-col">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-xs font-medium text-slate-700 dark:text-slate-300 break-normal mr-1.5">
+                                              {platform.name}
+                                            </span>
+                                            <span className="text-xs font-bold flex-shrink-0" style={{ color: platform.color }}>
+                                              {totalSolvedCount}
+                                            </span>
+                                          </div>
+                                          <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mt-0.5">
+                                            <div
+                                              className="h-full rounded-full transition-all duration-1000 ease-out-quart"
+                                              style={{
+                                                width: `${percentage}%`,
+                                                background: `linear-gradient(90deg, ${platform.color}90, ${platform.color})`,
+                                                boxShadow: `0 0 10px ${platform.color}50`,
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Achievement badges */}
+                          <div className="mt-4 flex justify-between items-center">
+                            <div className="flex -space-x-2">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                <Trophy className="h-4 w-4" />
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                <Award className="h-4 w-4" />
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                <Sigma className="h-4 w-4" />
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                <Sparkles className="h-4 w-4" />
+                              </div>
+                            </div>
+
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              Last solved: <span className="font-medium text-slate-700 dark:text-slate-300">{lastSolvedLabel}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Contests Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/20 dark:from-amber-500/20 dark:to-amber-600/30 border border-amber-100 dark:border-amber-800/50 shadow-sm">
+                        <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-700 to-amber-500 dark:from-amber-400 dark:to-amber-300">
+                        Contest Participation
+                      </h2>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 text-xs font-medium text-amber-600 dark:text-amber-400 shadow-sm">
+                      {totalContests} contests joined
+                    </div>
+                  </div>
+
+                  {/* Contest Participation - ULTRA PREMIUM VERSION */}
+                  <Card className="group overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-white via-slate-50/90 to-amber-50/30 dark:from-slate-900 dark:via-slate-800/90 dark:to-amber-900/20">
+                    {/* Premium decorative elements - make them not block pointer events */}
+                    <div className="absolute -top-32 -left-32 w-64 h-64 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-amber-200/10 via-transparent to-transparent opacity-60 dark:from-amber-800/10 pointer-events-none" />
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl from-amber-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+                    {/* 3D-like top accent bar */}
+                    <div className="relative h-2 w-full bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 shadow-lg overflow-hidden pointer-events-none">
+                      <div className="absolute inset-0 bg-white opacity-20 w-1/2 blur-sm transform -translate-x-full group-hover:translate-x-full transition-transform duration-1500 pointer-events-none"></div>
+                    </div>
+
+                    <CardContent className="p-0 relative z-10">
+                      <div className="flex flex-col">
+                        {/* Header section with 3D effect */}
+                        <div className="relative p-5 pb-0 overflow-hidden">
+                          <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-amber-500/5 to-red-500/5 rounded-full blur-xl"></div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-300">
+                                  <Trophy className="h-6 w-6 text-white" />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-md">
+                                  <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                                    <Star className="h-3 w-3 text-white" />
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                  Your competitive achievements
+                                </p>
+                              </div>
+                            </div>
+
+                           
+                          </div>
+                        </div>
+
+                        {/* Main content with 3D card effect */}
+                        <div className="p-5">
+                          <div className="relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-800/50 dark:to-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-lg p-5 transform group-hover:-translate-y-1 transition-all duration-300">
+                            {/* Subtle pattern overlay */}
+                            <div
+                              className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
+                              style={{
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%239C92AC' fillOpacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                              }}
+                            />
+
+                            <div className="flex flex-col md:flex-row gap-6 items-center">
+                              {/* Left side - Trophy showcase with 3D effect */}
+                              <div className="relative mb-4 md:mb-0">
+                                <div className="relative w-40 h-40 rounded-full bg-gradient-to-b from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 border border-amber-100 dark:border-amber-900/50 shadow-[0_10px_25px_-5px_rgba(245,158,11,0.3)] dark:shadow-[0_10px_25px_-5px_rgba(245,158,11,0.2)] flex flex-col items-center justify-center transform group-hover:scale-105 transition-all duration-500">
+                                  {/* Animated glow effect */}
+                                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/10 to-red-500/10 dark:from-amber-500/20 dark:to-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl"></div>
+
+                                  {/* 3D-like ring */}
+                                  <div className="absolute inset-0 rounded-full border-8 border-white dark:border-slate-800 opacity-20"></div>
+
+                                  {/* Trophy icon with 3D effect */}
+                                  <div className="relative mb-2">
+                                    
+
+                                    {/* Shine effect */}
+                                    <div className="absolute top-0 left-0 w-full h-full rounded-full bg-white opacity-30 blur-sm transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                                  </div>
+
+                                  {/* Counter */}
+                                  <div className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-amber-600 to-amber-400 dark:from-amber-400 dark:to-amber-600 drop-shadow-sm">
+                                    {totalContests}
+                                  </div>
+                                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                                    contests joined
+                                  </span>
+
+                                  {/* Circular progress ring with premium styling */}
+                                  <svg
+                                    className="absolute inset-0 w-full h-full -rotate-90 transition-all duration-1000 group-hover:rotate-0"
+                                    viewBox="0 0 100 100"
+                                  >
+                                    <defs>
+                                      <linearGradient id="contestsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.7" />
+                                        <stop offset="50%" stopColor="#EA580C" stopOpacity="0.7" />
+                                        <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.7" />
+                                      </linearGradient>
+                                      <filter id="contestGlow">
+                                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+                                        <feMerge>
+                                          <feMergeNode in="coloredBlur" />
+                                          <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                      </filter>
+                                    </defs>
+                                    <circle
+                                      cx="50"
+                                      cy="50"
+                                      r="45"
+                                      fill="none"
+                                      stroke="rgba(203, 213, 225, 0.2)"
+                                      strokeWidth="2.5"
+                                      className="dark:stroke-slate-700/30"
+                                    />
+                                    <circle
+                                      cx="50"
+                                      cy="50"
+                                      r="45"
+                                      fill="none"
+                                      stroke="url(#contestsGradient)"
+                                      strokeWidth="3"
+                                      strokeDasharray="282.7"
+                                      strokeDashoffset="140"
+                                      strokeLinecap="round"
+                                      filter="url(#contestGlow)"
+                                      className="transition-all duration-1500 ease-out-quart group-hover:stroke-dashoffset-70"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+
+                              {/* Right side - Recent Contests */}
+                              <div className="flex-1 space-y-4">
+                                {/* Contest timeline */}
+                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm">
+                                  <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                                    Recent Contests
+                                  </h4>
+                                  <div className="space-y-3">
+                                    {recentContests.length > 0 ? (
+                                      recentContests.map((contest: any, i: number) => (
+                                        <div
+                                          key={i}
+                                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300"
+                                        >
+                                          <div className="w-8 h-8 rounded-md bg-white dark:bg-slate-700 shadow-sm p-1.5 border border-slate-100 dark:border-slate-600 flex items-center justify-center">
+                                            <img
+                                              src={contest.platformIcon || "/placeholder.svg"}
+                                              alt={contest.platformName}
+                                              className="w-full h-full object-contain"
+                                            />
+                                          </div>
+                                          <div className="flex-1">
+                                            <div className="flex justify-between items-center">
+                                              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                                                {contest.platformName}: {contest.name}
+                                              </span>
+                                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                {contest.date}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <div className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                                Rank: {contest.rank}
+                                              </div>
+                                              {contest.rating !== undefined && (
+                                                <div className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-[10px] font-medium text-blue-700 dark:text-blue-400 flex items-center">
+                                                  Rating: {contest.rating}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-xs text-slate-500 dark:text-slate-400">No recent contests found.</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                             
-                            <div className={`text-sm flex items-center font-medium gap-1
-                              ${changeDirection === 'up' ? 'text-green-500' : 
-                                changeDirection === 'down' ? 'text-red-500' : 'text-slate-400'}`}
-                            >
-                              {changeDirection === 'up' && (
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                  <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7 10.06l-4.72 4.72a.75.75 0 01-1.06-1.061l5.25-5.25a.75.75 0 011.06 0l3.074 3.073a20.923 20.923 0 015.545-4.931l-3.042-.815a.75.75 0 01-.53-.919z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                              {changeDirection === 'down' && (
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                  <path fillRule="evenodd" d="M1.22 5.222a.75.75 0 011.06 0L7 9.942l3.768-3.769a.75.75 0 011.113.058 20.908 20.908 0 013.813 7.254l1.574-2.727a.75.75 0 011.3.75l-2.475 4.286a.75.75 0 01-.916.305l-4.287-1.704a.75.75 0 01.45-1.43l2.942 1.17a19.387 19.387 0 00-3.355-6.347L7.061 11.06 2.28 6.28a.75.75 0 010-1.06z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                              {changeDirection !== 'neutral' && (
-                                <span>{Math.abs(changePercent)}%</span>
-                              )}
+                            {/* Platform distribution - Full width */}
+                            <div className="mt-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-3 shadow-sm">
+                              <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                Platform Distribution
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                                {SUPPORTED_PLATFORMS.map(platform => {
+                                  const profile = profiles.find(p => p.platform === platform.id);
+                                  if (!profile) return null;
+                                  const contestCount = platformContestCounts[platform.id] || 0;
+                                  const percentage = totalContests > 0 ? Math.round((contestCount / totalContests) * 100) : 0;
+                                  if (contestCount === 0) return null;
+                                  return (
+                                    <div
+                                      key={platform.id}
+                                      className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 group/platform"
+                                    >
+                                      <div className="flex-shrink-0 w-6 h-6 rounded-md bg-white dark:bg-slate-700 shadow-sm p-1 border border-slate-100 dark:border-slate-600 flex items-center justify-center">
+                                        <img
+                                          src={platform.icon || "/placeholder.svg"}
+                                          alt={platform.name}
+                                          className="w-full h-full object-contain transition-all duration-300 group-hover/platform:scale-110"
+                                        />
+                                      </div>
+                                      <div className="flex-grow min-w-0 flex flex-col">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 break-normal mr-1.5">
+                                            {platform.name}
+                                          </span>
+                                          <span className="text-xs font-bold flex-shrink-0" style={{ color: platform.color }}>
+                                            {contestCount} contests
+                                          </span>
+                                        </div>
+                                        <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mt-0.5">
+                                          <div
+                                            className="h-full rounded-full transition-all duration-1000 ease-out-quart"
+                                            style={{
+                                              width: `${percentage}%`,
+                                              background: `linear-gradient(90deg, ${platform.color}90, ${platform.color})`,
+                                              boxShadow: `0 0 10px ${platform.color}50`,
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }).filter(Boolean)}
+                              </div>
                             </div>
-                          </div>
-                          
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex justify-between">
-                            <span>Max: {maxRating}</span>
-                            {platformMetrics.find(p => p.id === platform.id)?.rank !== 'N/A' && (
-                              <span>Rank: <span className="font-medium text-slate-700 dark:text-slate-300">{platformMetrics.find(p => p.id === platform.id)?.rank}</span></span>
-                            )}
-                          </div>
-                          
-                          {/* Mini rating chart - with smooth curve */}
-                          <div className="h-12 w-full overflow-hidden mt-3">
-                            <svg viewBox="0 0 100 24" className="w-full h-full">
-                              <defs>
-                                <linearGradient id={`gradient-${platform.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                  <stop offset="0%" stopColor={platform.color} stopOpacity="0.3" />
-                                  <stop offset="100%" stopColor={platform.color} stopOpacity="0.05" />
-                                </linearGradient>
-                              </defs>
-                              {/* Create path from actual ratings if available */}
-                              {allRatings.length > 1 ? (
-                                <>
-                                  <path
-                                    d={generateRatingsPath(allRatings, 24)}
-                                    fill="none"
-                                    stroke={platform.color}
-                                    strokeWidth="1.5"
-                                    className="transition-all duration-1000 opacity-70 group-hover/card:opacity-100"
-                                  />
-                                  <path
-                                    d={generateRatingsPath(allRatings, 24) + " L 100 24 L 0 24 Z"}
-                                    fill={`url(#gradient-${platform.id})`}
-                                    className="transition-all duration-1000 opacity-50 group-hover/card:opacity-80"
-                                  />
-                                </>
-                              ) : (
-                                <>
-                                  <path
-                                    d={generateRandomPath(20)} // Generate random path for demo if no data
-                                    fill="none"
-                                    stroke={platform.color}
-                                    strokeWidth="1.5"
-                                    className="transition-all duration-1000 opacity-70 group-hover/card:opacity-100"
-                                  />
-                                  <path
-                                    d={generateRandomPath(20) + " L 100 24 L 0 24 Z"} // Area below the line
-                                    fill={`url(#gradient-${platform.id})`}
-                                    className="transition-all duration-1000 opacity-50 group-hover/card:opacity-80"
-                                  />
-                                </>
-                              )}
-                            </svg>
+
+                            {/* Achievement medals */}
+                            <div className="mt-4 flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-yellow-500 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                  <span className="text-amber-900 font-extrabold">1</span>
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                  <span className="text-slate-700 font-extrabold">2</span>
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-700 to-amber-800 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-slate-800 shadow-md">
+                                  <span className="text-amber-100 font-extrabold">3</span>
+                                </div>
+                              </div>
+
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                Last contest:{" "}
+                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  {recentContests.length > 0 ? (() => {
+                                    const latestContest = recentContests[0];
+                                    const contestDate = new Date(latestContest.date);
+                                    const today = new Date();
+                                    contestDate.setHours(0,0,0,0);
+                                    today.setHours(0,0,0,0);
+                                    const diffDays = Math.round((today.getTime() - contestDate.getTime()) / (1000 * 60 * 60 * 24));
+                                    if (diffDays === 0) return "Today";
+                                    else if (diffDays === 1) return "Yesterday";
+                                    else return `${diffDays} days ago`;
+                                  })() : "N/A"}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        
-                        <div className="flex justify-between items-center mt-2 text-xs border-t border-slate-100 dark:border-slate-800 pt-2">
-                          {platform.rank !== 'N/A' ? (
-                            <div className="text-slate-500 dark:text-slate-400">
-                              <span className="font-medium text-slate-700 dark:text-slate-300">{allContests.filter(c => c.platform === platform.id).length}</span> contests
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Platform Ratings */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/20 dark:from-purple-500/20 dark:to-purple-600/30 border border-purple-100 dark:border-purple-800/50 shadow-sm">
+                      <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-500 dark:from-purple-400 dark:to-purple-300">
+                      Platform Ratings
+                    </h2>
+                  </div>
+                  <div className="px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 text-xs font-medium text-purple-600 dark:text-purple-400 shadow-sm">
+                    {platformMetrics.filter((p) => p.connected).length} platforms
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {platformMetrics
+                    .filter((p) => p.connected)
+                    .map((platform) => {
+                      // Generate a random rating change for demo purposes
+                      const ratingChange = Math.floor(Math.random() * 100) - 30
+                      const changeDirection = ratingChange > 0 ? "up" : ratingChange < 0 ? "down" : "neutral"
+                      const contestCount = platformContestCounts[platform.id] || 0;
+
+                      // Special handling for HackerRank
+                      let displayRating = platform.rating;
+                      let displayRank = platform.rank;
+                      if (platform.id === 'hackerrank' && platform.data?.ratingHistory) {
+                        // Flatten all events
+                        const allEvents = platform.data.ratingHistory.flatMap((entry: any) => Array.isArray(entry.events) ? entry.events : []);
+                        // Sort by date descending
+                        allEvents.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                        if (allEvents.length > 0) {
+                          displayRating = allEvents[0].rating || platform.rating;
+                          displayRank = allEvents[0].rank || platform.rank;
+                        }
+                      }
+
+                      return (
+                        <Card
+                          key={platform.id}
+                          className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                        >
+                          <div className="h-1.5 w-full" style={{ backgroundColor: platform.color }}></div>
+                          <CardContent className="p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white p-1.5 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center">
+                                <img
+                                  src={platform.icon || "/placeholder.svg"}
+                                  alt={platform.name}
+                                  className="w-full h-full object-contain transition-all duration-300 group-hover:scale-110"
+                                />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-sm">{platform.name}</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">@{platform.username}</p>
+                              </div>
                             </div>
-                          ) : (
-                            <div></div>
-                          )}
-                          
-                          {platform.username && (
-                            <div className="text-slate-500 dark:text-slate-400">
-                              @{platform.username}
+
+                            <div className="flex items-end justify-between mb-3">
+                              <div>
+                                <div className="text-3xl font-bold" style={{ color: platform.color }}>
+                                  {displayRating}
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  Rank: {" "}
+                                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                                    {displayRank}
+                                  </span>
+                                </div>
+                              </div>
+
+                              
                             </div>
-                          )}
+
+                            {/* Rating chart */}
+                            <div className="h-12 w-full overflow-hidden">
+                              <svg viewBox="0 0 100 24" className="w-full h-full">
+                                <defs>
+                                  <linearGradient id={`gradient-${platform.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stopColor={platform.color} stopOpacity="0.3" />
+                                    <stop offset="100%" stopColor={platform.color} stopOpacity="0.05" />
+                                  </linearGradient>
+                                </defs>
+                                <path
+                                  d={generateRandomPath(20)} // Generate random path for demo
+                                  fill="none"
+                                  stroke={platform.color}
+                                  strokeWidth="1.5"
+                                  className="transition-all duration-1000 opacity-70 group-hover:opacity-100"
+                                />
+                                <path
+                                  d={generateRandomPath(20) + " L 100 24 L 0 24 Z"} // Area below the line
+                                  fill={`url(#gradient-${platform.id})}`}
+                                  className="transition-all duration-1000 opacity-50 group-hover:opacity-80"
+                                />
+                              </svg>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2 text-xs border-t border-slate-100 dark:border-slate-800 pt-2">
+                              <div className="text-slate-500 dark:text-slate-400">
+                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  {contestCount}
+                                </span>{" "}
+                                contests
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                </div>
+
+                {/* Summary line - when no ratings */}
+                {platformMetrics.filter((p) => p.connected).length === 0 && (
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                    <Trophy className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p>No contest ratings available yet</p>
+                    <p className="text-sm mt-1">Participate in contests to see your ratings here</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Contest Analysis Tab Content */}
+          <TabsContent value="contests" className="mt-6">
+            <div className="space-y-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/20 dark:from-amber-500/20 dark:to-amber-600/30 border border-amber-100 dark:border-amber-800/50 shadow-sm">
+                    <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-700 to-amber-500 dark:from-amber-400 dark:to-amber-300">
+                    Contest Performance Analysis
+                  </h2>
+                </div>
+                <div className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 text-xs font-medium text-amber-600 dark:text-amber-400 shadow-sm">
+                  {totalContests} total contests
+                </div>
+              </div>
+
+              {/* Contest Performance Chart */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <h3 className="text-lg font-semibold">Contest Rating Progression</h3>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="h-[300px] w-full relative">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <svg viewBox="0 0 800 300" className="w-full h-full">
+                        {/* Grid lines */}
+                        {[...Array(6)].map((_, i) => (
+                          <line
+                            key={`h-${i}`}
+                            x1="0"
+                            y1={i * 60}
+                            x2="800"
+                            y2={i * 60}
+                            stroke="#e2e8f0"
+                            strokeWidth="1"
+                            strokeDasharray={i === 0 || i === 5 ? "" : "5,5"}
+                          />
+                        ))}
+                        {[...Array(9)].map((_, i) => (
+                          <line
+                            key={`v-${i}`}
+                            x1={i * 100}
+                            y1="0"
+                            x2={i * 100}
+                            y2="300"
+                            stroke="#e2e8f0"
+                            strokeWidth="1"
+                            strokeDasharray={i === 0 || i === 8 ? "" : "5,5"}
+                          />
+                        ))}
+
+                        {/* LeetCode rating line */}
+                        <path
+                          d="M50,250 C100,230 150,240 200,210 S300,180 350,170 S450,150 500,140 S600,120 750,100"
+                          fill="none"
+                          stroke="#FFA116"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+
+                        {/* CodeForces rating line */}
+                        <path
+                          d="M50,270 C100,260 150,250 200,240 S300,220 350,200 S450,190 500,180 S600,160 750,150"
+                          fill="none"
+                          stroke="#1F8ACB"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+
+                        {/* Data points for LeetCode */}
+                        {[50, 100, 150, 200, 300, 350, 450, 500, 600, 750].map((x, i) => {
+                          const y = 250 - i * 15
+                          return (
+                            <circle key={`lc-${i}`} cx={x} cy={y} r="5" fill="#FFA116" stroke="#fff" strokeWidth="2" />
+                          )
+                        })}
+
+                        {/* Data points for CodeForces */}
+                        {[50, 100, 150, 200, 300, 350, 450, 500, 600, 750].map((x, i) => {
+                          const y = 270 - i * 12
+                          return (
+                            <circle key={`cf-${i}`} cx={x} cy={y} r="5" fill="#1F8ACB" stroke="#fff" strokeWidth="2" />
+                          )
+                        })}
+                      </svg>
+
+                      {/* Y-axis labels */}
+                      <div className="absolute top-0 left-0 h-full flex flex-col justify-between py-2 text-xs text-slate-500 dark:text-slate-400">
+                        <div>2000</div>
+                        <div>1800</div>
+                        <div>1600</div>
+                        <div>1400</div>
+                        <div>1200</div>
+                        <div>1000</div>
+                      </div>
+
+                      {/* X-axis labels */}
+                      <div className="absolute bottom-0 left-0 w-full flex justify-between px-12 text-xs text-slate-500 dark:text-slate-400">
+                        <div>Jan</div>
+                        <div>Feb</div>
+                        <div>Mar</div>
+                        <div>Apr</div>
+                        <div>May</div>
+                        <div>Jun</div>
+                        <div>Jul</div>
+                      </div>
+
+                      {/* Legend */}
+                      <div className="absolute top-2 right-2 flex items-center gap-4 bg-white dark:bg-slate-800 p-2 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#FFA116]"></div>
+                          <span className="text-xs">LeetCode</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#1F8ACB]"></div>
+                          <span className="text-xs">CodeForces</span>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-            </div>
-            
-            {/* Summary line - when no ratings */}
-            {platformMetrics.filter(p => p.connected && p.rating > 0).length === 0 && (
-              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                <Trophy className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                <p>No contest ratings available yet</p>
-                <p className="text-sm mt-1">Participate in contests to see your ratings here</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contest Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-2">
+                    <h3 className="text-base font-semibold">Contest Participation</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col items-center">
+                      <div className="w-32 h-32 relative">
+                        <svg viewBox="0 0 100 100" className="w-full h-full">
+                          <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" strokeWidth="10" />
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="40"
+                            fill="none"
+                            stroke="#FFA116"
+                            strokeWidth="10"
+                            strokeDasharray="251.2"
+                            strokeDashoffset="62.8"
+                            transform="rotate(-90 50 50)"
+                          />
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="40"
+                            fill="none"
+                            stroke="#1F8ACB"
+                            strokeWidth="10"
+                            strokeDasharray="251.2"
+                            strokeDashoffset="188.4"
+                            transform="rotate(-90 50 50)"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center flex-col">
+                          <span className="text-3xl font-bold">{totalContests}</span>
+                          <span className="text-xs text-slate-500">Total</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between w-full mt-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#FFA116]"></div>
+                          <div className="text-xs">
+                            <div>LeetCode</div>
+                            <div className="font-semibold">12</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#1F8ACB]"></div>
+                          <div className="text-xs">
+                            <div>CodeForces</div>
+                            <div className="font-semibold">18</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-2">
+                    <h3 className="text-base font-semibold">Best Rankings</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-white font-bold shadow-md">
+                          1
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">LeetCode Weekly Contest 342</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                            <Trophy className="h-3 w-3 text-amber-500" />
+                            <span>Top 5% (Rank 342)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white font-bold shadow-md">
+                          2
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">CodeForces Round #835</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                            <Trophy className="h-3 w-3 text-slate-400" />
+                            <span>Top 8% (Rank 523)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-700 to-amber-800 flex items-center justify-center text-white font-bold shadow-md">
+                          3
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">LeetCode Biweekly Contest 98</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                            <Trophy className="h-3 w-3 text-amber-700" />
+                            <span>Top 12% (Rank 876)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-2">
+                    <h3 className="text-base font-semibold">Recent Performance</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[...Array(4)].map((_, i) => {
+                        const date = new Date()
+                        date.setDate(date.getDate() - i * 14)
+                        const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                        const platform = i % 2 === 0 ? "LeetCode" : "CodeForces"
+                        const platformColor = i % 2 === 0 ? "#FFA116" : "#1F8ACB"
+                        const trend = i === 0 ? "up" : i === 1 ? "down" : i === 2 ? "up" : "neutral"
+
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: platformColor }}></div>
+                              <span className="text-xs">{platform} Contest</span>
+                            </div>
+                            <div className="text-xs text-slate-500">{formattedDate}</div>
+                            <div
+                              className={`flex items-center gap-1 text-xs ${
+                                trend === "up"
+                                  ? "text-emerald-500"
+                                  : trend === "down"
+                                    ? "text-rose-500"
+                                    : "text-slate-500"
+                              }`}
+                            >
+                              {trend === "up" && <ArrowUp className="h-3 w-3" />}
+                              {trend === "down" && <ArrowDown className="h-3 w-3" />}
+                              <span>{trend === "up" ? "+45" : trend === "down" ? "-23" : "0"}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </TabsContent>
+
+          {/* Platform-specific tabs */}
+          {profiles.map((profile) => {
+            const platform = SUPPORTED_PLATFORMS.find((p) => p.id === profile.platform)
+
+            return (
+              <TabsContent key={profile.platform} value={profile.platform} className="mt-6">
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <img
+                          src={platform?.icon || "/placeholder.svg"}
+                          alt={platform?.name || profile.platform}
+                          className="w-8 h-8 object-contain"
+                        />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold" style={{ color: platform?.color }}>
+                          {platform?.name || profile.platform}
+                        </h2>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">@{profile.username}</div>
+                      </div>
+                    </div>
+                    <a
+                      href={`https://${profile.platform}.com/user/${profile.username}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      <span>View Profile</span>
+                    </a>
+                  </div>
+
+                  {/* Platform stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="border-0 shadow-lg">
+                      <CardHeader className="pb-2">
+                        <h3 className="text-base font-semibold">Problems Solved</h3>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col items-center">
+                          <div className="text-5xl font-bold mb-2" style={{ color: platform?.color }}>
+                            {profile.totalSolved}
+                          </div>
+                          <div className="text-sm text-slate-500">Total problems</div>
+
+                          <div className="w-full mt-6 space-y-3">
+                            {profile.problemsByDifficulty &&
+                              Object.entries(profile.problemsByDifficulty).map(([difficulty, count]) => {
+                                const color =
+                                  difficulty === "easy"
+                                    ? "bg-green-500"
+                                    : difficulty === "medium"
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
+
+                                return (
+                                  <div key={difficulty} className="space-y-1">
+                                    <div className="flex justify-between items-center">
+                                      <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${color}`}></div>
+                                        <span className="text-xs capitalize">{difficulty}</span>
+                                      </div>
+                                      <span className="text-xs font-medium">{count}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full`}
+                                        style={{
+                                          width: `${(count / profile.totalSolved!) * 100}%`,
+                                          backgroundColor:
+                                            difficulty === "easy"
+                                              ? "#22c55e"
+                                              : difficulty === "medium"
+                                                ? "#eab308"
+                                                : "#ef4444",
+                                        }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-0 shadow-lg">
+                      <CardHeader className="pb-2">
+                        <h3 className="text-base font-semibold">Rating & Rank</h3>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col items-center">
+                          <div className="text-5xl font-bold mb-2" style={{ color: platform?.color }}>
+                            {profile.rating}
+                          </div>
+                          <div className="text-sm text-slate-500">Current rating</div>
+
+                          <div className="mt-4 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800 text-sm">
+                            Rank: <span className="font-semibold">{profile.rank}</span>
+                          </div>
+
+                          <div className="w-full mt-6">
+                            <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: "65%",
+                                  backgroundColor: platform?.color,
+                                }}
+                              ></div>
+                            </div>
+                            <div className="flex justify-between mt-1 text-xs text-slate-500">
+                              <div>Current: {profile.rating}</div>
+                              <div>Next: {profile.rating! + 100}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-0 shadow-lg">
+                      <CardHeader className="pb-2">
+                        <h3 className="text-base font-semibold">Contest History</h3>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {profile.contests &&
+                            [...Array(Math.min(5, profile.contests))].map((_, i) => {
+                              const date = new Date()
+                              date.setDate(date.getDate() - i * 14)
+                              const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              const rank = Math.floor(Math.random() * 2000) + 500
+                              const change = Math.floor(Math.random() * 50) * (Math.random() > 0.5 ? 1 : -1)
+
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                                >
+                                  <div className="text-xs">
+                                    {platform?.name} Contest #{i + 1}
+                                  </div>
+                                  <div className="text-xs text-slate-500">{formattedDate}</div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                                      #{rank}
+                                    </div>
+                                    <div
+                                      className={`flex items-center gap-0.5 text-xs ${
+                                        change > 0
+                                          ? "text-emerald-500"
+                                          : change < 0
+                                            ? "text-rose-500"
+                                            : "text-slate-500"
+                                      }`}
+                                    >
+                                      {change > 0 && <ArrowUp className="h-3 w-3" />}
+                                      {change < 0 && <ArrowDown className="h-3 w-3" />}
+                                      <span>{change > 0 ? `+${change}` : change}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Platform activity chart */}
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader>
+                      <h3 className="text-lg font-semibold">Activity on {platform?.name}</h3>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="h-[200px] w-full">
+                        <PortfolioHeatmap
+                          data={
+                            profile.activityHeatmap ? profile.activityHeatmap.map((day) => ({
+                              date: day.date,
+                              count: day.count,
+                              verdictSummary: [
+                                {
+                                  status: "ACCEPTED",
+                                  readableStatus: "Accepted",
+                                  count: day.count,
+                                  color: "#4ade80" // Use standard green color
+                                }
+                              ]
+                            })) : []
+                          }
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            )
+          })}
+        </Tabs>
       </div>
     </div>
   )
 }
 
-// Helper components
-function CalendarIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-      <line x1="16" x2="16" y1="2" y2="6" />
-      <line x1="8" x2="8" y1="2" y2="6" />
-      <line x1="3" x2="21" y1="10" y2="10" />
-    </svg>
-  )
-}
-
-function FlameIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-    </svg>
-  );
-}
-
 // Helper function to adjust color brightness
 function adjustColor(hex: string, percent: number) {
   // Remove the # if it exists
-  hex = hex.replace('#', '');
-  
+  hex = hex.replace("#", "")
+
   // Convert to RGB
-  let r = parseInt(hex.substring(0, 2), 16);
-  let g = parseInt(hex.substring(2, 4), 16);
-  let b = parseInt(hex.substring(4, 6), 16);
-  
+  let r = Number.parseInt(hex.substring(0, 2), 16)
+  let g = Number.parseInt(hex.substring(2, 4), 16)
+  let b = Number.parseInt(hex.substring(4, 6), 16)
+
   // Adjust brightness
-  r = Math.min(255, Math.floor(r * (100 + percent) / 100));
-  g = Math.min(255, Math.floor(g * (100 + percent) / 100));
-  b = Math.min(255, Math.floor(b * (100 + percent) / 100));
-  
+  r = Math.min(255, Math.floor((r * (100 + percent)) / 100))
+  g = Math.min(255, Math.floor((g * (100 + percent)) / 100))
+  b = Math.min(255, Math.floor((b * (100 + percent)) / 100))
+
   // Convert back to hex with alpha
-  return `rgba(${r}, ${g}, ${b}, 0.1)`;
+  return `rgba(${r}, ${g}, ${b}, 0.1)`
 }
 
 // Helper function to generate a random SVG path for the mini-chart
 function generateRandomPath(points: number) {
-  let path = `M 0 10`;
-  const increment = 100 / (points - 1);
-  
+  let path = `M 0 10`
+  const increment = 100 / (points - 1)
+
   for (let i = 1; i < points; i++) {
-    const x = i * increment;
-    const y = 10 - Math.random() * 10; // Random value between 0-10
-    path += ` L ${x} ${y}`;
+    const x = i * increment
+    const y = 10 - Math.random() * 10 // Random value between 0-10
+    path += ` L ${x} ${y}`
   }
-  
-  return path;
+
+  return path
 }
 
-// Helper function to generate SVG path from actual rating history
-function generateRatingsPath(ratings: number[], height: number) {
-  if (ratings.length < 2) return generateRandomPath(10);
-  
-  // Find min and max for scaling
-  const minRating = Math.min(...ratings);
-  const maxRating = Math.max(...ratings);
-  const range = maxRating - minRating;
-  
-  // Start path
-  let path = `M 0 ${height - ((ratings[0] - minRating) / range * height)}`;
-  
-  // Add points for each rating
-  const increment = 100 / (ratings.length - 1);
-  
-  for (let i = 1; i < ratings.length; i++) {
-    const x = i * increment;
-    // Invert Y since SVG coordinates start from top
-    const y = height - ((ratings[i] - minRating) / range * height);
-    path += ` L ${x} ${y}`;
+// Helper function to generate mock heatmap data
+function generateMockHeatmapData(days: number) {
+  const data = []
+  const today = new Date()
+
+  for (let i = 0; i < days; i++) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+
+    // Random count between 0-5, with more weight to lower numbers
+    const rand = Math.random()
+    let count = 0
+
+    if (rand > 0.6) count = 1
+    if (rand > 0.75) count = 2
+    if (rand > 0.85) count = 3
+    if (rand > 0.92) count = 4
+    if (rand > 0.97) count = 5
+
+    if (count > 0) {
+      data.push({
+        date: date.toISOString().split("T")[0],
+        count,
+      })
+    }
   }
-  
-  return path;
-} 
+
+  return data
+}
+
+// Helper function to generate mock contest history
+function generateMockContestHistory(count: number) {
+  const contests = []
+  const today = new Date()
+
+  for (let i = 0; i < count; i++) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i * 14) // Every two weeks
+
+    contests.push({
+      name: `Contest #${count - i}`,
+      date: date.toISOString().split("T")[0],
+      rank: Math.floor(Math.random() * 5000) + 1,
+      rating: Math.floor(Math.random() * 500) + 1200,
+    })
+  }
+
+  return contests
+}

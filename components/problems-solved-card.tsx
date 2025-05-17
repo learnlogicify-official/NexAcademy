@@ -13,40 +13,37 @@ interface ProblemCategory {
   percentage: number
 }
 
+interface PlatformProblem {
+  id: string
+  name: string
+  color: string
+  icon: string
+  count: number
+  percentage: number
+}
+
 interface ProblemsSolvedCardProps {
   totalSolved?: number
   totalProblems?: number
   categories?: ProblemCategory[]
   className?: string
+  platformType?: string // add platform type to determine if it's LeetCode
+  easyCount?: number
+  mediumCount?: number
+  hardCount?: number
+  platforms?: PlatformProblem[] // add platforms for platform distribution
 }
 
 export function ProblemsSolvedCard({
   totalSolved = 87,
   totalProblems = 3520,
-  categories = [
-    {
-      name: "Easy",
-      count: 42,
-      color: "#4ade80",
-      textColor: "text-emerald-500",
-      percentage: 48,
-    },
-    {
-      name: "Medium",
-      count: 35,
-      color: "#fbbf24",
-      textColor: "text-amber-500",
-      percentage: 40,
-    },
-    {
-      name: "Hard",
-      count: 10,
-      color: "#f87171",
-      textColor: "text-red-500",
-      percentage: 12,
-    },
-  ],
+  categories,
   className,
+  platformType = "",
+  easyCount = 0,
+  mediumCount = 0,
+  hardCount = 0,
+  platforms = [],
 }: ProblemsSolvedCardProps) {
   const [isClient, setIsClient] = useState(false)
   const [animateProgress, setAnimateProgress] = useState(false)
@@ -60,12 +57,78 @@ export function ProblemsSolvedCard({
     return () => clearTimeout(timer)
   }, [])
 
+
+  // Prepare categories based on platform type
+  const finalCategories = categories || (
+    platformType.toLowerCase() === "leetcode" 
+    ? [
+        {
+          name: "Easy",
+          count: easyCount,
+          color: "#4ade80",
+          textColor: "text-emerald-500",
+          percentage: totalSolved > 0 ? Math.round((easyCount / totalSolved) * 100) : 0,
+        },
+        {
+          name: "Medium",
+          count: mediumCount,
+          color: "#fbbf24",
+          textColor: "text-amber-500",
+          percentage: totalSolved > 0 ? Math.round((mediumCount / totalSolved) * 100) : 0,
+        },
+        {
+          name: "Hard",
+          count: hardCount,
+          color: "#f87171",
+          textColor: "text-red-500",
+          percentage: totalSolved > 0 ? Math.round((hardCount / totalSolved) * 100) : 0,
+        },
+        {
+          name: "Others",
+          count: Math.max(0, totalSolved - (easyCount + mediumCount + hardCount)),
+          color: "#60a5fa",
+          textColor: "text-blue-500",
+          percentage: totalSolved > 0 ? Math.round(((Math.max(0, totalSolved - (easyCount + mediumCount + hardCount))) / totalSolved) * 100) : 0,
+        }
+      ]
+    : [
+        {
+          name: "Easy",
+          count: easyCount,
+          color: "#4ade80",
+          textColor: "text-emerald-500",
+          percentage: totalSolved > 0 ? Math.round((easyCount / totalSolved) * 100) : 0,
+        },
+        {
+          name: "Medium",
+          count: mediumCount,
+          color: "#fbbf24",
+          textColor: "text-amber-500",
+          percentage: totalSolved > 0 ? Math.round((mediumCount / totalSolved) * 100) : 0,
+        },
+        {
+          name: "Hard",
+          count: hardCount,
+          color: "#f87171",
+          textColor: "text-red-500",
+          percentage: totalSolved > 0 ? Math.round((hardCount / totalSolved) * 100) : 0,
+        },
+        {
+          name: "Others",
+          count: Math.max(0, totalSolved - (easyCount + mediumCount + hardCount)),
+          color: "#60a5fa",
+          textColor: "text-blue-500",
+          percentage: totalSolved > 0 ? Math.round(((Math.max(0, totalSolved - (easyCount + mediumCount + hardCount))) / totalSolved) * 100) : 0,
+        }
+      ]
+  );
+
   // Calculate radius and circumference for the radial chart
   const radius = 70
   const circumference = 2 * Math.PI * radius
 
   // Ensure all percentages are valid numbers and calculate segments
-  const validCategories = categories.map((cat) => ({
+  const validCategories = finalCategories.map((cat) => ({
     ...cat,
     percentage: isNaN(cat.percentage) ? 0 : cat.percentage,
   }))
@@ -88,15 +151,15 @@ export function ProblemsSolvedCard({
 
   return (
     <Card className={`bg-white dark:bg-[#18181b] border-0 shadow-md h-full ${className ?? ''}`}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-emerald-500" />
-          Problems Solved
+      <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-950/30 dark:to-cyan-950/40 backdrop-blur-sm pb-3 w-full">
+        <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          Problems Solved ({totalSolved})
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         {isClient && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full justify-between space-y-6">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               {/* Radial Chart */}
               <div className="relative w-[180px] h-[180px] flex-shrink-0">
@@ -135,7 +198,7 @@ export function ProblemsSolvedCard({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="text-sm text-gray-700 dark:text-gray-400"
+                    className="text-xs text-gray-700 dark:text-gray-400"
                   >
                     Problems Solved
                   </motion.div>
@@ -171,6 +234,37 @@ export function ProblemsSolvedCard({
               </div>
             </div>
 
+            {/* Platform Distribution */}
+            {platforms.length > 0 && (
+              <div className="mt-6">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-300 mb-3">Platform Distribution</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {platforms.map((platform) => (
+                    <div key={platform.id} className="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex-shrink-0 h-8 w-8 mr-3 rounded bg-white dark:bg-gray-700 p-1 flex items-center justify-center">
+                        <img src={platform.icon} alt={platform.name} className="h-6 w-6" />
+                      </div>
+                      <div className="flex-grow">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{platform.name}</div>
+                          <div className="text-sm font-semibold" style={{ color: platform.color }}>{platform.count}</div>
+                        </div>
+                        <div className="mt-1 h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-1000 ease-out"
+                            style={{ 
+                              backgroundColor: platform.color,
+                              width: animateProgress ? `${platform.percentage}%` : "0%" 
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Additional Stats */}
             <div className="mt-auto pt-4 grid grid-cols-3 gap-3">
               <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center">
@@ -187,6 +281,43 @@ export function ProblemsSolvedCard({
                 <div className="text-lg font-bold text-gray-900 dark:text-white">{totalProblems - totalSolved}</div>
                 <div className="text-xs text-gray-700 dark:text-gray-400">Remaining</div>
               </div>
+            </div>
+
+            {/* Difficulty distribution table */}
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Difficulty
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Count
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      %
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                  {finalCategories.map((category, index) => (
+                    <tr key={category.name} className={index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: category.color }}></div>
+                          <div className={`text-xs font-medium ${category.textColor}`}>{category.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-center font-semibold text-gray-800 dark:text-gray-200">
+                        {category.count}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-right text-gray-500 dark:text-gray-400">
+                        {category.percentage}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
