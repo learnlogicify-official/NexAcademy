@@ -703,16 +703,45 @@ export default function ConnectPlatformsPage() {
         
         {/* Platform connection section */}
         {loading ? (
-          <div className="min-h-[400px] flex flex-col items-center justify-center p-12">
-            <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 rounded-full bg-indigo-100 dark:bg-indigo-900/30 animate-ping opacity-20"></div>
-              <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-dashed animate-spin"></div>
-              <Loader2 className="h-16 w-16 animate-spin text-indigo-500 absolute inset-0" />
+          <div className="min-h-[400px] space-y-4">
+            {/* Section header skeleton */}
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <div className="h-6 w-48 bg-slate-200 dark:bg-slate-700 rounded-md mb-3 animate-pulse"></div>
+                <div className="h-4 w-72 bg-slate-200 dark:bg-slate-700 rounded-md animate-pulse"></div>
+              </div>
+              <div className="flex gap-2">
+                <div className="h-8 w-24 bg-slate-200 dark:bg-slate-700 rounded-md animate-pulse"></div>
+                <div className="h-8 w-24 bg-slate-200 dark:bg-slate-700 rounded-md animate-pulse"></div>
+              </div>
             </div>
-            <h3 className="text-xl font-medium mb-3 text-indigo-600 dark:text-indigo-400">Loading connections</h3>
-            <p className="text-slate-500 dark:text-slate-400 max-w-sm text-center">
-              Retrieving your platform connections and preparing your dashboard...
-            </p>
+            
+            {/* Platform cards skeleton */}
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-pulse">
+                <div className="h-2 w-full bg-slate-300 dark:bg-slate-600"></div>
+                <div className="p-5">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div className="flex items-start gap-4">
+                      <div className="h-14 w-14 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                      <div className="space-y-2">
+                        <div className="h-5 w-32 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                        <div className="h-4 w-48 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                        <div className="flex gap-1">
+                          {[...Array(3)].map((_, j) => (
+                            <div key={j} className="h-4 w-12 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <div className="h-10 w-36 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                      <div className="h-10 w-36 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <>

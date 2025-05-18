@@ -14,12 +14,12 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ 
-  totalSolved = 632,
+  totalSolved = 0,
   totalSubmissions,
-  streak = 7, 
-  maxStreak = 14, 
+  streak = 0, 
+  maxStreak = 0, 
   totalContests = 0, 
-  activeDays = 147,
+  activeDays = 0,
   platforms = [],
   easyCount = 0,
   mediumCount = 0,

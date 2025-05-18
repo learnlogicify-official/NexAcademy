@@ -29,17 +29,20 @@ model User {
   profilePic         String?
   username           String?               @unique
   bannerImage        String?
-  githubUsername     String?
   githubAccessToken  String?
+  githubUsername     String?
+  learningPath       String?
+  skillLevel         String?
+  interests          String[]              @default([])
   assessments        Assessment[]
   attempts           Attempt[]
   dailyActivities    DailyActivity[]
   enrolledBy         Enrollment[]          @relation("EnrolledByUser")
   enrolledIn         Enrollment[]          @relation("UserEnrollments")
+  platformData       PlatformData[]
   submissions        ProblemSubmission[]
   userCodeDrafts     UserCodeDraft[]
   UserPlatformHandle UserPlatformHandle[]
-  platformData       PlatformData[]
   problemSettings    UserProblemSettings[]
   streak             UserStreak?
   xp                 UserXP?
@@ -504,7 +507,7 @@ model UserXP {
   level     Int           @default(1)
   updatedAt DateTime      @updatedAt
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events    UserXPEvent[]
+  xpEvents  UserXPEvent[]
 
   @@index([userId])
   @@index([xp])
@@ -519,8 +522,8 @@ model UserXPEvent {
   createdAt   DateTime @default(now())
   relatedId   String?
   questionId  String?
+  userXp      UserXP   @relation(fields: [userId], references: [userId], onDelete: Cascade, map: "UserXPEvent_userxp_fkey")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "UserXPEvent_user_fkey")
-  userXP      UserXP   @relation(fields: [userId], references: [userId], onDelete: Cascade, map: "UserXPEvent_userXP_fkey")
 
   @@index([userId])
   @@index([questionId])
@@ -569,13 +572,13 @@ model UserPlatformHandle {
 }
 
 model PlatformData {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform   String
-  data       Json
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, platform])
   @@index([userId])

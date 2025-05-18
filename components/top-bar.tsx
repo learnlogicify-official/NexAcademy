@@ -68,7 +68,7 @@ export function TopBar({
   const derivedCourseTitle = courseTitle || (isCoursePage ? "Python Basics" : "")
 
   return (
-    <header className="flex h-16 items-center justify-between bg-card backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/30 pr-2 md:pr-4">
+    <header className="flex h-16 items-center justify-between bg-card backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/30 pr-2 md:pr-4 z-40 relative">
       <div className="flex items-center">
         {/* Show hamburger menu on mobile and tablet */}
         {isMobile && (
@@ -167,7 +167,7 @@ export function TopBar({
                 {profilePic ? (
                   <AvatarImage src={profilePic} alt={session?.user?.name ?? "User"} />
                 ) : (
-                  <AvatarImage src="/images/avatar.jpeg" alt={session?.user?.name ?? "User"} />
+                  <AvatarImage src={session?.user?.image || "/images/avatar.jpeg"} alt={session?.user?.name ?? "User"} />
                 )}
                 <AvatarFallback>{session?.user?.name ? session.user.name[0] : "U"}</AvatarFallback>
               </Avatar>

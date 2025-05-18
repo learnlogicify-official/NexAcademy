@@ -209,8 +209,8 @@ export function ClientSidebar({
       setActiveSection("leaderboard");
     } else if (pathname.startsWith("/nexlearn")) {
       setActiveSection("nexlearn");
-    } else if (pathname.startsWith("/nexforum")) {
-      setActiveSection("nexforum");
+    } else if (pathname.startsWith("/nexconnect")) {
+      setActiveSection("nexconnect");
     } else if (pathname.startsWith("/nexplay")) {
       setActiveSection("nexplay");
     } else if (pathname.startsWith("/nexpath")) {
@@ -247,7 +247,7 @@ export function ClientSidebar({
   const mainMenuItems = [
     {
       name: "Dashboard",
-      href: "/",
+      href: "/dashboard",
       icon: LayoutGrid,
       isActive: activeSection === "dashboard",
     },
@@ -282,11 +282,11 @@ export function ClientSidebar({
       premium: false,
     },
     {
-      name: "NexForum",
-      href: "/nexforum",
+      name: "NexConnect",
+      href: "/nexconnect",
       icon: MessageSquare,
       iconBg: "from-purple-500 to-purple-600",
-      isActive: activeSection === "nexforum",
+      isActive: activeSection === "nexconnect",
       premium: false,
     },
     {

@@ -9,71 +9,7 @@ interface ConnectedPlatformsProps {
   platforms?: PlatformData[]
 }
 
-// Default platform data if none provided
-const DEFAULT_PLATFORMS = [
-  {
-    id: "leetcode",
-    name: "LeetCode",
-    icon: "/images/platforms/leetcode.svg",
-    color: "#FFA116",
-    username: "coder123",
-    connected: true,
-    problems: 387,
-    rank: "15,432",
-  },
-  {
-    id: "codechef",
-    name: "CodeChef",
-    icon: "/images/platforms/codechef.svg",
-    color: "#5B4638",
-    username: "",
-    connected: false,
-  },
-  {
-    id: "codeforces",
-    name: "CodeForces",
-    icon: "/images/platforms/codeforces.svg",
-    color: "#1F8ACB",
-    username: "algorithm_master",
-    connected: true,
-    problems: 245,
-    rank: "Specialist",
-  },
-  {
-    id: "geeksforgeeks",
-    name: "GeeksForGeeks",
-    icon: "/images/platforms/gfg.svg",
-    color: "#2F8D46",
-    username: "",
-    connected: false,
-  },
-  {
-    id: "hackerrank",
-    name: "HackerRank",
-    icon: "/images/platforms/hackerrank.svg",
-    color: "#00EA64",
-    username: "",
-    connected: false,
-  },
-  {
-    id: "hackerearth",
-    name: "HackerEarth",
-    icon: "/images/platforms/hackerearth.svg",
-    color: "#2C3454",
-    username: "",
-    connected: false,
-  },
-  {
-    id: "codingninjas",
-    name: "CodingNinjas",
-    icon: "/images/platforms/codingninjas.svg",
-    color: "#FC4F41",
-    username: "",
-    connected: false,
-  },
-]
-
-export function ConnectedPlatforms({ platforms = DEFAULT_PLATFORMS }: ConnectedPlatformsProps) {
+export function ConnectedPlatforms({ platforms = [] }: ConnectedPlatformsProps) {
   // Count connected platforms
   const connectedCount = platforms.filter((p) => p.connected).length
   const totalPlatforms = platforms.length

@@ -98,10 +98,10 @@ export function SignInForm() {
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="dark:text-foreground">
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter your email" {...field} />
+                  <Input placeholder="Enter your email" className="dark:bg-muted" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -111,10 +111,10 @@ export function SignInForm() {
             control={form.control}
             name="password"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="dark:text-foreground">
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="Enter your password" {...field} />
+                  <Input type="password" placeholder="Enter your password" className="dark:bg-muted" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -128,10 +128,10 @@ export function SignInForm() {
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
+          <span className="w-full border-t dark:border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">
+          <span className="bg-background dark:bg-background px-2 text-muted-foreground">
             Or continue with
           </span>
         </div>

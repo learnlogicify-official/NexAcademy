@@ -12,6 +12,7 @@ html, body {
   padding: 0;
   overscroll-behavior-y: none;
   touch-action: manipulation;
+  /* Let the background be controlled by theme variables */
 }
 
 /* Ensures main content area only has scrollbars when needed */
@@ -4630,4 +4631,182 @@ html, body {
 
 .dark .nexpractice-active .nexpractice-icon-container {
   box-shadow: 0 0 10px 2px rgba(14, 165, 233, 0.4);
+}
+
+/* Add this to the end of the globals.css file */
+
+/* Hide scrollbar for department filters */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Onboarding page enhanced styling */
+.hero-grid {
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.07) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.4;
+}
+
+.white-blue-gradient {
+  background: linear-gradient(to right, #ffffff, #93c5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.typewriter-gradient {
+  background: linear-gradient(to right, #ffffff, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+  font-weight: 300;
+  letter-spacing: 0.5px;
+}
+
+@keyframes floating {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.animate-floating {
+  animation: floating 6s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse 4s ease-in-out infinite;
+}
+
+/* Enhanced input styling for onboarding */
+.onboarding-input {
+  background: rgba(15, 15, 15, 0.7);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
+  transition: all 0.3s ease;
+}
+
+.onboarding-input:focus {
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.onboarding-container {
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  background: linear-gradient(145deg, rgba(15, 15, 15, 0.6), rgba(30, 30, 30, 0.3));
+  box-shadow: 
+    0 0 30px rgba(0, 0, 0, 0.5),
+    0 0 15px rgba(59, 130, 246, 0.1) inset;
+  border-radius: 12px;
+}
+
+/* Enhanced selection styles */
+.selection-card {
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  background: rgba(15, 15, 15, 0.6);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  transform: translateY(0);
+}
+
+.selection-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 15px rgba(59, 130, 246, 0.2);
+  transform: translateY(-5px);
+}
+
+.selection-card.active {
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), 0 0 20px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(145deg, rgba(30, 30, 35, 0.8), rgba(20, 20, 25, 0.6));
+}
+
+.premium-text-gradient {
+  background: linear-gradient(to right, #fff, #93c5fd, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.premium-glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: linear-gradient(145deg, rgba(15, 15, 15, 0.5), rgba(30, 30, 30, 0.3));
+  border-radius: 16px;
+  padding: 2rem;
+}
+
+/* Custom Loader Animation */
+.custom-loader {
+  width: 35px;
+  height: 35px;
+  position: relative;
+  background: radial-gradient(11.2px, #3b82f6 94%, transparent);
+  animation: pulse 1.5s infinite alternate;
+}
+
+.custom-loader:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(10.08px at bottom right, transparent 94%, #3b82f6) top left,
+    radial-gradient(10.08px at bottom left, transparent 94%, #3b82f6) top right,
+    radial-gradient(10.08px at top right, transparent 94%, #3b82f6) bottom left,
+    radial-gradient(10.08px at top left, transparent 94%, #3b82f6) bottom right;
+  background-size: 22.4px 22.4px;
+  background-repeat: no-repeat;
+  animation: loader 1.5s infinite cubic-bezier(0.3, 1, 0, 1);
+}
+
+@keyframes loader {
+  33% {
+    inset: -11.2px;
+    transform: rotate(0deg);
+  }
+
+  66% {
+    inset: -11.2px;
+    transform: rotate(90deg);
+  }
+
+  100% {
+    inset: 0;
+    transform: rotate(90deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }

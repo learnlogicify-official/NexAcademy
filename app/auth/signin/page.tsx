@@ -60,7 +60,7 @@ function SignInContent() {
       <AuthPanel />
 
       {/* Right Panel */}
-      <div className="flex flex-col items-center justify-center p-8 lg:p-12">
+      <div className="flex flex-col items-center justify-center p-8 lg:p-12 bg-background dark:bg-background text-foreground dark:text-foreground">
         <div className="w-full max-w-md space-y-8">
           {/* Welcome Message */}
           <div className="text-center space-y-4 mb-8">

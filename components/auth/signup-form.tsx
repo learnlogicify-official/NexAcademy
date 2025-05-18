@@ -87,10 +87,10 @@ export function SignUpForm() {
           control={form.control}
           name="name"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="dark:text-foreground">
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="John Doe" className="dark:bg-muted" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -100,10 +100,10 @@ export function SignUpForm() {
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="dark:text-foreground">
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="john@example.com" type="email" {...field} />
+                <Input placeholder="john@example.com" type="email" className="dark:bg-muted" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -113,10 +113,10 @@ export function SignUpForm() {
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="dark:text-foreground">
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="••••••••" type="password" {...field} />
+                <Input placeholder="••••••••" type="password" className="dark:bg-muted" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -126,10 +126,10 @@ export function SignUpForm() {
           control={form.control}
           name="confirmPassword"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="dark:text-foreground">
               <FormLabel>Confirm Password</FormLabel>
               <FormControl>
-                <Input placeholder="••••••••" type="password" {...field} />
+                <Input placeholder="••••••••" type="password" className="dark:bg-muted" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

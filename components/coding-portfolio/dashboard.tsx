@@ -398,16 +398,78 @@ export function CodingDashboard({
   console.log(recentContests);
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-blue-100 dark:bg-blue-900/30 animate-ping opacity-20"></div>
-          <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
+      <div className="space-y-8">
+        {/* Skeleton for Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 p-4 shadow-lg h-48 animate-pulse">
+              <div className="h-4 w-1/3 bg-slate-300 dark:bg-slate-600 rounded mb-4"></div>
+              <div className="h-8 w-1/4 bg-slate-300 dark:bg-slate-600 rounded-lg mb-4"></div>
+              <div className="space-y-2">
+                <div className="h-3 w-full bg-slate-300 dark:bg-slate-600 rounded"></div>
+                <div className="h-3 w-4/5 bg-slate-300 dark:bg-slate-600 rounded"></div>
+                <div className="h-3 w-2/3 bg-slate-300 dark:bg-slate-600 rounded"></div>
+              </div>
+            </div>
+          ))}
         </div>
-        <span className="ml-3 text-lg font-medium bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
-          Loading your coding journey...
-        </span>
+        
+        {/* Skeleton for Activity Heatmap */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-5 w-40 bg-slate-300 dark:bg-slate-600 rounded"></div>
+            <div className="h-5 w-24 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+          </div>
+          <div className="rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 p-6 shadow-lg animate-pulse">
+            <div className="h-48 w-full">
+              <div className="grid grid-cols-7 gap-1 h-full">
+                {[...Array(7)].map((_, weekday) => (
+                  <div key={weekday} className="flex flex-col gap-1">
+                    {[...Array(20)].map((_, day) => (
+                      <div 
+                        key={day} 
+                        className="h-2.5 w-2.5 rounded-sm bg-slate-300 dark:bg-slate-600"
+                        style={{ opacity: Math.random() * 0.7 + 0.2 }}
+                      ></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Activity insights skeleton */}
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-16 bg-slate-300 dark:bg-slate-600 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Skeleton for Problems & Contests section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {[...Array(2)].map((_, i) => (
+            <div key={i}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-5 w-32 bg-slate-300 dark:bg-slate-600 rounded"></div>
+                <div className="h-5 w-20 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+              </div>
+              <div className="rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 p-6 shadow-lg h-80 animate-pulse">
+                <div className="space-y-4">
+                  <div className="h-6 w-1/3 bg-slate-300 dark:bg-slate-600 rounded"></div>
+                  <div className="h-36 w-full bg-slate-300 dark:bg-slate-600 rounded-lg"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-300 dark:bg-slate-600 rounded"></div>
+                    <div className="h-3 w-5/6 bg-slate-300 dark:bg-slate-600 rounded"></div>
+                    <div className="h-3 w-4/6 bg-slate-300 dark:bg-slate-600 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    )
+    );
   }
 
   if (profiles.length === 0) {
@@ -1933,44 +1995,37 @@ export function CodingDashboard({
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          {profile.contests &&
-                            [...Array(Math.min(5, profile.contests))].map((_, i) => {
-                              const date = new Date()
-                              date.setDate(date.getDate() - i * 14)
-                              const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                              const rank = Math.floor(Math.random() * 2000) + 500
-                              const change = Math.floor(Math.random() * 50) * (Math.random() > 0.5 ? 1 : -1)
-
-                              return (
-                                <div
-                                  key={i}
-                                  className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
-                                >
-                                  <div className="text-xs">
-                                    {platform?.name} Contest #{i + 1}
-                                  </div>
-                                  <div className="text-xs text-slate-500">{formattedDate}</div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">
-                                      #{rank}
-                                    </div>
-                                    <div
-                                      className={`flex items-center gap-0.5 text-xs ${
-                                        change > 0
-                                          ? "text-emerald-500"
-                                          : change < 0
-                                            ? "text-rose-500"
-                                            : "text-slate-500"
-                                      }`}
-                                    >
-                                      {change > 0 && <ArrowUp className="h-3 w-3" />}
-                                      {change < 0 && <ArrowDown className="h-3 w-3" />}
-                                      <span>{change > 0 ? `+${change}` : change}</span>
-                                    </div>
-                                  </div>
+                          {profile.contestHistory && profile.contestHistory.length > 0 ? (
+                            profile.contestHistory.slice(0, 5).map((contest, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                              >
+                                <div className="text-xs">
+                                  {contest.name || `${platform?.name} Contest #${i + 1}`}
                                 </div>
-                              )
-                            })}
+                                <div className="text-xs text-slate-500">
+                                  {contest.date ? new Date(contest.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                                    #{contest.rank || "N/A"}
+                                  </div>
+                                  {contest.rating !== undefined && (
+                                    <div
+                                      className={`flex items-center gap-0.5 text-xs`}
+                                    >
+                                      <span>{contest.rating}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center text-sm text-slate-500 py-2">
+                              No contest history available
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -2043,54 +2098,4 @@ function generateRandomPath(points: number) {
   }
 
   return path
-}
-
-// Helper function to generate mock heatmap data
-function generateMockHeatmapData(days: number) {
-  const data = []
-  const today = new Date()
-
-  for (let i = 0; i < days; i++) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-
-    // Random count between 0-5, with more weight to lower numbers
-    const rand = Math.random()
-    let count = 0
-
-    if (rand > 0.6) count = 1
-    if (rand > 0.75) count = 2
-    if (rand > 0.85) count = 3
-    if (rand > 0.92) count = 4
-    if (rand > 0.97) count = 5
-
-    if (count > 0) {
-      data.push({
-        date: date.toISOString().split("T")[0],
-        count,
-      })
-    }
-  }
-
-  return data
-}
-
-// Helper function to generate mock contest history
-function generateMockContestHistory(count: number) {
-  const contests = []
-  const today = new Date()
-
-  for (let i = 0; i < count; i++) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i * 14) // Every two weeks
-
-    contests.push({
-      name: `Contest #${count - i}`,
-      date: date.toISOString().split("T")[0],
-      rank: Math.floor(Math.random() * 5000) + 1,
-      rating: Math.floor(Math.random() * 500) + 1200,
-    })
-  }
-
-  return contests
 }

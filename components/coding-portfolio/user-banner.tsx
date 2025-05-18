@@ -241,7 +241,7 @@ export default function UserBanner({ session: serverSession }: { session?: Sessi
             <div className="flex-shrink-0">
               <div className="relative">
                 <Avatar className="w-20 h-20 md:w-24 md:h-24 border-4 border-white/20 shadow-xl">
-                  <AvatarImage src={session.user?.profilePic || session.user?.image || "/default-avatar.png"} alt={session.user?.name || "User"} />
+                  <AvatarImage src={session.user?.profilePic || session.user?.image || "/images/avatar.jpeg"} alt={session.user?.name || "User"} />
                   <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 text-blue-600 dark:text-blue-400">
                     <User className="w-10 h-10" />
                   </AvatarFallback>

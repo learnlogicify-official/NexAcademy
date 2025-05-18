@@ -21,11 +21,14 @@ function OnboardingRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status === "loading") return;
+    
     if (
+      status === "authenticated" &&
       session?.user &&
       !session.user.hasOnboarded &&
-      pathname !== "/onboarding"
+      pathname !== "/onboarding" &&
+      !pathname.startsWith("/auth/")
     ) {
       router.replace("/onboarding");
     }
@@ -60,8 +63,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <ApolloProvider client={apolloClient}>
               <XpNotificationProvider>
                 <UserStatsProvider>
-                  <NexPracticeLoader />
-                  {children}
+              <NexPracticeLoader />
+              {children}
                 </UserStatsProvider>
               </XpNotificationProvider>
             </ApolloProvider>

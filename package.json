@@ -113,6 +113,7 @@
     "graphql-tag": "^2.12.6",
     "graphql-ws": "^6.0.4",
     "graphql-yoga": "^5.13.4",
+    "gsap": "^3.13.0",
     "html-react-parser": "^5.2.3",
     "ignore": "^7.0.4",
     "input-otp": "1.4.1",

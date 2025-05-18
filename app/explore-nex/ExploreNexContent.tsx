@@ -544,8 +544,8 @@ export default function ExploreNexContent() {
       },
     },
     {
-      id: "nexforum",
-      name: "NexForum",
+      id: "nexconnect",
+      name: "NexConnect",
       description: "Community discussions and knowledge sharing platform",
       icon: MessageSquare,
       color: "from-[#9C5DE4] to-[#AB7AE8]",

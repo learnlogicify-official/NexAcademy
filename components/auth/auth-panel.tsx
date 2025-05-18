@@ -215,7 +215,7 @@ export function AuthPanel() {
               transition={{ duration: 0.5, delay: 0.5 }}
             >
               <p className="text-lg font-semibold text-foreground tracking-wide">Sachin Nandha Sabarish J</p>
-              <p className="text-sm font-normal text-foreground/80 tracking-wide">CEO & Co-founder, NexAcademy</p>
+              <p className="text-sm font-normal text-foreground/80 tracking-wide">Founder & CEO, NexAcademy</p>
             </motion.div>
           </motion.div>
         </motion.div>

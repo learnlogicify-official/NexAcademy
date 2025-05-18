@@ -170,72 +170,7 @@ export async function getPlatformData(): Promise<PlatformData[]> {
     }
     
     // If database is empty but we're in development, use mock data for easier testing
-    if (process.env.NODE_ENV === 'development') {
-      return [
-        {
-          id: "leetcode",
-          name: "LeetCode",
-          icon: "/images/platforms/leetcode.svg",
-          color: "#FFA116",
-          username: "coder123",
-          connected: true,
-          problems: 387,
-          rank: "15,432",
-          activityData: generateMockActivityData(60, 'leetcode')
-        },
-        {
-          id: "codechef",
-          name: "CodeChef",
-          icon: "/images/platforms/codechef.svg",
-          color: "#5B4638",
-          username: "",
-          connected: false,
-        },
-        {
-          id: "codeforces",
-          name: "CodeForces",
-          icon: "/images/platforms/codeforces.svg",
-          color: "#1F8ACB",
-          username: "algorithm_master",
-          connected: true,
-          problems: 245,
-          rank: "Specialist",
-          activityData: generateMockActivityData(45, 'codeforces')
-        },
-        {
-          id: "geeksforgeeks",
-          name: "GeeksForGeeks",
-          icon: "/images/platforms/gfg.svg",
-          color: "#2F8D46",
-          username: "",
-          connected: false,
-        },
-        {
-          id: "hackerrank",
-          name: "HackerRank",
-          icon: "/images/platforms/hackerrank.svg",
-          color: "#00EA64",
-          username: "",
-          connected: false,
-        },
-        {
-          id: "hackerearth",
-          name: "HackerEarth",
-          icon: "/images/platforms/hackerearth.svg",
-          color: "#2C3454",
-          username: "",
-          connected: false,
-        },
-        {
-          id: "codingninjas",
-          name: "Coding Ninjas",
-          icon: "/images/platforms/codingninjas.svg",
-          color: "#FC4F41",
-          username: "",
-          connected: false,
-        },
-      ];
-    }
+   
     
     return platforms;
   } catch (error) {

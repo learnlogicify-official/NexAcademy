@@ -78,9 +78,9 @@ export default async function CodingPortfolioDashboardPage() {
       // Check for LeetCode format
       if (platform.id === "leetcode") {
         // LeetCode typically provides these directly
-        easyCount += data.problemsByDifficulty.easy || 0;
-        mediumCount += data.problemsByDifficulty.medium || 0;
-        hardCount += data.problemsByDifficulty.hard || 0;
+        easyCount += data.problemsByDifficulty?.easy || 0;
+        mediumCount += data.problemsByDifficulty?.medium || 0;
+        hardCount += data.problemsByDifficulty?.hard || 0;
       } 
       // Check for CodeForces format (maps problem ratings to difficulty levels)
       else if (platform.id === "codeforces" && data.problemsByDifficulty) {
