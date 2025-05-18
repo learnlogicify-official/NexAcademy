@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Session } from "next-auth"
 import { RefreshNotification } from "@/components/notifications/refresh-notification"
 
-export default function UserBanner({ session: serverSession }: { session?: Session }) {
+export default function ConnectUserBanner({ session: serverSession }: { session?: Session }) {
   const { toast } = useToast()
   const [refreshing, setRefreshing] = useState(false)
   const { data: clientSession, status } = useSession();
@@ -183,12 +183,6 @@ export default function UserBanner({ session: serverSession }: { session?: Sessi
           failed: result.failed || 0
         });
         
-        // Update last updated timestamp if successful
-        if (result.successful > 0) {
-          const now = new Date();
-          setLastUpdated(`Today, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-        }
-        
         // Show toast message based on success/failure
         if (result.successful > 0) {
           toast({
@@ -269,30 +263,12 @@ export default function UserBanner({ session: serverSession }: { session?: Sessi
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={refreshData}
-                    disabled={refreshing}
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/30"
-                  >
-                    {refreshing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Refresh Data
-                  </Button>
-                  <Link href="/coding-portfolio/connect">
+                  <Link href="/coding-portfolio/dashboard">
                     <Button variant="secondary" size="sm" className="bg-white hover:bg-blue-50 text-blue-700">
                       <ExternalLink className="h-4 w-4 mr-2" />
-                      Manage Connections
+                      View Portfolio Dashboard
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 border border-white/10">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share
-                  </Button>
                 </div>
               </div>
             </div>

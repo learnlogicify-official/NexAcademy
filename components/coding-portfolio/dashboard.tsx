@@ -86,7 +86,7 @@ const SUPPORTED_PLATFORMS = [
   { id: "geeksforgeeks", name: "GeeksForGeeks", icon: "/images/platforms/gfg.svg", color: "#2F8D46" },
   { id: "hackerrank", name: "HackerRank", icon: "/images/platforms/hackerrank.svg", color: "#00EA64" },
   { id: "hackerearth", name: "HackerEarth", icon: "/images/platforms/hackerearth.svg", color: "#2C3454" },
-  { id: "codingninjas", name: "CodeStudio", icon: "/images/platforms/codingninjas.svg", color: "#FC4F41" },
+  { id: "codingninjas", name: "Coding Ninjas", icon: "/images/platforms/codingninjas.svg", color: "#FC4F41" },
 ]
 
 export function CodingDashboard({ 
@@ -445,6 +445,19 @@ export function CodingDashboard({
     } else if (profile.platform === 'hackerearth') {
       if (Array.isArray(data.ratingHistory)) {
         count += data.ratingHistory.length;
+      }
+    } else if (profile.platform === 'codingninjas') {
+      // Special handling for CodingNinjas contest attendance
+      if (data.contests && typeof data.contests === 'object') {
+        // Check for attended field in contests object
+        if (typeof data.contests.attended === 'number') {
+          count += data.contests.attended;
+        } else if (data.contestCount && typeof data.contestCount === 'number') {
+          count += data.contestCount;
+        }
+      } else if (profile.contests) {
+        // If already processed in the profile data
+        count += profile.contests;
       }
     } else {
       if (Array.isArray(data.contests)) {
@@ -1421,6 +1434,10 @@ export function CodingDashboard({
                           displayRating = allEvents[0].rating || platform.rating;
                           displayRank = allEvents[0].rank || platform.rank;
                         }
+                      }
+                      // Special handling for CodingNinjas: use contest rating
+                      if (platform.id === 'codingninjas' && platform.data?.contests?.rating) {
+                        displayRating = platform.data.contests.rating;
                       }
 
                       return (

@@ -258,7 +258,7 @@ export function StatsCards({
                 <span>Medium</span>
                 <span>Hard</span>
               </div>
-            </div>
+          </div>
           </div>
         </div>
       </div>
@@ -304,7 +304,7 @@ export function StatsCards({
               </div>
             ))}
           </div>
-          
+
           {/* Consistency metrics */}
           <div className="mt-3 flex justify-between items-center text-xs text-emerald-100">
             <div className="flex items-center">
@@ -344,8 +344,8 @@ export function StatsCards({
               <div className="w-full h-2.5 rounded-full overflow-hidden flex">
                 {topPlatforms.length > 0 ? (
                   topPlatforms.map((platform, i) => (
-                    <div
-                      key={i}
+              <div
+                key={i}
                       className="h-full transition-all duration-500"
                       style={{
                         width: `${platform.percentage}%`,
@@ -371,8 +371,8 @@ export function StatsCards({
                   <span className="text-[10px] mx-auto text-amber-100 italic">No platform data</span>
                 )}
               </div>
-            </div>
-            
+          </div>
+
             {topPlatforms.length === 0 && totalContests > 0 && (
               <div className="mt-1 text-[10px] text-center text-amber-100">
                 Connect platforms to see distribution
@@ -415,11 +415,11 @@ export function StatsCards({
                     style={{ height: `${height}%` }}
                   >
                     {i < effectiveStreak && (
-                      <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-white/70 blur-[1px]" />
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-white/70 blur-[1px]" />
                     )}
                   </div>
                   <span className="text-[9px] text-rose-200">{i+1}</span>
-                </div>
+              </div>
               );
             })}
           </div>

@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+import fetch from 'node-fetch';
 
 const execPromise = promisify(execCb);
 
@@ -21,12 +22,17 @@ export async function fetchPlatformData(
   serverHost?: string // Optional parameter for server host when called from server
 ): Promise<any> {
   try {
-    console.log(`Fetching data for ${platform}/${username}`);
+    // Normalize the platform name - always use 'codingninjas' internally
+    const normalizedPlatform = platform.toLowerCase() === 'codestudio' 
+      ? 'codingninjas' 
+      : platform.toLowerCase();
+    
+    console.log(`Fetching data for ${normalizedPlatform}/${username}`);
     
     let profileData: PlatformProfile | null = null;
     
     // Special handling for platforms that require custom approaches
-    if (platform.toLowerCase() === 'hackerrank') {
+    if (normalizedPlatform === 'hackerrank') {
       console.log('Using standalone script for HackerRank');
       try {
         const scriptPath = path.join(process.cwd(), 'scripts', 'fetch-hackerrank.js');
@@ -40,13 +46,13 @@ export async function fetchPlatformData(
         console.error('Failed to execute HackerRank script:', error);
         throw error;
       }
-    } else if (platform.toLowerCase() === 'hackerearth') {
+    } else if (normalizedPlatform === 'hackerearth') {
       console.log('Using direct API call for HackerEarth');
       profileData = await fetchPlatformFromAPI(
         `/api/user/hackerearth-profile?username=${encodeURIComponent(username)}`,
         serverHost
       );
-    } else if (platform.toLowerCase() === 'codingninjas') {
+    } else if (normalizedPlatform === 'codingninjas') {
       console.log('Using direct API call for CodingNinjas');
       profileData = await fetchPlatformFromAPI(
         `/api/user/codingninjas-profile?username=${encodeURIComponent(username)}`,
@@ -54,7 +60,7 @@ export async function fetchPlatformData(
       );
     } else {
       // Use the direct fetchers for other platforms
-      switch (platform.toLowerCase()) {
+      switch (normalizedPlatform) {
         case 'leetcode':
           profileData = await fetchLeetCodeProfile(username);
           break;
@@ -68,14 +74,14 @@ export async function fetchPlatformData(
           profileData = await fetchGFGProfile(username);
           break;
         default:
-          throw new Error(`Unsupported platform: ${platform}`);
+          throw new Error(`Unsupported platform: ${normalizedPlatform}`);
       }
     }
     
     // Process the data to standardize it for our database
     return {
       ...profileData,
-      platform,
+      platform: normalizedPlatform, // Always use the normalized platform name
       username,
       // Keep the raw data for reference
       rawData: profileData
@@ -83,7 +89,7 @@ export async function fetchPlatformData(
   } catch (error) {
     console.error(`Error fetching ${platform} data for ${username}:`, error);
     return {
-      platform,
+      platform: platform.toLowerCase() === 'codestudio' ? 'codingninjas' : platform.toLowerCase(),
       username,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
       rawData: {},

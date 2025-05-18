@@ -25,8 +25,22 @@ export async function GET(request: NextRequest) {
       where: { userId }
     });
 
+    // Map database platform names back to UI platform names
+    const mappedHandles = handles.map(handle => {
+      let uiPlatform = handle.platform;
+      
+      // Reverse mapping for frontend - only for gfg
+      if (handle.platform === 'gfg') {
+        uiPlatform = 'geeksforgeeks';
+      }
+      
+      return {
+        ...handle,
+        platform: uiPlatform
+      };
+    });
     
-    return NextResponse.json({ handles });
+    return NextResponse.json({ handles: mappedHandles });
   } catch (error) {
     console.error('Error retrieving platform handles:', error);
     return NextResponse.json(
@@ -60,11 +74,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Map platform names from UI to database if needed
+    let dbPlatform = platform;
+    if (platform === 'geeksforgeeks') {
+      dbPlatform = 'gfg';
+    }
+
     // Check if handle already exists
     const existingHandle = await prisma.userPlatformHandle.findFirst({
       where: {
         userId,
-        platform
+        platform: dbPlatform
       }
     });
 
@@ -89,7 +109,7 @@ export async function POST(request: NextRequest) {
         data: {
           id: uuidv4(),
           userId,
-          platform,
+          platform: dbPlatform,
           handle,
           verified,
           createdAt: new Date(),
@@ -133,14 +153,41 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete the platform handle
-    const result = await prisma.userPlatformHandle.deleteMany({
-      where: {
-        userId,
-        platform
-      }
-    });
+    // Map platform names from UI to database if needed
+    let dbPlatform = platform;
+    if (platform === 'geeksforgeeks') {
+      dbPlatform = 'gfg';
+    }
     
+    // Special handling for codestudio and codingninjas to ensure both are removed
+    // since we're standardizing on 'codingninjas' as the platform name
+    const platformsToDelete = dbPlatform === 'codestudio' || dbPlatform === 'codingninjas' 
+      ? ['codestudio', 'codingninjas'] 
+      : [dbPlatform];
+
+    // Perform the operations in a transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // First, delete all platform data for both potential platform names
+      for (const platform of platformsToDelete) {
+        await tx.platformData.deleteMany({
+          where: {
+            userId,
+            platform
+          }
+        });
+        
+        // Then, delete the platform handle
+        await tx.userPlatformHandle.deleteMany({
+          where: {
+            userId,
+            platform
+          }
+        });
+      }
+      
+      // For logging purposes
+      console.log(`Deleted platform connection for ${platformsToDelete.join('/')} and user ${userId}`);
+    });
     
     return NextResponse.json({ success: true });
   } catch (error) {

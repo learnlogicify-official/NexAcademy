@@ -41,21 +41,47 @@ export async function POST() {
     // For each platform, fetch the latest data
     const updatePromises = userPlatforms.map(async (platform) => {
       try {
+        // Map platform names for the fetchers if needed
+        let fetcherPlatform = platform.platform;
+        
+        // Handle special cases for platform name mappings
+        if (platform.platform === 'gfg') {
+          fetcherPlatform = 'geeksforgeeks';
+        } 
+        // Standardize on codingninjas instead of codestudio
+        else if (platform.platform === 'codestudio') {
+          fetcherPlatform = 'codingninjas';
+          console.log(`Normalizing platform name from codestudio to codingninjas for ${platform.handle}`);
+        }
+        
         // Fetch the latest data from the platform
         const platformData = await fetchPlatformData(
-          platform.platform,
+          fetcherPlatform,
           platform.handle,
           null,
           host // Pass the server host for API calls
         );
         
+        // Skip storing if there was an error
+        if (platformData.error) {
+          console.warn(`Error fetching ${platform.platform} data: ${platformData.error}`);
+          return {
+            platform: platform.platform,
+            success: false,
+            error: platformData.error
+          };
+        }
+        
+        // Always store using the standardized platform name
+        const dbPlatformName = platform.platform === 'codestudio' ? 'codingninjas' : platform.platform;
+        
         // Update the platform data in the database
-        return prisma.platformData.upsert({
+        await prisma.platformData.upsert({
           where: {
             id: await prisma.platformData.findFirst({
               where: {
                 userId: platform.userId,
-                platform: platform.platform
+                platform: dbPlatformName
               },
               select: { id: true }
             }).then(record => record?.id || 'create-new-record')
@@ -66,28 +92,51 @@ export async function POST() {
           },
           create: {
             userId: platform.userId,
-            platform: platform.platform,
+            platform: dbPlatformName,
             data: platformData,
           },
         });
+        
+        return {
+          platform: platform.platform,
+          success: true
+        };
       } catch (error) {
         console.error(`Error updating data for ${platform.platform}:`, error);
-        return null;
+        return {
+          platform: platform.platform,
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
       }
     });
     
     // Wait for all updates to complete
-    const results = await Promise.allSettled(updatePromises);
+    const results = await Promise.all(updatePromises);
     
     // Count successful and failed updates
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
-    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value === null)).length;
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    
+    // Create a detailed message including which platforms failed
+    const failedPlatforms = results
+      .filter(r => !r.success)
+      .map(r => r.platform);
+
+    const successMessage = successful > 0 
+      ? `Successfully refreshed data from ${successful} platforms`
+      : 'No platforms were successfully refreshed';
+      
+    const failureMessage = failed > 0 
+      ? `. Failed to fetch data from ${failed} platforms: ${failedPlatforms.join(', ')}`
+      : '';
     
     // Return a summary
     return NextResponse.json({
-      message: `Platform data updated successfully - refreshed ${successful} platforms${failed > 0 ? ` (${failed} failed)` : ''}`,
+      message: successMessage + failureMessage,
       successful,
       failed,
+      failedPlatforms,
       total: userPlatforms.length,
       timestamp: new Date(),
     });

@@ -65,7 +65,7 @@ const DEFAULT_PLATFORMS = [
   },
   {
     id: "codingninjas",
-    name: "CodeStudio",
+    name: "CodingNinjas",
     icon: "/images/platforms/codingninjas.svg",
     color: "#FC4F41",
     username: "",
@@ -183,7 +183,9 @@ export function ConnectedPlatforms({ platforms = DEFAULT_PLATFORMS }: ConnectedP
                   <div className="text-center">
                     <div className="text-[10px] text-slate-500 dark:text-slate-400">Rank</div>
                     <div className="text-xs font-semibold truncate" style={{ color: platform.color }}>
-                      {platform.rank || "N/A"}
+                      {platform.id === "codingninjas"
+                        ? (platform.rawData?.contests?.rating ?? platform.rank ?? "N/A")
+                        : (platform.rank || "N/A")}
                     </div>
                   </div>
                 </div>

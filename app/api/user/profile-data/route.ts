@@ -17,6 +17,17 @@ import { v4 as uuidv4 } from 'uuid';
 const execPromise = promisify(execCb);
 const prisma = new PrismaClient();
 
+// Make sure we have a list of valid platforms
+const supportedPlatforms = [
+  'leetcode',
+  'codeforces',
+  'codechef',
+  'gfg',
+  'hackerrank',
+  'hackerearth',
+  'codingninjas',
+];
+
 // Apply the migration if PlatformData table doesn't exist
 async function ensurePlatformDataTable() {
   try {
@@ -121,18 +132,30 @@ async function savePlatformData(userId: string, profile: any) {
   if (profile.error) return false;
   
   try {
+    // Validate the profile has a platform field
+    if (!profile.platform) {
+      console.error('Cannot save profile - missing platform property:', profile);
+      return false;
+    }
+    
+    // Standardize platform name - always use codingninjas instead of codestudio
+    let platformName = profile.platform;
+    if (platformName === 'codestudio') {
+      platformName = 'codingninjas';
+      console.log('Standardizing platform name: codestudio -> codingninjas');
+    }
     
     // Store the data directly in the database
-    const result = await storePlatformData(userId, profile.platform, profile);
+    const result = await storePlatformData(userId, platformName, profile);
     
     if (result) {
       return true;
     } else {
-      console.error(`Failed to store ${profile.platform} data in database`);
+      console.error(`Failed to store ${platformName} data in database`);
       return false;
     }
   } catch (error) {
-    console.error(`Error saving ${profile.platform} data to database:`, error);
+    console.error(`Error saving ${profile.platform || 'unknown platform'} data to database:`, error);
     return false;
   }
 }
@@ -169,7 +192,7 @@ export async function GET(request: NextRequest) {
       gfg: searchParams.get('gfg'),
       hackerrank: searchParams.get('hackerrank'),
       hackerearth: searchParams.get('hackerearth'),
-      codingninjas: searchParams.get('codingninjas'),
+      codingninjas: searchParams.get('codingninjas') || searchParams.get('codestudio'), // Accept both parameters but always use codingninjas
     };
 
 
@@ -183,7 +206,7 @@ export async function GET(request: NextRequest) {
     };
     
     // Fetch profiles in parallel with timeouts to prevent hanging requests
-    const fetchWithTimeout = async (platform: string, username: string, timeoutMs = 15000) => {
+    const fetchWithTimeout = async (platform: string, username: string, timeoutMs = 15000): Promise<PlatformProfile> => {
       const startTime = Date.now();
       
       try {
@@ -191,7 +214,42 @@ export async function GET(request: NextRequest) {
         
         // Special case for Coding Ninjas - call our dedicated API instead
         if (platform === 'codingninjas') {
-          // Use our dedicated Node.js API route for Coding Ninjas
+          try {
+            // Try direct fetch first if we're running on the server
+            const scriptPath = path.join(process.cwd(), 'scripts', 'fetch-codingninjas.js');
+            const { stdout, stderr } = await execPromise(`node "${scriptPath}" "${username}" --quiet`);
+            
+            if (stderr && stderr.length > 0) {
+              console.error(`Error from CodingNinjas script:`, stderr);
+            }
+            
+            try {
+              const data = JSON.parse(stdout);
+              const codingNinjasData = data.platforms?.codingninjas;
+              
+              if (codingNinjasData) {
+                return {
+                  platform: 'codingninjas',
+                  username,
+                  totalSolved: codingNinjasData.totalSolved,
+                  problemsByDifficulty: codingNinjasData.problemsByDifficulty,
+                  contests: codingNinjasData.contests ? {
+                    rating: codingNinjasData.contests.rating || 0,
+                    problemsSolved: codingNinjasData.contests.problemsSolved || 0,
+                    attended: codingNinjasData.contests.attended || codingNinjasData.contestCount || 0,
+                    rank: codingNinjasData.contests.rank || '',
+                    contestName: codingNinjasData.contests.contestName || ''
+                  } : undefined
+                } as PlatformProfile;
+              }
+            } catch (parseError) {
+              console.error('Error parsing CodingNinjas script output:', parseError);
+            }
+          } catch (execError) {
+            console.error('Error executing CodingNinjas script directly:', execError);
+          }
+          
+          // Fallback to API call if direct execution failed
           const response = await fetch(`${request.nextUrl.origin}/api/user/codingninjas-profile?username=${encodeURIComponent(username)}`, {
             signal: AbortSignal.timeout(timeoutMs)
           });
@@ -201,7 +259,16 @@ export async function GET(request: NextRequest) {
           }
           
           const data = await response.json();
-          return data.profile;
+          return data;
+        } else if (platform === 'codestudio') {
+          // Remap this to use codingninjas handling so we process it the same way
+          // This ensures backward compatibility with existing code
+          console.log('Redirecting codestudio request to codingninjas for', username);
+          return {
+            platform: 'codingninjas', // Use standardized platform name
+            username,
+            error: 'Please use codingninjas platform ID instead of codestudio'
+          } as PlatformProfile;
         } else if (platform === 'hackerrank') {
           // Use our dedicated Node.js script for HackerRank
           const scriptPath = path.join(process.cwd(), 'scripts', 'fetch-hackerrank.js');
@@ -249,6 +316,11 @@ export async function GET(request: NextRequest) {
         const result = await Promise.race([fetchPromise, timeoutPromise]);
         const duration = Date.now() - startTime;
         
+        // Ensure the platform property is set
+        if (result && !result.platform) {
+          result.platform = platform;
+        }
+        
         return result;
       } catch (error: any) {
         const duration = Date.now() - startTime;
@@ -280,9 +352,18 @@ export async function GET(request: NextRequest) {
       console.error('Failed to ensure PlatformData table exists, profiles won\'t be saved');
     }
 
-    // Save successful profiles directly to the database
-    const savePromises = profiles
-      .filter(profile => !profile.error)
+    // Count success vs failures
+    const successfulProfiles = profiles.filter(p => !p.error);
+    const failedProfiles = profiles.filter(p => p.error);
+    
+    // Log information about failed fetches
+    if (failedProfiles.length > 0) {
+      console.warn(`${failedProfiles.length} platforms failed to fetch:`, 
+        failedProfiles.map(p => `${p.platform}: ${p.error}`).join(', '));
+    }
+
+    // Save only successful profiles directly to the database
+    const savePromises = successfulProfiles
       .map(profile => savePlatformData(user.id, profile));
     
     const saveResults = await Promise.all(savePromises);
@@ -291,6 +372,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       profiles,
       savedCount,
+      failedCount: failedProfiles.length,
       timestamp: new Date().toISOString()
     });
   } catch (error) {

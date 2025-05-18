@@ -244,7 +244,7 @@ export async function GET(request: NextRequest) {
             // Map platform IDs for API request
             let platformParam = handle.platform;
             if (platformParam === 'geeksforgeeks') platformParam = 'gfg';
-            if (platformParam === 'codingninjas') platformParam = 'codestudio';
+            if (platformParam === 'codingninjas') platformParam = 'codingninjas';
             
             return `${platformParam}=${encodeURIComponent(handle.handle)}`;
           }).join('&');

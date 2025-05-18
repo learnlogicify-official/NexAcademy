@@ -87,7 +87,7 @@ export async function getPlatformData(): Promise<PlatformData[]> {
     },
     {
       id: "codingninjas",
-      name: "CodeStudio",
+      name: "Coding Ninjas",
       icon: "/images/platforms/codingninjas.svg",
       color: "#FC4F41",
       username: "",
@@ -228,7 +228,7 @@ export async function getPlatformData(): Promise<PlatformData[]> {
         },
         {
           id: "codingninjas",
-          name: "CodeStudio",
+          name: "Coding Ninjas",
           icon: "/images/platforms/codingninjas.svg",
           color: "#FC4F41",
           username: "",

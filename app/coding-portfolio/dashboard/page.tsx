@@ -105,6 +105,8 @@ export default async function CodingPortfolioDashboardPage() {
       else if (data.problemsByDifficulty) {
         // Check for standard naming: easy, medium, hard
         easyCount += data.problemsByDifficulty.easy || 0;
+        easyCount += data.problemsByDifficulty.basic || 0;
+        easyCount += data.problemsByDifficulty.school || 0;
         mediumCount += data.problemsByDifficulty.medium || 0;
         hardCount += data.problemsByDifficulty.hard || 0;
       }
@@ -178,6 +180,16 @@ export default async function CodingPortfolioDashboardPage() {
       } else if (platform.id === 'hackerearth') {
         if (Array.isArray(data.ratingHistory)) {
           totalContests += data.ratingHistory.length;
+        }
+      } else if (platform.id === 'codingninjas') {
+        // Special handling for CodingNinjas
+        if (data.contests && typeof data.contests === 'object') {
+          // Get attendance count from attended field
+          if (typeof data.contests.attended === 'number') {
+            totalContests += data.contests.attended;
+          } else if (data.contestCount && typeof data.contestCount === 'number') {
+            totalContests += data.contestCount;
+          }
         }
       } else {
         if (Array.isArray(data.contests)) {

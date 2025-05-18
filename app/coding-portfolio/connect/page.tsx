@@ -1,5 +1,6 @@
 "use client"
 
+import ConnectUserBanner from "@/components/coding-portfolio/connect-user-banner"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -7,27 +8,36 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { 
-  ArrowRight, 
-  RefreshCw, 
-  Trash2, 
-  CheckCircle, 
-  XCircle, 
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import {
+  ArrowLeft,
+  ArrowRight,
+  RefreshCw,
+  Trash2,
+  CheckCircle,
   Loader2,
   Code,
-  LucideCode,
   Trophy,
-  Star,
   Award,
   Activity,
-  Sparkles,
   PlusCircle,
   CheckCheck,
   AlertTriangle,
   Zap,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  User,
+  Settings,
+  Search,
+  Filter,
+  ChevronDown,
+  Sparkles,
+  Star,
 } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { motion } from "framer-motion"
 
 const SUPPORTED_PLATFORMS = [
@@ -43,8 +53,8 @@ const SUPPORTED_PLATFORMS = [
     features: ["Problem solving", "Contests", "Interview prep"]
   },
   { 
-    id: "codestudio", 
-    name: "CodeStudio", 
+    id: "codingninjas", 
+    name: "CodingNinjas", 
     icon: "/images/platforms/codingninjas.svg", 
     placeholder: "Enter your Code360 UUID",
     baseUrl: "https://www.naukri.com/code360/profile/",
@@ -363,7 +373,6 @@ export default function ConnectPlatformsPage() {
         data.handles.forEach((h: any) => {
           // Map platform IDs from API to local IDs if needed
           let platformId = h.platform
-          if (platformId === 'codingninjas') platformId = 'codestudio'
           if (platformId === 'gfg') platformId = 'geeksforgeeks'
           
           handleMap[platformId] = h.handle
@@ -532,7 +541,7 @@ export default function ConnectPlatformsPage() {
         case "hackerearth":
           apiParam = `hackerearth=${handle}`
           break
-        case "codestudio":
+        case "codingninjas":
           apiParam = `codingninjas=${handle}`
           break
         default:
@@ -541,12 +550,16 @@ export default function ConnectPlatformsPage() {
       
       const response = await fetch(`/api/user/profile-data?${apiParam}`, {
         cache: 'no-store',
+        credentials: 'include',
         headers: {
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache'
         }
       })
       
-      if (!response.ok) throw new Error("Failed to refresh platform data")
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to refresh platform data");
+      }
       
       const data = await response.json()
       
@@ -558,22 +571,35 @@ export default function ConnectPlatformsPage() {
           if (handleOverride === undefined) {
             toast({
               title: "Success",
-              description: `Successfully refreshed ${platformId} data`,
+              description: `Updated ${platformId} data successfully`,
             })
           }
+          
+          // Refresh the platform data list to show updated stats
+          fetchPlatformHandles();
         } else {
+          console.warn(`Error refreshing ${platformId} data:`, profile.error);
           toast({
             title: "Warning",
-            description: `Couldn't fetch profile data: ${profile.error}`,
+            description: `${platformId}: ${profile.error}`,
             variant: "destructive",
           })
         }
+      } else {
+        // No profiles were returned
+        toast({
+          title: "Error",
+          description: `No profile data returned for ${platformId}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error refreshing platform data:", error)
       toast({
         title: "Error",
-        description: "Failed to refresh platform data",
+        description: error instanceof Error ? 
+          `${platformId}: ${error.message}` : 
+          `Failed to refresh ${platformId} data`,
         variant: "destructive",
       })
     } finally {
@@ -590,29 +616,37 @@ export default function ConnectPlatformsPage() {
   });
 
   return (
-    <div className="bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-black p-4 md:p-6 lg:p-8">
-      <div className="container max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Connect Platforms</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Connect your coding platforms to aggregate your coding portfolio
-            </p>
+    <div className="relative p-2 md:p-4 lg:p-6 pb-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* User Banner */}
+        <div>
+          <ConnectUserBanner />
+        </div>
+        
+        {/* Section header */}
+        <div className="relative">
+          <div className="flex justify-between items-center">
+            <div className="relative">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 mb-3">
+                Connect Platforms
+              </h1>
+              <p className="text-slate-600 dark:text-slate-300 max-w-xl">
+                Link your coding profiles to showcase your achievements and track your progress across multiple
+                platforms.
+              </p>
+              
+              {/* Animated gradient underline */}
+              <div className="absolute -bottom-4 left-0 h-0.5 w-36 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+            </div>
           </div>
-          <Button asChild>
-            <Link href="/coding-portfolio/dashboard" className="flex items-center gap-1">
-              <span>Dashboard</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
         </div>
         
         {/* Step by step guide card */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="mb-12"
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="mb-0"
         >
           <div className="rounded-xl overflow-hidden border-[1.5px] border-indigo-100 dark:border-indigo-900/30 bg-gradient-to-br from-indigo-50/80 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/10 backdrop-blur-sm">
             <div className="grid md:grid-cols-4">
@@ -686,23 +720,23 @@ export default function ConnectPlatformsPage() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8"
+              transition={{ duration: 0.3, delay: 0.3 }}
+              className="flex flex-col md:flex-row justify-between md:items-center gap-4"
             >
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold">Programming Platforms</h2>
-                <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                <div className="bg-blue-100/50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-medium">
                   {SUPPORTED_PLATFORMS.length} Available
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+                <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
                   <button
                     onClick={() => setActiveFilter('all')}
                     className={`px-3 py-1.5 text-sm transition-colors ${
                       activeFilter === 'all' 
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                     }`}
                   >
                     All
@@ -711,8 +745,8 @@ export default function ConnectPlatformsPage() {
                     onClick={() => setActiveFilter('connected')}
                     className={`px-3 py-1.5 text-sm transition-colors ${
                       activeFilter === 'connected' 
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                     }`}
                   >
                     Connected
@@ -721,16 +755,16 @@ export default function ConnectPlatformsPage() {
                     onClick={() => setActiveFilter('unconnected')}
                     className={`px-3 py-1.5 text-sm transition-colors ${
                       activeFilter === 'unconnected' 
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                     }`}
                   >
                     Unconnected
                   </button>
                 </div>
                 
-                <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300">
-                  Connected: <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                <div className="bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 shadow-sm">
+                  Connected: <span className="font-bold text-blue-600 dark:text-blue-400">
                     {Object.values(platformStatuses).filter(status => status === "verified").length}
                   </span>/{SUPPORTED_PLATFORMS.length}
                 </div>
@@ -739,8 +773,8 @@ export default function ConnectPlatformsPage() {
             
             {/* No results message */}
             {filteredPlatforms.length === 0 && (
-              <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                <div className="mx-auto w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+              <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md">
+                <div className="mx-auto w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-4">
                   <AlertTriangle className="h-8 w-8 text-amber-500" />
                 </div>
                 <h3 className="text-xl font-medium mb-2">No platforms found</h3>
@@ -758,7 +792,7 @@ export default function ConnectPlatformsPage() {
             )}
             
             {/* Platform cards */}
-            <div className="grid gap-6">
+            <div className="grid gap-4">
               {filteredPlatforms.map((platform) => (
                 <PlatformCard
                   key={platform.id}
@@ -781,36 +815,37 @@ export default function ConnectPlatformsPage() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.6 }}
-          className="mt-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+          transition={{ duration: 0.4, delay: 0.4 }}
         >
-          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
-              <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/50">
+                <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="font-medium">Pro Tips</h3>
             </div>
-            <h3 className="font-medium">Pro Tips</h3>
-          </div>
-          <div className="p-5 grid md:grid-cols-2 gap-4">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Star className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <div className="p-5 grid md:grid-cols-2 gap-4">
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <Star className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h4 className="font-medium mb-1">Keep data updated</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Refresh your data regularly to keep your portfolio current with your latest achievements
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium mb-1">Keep data updated</h4>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Refresh your data regularly to keep your portfolio current with your latest achievements
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <h4 className="font-medium mb-1">Highlight strengths</h4>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Connect platforms where you have the strongest performance to showcase your abilities
-                </p>
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h4 className="font-medium mb-1">Highlight strengths</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Connect platforms where you have the strongest performance to showcase your abilities
+                  </p>
+                </div>
               </div>
             </div>
           </div>
