@@ -15,6 +15,7 @@ import {
   X,
   Menu,
   type LucideIcon,
+  Briefcase,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
@@ -319,6 +320,14 @@ export function ClientSidebar({
       iconBg: "from-sky-500 to-indigo-600",
       isActive: activeSection === "nexpractice",
       premium: true,
+    },
+    {
+      name: "NexPortfolio",
+      href: "/nexPortfolio/dashboard",
+      icon: Briefcase,
+      iconBg: "from-pink-500 to-pink-600",
+      isActive: activeSection === "nexPortfolio",
+      premium: false,
     },
   ]
 

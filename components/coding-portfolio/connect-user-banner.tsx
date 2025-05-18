@@ -263,7 +263,7 @@ export default function ConnectUserBanner({ session: serverSession }: { session?
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-3">
-                  <Link href="/coding-portfolio/dashboard">
+                  <Link href="/nexPortfolio/dashboard">
                     <Button variant="secondary" size="sm" className="bg-white hover:bg-blue-50 text-blue-700">
                       <ExternalLink className="h-4 w-4 mr-2" />
                       View Portfolio Dashboard

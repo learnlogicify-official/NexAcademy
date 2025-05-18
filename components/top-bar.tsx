@@ -22,6 +22,7 @@ import { useEffect, useState } from "react"
 import { signOut } from "next-auth/react"
 import { useSession } from "next-auth/react"
 import { useProfilePic } from "@/components/ProfilePicContext"
+import { useUserStats } from "@/components/UserStatsContext"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -44,6 +45,7 @@ export function TopBar({
   const [isSmallMobile, setIsSmallMobile] = useState(false)
   const { data: session } = useSession()
   const { profilePic } = useProfilePic();
+  const userStats = useUserStats();
 
   // Check if screen is small mobile (below sm breakpoint)
   useEffect(() => {
@@ -101,11 +103,11 @@ export function TopBar({
         {/* Show XP, Coins, Streak when NOT on course page AND not on small mobile */}
         {!isCoursePage && !isSmallMobile && (
           <>
-            <CurrencyDisplay type="xp" value={2450} />
+            <CurrencyDisplay type="xp" value={userStats?.xp ?? 0} />
             <CurrencyDisplay type="coins" value={750} />
             <div className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5">
               <Image src="/icons/streak.svg" alt="Streak" width={16} height={16} className="h-4 w-4" />
-              <span className="text-xs font-medium text-foreground">3</span>
+              <span className="text-xs font-medium text-foreground">{userStats?.currentStreak ?? 0}</span>
             </div>
 
             <DropdownMenu>

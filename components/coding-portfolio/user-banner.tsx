@@ -283,7 +283,7 @@ export default function UserBanner({ session: serverSession }: { session?: Sessi
                     )}
                     Refresh Data
                   </Button>
-                  <Link href="/coding-portfolio/connect">
+                  <Link href="/nexPortfolio/connect">
                     <Button variant="secondary" size="sm" className="bg-white hover:bg-blue-50 text-blue-700">
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Manage Connections

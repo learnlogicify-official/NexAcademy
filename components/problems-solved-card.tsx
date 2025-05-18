@@ -283,42 +283,7 @@ export function ProblemsSolvedCard({
               </div>
             </div>
 
-            {/* Difficulty distribution table */}
-            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Difficulty
-                    </th>
-                    <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Count
-                    </th>
-                    <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      %
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                  {finalCategories.map((category, index) => (
-                    <tr key={category.name} className={index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: category.color }}></div>
-                          <div className={`text-xs font-medium ${category.textColor}`}>{category.name}</div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-center font-semibold text-gray-800 dark:text-gray-200">
-                        {category.count}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-right text-gray-500 dark:text-gray-400">
-                        {category.percentage}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            
           </div>
         )}
       </CardContent>

@@ -2,6 +2,7 @@ import { EnhancedProfile } from "@/components/enhanced-profile"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { prisma } from "@/lib/prisma"
 import { format, subDays } from "date-fns"
+import { getUserStreak } from "@/lib/streak-service"
 
 interface ProfilePageProps {
   params: { username: string }
@@ -125,27 +126,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   // Get the user's streak data - check if table exists first
   let userStreak = null;
   try {
-    // Use raw query to check if the UserStreak table exists
-    const tableExists = await prisma.$queryRaw`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'UserStreak'
-      ) as "exists"
-    `;
-    
-    // Only query if the table exists
-    if ((tableExists as any)[0]?.exists) {
-      userStreak = await prisma.$queryRaw`
-        SELECT * FROM "UserStreak" 
-        WHERE "userId" = ${user.id}
-      `;
-      
-      // Convert to a single object if array is returned
-      if (Array.isArray(userStreak) && userStreak.length > 0) {
-        userStreak = userStreak[0];
-      }
-    }
+    userStreak = await getUserStreak(user.id);
   } catch (error) {
     console.error('Error fetching streak data:', error);
     userStreak = null;

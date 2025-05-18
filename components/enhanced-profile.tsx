@@ -389,8 +389,8 @@ export function EnhancedProfile({
   const activityData = heatmapData || userData.heatmapData;
   
   // Use streak data if available
-  const streakCount = userStreak?.currentStreak || userData.streak;
-  const longestStreak = userStreak?.longestStreak || streakCount;
+  const streakCount = typeof userStreak?.currentStreak === 'number' ? userStreak.currentStreak : 0;
+  const longestStreak = typeof userStreak?.longestStreak === 'number' ? userStreak.longestStreak : 0;
   
   // Use problems data if available, otherwise use mock data
   const problems = problemsByDifficulty || problemsData;

@@ -98,7 +98,7 @@ export function ConnectedPlatforms({ platforms = DEFAULT_PLATFORMS }: ConnectedP
             <span className="font-medium text-blue-600 dark:text-blue-400">{connectedCount}</span> of {totalPlatforms}{" "}
             connected
           </div>
-          <Link href="/coding-portfolio/connect">
+          <Link href="/nexPortfolio/connect">
             <Button
               variant="outline"
               size="sm"

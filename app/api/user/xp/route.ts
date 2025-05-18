@@ -33,11 +33,7 @@ export async function GET(request: NextRequest) {
       
       return NextResponse.json({
         xp: data?.xp || 0,
-        level: data?.level || 1,
-        events: data?.events || [],
-        userId: userId,
-        name: session.user.name,
-        image: session.user.image
+        level: data?.level || 1
       });
     }
   } catch (error) {
