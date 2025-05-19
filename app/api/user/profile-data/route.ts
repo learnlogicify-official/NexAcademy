@@ -281,7 +281,7 @@ export async function GET(request: NextRequest) {
           return data;
         } else if (platform === 'hackerearth') {
           // Use our dedicated Node.js API route for HackerEarth
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
+          const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000') + '/app';
           const response = await fetch(`${baseUrl}/api/user/hackerearth-profile?username=${encodeURIComponent(username)}`, {
             signal: AbortSignal.timeout(timeoutMs)
           });
