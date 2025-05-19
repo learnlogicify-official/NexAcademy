@@ -7,6 +7,9 @@ COPY package*.json ./
 COPY prisma ./prisma
 RUN npm install --frozen-lockfile
 
+# Install Chrome for Puppeteer
+RUN npx puppeteer browsers install chrome
+
 COPY . .
 
 # Generate Prisma client
