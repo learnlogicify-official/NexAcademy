@@ -129,13 +129,11 @@ const validateAuth = (context: Context) => {
   if (!context.session || !context.session.user) {
     throw new Error("Unauthorized: You must be logged in");
   }
-  
-  // Check if user is admin or instructor
+  // Check if user is admin, instructor, manager, or student
   const role = context.session.user.role;
-  if (role !== "ADMIN" && role !== "INSTRUCTOR" && role !== "MANAGER") {
+  if (role !== "ADMIN" && role !== "INSTRUCTOR" && role !== "MANAGER" && role !== "STUDENT") {
     throw new Error("Forbidden: You do not have permission to perform this action");
   }
-  
   return context.session.user;
 };
 
