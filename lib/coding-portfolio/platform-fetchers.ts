@@ -107,25 +107,28 @@ export async function fetchPlatformData(
 async function fetchPlatformFromAPI(apiPath: string, serverHost?: string): Promise<any> {
   return new Promise((resolve, reject) => {
     // Determine protocol based on host
-    const isHttps = !serverHost || serverHost.includes('localhost') || serverHost.startsWith('127.0.0.1') ? false : true;
+    let host =
+      serverHost ||
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      process.env.VERCEL_URL ||
+      process.env.RAILWAY_PUBLIC_DOMAIN ||
+      'localhost:3000';
+    // Remove protocol if present in env var
+    host = host.replace(/^https?:\/\//, '');
+    const isHttps = !host.includes('localhost') && !host.startsWith('127.0.0.1');
     const httpModule = isHttps ? https : http;
-    
     // Construct full URL
-    const host = serverHost || 'localhost:3000';
     const fullPath = `${isHttps ? 'https' : 'http'}://${host}${apiPath}`;
     console.log(`Making request to: ${fullPath}`);
-    
     const req = httpModule.get(fullPath, (res) => {
       if (res.statusCode !== 200) {
         reject(new Error(`API request failed with status code ${res.statusCode}`));
         return;
       }
-      
       let data = '';
       res.on('data', (chunk) => {
         data += chunk;
       });
-      
       res.on('end', () => {
         try {
           const parsedData = JSON.parse(data);
@@ -135,11 +138,9 @@ async function fetchPlatformFromAPI(apiPath: string, serverHost?: string): Promi
         }
       });
     });
-    
     req.on('error', (error) => {
       reject(error);
     });
-    
     req.end();
   });
 } 
