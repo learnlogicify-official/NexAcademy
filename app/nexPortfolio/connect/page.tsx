@@ -1,7 +1,7 @@
 "use client"
 
 import ConnectUserBanner from "@/components/coding-portfolio/connect-user-banner"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -345,6 +345,12 @@ export default function ConnectPlatformsPage() {
   const [refreshedPlatforms, setRefreshedPlatforms] = useState<Set<string>>(new Set())
   const [connectionInProgress, setConnectionInProgress] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<'all' | 'connected' | 'unconnected'>('all')
+  
+  // Create refs to track last fetch time and prevent duplicate calls
+  const lastFetchTimeRef = useRef<number>(0)
+  const isFetchingRef = useRef<boolean>(false)
+  const lastRefreshTimeRef = useRef<Record<string, number>>({})
+  const isRefreshingRef = useRef<Record<string, boolean>>({})
 
   // Fetch existing platform connections
   useEffect(() => {
@@ -352,7 +358,17 @@ export default function ConnectPlatformsPage() {
   }, [])
 
   const fetchPlatformHandles = async () => {
+    // Debounce mechanism to prevent multiple rapid calls
+    const now = Date.now()
+    if (now - lastFetchTimeRef.current < 2000 || isFetchingRef.current) {
+      console.log("Debouncing fetchPlatformHandles call - too frequent")
+      return
+    }
+    
+    lastFetchTimeRef.current = now
+    isFetchingRef.current = true
     setLoading(true)
+    
     try {
       const response = await fetch("/api/user/platform-handles", {
         cache: 'no-store',
@@ -385,8 +401,6 @@ export default function ConnectPlatformsPage() {
       
       // On connect page, don't automatically fetch profile data for platforms
       // This prevents platform fetchers from being called by default
-
-      
     } catch (error) {
       console.error("Error fetching platform handles:", error)
       toast({
@@ -396,6 +410,7 @@ export default function ConnectPlatformsPage() {
       })
     } finally {
       setLoading(false)
+      isFetchingRef.current = false
     }
   }
 
@@ -513,6 +528,15 @@ export default function ConnectPlatformsPage() {
   }
 
   const refreshPlatformData = async (platformId: string, handleOverride?: string) => {
+    // Debounce mechanism to prevent multiple rapid refreshes of the same platform
+    const now = Date.now()
+    if ((now - (lastRefreshTimeRef.current[platformId] || 0) < 3000) || isRefreshingRef.current[platformId]) {
+      console.log(`Debouncing refreshPlatformData call for ${platformId} - too frequent`)
+      return
+    }
+    
+    lastRefreshTimeRef.current[platformId] = now
+    isRefreshingRef.current[platformId] = true
     setRefreshing(prev => ({ ...prev, [platformId]: true }))
     
     try {
@@ -575,8 +599,12 @@ export default function ConnectPlatformsPage() {
             })
           }
           
-          // Refresh the platform data list to show updated stats
-          fetchPlatformHandles();
+          // Don't call fetchPlatformHandles here to prevent recursive calls
+          // Instead, just update the local state directly
+          setPlatformStatuses(prev => ({
+            ...prev,
+            [platformId]: "verified"
+          }))
         } else {
           console.warn(`Error refreshing ${platformId} data:`, profile.error);
           toast({
@@ -604,6 +632,7 @@ export default function ConnectPlatformsPage() {
       })
     } finally {
       setRefreshing(prev => ({ ...prev, [platformId]: false }))
+      isRefreshingRef.current[platformId] = false
     }
   }
 

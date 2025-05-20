@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -11,14 +11,16 @@ import { useSession } from "next-auth/react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Session } from "next-auth"
 import { RefreshNotification } from "@/components/notifications/refresh-notification"
+import { usePlatformData } from "@/lib/platformDataContext"
 
 export default function ConnectUserBanner({ session: serverSession }: { session?: Session }) {
   const { toast } = useToast()
   const [refreshing, setRefreshing] = useState(false)
   const { data: clientSession, status } = useSession();
   const session = serverSession ?? clientSession;
-  const [platformHandles, setPlatformHandles] = useState<any[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
+  
+  // Get platform data from context instead of direct API call
+  const { platformHandles, lastUpdated, isLoading, fetchPlatformHandles } = usePlatformData();
   
   // State for refresh notification
   const [showRefreshNotification, setShowRefreshNotification] = useState(false);
@@ -28,48 +30,9 @@ export default function ConnectUserBanner({ session: serverSession }: { session?
     failed: 0
   });
 
-  // Fetch platform handles when component mounts
-  useEffect(() => {
-    if (session) {
-      fetch("/api/user/platform-handles")
-        .then(res => res.json())
-        .then(data => {
-          if (data.handles) {
-            setPlatformHandles(data.handles);
-            
-            // Find the most recent updatedAt timestamp from handles
-            if (Array.isArray(data.handles) && data.handles.length > 0) {
-              const mostRecentUpdate = data.handles.reduce((latest: Date, handle: any) => {
-                if (handle.updatedAt) {
-                  const updateDate = new Date(handle.updatedAt);
-                  return updateDate > latest ? updateDate : latest;
-                }
-                return latest;
-              }, new Date(0)); // Start with epoch time
-              
-              if (mostRecentUpdate.getTime() > 0) {
-                // Format the date nicely
-                const now = new Date();
-                if (mostRecentUpdate.toDateString() === now.toDateString()) {
-                  // Today, show time
-                  setLastUpdated(`Today, ${mostRecentUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-                } else {
-                  // Not today, show date
-                  setLastUpdated(mostRecentUpdate.toLocaleDateString(undefined, { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: mostRecentUpdate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-                  }));
-                }
-              }
-            }
-          }
-        })
-        .catch(err => {
-          console.error("Error fetching platform handles:", err);
-        });
-    }
-  }, [session]);
+  // Ref to prevent multiple API calls
+  const lastFetchTimeRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
 
   if (!session) {
     // Show skeleton only if session is not available
@@ -139,11 +102,8 @@ export default function ConnectUserBanner({ session: serverSession }: { session?
           failed: failedCount
         });
         
-        // Update last updated timestamp if successful
-        if (successfulCount > 0) {
-          const now = new Date();
-          setLastUpdated(`Today, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-        }
+        // Update context instead of local state
+        await fetchPlatformHandles();
         
         // Show toast message with success/failure info
         if (successfulCount > 0) {

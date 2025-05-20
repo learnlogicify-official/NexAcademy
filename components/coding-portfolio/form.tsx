@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -77,6 +77,10 @@ export function CodingPortfolioForm() {
   const [platformData, setPlatformData] = useState<PlatformData[]>([])
   const [dataLoading, setDataLoading] = useState(false)
   
+  // Refs to prevent duplicate API calls
+  const lastFetchTimeRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
+  
   // Form state
   const [selectedPlatform, setSelectedPlatform] = useState(SUPPORTED_PLATFORMS[0].id)
   const [handle, setHandle] = useState("")
@@ -101,7 +105,17 @@ export function CodingPortfolioForm() {
   
   // Fetch platform handles from API
   const fetchHandles = async () => {
-    setLoading(true)
+    // Debounce mechanism
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 3000 || isFetchingRef.current) {
+      console.log("Debouncing fetchHandles call - too frequent");
+      return;
+    }
+    
+    lastFetchTimeRef.current = now;
+    isFetchingRef.current = true;
+    setLoading(true);
+    
     try {
       const response = await fetch("/api/user/platform-handles")
       if (!response.ok) throw new Error("Failed to fetch platform handles")
@@ -122,6 +136,7 @@ export function CodingPortfolioForm() {
       })
     } finally {
       setLoading(false)
+      isFetchingRef.current = false;
     }
   }
   
