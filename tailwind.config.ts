@@ -3,12 +3,21 @@ import type { Config } from "tailwindcss";
 const config: Config = {
     darkMode: ["class"],
     content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}"
   ],
+  prefix: "",
   theme: {
+  	container: {
+  		center: true,
+  		padding: "2rem",
+  		screens: {
+  			"2xl": "1400px",
+  		},
+  	},
   	extend: {
   		colors: {
   			background: 'hsl(var(--background))',
@@ -22,7 +31,7 @@ const config: Config = {
   				foreground: 'hsl(var(--popover-foreground))'
   			},
   			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
+  				DEFAULT: "#2563EB", // Blue-600
   				foreground: 'hsl(var(--primary-foreground))'
   			},
   			secondary: {
@@ -60,7 +69,20 @@ const config: Config = {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
-  			}
+  			},
+  			blue: {
+  				50: "#EFF6FF",
+  				100: "#DBEAFE",
+  				200: "#BFDBFE",
+  				300: "#93C5FD",
+  				400: "#60A5FA",
+  				500: "#3B82F6",
+  				600: "#2563EB",
+  				700: "#1D4ED8",
+  				800: "#1E40AF",
+  				900: "#1E3A8A",
+  				950: "#172554",
+  			},
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -84,6 +106,22 @@ const config: Config = {
   					height: '0'
   				}
   			},
+  			"fade-in": {
+  				from: { opacity: "0" },
+  				to: { opacity: "1" },
+  			},
+  			"fade-out": {
+  				from: { opacity: "1" },
+  				to: { opacity: "0" },
+  			},
+  			"slide-up": {
+  				from: { transform: "translateY(10px)", opacity: "0" },
+  				to: { transform: "translateY(0)", opacity: "1" },
+  			},
+  			"slide-down": {
+  				from: { transform: "translateY(-10px)", opacity: "0" },
+  				to: { transform: "translateY(0)", opacity: "1" },
+  			},
   			gradient: {
   				'0%': { backgroundPosition: '0% 50%' },
   				'50%': { backgroundPosition: '100% 50%' },
@@ -105,13 +143,29 @@ const config: Config = {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
+  			"fade-in": "fade-in 0.3s ease-out",
+  			"fade-out": "fade-out 0.3s ease-out",
+  			"slide-up": "slide-up 0.4s ease-out",
+  			"slide-down": "slide-down 0.4s ease-out",
   			gradient: 'gradient 15s ease infinite',
   			float: 'float 6s ease-in-out infinite',
   			'float-slow': 'float-slow 8s ease-in-out infinite',
   			grid: 'grid 20s linear infinite',
-  		}
+  		},
+  		backgroundImage: {
+  			"gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+  			"hero-pattern":
+  				'linear-gradient(to right bottom, rgba(37, 99, 235, 0.9), rgba(29, 78, 216, 0.8)), url("/hero-bg-pattern.png")',
+  			"blue-gradient": "linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)",
+  		},
+  		boxShadow: {
+  			premium: "0 10px 25px -3px rgba(37, 99, 235, 0.15)",
+  			"card-hover": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+  			"blue-glow": "0 0 15px rgba(37, 99, 235, 0.5)",
+  		},
   	}
   },
   plugins: [require("tailwindcss-animate")],
 };
+
 export default config;
