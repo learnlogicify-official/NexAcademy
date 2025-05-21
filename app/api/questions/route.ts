@@ -578,15 +578,14 @@ export async function PUT(request: NextRequest) {
 
         // Then create new language options
         if (question.codingQuestion && body.codingQuestion.languageOptions) {
-          for (const lang of body.codingQuestion.languageOptions) {
-            await tx.languageOption.create({
-              data: {
-                codingQuestionId: question.codingQuestion.id,
-                language: String(mapLanguage(lang.language)),
-                solution: lang.solution || "",
-                preloadCode: lang.preloadCode || ""
-              }
-            });
+          const languageOptionsData = body.codingQuestion.languageOptions.map((lang: any) => ({
+            codingQuestionId: question.codingQuestion!.id,
+            language: String(mapLanguage(lang.language)),
+            solution: lang.solution || "",
+            preloadCode: lang.preloadCode || ""
+          }));
+          if (languageOptionsData.length > 0) {
+            await tx.languageOption.createMany({ data: languageOptionsData });
           }
         }
 
@@ -599,18 +598,17 @@ export async function PUT(request: NextRequest) {
 
         // Then create new test cases
         if (question.codingQuestion && body.codingQuestion.testCases) {
-          for (const testCase of body.codingQuestion.testCases) {
-            await tx.testCase.create({
-              data: {
-                codingQuestionId: question.codingQuestion.id,
-                input: testCase.input || "",
-                output: testCase.expectedOutput || testCase.output || "",
-                isHidden: Boolean(testCase.isHidden),
-                isSample: Boolean(testCase.isSample),
-                showOnFailure: Boolean(testCase.showOnFailure),
-                gradePercentage: Number(testCase.gradePercentage) || 0,
-              }
-            });
+          const testCasesData = body.codingQuestion.testCases.map((testCase: any) => ({
+            codingQuestionId: question.codingQuestion!.id,
+            input: testCase.input || "",
+            output: testCase.expectedOutput || testCase.output || "",
+            isHidden: Boolean(testCase.isHidden),
+            isSample: Boolean(testCase.isSample),
+            showOnFailure: Boolean(testCase.showOnFailure),
+            gradePercentage: Number(testCase.gradePercentage) || 0,
+          }));
+          if (testCasesData.length > 0) {
+            await tx.testCase.createMany({ data: testCasesData });
           }
         }
       }
