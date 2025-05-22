@@ -107,7 +107,7 @@ export function TopBar({
             <CurrencyDisplay type="coins" value={750} />
             <div className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5">
               <Image src="/icons/streak.svg" alt="Streak" width={16} height={16} className="h-4 w-4" />
-              <span className="text-xs font-medium text-foreground">{userStats?.currentStreak ?? 0}</span>
+              <span className="text-xs font-medium text-foreground">{userStats?.streak ?? 0}</span>
             </div>
 
             <DropdownMenu>

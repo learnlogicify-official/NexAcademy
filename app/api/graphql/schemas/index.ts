@@ -3,6 +3,7 @@ import { questionTypeDefs } from './questionSchema';
 import { codeExecutionTypeDefs } from './codeExecutionSchema';
 import { submissionTypeDefs } from './submissionSchema';
 import { codeDraftTypeDefs } from './codeDraftSchema';
+import { userTypeDefs } from './userSchema';
 
 // Define the base schema with Query and Mutation types
 const baseTypeDefs = gql`
@@ -22,4 +23,5 @@ export const typeDefs = [
   codeExecutionTypeDefs,
   submissionTypeDefs,
   codeDraftTypeDefs,
+  userTypeDefs,
 ]; 

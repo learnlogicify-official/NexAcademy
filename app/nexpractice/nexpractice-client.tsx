@@ -61,7 +61,7 @@ type ProblemStatsProps = {
   streak: number;
 };
 
-// Define GraphQL queries
+// Define GraphQL queries - Split into smaller, focused queries
 const GET_ALL_TAGS = gql`
   query GetAllTags {
     tags {
@@ -74,6 +74,26 @@ const GET_ALL_TAGS = gql`
   }
 `;
 
+// Separate query for problem counts
+const GET_PROBLEM_COUNTS = gql`
+  query GetProblemCounts {
+    questionStats(
+      type: CODING
+      status: READY
+    ) {
+      total
+      codingCount
+    }
+    userProblemCounts {
+      total
+      completed
+      inProgress
+      notStarted
+    }
+  }
+`;
+
+// Main query for coding problems - optimized to only fetch what's needed
 const GET_CODING_PROBLEMS = gql`
   query GetCodingProblems($page: Int, $limit: Int, $search: String, $tagIds: [ID!], $difficulty: QuestionDifficulty, $userStatus: UserProblemStatus) {
     codingQuestions(
@@ -110,19 +130,6 @@ const GET_CODING_PROBLEMS = gql`
         accuracy
       }
       totalCount
-    }
-    questionStats(
-      type: CODING
-      status: READY
-    ) {
-      total
-      codingCount
-    }
-    userProblemCounts {
-      total
-      completed
-      inProgress
-      notStarted
     }
   }
 `;
@@ -1053,23 +1060,31 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
   
   // Replace useQuery with useLazyQuery to control when the queries are executed
   const [fetchTags, { loading: tagsQueryLoading, error: tagsError, data: tagsData }] = 
-    useLazyQuery(GET_ALL_TAGS);
+    useLazyQuery(GET_ALL_TAGS, {
+      fetchPolicy: "cache-first" // Use cache if available
+    });
+  
+  // Add query for problem counts - only fetch once
+  const [fetchProblemCounts, { loading: countsLoading, data: problemCountsData }] = 
+    useLazyQuery(GET_PROBLEM_COUNTS, {
+      fetchPolicy: "cache-first" // Use cache to avoid refetching
+    });
   
   const [fetchProblems, { loading: problemsLoading, error: problemsError, data: problemsData }] = 
     useLazyQuery(GET_CODING_PROBLEMS, {
       fetchPolicy: "cache-and-network" // Always fetch from network but update cache
     });
     
-  // Only fetch tags when switching to the Problems tab
+  // Only fetch tags and counts when first switching to the Problems tab
   useEffect(() => {
     if (activeDashboardTab === "problems") {
       fetchTags();
+      fetchProblemCounts();
     }
     // eslint-disable-next-line
   }, [activeDashboardTab]);
   
   // Only fetch problems when tab is selected or when filters/pagination change
-  // Note: tagIds expects an array of tag IDs, not tag names
   useEffect(() => {
     if (activeDashboardTab === "problems") {
       let userStatus: "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | undefined = undefined;
@@ -1077,19 +1092,21 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
       else if (activeTab === "inProgress") userStatus = "IN_PROGRESS";
       else if (activeTab === "notStarted") userStatus = "NOT_STARTED";
       
-      // Log the tags being sent to the query for debugging
-      console.log("Sending tag IDs to query:", selectedTags);
+      // Debounce problem fetching slightly for better UX on filter changes
+      const timeoutId = setTimeout(() => {
+        fetchProblems({
+          variables: {
+            page: currentPage,
+            limit: itemsPerPage,
+            search: searchQuery || undefined,
+            tagIds: selectedTags.length > 0 ? selectedTags : undefined,
+            difficulty: difficulty !== "All" ? difficulty.toUpperCase() : undefined,
+            userStatus
+          }
+        });
+      }, 100);
       
-      fetchProblems({
-        variables: {
-          page: currentPage,
-          limit: itemsPerPage,
-          search: searchQuery || undefined,
-          tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-          difficulty: difficulty !== "All" ? difficulty.toUpperCase() : undefined,
-          userStatus
-        }
-      });
+      return () => clearTimeout(timeoutId);
     }
   }, [activeDashboardTab, fetchProblems, searchQuery, selectedTags, difficulty, currentPage, itemsPerPage, activeTab]);
   
@@ -1103,11 +1120,19 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
   // Update the useEffect to set problem counts and total pages when data is received
   useEffect(() => {
     if (problemsData) {
+      // Calculate total pages
+      const totalItems = problemsData.codingQuestions.totalCount || 0;
+      const calculatedPages = Math.ceil(totalItems / itemsPerPage);
+      setTotalPages(calculatedPages > 0 ? calculatedPages : 1);
+    }
+    
+    // Set the problem counts when the count data is received
+    if (problemCountsData) {
       // Get total count from questionStats
-      const totalProblems = problemsData.questionStats?.total || 0;
+      const totalProblems = problemCountsData.questionStats?.total || 0;
       
       // Use the actual user problem counts from the GraphQL response
-      const userCounts = problemsData.userProblemCounts || {
+      const userCounts = problemCountsData.userProblemCounts || {
         total: totalProblems,
         completed: 0,
         inProgress: 0,
@@ -1120,13 +1145,8 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
         inProgress: userCounts.inProgress || 0,
         notStarted: userCounts.notStarted || totalProblems
       });
-      
-      // Calculate total pages
-      const totalItems = problemsData.codingQuestions.totalCount || 0;
-      const calculatedPages = Math.ceil(totalItems / itemsPerPage);
-      setTotalPages(calculatedPages > 0 ? calculatedPages : 1);
     }
-  }, [problemsData, itemsPerPage]);
+  }, [problemsData, problemCountsData, itemsPerPage]);
   
   // Remove the problemCounts declaration from here (we moved it up)
 
@@ -1195,10 +1215,19 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
   useEffect(() => {
     setMounted(true)
     
-    // Track loading states separately
+    // Track loading states separately with better UX
     setTagsLoading(tagsQueryLoading);
+    
+    // Only show loading for problems when actually loading (not for tag or counts loading)
     setLoadingProblems(problemsLoading);
-  }, [tagsQueryLoading, problemsLoading])
+    
+    // Add logging to measure performance
+    if (problemsLoading) {
+      console.time('problems-loading');
+    } else if (!problemsLoading && problemsData) {
+      console.timeEnd('problems-loading');
+    }
+  }, [tagsQueryLoading, problemsLoading, problemsData])
 
   if (!mounted) return null
 

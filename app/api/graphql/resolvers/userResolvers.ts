@@ -1,10 +1,18 @@
 import { GraphQLError } from 'graphql';
 import { getUserXP, getXPLeaderboard } from '@/lib/xp-service';
+import { prisma } from '@/lib/prisma';
 
 // Type for context passed from Apollo Server
 interface Context {
   session?: any;
   req: Request;
+}
+
+// PlatformHandle interface
+interface PlatformHandle {
+  id: string;
+  platform: string;
+  handle: string;
 }
 
 // Helper function to validate authentication
@@ -67,6 +75,57 @@ export const userResolvers = {
         throw new GraphQLError('Failed to fetch leaderboard', {
           extensions: { code: 'INTERNAL_SERVER_ERROR' }
         });
+      }
+    },
+
+    // Get user stats (xp, streak, platformHandles)
+    userStats: async (_: any, __: any, context: Context) => {
+      try {
+        // Check authentication
+        if (!context.session || !context.session.user) {
+          return {
+            xp: 0,
+            streak: 0,
+            platformHandles: []
+          };
+        }
+
+        const user = context.session.user;
+        
+        // Use Promise.all to fetch XP and streak in parallel
+        const [xpInfo, userStreak] = await Promise.all([
+          // Get user's XP
+          getUserXP(user.id).catch(() => ({ xp: 0 })),
+          
+          // Get user's streak
+          prisma.userStreak.findUnique({
+            where: { userId: user.id }
+          }).catch(() => ({ currentStreak: 0 }))
+        ]);
+        
+        // Get platform handles (will only be requested by specific pages)
+        const platformHandles = await prisma.userPlatformHandle.findMany({
+          where: { userId: user.id },
+          select: {
+            id: true,
+            platform: true,
+            handle: true
+          }
+        }).catch(() => []);
+        
+        return {
+          xp: xpInfo?.xp || 0,
+          streak: userStreak?.currentStreak || 0,
+          platformHandles
+        };
+      } catch (error) {
+        console.error("Error in userStats resolver:", error);
+        // Return default values on error
+        return {
+          xp: 0,
+          streak: 0,
+          platformHandles: []
+        };
       }
     }
   }

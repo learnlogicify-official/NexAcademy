@@ -437,7 +437,7 @@ export const questionResolvers = {
     },
 
     // Get coding questions directly from the coding question table
-    codingQuestions: async (_: any, args: any, context: Context) => {
+    codingQuestions: async (_: any, args: any, context: Context, info: any) => {
       try {
         const user = validateAuth(context);
         
@@ -450,12 +450,17 @@ export const questionResolvers = {
           userStatus
         } = args;
 
+        console.time('codingQuestions-resolver-total');
+        console.time('codingQuestions-filters');
+        
         // Build where conditions
         let where: any = {};
+        
         // Apply difficulty filter
         if (difficulty) {
           where.difficulty = difficulty;
         }
+        
         // Apply tag filter
         if (tagIds && tagIds.length > 0) {
           where.tags = {
@@ -466,6 +471,7 @@ export const questionResolvers = {
             }
           };
         }
+        
         // Apply search filter
         if (search) {
           where.OR = [
@@ -474,64 +480,83 @@ export const questionResolvers = {
           ];
         }
 
-        // User status filtering
+        // User status filtering optimization
         if (userStatus) {
-          // Get all coding question IDs
-          const allQuestions = await prisma.codingQuestion.findMany({
-            where,
-            select: { questionId: true }
-          });
-          const allIds = allQuestions.map(q => q.questionId);
-
-          // Get all submissions for this user for these questions
-          const userSubs = await prisma.problemSubmission.findMany({
-            where: {
-              userId: user.id,
-              problemId: { in: allIds }
-            },
-            select: { problemId: true, allPassed: true }
-          });
-
-          // Map of problemId to submission status
-          const statusMap: Record<string, { hasAccepted: boolean; hasAttempt: boolean }> = {};
-          for (const sub of userSubs) {
-            if (!statusMap[sub.problemId]) {
-              statusMap[sub.problemId] = { hasAccepted: false, hasAttempt: false };
-            }
-            if (sub.allPassed) statusMap[sub.problemId].hasAccepted = true;
-            statusMap[sub.problemId].hasAttempt = true;
-          }
-
-          let filteredIds: string[] = [];
+          console.timeEnd('codingQuestions-filters');
+          console.time('codingQuestions-user-status');
+          // Precompute question IDs by user status in a single efficient query
+          let questionIdsByStatus: string[] = [];
+          
           if (userStatus === "COMPLETED") {
-            filteredIds = allIds.filter(id => statusMap[id]?.hasAccepted);
-          } else if (userStatus === "IN_PROGRESS") {
-            filteredIds = allIds.filter(id => statusMap[id]?.hasAttempt && !statusMap[id]?.hasAccepted);
-          } else if (userStatus === "NOT_STARTED") {
-            filteredIds = allIds.filter(id => !statusMap[id]);
+            // Find all problems the user has completed in one query
+            const completedProblemIds = await prisma.$queryRaw<{ problem_id: string }[]>`
+              SELECT DISTINCT "problemId" as problem_id
+              FROM "ProblemSubmission"
+              WHERE "userId" = ${user.id}
+              AND "allPassed" = true
+            `;
+            questionIdsByStatus = completedProblemIds.map(p => p.problem_id);
+          } 
+          else if (userStatus === "IN_PROGRESS") {
+            // Get all problems with submissions but none successful in one query
+            const inProgressProblemIds = await prisma.$queryRaw<{ problem_id: string }[]>`
+              SELECT DISTINCT ps."problemId" as problem_id
+              FROM "ProblemSubmission" ps
+              WHERE ps."userId" = ${user.id}
+              AND NOT EXISTS (
+                SELECT 1 FROM "ProblemSubmission" ps2
+                WHERE ps2."userId" = ${user.id}
+                AND ps2."problemId" = ps."problemId"
+                AND ps2."allPassed" = true
+              )
+            `;
+            questionIdsByStatus = inProgressProblemIds.map(p => p.problem_id);
+          } 
+          else if (userStatus === "NOT_STARTED") {
+            // Get all problem IDs the user has attempted in one query
+            const attemptedProblemIds = await prisma.$queryRaw<{ problem_id: string }[]>`
+              SELECT DISTINCT "problemId" as problem_id
+              FROM "ProblemSubmission"
+              WHERE "userId" = ${user.id}
+            `;
+            
+            // Apply "not in" filter if there are any attempted problems
+            if (attemptedProblemIds.length > 0) {
+              where.questionId = { 
+                notIn: attemptedProblemIds.map(p => p.problem_id) 
+              };
+            }
+            // If there are no attempted questions, don't add additional filters
+            // as all questions are "not started"
           }
-
-          // If no matches, return empty
-          if (filteredIds.length === 0) {
+          
+          // Apply the computed IDs filter (except for NOT_STARTED which is handled differently)
+          if (userStatus !== "NOT_STARTED" && questionIdsByStatus.length > 0) {
+            where.questionId = { in: questionIdsByStatus };
+          } else if (userStatus !== "NOT_STARTED") {
+            // If no matching IDs and not NOT_STARTED, return empty result
+            console.timeEnd('codingQuestions-user-status');
+            console.timeEnd('codingQuestions-filters');
             return { codingQuestions: [], totalCount: 0 };
           }
-
-          // Reset where to only filter by questionId and re-apply top-level filters
-          where = {
-            questionId: { in: filteredIds }
-          };
-          if (difficulty) where.difficulty = difficulty;
-          if (search) {
-            where.OR = [
-              { questionText: { contains: search, mode: "insensitive" } },
-              { question: { name: { contains: search, mode: "insensitive" } } }
-            ];
-          }
+          console.timeEnd('codingQuestions-user-status');
+        } else {
+          console.timeEnd('codingQuestions-filters');
         }
 
-        // Get total count first
+        console.time('codingQuestions-count');
+        // Get total count with a simpler optimized query
         const totalCount = await prisma.codingQuestion.count({ where });
-        // Fetch coding questions with their related data
+        console.timeEnd('codingQuestions-count');
+        
+        // If no results, return early
+        if (totalCount === 0) {
+          console.timeEnd('codingQuestions-resolver-total');
+          return { codingQuestions: [], totalCount: 0 };
+        }
+        
+        console.time('codingQuestions-fetch');
+        // Fetch coding questions with minimal related data
         const codingQuestions = await prisma.codingQuestion.findMany({
           where,
           include: {
@@ -539,21 +564,103 @@ export const questionResolvers = {
               select: {
                 id: true,
                 name: true,
-                status: true,
-                folder: true
+                status: true
               }
             },
-            languageOptions: true,
-            testCases: true,
             tags: true
           },
           orderBy: { createdAt: 'desc' },
-          distinct: ['questionId'],
           skip: (page - 1) * limit,
           take: limit
         });
+        console.timeEnd('codingQuestions-fetch');
+
+        console.time('codingQuestions-userdata');
+        // Batch fetch all user submission data for these problems in one query
+        const questionIds = codingQuestions.map(q => q.questionId);
+        const userSubmissions = await prisma.problemSubmission.findMany({
+          where: {
+            userId: user.id,
+            problemId: { in: questionIds }
+          },
+          orderBy: {
+            submittedAt: 'desc'
+          }
+        });
+
+        // Group submissions by problem ID for faster lookup
+        const submissionsByProblem: Record<string, any[]> = {};
+        userSubmissions.forEach(sub => {
+          if (!submissionsByProblem[sub.problemId]) {
+            submissionsByProblem[sub.problemId] = [];
+          }
+          submissionsByProblem[sub.problemId].push(sub);
+        });
+        console.timeEnd('codingQuestions-userdata');
+
+        console.time('codingQuestions-stats');
+        // Batch fetch all problem stats in one query instead of one per problem
+        const batchProblemStats = await prisma.$queryRaw<any[]>`
+          SELECT 
+            "problemId",
+            COUNT(*) as total_submissions,
+            SUM(CASE WHEN "allPassed" = true THEN 1 ELSE 0 END) as accepted_submissions,
+            COUNT(DISTINCT "userId") as total_users,
+            COUNT(DISTINCT CASE WHEN "allPassed" = true THEN "userId" ELSE NULL END) as users_solved
+          FROM "ProblemSubmission"
+          WHERE "problemId" IN (${Prisma.join(questionIds)})
+          GROUP BY "problemId"
+        `;
+
+        // Index stats by problem ID
+        const statsByProblem: Record<string, any> = {};
+        batchProblemStats.forEach(stat => {
+          statsByProblem[stat.problemid] = {
+            totalSubmissions: Number(stat.total_submissions || 0),
+            acceptedSubmissions: Number(stat.accepted_submissions || 0),
+            solvedByCount: Number(stat.users_solved || 0)
+          };
+        });
+        console.timeEnd('codingQuestions-stats');
+
+        console.time('codingQuestions-process');
+        // Process all questions with the batch-fetched data
+        const enhancedQuestions = codingQuestions.map(question => {
+          const enhanced: any = { ...question };
+          const problemId = question.questionId;
+          
+          // Get submissions for this problem from the pre-fetched data
+          const submissions = submissionsByProblem[problemId] || [];
+          
+          // Process user submission status
+          enhanced.userSubmissionStatus = {
+            hasAccepted: submissions.some(s => s.allPassed),
+            attemptCount: submissions.length,
+            lastSubmittedAt: submissions[0]?.submittedAt || null
+          };
+          
+          // Get pre-fetched stats for this problem
+          const stats = statsByProblem[problemId] || {
+            totalSubmissions: 0,
+            acceptedSubmissions: 0,
+            solvedByCount: 0
+          };
+          
+          enhanced.solvedByCount = stats.solvedByCount;
+          enhanced.totalSubmissions = stats.totalSubmissions;
+          enhanced.acceptedSubmissions = stats.acceptedSubmissions;
+          enhanced.accuracy = stats.totalSubmissions > 0 
+            ? Math.round((stats.acceptedSubmissions / stats.totalSubmissions) * 100) 
+            : 0;
+          
+          return enhanced;
+        });
+        console.timeEnd('codingQuestions-process');
+        
+        console.timeEnd('codingQuestions-resolver-total');
+        
         return {
-          codingQuestions,
+          codingQuestions: enhancedQuestions,
           totalCount
         };
       } catch (error) {

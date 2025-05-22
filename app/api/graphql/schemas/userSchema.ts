@@ -1,7 +1,12 @@
 import { gql } from '@apollo/client';
 
 export const userTypeDefs = gql`
-  # ... existing code ...
+  # Reference to User defined in other schemas
+  # type User {
+  #   id: ID!
+  #   name: String
+  #   email: String
+  # }
 
   # XP Event type
   type XPEvent {
@@ -27,16 +32,29 @@ export const userTypeDefs = gql`
     level: Int!
   }
 
-  # ... existing code ...
+  # Platform Handle type
+  type PlatformHandle {
+    id: ID!
+    platform: String!
+    handle: String!
+  }
+
+  # User Stats - combined data needed across the application
+  type UserStats {
+    xp: Int!
+    streak: Int!
+    platformHandles: [PlatformHandle!]!
+  }
 
   # Query - get user XP and leaderboard
   extend type Query {
-    # ... existing queries ...
-    
     # Get current user's XP information
     myXP: UserXP!
     
     # Get XP leaderboard
     xpLeaderboard(limit: Int): [LeaderboardEntry!]!
+    
+    # Get combined user stats (xp, streak, platformHandles)
+    userStats: UserStats!
   }
 `; 

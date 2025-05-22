@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react"
+import { usePathname } from "next/navigation"
 
 type PlatformHandle = {
   id: string
@@ -30,6 +31,13 @@ export function usePlatformData() {
 }
 
 export function PlatformDataProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  
+  // Skip loading platform handles on pages that don't need them
+  const isNexPracticePage = pathname?.includes('/nexpractice');
+  const isDashboardPage = pathname === '/' || pathname === '/dashboard';
+  const shouldSkipFetching = isNexPracticePage || isDashboardPage;
+  
   const [platformHandles, setPlatformHandles] = useState<PlatformHandle[]>([])
   const [lastUpdated, setLastUpdated] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -39,6 +47,11 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const isFetchingRef = useRef<boolean>(false)
   
   const fetchPlatformHandles = async () => {
+    // Skip fetching on pages that don't need this data
+    if (shouldSkipFetching) {
+      return;
+    }
+    
     // Debounce mechanism to prevent multiple rapid calls
     const now = Date.now()
     if (now - lastFetchTimeRef.current < 3000 || isFetchingRef.current) {
@@ -100,10 +113,12 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     }
   }
   
-  // Fetch platform handles when the context is first mounted
+  // Fetch platform handles when the context is first mounted, except on pages that don't need it
   useEffect(() => {
-    fetchPlatformHandles()
-  }, [])
+    if (!shouldSkipFetching) {
+      fetchPlatformHandles()
+    }
+  }, [shouldSkipFetching])
   
   const value = {
     platformHandles,
