@@ -58,9 +58,8 @@ const ProblemHeader = ({
   return (
     <div className="mb-4 relative z-10 overflow-hidden">
       {/* Premium header with glass effect */}
-      <div className="rounded-xl overflow-hidden bg-gradient-to-r from-white/90 to-white/85 dark:from-slate-900/90 dark:to-slate-800/85 shadow-sm backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/40 p-4">
-        {/* Top accent line */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/80 to-indigo-500/0"></div>
+      <div className="p-4">
+
         
         {/* Content container */}
         <div className="flex flex-col space-y-3">

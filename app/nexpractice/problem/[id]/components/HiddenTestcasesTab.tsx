@@ -1,205 +1,237 @@
-import React from 'react';
-import { 
+"use client";
+import {
   Check,
   X,
   AlertTriangle,
   XCircle,
-  Send,
   Loader2,
   Lock,
-  Percent,
   Clock,
   Cpu,
   SkipForward,
-  CheckCircle2
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+  CheckCircle2,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 // Helper function to format text with proper newlines and spacing
 const formatText = (text: string): string => {
-  if (!text) return '';
-  
-  // Replace literal "\n" strings with actual newlines
-  let formatted = text.replace(/\\n/g, '\n');
-  
-  // Replace literal "\t" strings with spaces
-  formatted = formatted.replace(/\\t/g, '    ');
-  
-  // Handle other common escape sequences
+  if (!text) return "";
+
+  let formatted = text.replace(/\\n/g, "\n");
+  formatted = formatted.replace(/\\t/g, "    ");
   formatted = formatted
-    .replace(/\\r/g, '')
+    .replace(/\\r/g, "")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'");
-    
+
   return formatted;
 };
 
 // Helper component for rendering a single test case result
-const TestCaseResultCard = ({ result, idx, isFirstFailure }: { result: any, idx: number, isFirstFailure: boolean }) => {
-  // Determine if this is a Time Limit Exceeded verdict
-  const isTimeLimitExceeded = result.verdict === "Time Limit Exceeded" || 
-                             (result.status && result.status.id === 5) ||
-                             result.verdict?.toLowerCase()?.includes("time limit");
-                             
-  // Determine if this is a Compile Error
-  const isCompileError = result.verdict === "Compilation Error" || 
-                         result.verdict?.toLowerCase()?.includes("compile") ||
-                         (result.compileOutput && result.compileOutput.length > 0);
+const TestCaseResultCard = ({
+  result,
+  idx,
+  isFirstFailure,
+}: {
+  result: any;
+  idx: number;
+  isFirstFailure: boolean;
+}) => {
+  const isTimeLimitExceeded =
+    result.verdict === "Time Limit Exceeded" ||
+    (result.status && result.status.id === 5) ||
+    result.verdict?.toLowerCase()?.includes("time limit");
 
-  // Group verdicts by color scheme
+  const isCompileError =
+    result.verdict === "Compilation Error" ||
+    result.verdict?.toLowerCase()?.includes("compile") ||
+    (result.compileOutput && result.compileOutput.length > 0);
+
   const isYellowVerdict = isTimeLimitExceeded || isCompileError;
-  
+
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-lg p-3 border ${
-      result.isSkipped 
-        ? 'border-slate-200 dark:border-slate-700/30' 
-        : result.isCorrect 
-          ? 'border-green-200 dark:border-green-900/30' 
+    <div
+      className={`bg-white dark:bg-[#1a1a1a] rounded-lg border transition-all duration-200 hover:shadow-md ${
+        result.isSkipped
+          ? "border-gray-200 dark:border-gray-700"
+          : result.isCorrect
+          ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
           : isYellowVerdict
-            ? 'border-yellow-300 dark:border-yellow-900/30'
-          : 'border-red-200 dark:border-red-900/30'
-    }`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium mr-2 ${
-            result.isSkipped
-              ? 'bg-slate-400 dark:bg-slate-600'
-              : result.isCorrect 
-                ? 'bg-green-500' 
-                : isYellowVerdict
-                  ? 'bg-yellow-500'
-                : 'bg-red-500'
-          }`}>
-            {idx + 1}
-          </div>
-          <span className="font-medium text-slate-700 dark:text-slate-300">
-            Test Case {idx + 1}
-          </span>
-        </div>
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-          result.isSkipped
-            ? 'bg-slate-100 text-slate-600 dark:bg-slate-700/30 dark:text-slate-400'
-            : result.isCorrect 
-              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-              : isYellowVerdict
-                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-        }`}>
-          {result.isSkipped 
-            ? 'Skipped' 
-            : result.isCorrect 
-              ? 'Passed' 
-              : result.verdict}
-        </span>
-      </div>
-      
-      {/* Show minimal message for skipped test cases - no details */}
-      {result.isSkipped && (
-        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400 flex items-center">
-          <SkipForward className="h-4 w-4 mr-1.5" />
-          <span>Skipped</span>
-        </div>
-      )}
-      
-      {/* Show details ONLY for the first failed test case */}
-      {!result.isCorrect && !result.isSkipped && isFirstFailure && (
-        <div className="mt-2 text-sm border-t border-slate-100 dark:border-slate-700 pt-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <div className="font-medium text-slate-600 dark:text-slate-400">Input:</div>
-              <div className="p-1.5 bg-slate-50 dark:bg-slate-900/50 rounded border border-slate-200 dark:border-slate-700/50 text-xs font-mono overflow-auto max-h-20 whitespace-pre-wrap">
-                {formatText(result.input)}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="font-medium text-slate-600 dark:text-slate-400">Your Output:</div>
-              <div className="p-1.5 bg-slate-50 dark:bg-slate-900/50 rounded border border-slate-200 dark:border-slate-700/50 text-xs font-mono overflow-auto max-h-20 whitespace-pre-wrap">
-                {result.actualOutput === "Hidden (Multiple failures detected)" ? (
-                  <span className="text-slate-500 italic">Details hidden (see first failing test for errors)</span>
-                ) : (
-                  formatText(result.actualOutput)
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Special message for Time Limit Exceeded */}
-          {isTimeLimitExceeded && (
-            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-100 dark:border-yellow-800/30 text-yellow-700 dark:text-yellow-400 font-medium">
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1.5" />
-                <span>Time Limit Exceeded: Your code took too long to execute. Try optimizing your algorithm.</span>
-              </div>
-            </div>
-          )}
-          
-          {/* Special message for Compile Error */}
-          {isCompileError && !isTimeLimitExceeded && (
-            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-100 dark:border-yellow-800/30 text-yellow-700 dark:text-yellow-400 font-medium">
-              <div className="flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-1.5" />
-                <span>Compilation Error: Your code couldn't be compiled. Check for syntax errors.</span>
-              </div>
-              {result.compileOutput && (
-                <div className="mt-2 text-xs font-mono bg-yellow-100/50 p-2 rounded whitespace-pre-wrap">
-                  {formatText(result.compileOutput)}
-                </div>
+          ? "border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-900/10"
+          : "border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10"
+      }`}
+    >
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
+                result.isSkipped
+                  ? "bg-gray-400 dark:bg-gray-600"
+                  : result.isCorrect
+                  ? "bg-green-500"
+                  : isYellowVerdict
+                  ? "bg-amber-500"
+                  : "bg-red-500"
+              }`}
+            >
+              {result.isSkipped ? (
+                <SkipForward className="w-4 h-4" />
+              ) : result.isCorrect ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <X className="w-4 h-4" />
               )}
             </div>
-          )}
-          
-          {/* Display error messages if any */}
-          {result.stderr && !isTimeLimitExceeded && !isCompileError && (
-            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-100 dark:border-red-800/30 text-xs text-red-700 dark:text-red-400">
-              <div className="font-medium mb-1">Error:</div>
-              <pre className="whitespace-pre-wrap">{formatText(result.stderr)}</pre>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                Test Case {idx + 1}
+              </h4>
+              {(result.executionTime || result.memoryUsed) &&
+                !result.isSkipped && (
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {result.executionTime && (
+                      <span
+                        className={`flex items-center gap-1 ${
+                          isTimeLimitExceeded
+                            ? "text-amber-600 dark:text-amber-400 font-medium"
+                            : ""
+                        }`}
+                      >
+                        <Clock className="w-3 h-3" />
+                        {result.executionTime}s
+                      </span>
+                    )}
+                    {result.memoryUsed && (
+                      <span className="flex items-center gap-1">
+                        <Cpu className="w-3 h-3" />
+                        {Number.parseInt(result.memoryUsed).toLocaleString()} KB
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
-          )}
+          </div>
+          <Badge
+            variant={
+              result.isSkipped
+                ? "secondary"
+                : result.isCorrect
+                ? "default"
+                : isYellowVerdict
+                ? "destructive"
+                : "destructive"
+            }
+            className={
+              result.isSkipped
+                ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                : result.isCorrect
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                : isYellowVerdict
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300"
+                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+            }
+          >
+            {result.isSkipped
+              ? "Skipped"
+              : result.isCorrect
+              ? "Passed"
+              : result.verdict}
+          </Badge>
         </div>
-      )}
-      
-      {/* For other failed test cases, just show a minimal message */}
-      {!result.isCorrect && !result.isSkipped && !isFirstFailure && (
-        <div className="mt-2 text-sm flex items-center">
-          {isTimeLimitExceeded ? (
-            <div className="text-yellow-600 dark:text-yellow-400 flex items-center">
-              <Clock className="h-4 w-4 mr-1.5" />
-              <span>Time Limit Exceeded</span>
+
+        {/* Show details ONLY for the first failed test case */}
+        {!result.isCorrect && !result.isSkipped && isFirstFailure && (
+          <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Input:
+                </label>
+                <div className="p-3 bg-gray-50 dark:bg-[black] rounded-md border border-gray-200 dark:border-[#4c4c4c] text-sm font-mono overflow-auto max-h-32">
+                  <pre className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                    {formatText(result.input)}
+                  </pre>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Your Output:
+                </label>
+                <div className="p-3 bg-gray-50 dark:bg-[black] rounded-md border border-gray-200 dark:border-[#4c4c4c] text-sm font-mono overflow-auto max-h-32">
+                  <pre className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                    {result.actualOutput ===
+                    "Hidden (Multiple failures detected)" ? (
+                      <span className="text-gray-500 italic">
+                        Details hidden (see first failing test for errors)
+                      </span>
+                    ) : (
+                      formatText(result.actualOutput)
+                    )}
+                  </pre>
+                </div>
+              </div>
             </div>
-          ) : isCompileError ? (
-            <div className="text-yellow-600 dark:text-yellow-400 flex items-center">
-              <AlertTriangle className="h-4 w-4 mr-1.5" />
-              <span>Compilation Error</span>
-            </div>
-          ) : (
-            <div className="text-red-500 dark:text-red-400 flex items-center">
-              <X className="h-4 w-4 mr-1.5" />
-              <span>Failed</span>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Show time and memory stats if available and not skipped */}
-      {(result.executionTime || result.memoryUsed) && !result.isSkipped && (
-        <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center">
-          {result.executionTime && (
-            <span className={`mr-3 flex items-center ${
-              isTimeLimitExceeded ? 'text-yellow-600 dark:text-yellow-400 font-medium' : ''
-            }`}>
-              <Clock className="h-3 w-3 mr-1 inline" /> 
-              {result.executionTime}s
-            </span>
-          )}
-          
-          {result.memoryUsed && (
-            <span className="flex items-center">
-              <Cpu className="h-3 w-3 mr-1 inline" /> 
-              {parseInt(result.memoryUsed).toLocaleString()} KB
-            </span>
-          )}
-        </div>
-      )}
+
+            {/* Special messages */}
+            {isTimeLimitExceeded && (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-300">
+                    Time Limit Exceeded
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                    Your code took too long to execute. Consider optimizing your
+                    algorithm for better time complexity.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isCompileError && !isTimeLimitExceeded && (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-amber-800 dark:text-amber-300">
+                    Compilation Error
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                    Your code couldn't be compiled. Check for syntax errors.
+                  </p>
+                  {result.compileOutput && (
+                    <div className="mt-2 p-2 bg-amber-100/50 dark:bg-amber-900/30 rounded text-xs font-mono">
+                      <pre className="whitespace-pre-wrap">
+                        {formatText(result.compileOutput)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {result.stderr && !isTimeLimitExceeded && !isCompileError && (
+              <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800">
+                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-red-800 dark:text-red-300">
+                    Runtime Error
+                  </p>
+                  <div className="mt-2 p-2 bg-red-100/50 dark:bg-red-900/30 rounded text-xs font-mono">
+                    <pre className="whitespace-pre-wrap">
+                      {formatText(result.stderr)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -227,65 +259,76 @@ export function HiddenTestcasesTab({
   hiddenExecutionStatus,
   isRunning,
   isSubmitting,
-  submitCode
+  submitCode,
 }: HiddenTestcasesTabProps) {
+  const progressPercentage =
+    totalHiddenTestcases > 0
+      ? (completedHiddenTestcases / totalHiddenTestcases) * 100
+      : 0;
+
   return (
-    <div className="p-4">
+    <div className="p-6 max-w-4xl mx-auto">
       {executingHiddenTestcases ? (
-        <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-500">
-          {/* Progress indicator */}
-          <div className="bg-white dark:bg-slate-800/60 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50 shadow-sm">
-            <div className="p-4 flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mb-2">
-                <div className="h-5 w-5 rounded-full border-2 border-indigo-500 dark:border-indigo-400 border-t-transparent animate-spin"></div>
+        <div className="space-y-6">
+          {/* Execution Progress */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
               </div>
-              <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-1">
-                Executing Test Cases
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                Running Test Cases
               </h3>
-              
+
               {totalHiddenTestcases > 0 ? (
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
-                    <span className="font-medium">{completedHiddenTestcases}</span> 
-                    <span>out of</span> 
-                    <span className="font-medium">{totalHiddenTestcases}</span> 
-                    <span>test cases completed</span>
-                  </div>
-                  
-                  {/* Progress bar */}
-                  <div className="w-full max-w-xs bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-2 overflow-hidden">
-                    <div 
-                      className={`h-full bg-indigo-500 rounded-full transition-all duration-300 ease-out ${completedHiddenTestcases === 0 ? 'animate-pulse' : ''}`} 
-                      style={{ 
-                        width: `${totalHiddenTestcases > 0 ? Math.round((completedHiddenTestcases / totalHiddenTestcases) * 100) : 0}%`,
-                        minWidth: completedHiddenTestcases === 0 ? '5%' : '0%' // Ensure there's a small visible section when at 0%
-                      }}
-                    ></div>
+                <div className="space-y-4">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {completedHiddenTestcases}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold">
+                      {totalHiddenTestcases}
+                    </span>{" "}
+                    test cases completed
+                  </p>
+
+                  <div className="max-w-md mx-auto">
+                    <Progress value={progressPercentage} className="h-2" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      {Math.round(progressPercentage)}% complete
+                    </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 animate-pulse">
+                <p className="text-gray-600 dark:text-gray-400">
                   Preparing your code for execution...
                 </p>
               )}
             </div>
           </div>
-          
-          {/* List of testcases being processed */}
+
+          {/* Live Results */}
           {hiddenTestResults.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Test Case Results:</h3>
-              <div className="space-y-2">
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Test Results
+              </h4>
+              <div className="space-y-3">
                 {hiddenTestResults.map((result, idx) => {
-                  // Find the index of the first failing test case (not correct and not skipped)
-                  const firstFailureIndex = hiddenTestResults.findIndex(r => !r.isCorrect && !r.isSkipped);
-                  const isFirstFailure = !result.isCorrect && !result.isSkipped && idx === firstFailureIndex;
-                  
+                  const firstFailureIndex = hiddenTestResults.findIndex(
+                    (r) => !r.isCorrect && !r.isSkipped
+                  );
+                  const isFirstFailure =
+                    !result.isCorrect &&
+                    !result.isSkipped &&
+                    idx === firstFailureIndex;
+
                   return (
-                    <TestCaseResultCard 
-                      key={`result-${idx}`} 
-                      result={result} 
-                      idx={idx} 
+                    <TestCaseResultCard
+                      key={`result-${idx}`}
+                      result={result}
+                      idx={idx}
                       isFirstFailure={isFirstFailure}
                     />
                   );
@@ -295,280 +338,348 @@ export function HiddenTestcasesTab({
           )}
         </div>
       ) : hiddenTestResults.length > 0 ? (
-        <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-500">
-          {/* Results header with celebration for success */}
-          <div className={`rounded-lg p-4 ${
-            hiddenExecutionStatus === 'success' 
-              ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800/30' 
-              : hiddenExecutionStatus === 'warning'
-                ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800/30'
-                : hiddenTestResults.some(r => 
-                    r.verdict === "Time Limit Exceeded" || 
-                    (r.status && r.status.id === 5) || 
-                    r.verdict?.toLowerCase()?.includes("time limit") ||
-                    r.verdict === "Compilation Error" || 
-                    r.verdict?.toLowerCase()?.includes("compile") || 
-                    (r.compileOutput && r.compileOutput.length > 0)
+        <div className="space-y-6">
+          {/* Results Header */}
+          <div
+            className={`rounded-xl p-6 text-center ${
+              hiddenExecutionStatus === "success"
+                ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800"
+                : hiddenExecutionStatus === "warning" ||
+                  hiddenTestResults.some(
+                    (r) =>
+                      r.verdict === "Time Limit Exceeded" ||
+                      r.verdict?.toLowerCase()?.includes("time limit") ||
+                      r.verdict === "Compilation Error" ||
+                      r.verdict?.toLowerCase()?.includes("compile")
                   )
-                  ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800/30'
-                  : 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800/30'
-          }`}>
-            <div className="flex flex-col items-center text-center">
-              {hiddenExecutionStatus === 'success' ? (
-                <>
-                  <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
-                    <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h2 className="text-xl font-bold text-green-800 dark:text-green-400 mb-2">
-                    Congratulations!
-                  </h2>
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    All test cases have passed successfully. Your solution is correct!
-                  </p>
-                </>
-              ) : hiddenExecutionStatus === 'warning' ? (
-                <>
-                  <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-3">
-                    <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <h2 className="text-xl font-bold text-amber-800 dark:text-amber-400 mb-2">
-                    Almost There!
-                  </h2>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Some test cases are still failing. Keep trying!
-                  </p>
-                </>
-              ) : hiddenTestResults.some(r => 
-                  r.verdict === "Time Limit Exceeded" || 
-                  (r.status && r.status.id === 5) || 
-                  r.verdict?.toLowerCase()?.includes("time limit") ||
-                  r.verdict === "Compilation Error" || 
-                  r.verdict?.toLowerCase()?.includes("compile") || 
-                  (r.compileOutput && r.compileOutput.length > 0)
-                ) ? (
-                <>
-                  <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-3">
-                    <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <h2 className="text-xl font-bold text-amber-800 dark:text-amber-400 mb-2">
-                    Needs Improvement
-                  </h2>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    {hiddenTestResults.some(r => 
-                      r.verdict === "Time Limit Exceeded" || 
-                      (r.status && r.status.id === 5) || 
+                ? "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800"
+                : "bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800"
+            }`}
+          >
+            {hiddenExecutionStatus === "success" ? (
+              <>
+                <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-green-800 dark:text-green-300 mb-2">
+                  🎉 Excellent Work!
+                </h2>
+                <p className="text-green-700 dark:text-green-400">
+                  All test cases passed successfully. Your solution is correct
+                  and efficient!
+                </p>
+              </>
+            ) : (
+              <>
+                <div
+                  className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                    hiddenTestResults.some(
+                      (r) =>
+                        r.verdict === "Time Limit Exceeded" ||
+                        r.verdict?.toLowerCase()?.includes("time limit") ||
+                        r.verdict === "Compilation Error" ||
+                        r.verdict?.toLowerCase()?.includes("compile")
+                    )
+                      ? "bg-amber-100 dark:bg-amber-900/30"
+                      : "bg-red-100 dark:bg-red-900/30"
+                  }`}
+                >
+                  {hiddenTestResults.some(
+                    (r) =>
+                      r.verdict === "Time Limit Exceeded" ||
+                      r.verdict?.toLowerCase()?.includes("time limit") ||
+                      r.verdict === "Compilation Error" ||
+                      r.verdict?.toLowerCase()?.includes("compile")
+                  ) ? (
+                    <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  )}
+                </div>
+                <h2
+                  className={`text-2xl font-bold mb-2 ${
+                    hiddenTestResults.some(
+                      (r) =>
+                        r.verdict === "Time Limit Exceeded" ||
+                        r.verdict?.toLowerCase()?.includes("time limit") ||
+                        r.verdict === "Compilation Error" ||
+                        r.verdict?.toLowerCase()?.includes("compile")
+                    )
+                      ? "text-amber-800 dark:text-amber-300"
+                      : "text-red-800 dark:text-red-300"
+                  }`}
+                >
+                  Keep Going!
+                </h2>
+                <p
+                  className={
+                    hiddenTestResults.some(
+                      (r) =>
+                        r.verdict === "Time Limit Exceeded" ||
+                        r.verdict?.toLowerCase()?.includes("time limit") ||
+                        r.verdict === "Compilation Error" ||
+                        r.verdict?.toLowerCase()?.includes("compile")
+                    )
+                      ? "text-amber-700 dark:text-amber-400"
+                      : "text-red-700 dark:text-red-400"
+                  }
+                >
+                  {hiddenTestResults.some(
+                    (r) =>
+                      r.verdict === "Time Limit Exceeded" ||
                       r.verdict?.toLowerCase()?.includes("time limit")
-                    ) 
-                      ? <span>Your solution exceeded the time limit. Try optimizing your algorithm.</span>
-                      : <span>Your code has compilation errors. Please fix them and try again.</span>
-                    }
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-3">
-                    <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-                  </div>
-                  <h2 className="text-xl font-bold text-red-800 dark:text-red-400 mb-2">
-                    Needs Improvement
-                  </h2>
-                  <p className="text-sm text-red-700 dark:text-red-300">
-                    Review the failing test cases and try again.
-                  </p>
-                </>
-              )}
+                  )
+                    ? "Your solution exceeded the time limit. Try optimizing your algorithm."
+                    : hiddenTestResults.some(
+                        (r) =>
+                          r.verdict === "Compilation Error" ||
+                          r.verdict?.toLowerCase()?.includes("compile")
+                      )
+                    ? "Your code has compilation errors. Please fix them and try again."
+                    : "Some test cases are failing. Review the details below and refine your solution."}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Statistics Dashboard */}
+          <div className="bg-white dark:bg-[#2a2a2a] rounded-xl border border-gray-200 dark:border-[#4c4c4c] overflow-hidden shadow-sm">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-[#4c4c4c]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Test Results Overview
+                </h3>
+                <Badge variant="outline" className="text-sm">
+                  <TrendingUp className="w-4 h-4 mr-1" />
+                  {(() => {
+                    const executedTestsCount =
+                      hiddenTestResults.length -
+                      hiddenTestResults.filter((r) => r.isSkipped).length;
+                    if (executedTestsCount === 0) return "N/A";
+                    return `${Math.round(
+                      (passedHiddenTestcases / executedTestsCount) * 100
+                    )}% Success Rate`;
+                  })()}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-200 dark:divide-[#4c4c4c]">
+              <div className="p-6 text-center">
+                <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
+                  {passedHiddenTestcases}
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span>Passed</span>
+                </div>
+              </div>
+
+              <div className="p-6 text-center">
+                <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-2">
+                  {
+                    hiddenTestResults.filter(
+                      (r) =>
+                        !r.isCorrect &&
+                        !r.isSkipped &&
+                        !(
+                          r.verdict === "Time Limit Exceeded" ||
+                          r.verdict?.toLowerCase()?.includes("time limit") ||
+                          r.verdict === "Compilation Error" ||
+                          r.verdict?.toLowerCase()?.includes("compile")
+                        )
+                    ).length
+                  }
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span>Failed</span>
+                </div>
+              </div>
+
+              <div className="p-6 text-center">
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-2">
+                  {
+                    hiddenTestResults.filter(
+                      (r) =>
+                        !r.isCorrect &&
+                        !r.isSkipped &&
+                        (r.verdict === "Time Limit Exceeded" ||
+                          r.verdict?.toLowerCase()?.includes("time limit") ||
+                          r.verdict === "Compilation Error" ||
+                          r.verdict?.toLowerCase()?.includes("compile"))
+                    ).length
+                  }
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                  <span>TLE/CE</span>
+                </div>
+              </div>
+
+              <div className="p-6 text-center">
+                <div className="text-3xl font-bold text-gray-600 dark:text-gray-400 mb-2">
+                  {skippedHiddenTestcases ??
+                    hiddenTestResults.filter((r) => r.isSkipped).length}
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                  <span>Skipped</span>
+                </div>
+              </div>
             </div>
           </div>
-          
-          {/* List of all testcases with results */}
-          <div className="space-y-3">
-            {/* Modern compact results summary */}
-            <div className="bg-white dark:bg-slate-800 border rounded-lg shadow-sm overflow-hidden">
-              {/* Header */}
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
-                <h3 className="font-medium text-slate-700 dark:text-slate-300">Test Results Summary</h3>
-                <div className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                  Success Rate: {(() => {
-                    const executedTestsCount = hiddenTestResults.length - hiddenTestResults.filter(r => r.isSkipped).length;
-                    if (executedTestsCount === 0) return "N/A";
-                    return `${Math.round((passedHiddenTestcases / executedTestsCount) * 100)}%`;
-                  })()}
+
+          {/* First Failure Details */}
+          {(() => {
+            const firstFailure = hiddenTestResults.find(
+              (r) => !r.isCorrect && !r.isSkipped
+            );
+            if (!firstFailure) return null;
+
+            const idx = hiddenTestResults.indexOf(firstFailure);
+
+            return (
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#4c4c4c] overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-[#4c4c4c]">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    First Failure Analysis
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Detailed breakdown of the first test case that failed
+                  </p>
+                </div>
+                <div className="p-6">
+                  <TestCaseResultCard
+                    result={firstFailure}
+                    idx={idx}
+                    isFirstFailure={true}
+                  />
                 </div>
               </div>
-              
-              {/* Results stats with clean design */}
-              <div className="grid grid-cols-4 divide-x divide-slate-200 dark:divide-slate-700/50">
-                <div className="p-3 text-center">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">{passedHiddenTestcases}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span>Passed</span>
-                  </div>
-                </div>
-                
-                <div className="p-3 text-center">
-                  <div className="text-2xl font-bold text-red-600 dark:text-red-400 mb-1">
-                    {hiddenTestResults.filter(r => !r.isCorrect && !r.isSkipped).length}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span>Failed</span>
-                  </div>
-                </div>
-                
-                <div className="p-3 text-center">
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-1">
-                    {hiddenTestResults.filter(r => !r.isCorrect && !r.isSkipped && 
-                      (r.verdict === "Time Limit Exceeded" || (r.status && r.status.id === 5) || r.verdict?.toLowerCase()?.includes("time limit") || 
-                      r.verdict === "Compilation Error" || r.verdict?.toLowerCase()?.includes("compile") || (r.compileOutput && r.compileOutput.length > 0))
-                    ).length}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                    <span>TLE/CE</span>
-                  </div>
-                </div>
-                
-                <div className="p-3 text-center">
-                  <div className="text-2xl font-bold text-slate-600 dark:text-slate-400 mb-1">
-                    {skippedHiddenTestcases ?? hiddenTestResults.filter(r => r.isSkipped).length}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-slate-400"></div>
-                    <span>Skipped</span>
-                  </div>
-                </div>
-              </div>
+            );
+          })()}
+
+          {/* All Test Cases Grid */}
+          <div className="bg-white dark:bg-[#2a2a2a] rounded-xl border border-gray-200 dark:border-[#4c4c4c] overflow-hidden shadow-sm">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-[#4c4c4c]">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                All Test Cases
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Overview of all {hiddenTestResults.length} test cases
+              </p>
             </div>
-            
-            {/* First failure details if any - show in a card */}
-            {(() => {
-              const firstFailure = hiddenTestResults.find(r => !r.isCorrect && !r.isSkipped);
-              if (!firstFailure) return null;
-              
-              const idx = hiddenTestResults.indexOf(firstFailure);
-              
-              return (
-                <div className="bg-white dark:bg-slate-800 border rounded-lg shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">
-                    <h3 className="font-medium text-slate-700 dark:text-slate-300">First Failure Details</h3>
-                  </div>
-                  <div className="p-3">
-                    <TestCaseResultCard 
-                      result={firstFailure} 
-                      idx={idx} 
-                      isFirstFailure={true}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
-            
-            {/* Compact test results grid */}
-            <div className="bg-white dark:bg-slate-800 border rounded-lg shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">
-                <h3 className="font-medium text-slate-700 dark:text-slate-300">All Test Cases</h3>
+            <div className="p-6">
+              <div className="grid grid-cols-10 sm:grid-cols-15 lg:grid-cols-20 gap-2 mb-6">
+                {hiddenTestResults.map((result, idx) => {
+                  const isTimeLimitExceeded =
+                    result.verdict === "Time Limit Exceeded" ||
+                    result.verdict?.toLowerCase()?.includes("time limit");
+                  const isCompileError =
+                    result.verdict === "Compilation Error" ||
+                    result.verdict?.toLowerCase()?.includes("compile");
+                  const isYellowVerdict = isTimeLimitExceeded || isCompileError;
+
+                  return (
+                    <div
+                      key={`tc-${idx}`}
+                      className={`relative aspect-square rounded-lg border-2 flex items-center justify-center text-xs font-semibold transition-all duration-200 hover:scale-110 cursor-pointer ${
+                        result.isSkipped
+                          ? "bg-gray-100 border-gray-300 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
+                          : result.isCorrect
+                          ? "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-600 dark:text-green-300"
+                          : isYellowVerdict
+                          ? "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/30 dark:border-amber-600 dark:text-amber-300"
+                          : "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-600 dark:text-red-300"
+                      }`}
+                      title={`Test Case ${idx + 1}: ${
+                        result.verdict || "No verdict"
+                      }`}
+                    >
+                      {idx + 1}
+                      <div
+                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
+                          result.isSkipped
+                            ? "bg-gray-400"
+                            : result.isCorrect
+                            ? "bg-green-500"
+                            : isYellowVerdict
+                            ? "bg-amber-500"
+                            : "bg-red-500"
+                        }`}
+                      ></div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="p-3">
-                <div className="grid grid-cols-10 gap-1.5">
-                  {hiddenTestResults.map((result, idx) => {
-                    const isTimeLimitExceeded = result.verdict === "Time Limit Exceeded" || 
-                                            (result.status && result.status.id === 5) ||
-                                            result.verdict?.toLowerCase()?.includes("time limit");
-                    
-                    const isCompileError = result.verdict === "Compilation Error" || 
-                                        result.verdict?.toLowerCase()?.includes("compile") ||
-                                        (result.compileOutput && result.compileOutput.length > 0);
-                    
-                    const isYellowVerdict = isTimeLimitExceeded || isCompileError;
-                    
-                    // Determine color
-                    let bgColor = "bg-slate-100 border-slate-200 text-slate-600";
-                    let indicator = "bg-slate-400";
-                    
-                    if (result.isSkipped) {
-                      bgColor = "bg-slate-50 border-slate-200 text-slate-400";
-                      indicator = "bg-slate-400";
-                    } else if (result.isCorrect) {
-                      bgColor = "bg-green-50 border-green-100 text-green-700";
-                      indicator = "bg-green-500";
-                    } else if (isYellowVerdict) {
-                      bgColor = "bg-yellow-50 border-yellow-100 text-yellow-700";
-                      indicator = "bg-yellow-500";
-                    } else {
-                      bgColor = "bg-red-50 border-red-100 text-red-700";
-                      indicator = "bg-red-500";
-                    }
-                    
-                    return (
-                      <div 
-                        key={`tc-${idx}`} 
-                        className={`relative p-2 border rounded text-center text-xs font-mono leading-none ${bgColor}`}
-                        title={result.verdict || "No verdict"}
-                      >
-                        <div className={`absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full ${indicator}`}></div>
-                        {idx + 1}
-                      </div>
-                    );
-                  })}
+
+              {/* Legend */}
+              <div className="flex flex-wrap gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Passed
+                  </span>
                 </div>
-                
-                {/* Legend */}
-                <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span>Passed</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span>Failed</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                    <span>TLE/CE</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-slate-400"></div>
-                    <span>Skipped</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Wrong Answer
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-amber-500"></div>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Time Limit / Compile Error
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-gray-400"></div>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Skipped
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-            <Lock className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+        <div className="text-center py-12">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full flex items-center justify-center">
+            <Lock className="w-10 h-10 text-blue-600 dark:text-blue-400" />
           </div>
-          <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-            Hidden Testcases
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+            Hidden Test Cases
           </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-4">
-            Hidden testcases help evaluate your solution for edge cases and performance constraints.
+          <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-8 leading-relaxed">
+            Submit your solution to evaluate it against comprehensive test cases
+            that check for edge cases, performance constraints, and correctness.
           </p>
           <Button
             onClick={submitCode}
             disabled={isRunning || isSubmitting}
-            className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-medium px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-1"
+            size="lg"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                <span>Submitting...</span>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Submitting Solution...
               </>
             ) : (
               <>
-                <Send className="h-4 w-4 mr-1" />
-                <span>Submit Solution</span>
+                <Zap className="w-5 h-5 mr-2" />
+                Submit Solution
               </>
             )}
           </Button>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-3">
-            Submit your solution to evaluate against hidden testcases and receive detailed analysis on performance and correctness.
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 max-w-sm mx-auto">
+            Get instant feedback on your solution's performance, time
+            complexity, and correctness across all test scenarios.
           </p>
         </div>
       )}
     </div>
   );
-} 
+}

@@ -434,8 +434,8 @@ export default async function CodingPortfolioDashboardPage() {
   const statsCardWeeklyTrend = calculateStatsCardWeeklyTrend(platforms);
 
   return (
-    <div className="relative p-2 md:p-4 lg:p-6 pb-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="relative w-full px-4 py-6 pb-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+      <div className="w-full space-y-6">
         <UserBanner session={session ?? undefined} />
         
         <div className="grid grid-cols-1 gap-5">

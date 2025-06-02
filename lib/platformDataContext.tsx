@@ -36,7 +36,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   // Skip loading platform handles on pages that don't need them
   const isNexPracticePage = pathname?.includes('/nexpractice');
   const isDashboardPage = pathname === '/' || pathname === '/dashboard';
-  const shouldSkipFetching = isNexPracticePage || isDashboardPage;
+  const isAuthPage = pathname?.startsWith('/auth/');
+  const shouldSkipFetching = isNexPracticePage || isDashboardPage || isAuthPage;
   
   const [platformHandles, setPlatformHandles] = useState<PlatformHandle[]>([])
   const [lastUpdated, setLastUpdated] = useState<string>("")

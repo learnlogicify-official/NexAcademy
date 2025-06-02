@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { useMobile } from "@/hooks/use-mobile"
 import { useTheme } from "next-themes"
+import { usePathname } from "next/navigation"
 
 /**
  * Persistent Dashboard Shell that doesn't refresh during page navigation
@@ -21,6 +22,7 @@ export default function DashboardShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const isMobile = useMobile()
   const { resolvedTheme } = useTheme()
+  const pathname = usePathname()
   
   // Random ID to demonstrate persistence across page navigations 
   // (this value will stay the same when navigating between pages)
@@ -77,7 +79,7 @@ export default function DashboardShell({
           Shell ID: {shellId}
         </div>
         
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className={`flex-1 overflow-y-auto ${pathname?.includes('/nexpractice') || pathname?.includes('/nexPortfolio') ? '' : 'p-4 md:p-6'}`}>{children}</main>
       </div>
     </div>
   )

@@ -645,8 +645,8 @@ export default function ConnectPlatformsPage() {
   });
 
   return (
-    <div className="relative p-2 md:p-4 lg:p-6 pb-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="relative w-full px-4 py-6 pb-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+      <div className="w-full space-y-6">
         {/* User Banner */}
         <div>
           <ConnectUserBanner />

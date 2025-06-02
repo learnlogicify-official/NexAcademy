@@ -269,7 +269,7 @@ export const codeExecutionResolvers = {
               
               if (failedVerdict === "Time Limit Exceeded" || (executionResults[failedTestIndex]?.status?.id === 5)) {
                 status = "TIME_LIMIT_EXCEEDED";
-              } else if (failedVerdict === "Compilation Error" || executionResults[failedTestIndex]?.compile_output) {
+              } else if (failedVerdict === "Compilation Error" || executionResults[failedTestIndex]?.status?.id === 6) {
                 status = "COMPILATION_ERROR";
               } else if (failedVerdict === "Runtime Error" || executionResults[failedTestIndex]?.stderr) {
                 status = "RUNTIME_ERROR";

@@ -1,6 +1,13 @@
-"use client"
+"use client";
 
-import React, { Fragment, useState, useRef, useEffect, useCallback, useMemo } from "react"
+import React, {
+  Fragment,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -70,53 +77,79 @@ import {
   Indent,
   Compass,
   Shuffle,
-  Flame
-} from "lucide-react"
-import { Avatar } from "@/components/ui/avatar"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { NexEditor as CodeEditor } from "@/components/NexEditor"
-import { useIsMobile } from "@/components/ui/use-mobile"
-import { useTheme } from "next-themes"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
-import { CodingQuestionsSidebar } from "@/components/CodingQuestionsSidebar"
-import { Input } from "@/components/ui/input"
-import type { editor } from "monaco-editor"
-import type { Monaco } from "@monaco-editor/react"
-import { useSession } from "next-auth/react"
-import { useProfilePic } from "@/components/ProfilePicContext"
-import { useMutation, useQuery, useApolloClient } from '@apollo/client';
-import { RUN_CODE, SUBMIT_CODE } from './graphql/codeExecution';
-import { getLanguageId } from './utils/getLanguageId';
+  Sliders,
+  WrapText,
+  LineChart,
+} from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CgFormatLeft } from "react-icons/cg";
+import { LuMaximize } from "react-icons/lu";
+import { LuMinimize } from "react-icons/lu";
+import { NexEditor as CodeEditor } from "@/components/NexEditor";
+import { LuCopy } from "react-icons/lu";
+
+import { useIsMobile } from "@/components/ui/use-mobile";
+import { useTheme } from "next-themes";
+import { FaCode, FaPlay } from "react-icons/fa6";
+import { FiUploadCloud } from "react-icons/fi";
+import { BsArrowRepeat } from "react-icons/bs";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { CodingQuestionsSidebar } from "@/components/CodingQuestionsSidebar";
+import { Input } from "@/components/ui/input";
+import type { editor } from "monaco-editor";
+import type { Monaco } from "@monaco-editor/react";
+import { useSession } from "next-auth/react";
+import { useProfilePic } from "@/components/ProfilePicContext";
+import { useMutation, useQuery, useApolloClient, useSubscription } from "@apollo/client";
+import { RUN_CODE, SUBMIT_CODE, EXECUTION_PROGRESS_SUBSCRIPTION } from "./graphql/codeExecution";
+import { getLanguageId } from "./utils/getLanguageId";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner"
-import confetti from 'canvas-confetti'
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 import { HiddenTestcasesTab } from "./components/HiddenTestcasesTab";
-import ProblemHeader from "./components/ProblemHeader"
-import { useToast } from "@/components/ui/use-toast"
-import { useRouter } from "next/navigation"
-import { usePathname } from "next/navigation"
-import { useSearchParams } from "next/navigation"
-import { submissionService } from '@/lib/services/submissionService';
-import JSConfetti from 'js-confetti'
-import { Editor } from "@monaco-editor/react"
+import ProblemHeader from "./components/ProblemHeader";
+import { useToast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { submissionService } from "@/lib/services/submissionService";
+import JSConfetti from "js-confetti";
+import { Editor } from "@monaco-editor/react";
 import { ModeToggle } from "@/components/nexpractice/mode-toggle";
-import DOMPurify from 'isomorphic-dompurify';
-import { gql } from '@apollo/client';
-import Link from "next/link"
+import DOMPurify from "isomorphic-dompurify";
+import { gql } from "@apollo/client";
+import Link from "next/link";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { motion, AnimatePresence } from "framer-motion"
+} from "@/components/ui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 // Import the stopNexPracticeLoading function
-import { stopNexPracticeLoading } from "@/app/explore-nex/ExploreNexContent"
-import { useXpNotifications } from '@/hooks/use-xp-notification';
+import { stopNexPracticeLoading } from "@/app/explore-nex/ExploreNexContent";
+import { useXpNotifications } from "@/hooks/use-xp-notification";
 import { triggerStreakModal } from "@/components/problem-solving-wrapper";
+// Add import for FloatingMobileTab at the top of the file with other imports
+import FloatingMobileTab from "./components/FloatingMobileTab";
+// Add import for Header component at the top of the file with other imports
+import Header from "./components/Header";
+import DescriptionTab from "./components/DescriptionTab";
+import SolutionTab from "./components/SolutionTab";
+import DiscussionTab from "./components/DiscussionTab";
+import SubmissionsTab from "./components/SubmissionsTab";
+import { Switch } from "@/components/ui/switch";
+import LeftPanel from "./components/LeftPanel";
+import CodeEditorSection from "./components/CodeEditorSection";
+import SampleTestcaseTab from "./components/SampleTestcaseTab";
+import ResultsSection from "./components/ResultsSection";
+import RightPanel from "./components/RightPanel";
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -687,6 +720,47 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
   // 2. Set language and code to empty initially
   const [language, setLanguage] = useState<string>('');
   const [code, setCode] = useState<string>('');
+  
+  // Real-time execution state
+  const [executionId, setExecutionId] = useState<string | null>(null);
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  
+  // Subscribe to execution progress for real-time updates
+  const { data: subscriptionData } = useSubscription(
+    EXECUTION_PROGRESS_SUBSCRIPTION,
+    {
+      variables: { executionId: executionId || '' },
+      skip: !subscriptionActive || !executionId,
+    }
+  );
+  
+  // Handle real-time subscription updates
+  useEffect(() => {
+    if (subscriptionData?.executionProgress) {
+      const progress = subscriptionData.executionProgress;
+      
+      // Update the hidden test results in real-time
+      setHiddenTestResults(progress.results || []);
+      setCompletedHiddenTestcases(progress.completedTests || 0);
+      setTotalHiddenTestcases(progress.totalTests || 0);
+      
+      // Count passed test cases
+      const passedCount = (progress.results || []).filter((r: any) => r.isCorrect).length;
+      setPassedHiddenTestcases(passedCount);
+      
+      // Update execution message
+      if (progress.message) {
+        setExecutionMessage(progress.message);
+      }
+      
+      console.log('Real-time update:', {
+        completed: progress.completedTests,
+        total: progress.totalTests,
+        passed: passedCount,
+        results: progress.results?.length || 0
+      });
+    }
+  }, [subscriptionData]);
 
   // Migrate data from anonymous storage to user storage when logging in
   useEffect(() => {
@@ -1610,7 +1684,12 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           input: {
             sourceCode: code,
             languageId: langId,
-            problemId: codingQuestion.questionId
+            problemId: codingQuestion.questionId,
+            judge0Settings: {
+              compilation_time_limit: 30, // Ensure adequate compilation time
+              cpu_time_limit: 5,
+              wall_time_limit: 10
+            }
           }
         }
       });
@@ -1708,19 +1787,29 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       // Set a static loading phrase
       setLoadingPhrase("Executing the code...");
       
-    
+      // Generate unique execution ID and activate subscription for real-time updates
+      const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setExecutionId(newExecutionId);
+      setSubscriptionActive(true);
+      
       const langId = getLanguageId(language);
     
 
-      // Request to execute all testcases in parallel
+      // Request to execute all testcases with optimal execution strategy
       const response = await submitCodeMutation({
         variables: {
           input: {
             sourceCode: code,
             languageId: langId,
             problemId: codingQuestion.questionId,
-            executeInParallel: true, // Signal the server to use parallel execution
-            timezoneOffset: new Date().getTimezoneOffset() // Pass user's timezone offset
+            executeInParallel: false, // Let the system choose the best execution strategy
+            executionId: newExecutionId, // Pass execution ID for subscription tracking
+            timezoneOffset: new Date().getTimezoneOffset(), // Pass user's timezone offset
+            judge0Settings: {
+              compilation_time_limit: 30, // Ensure adequate compilation time
+              cpu_time_limit: 5,
+              wall_time_limit: 10
+            }
           }
         }
       });
@@ -2021,6 +2110,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
             // All testcases complete
             setExecutingHiddenTestcases(false);
             setIsSubmitting(false);
+            
+            // Deactivate subscription
+            setSubscriptionActive(false);
+            setExecutionId(null);
           };
           
           // Start processing testcases
@@ -2031,6 +2124,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
           setExecutionMessage(message || "Failed to submit code.");
           setExecutionStatus("error");
           setHiddenExecutionStatus("error");
+          
+          // Deactivate subscription on error
+          setSubscriptionActive(false);
+          setExecutionId(null);
         }
       } else {
         setExecutingHiddenTestcases(false);
@@ -2038,6 +2135,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         setExecutionMessage("Failed to submit code. Please try again.");
         setExecutionStatus("error");
         setHiddenExecutionStatus("error");
+        
+        // Deactivate subscription on error
+        setSubscriptionActive(false);
+        setExecutionId(null);
       }
     } catch (error: any) {
       console.error("Error submitting code:", error);
@@ -2051,6 +2152,10 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
       setShowEvaluatingSkeletons(false);
       setSkeletonTab(null);
       setIsRunning(false);
+      
+      // Deactivate subscription on error
+      setSubscriptionActive(false);
+      setExecutionId(null);
     }
   };
   
@@ -2845,6 +2950,69 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     }
   }, [isMobile]);
 
+  // Add state for copy-to-clipboard feedback for sample testcases
+  const [copiedInput, setCopiedInput] = useState(false);
+  const [copiedOutput, setCopiedOutput] = useState(false);
+
+  // State for custom testcase result
+  const [customTestResult, setCustomTestResult] = useState<{
+    input: string;
+    output: string;
+    isCorrect: boolean;
+    executionTime?: string;
+    memoryUsed?: string;
+    status?: string;
+  } | null>(null);
+
+  // Function to run a custom testcase
+  const runCustomTestcase = async (input: string) => {
+    setCustomTestResult(null);
+    setIsRunning(true);
+    try {
+      const langId = getLanguageId(language);
+      const response = await runCodeMutation({
+        variables: {
+          input: {
+            sourceCode: code,
+            languageId: langId,
+            problemId: codingQuestion.questionId,
+            customInput: input, // Assuming your backend supports this
+            judge0Settings: {
+              compilation_time_limit: 30,
+              cpu_time_limit: 5,
+              wall_time_limit: 10
+            }
+          }
+        }
+      });
+      setIsRunning(false);
+      if (response.data?.runCode?.results && response.data.runCode.results.length > 0) {
+        const result = response.data.runCode.results[0];
+        setCustomTestResult({
+          input: result.input,
+          output: result.actualOutput ?? '',
+          isCorrect: result.isCorrect,
+          executionTime: result.executionTime,
+          memoryUsed: result.memoryUsed,
+          status: result.status?.description,
+        });
+      } else {
+        setCustomTestResult({
+          input,
+          output: 'No output',
+          isCorrect: false,
+        });
+      }
+    } catch (error: any) {
+      setIsRunning(false);
+      setCustomTestResult({
+        input,
+        output: error.message || 'Error running custom testcase',
+        isCorrect: false,
+      });
+    }
+  };
+
   if (!hasMounted) return null;
 
   return (
@@ -2854,2110 +3022,203 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
         currentQuestionId={codingQuestion.questionId || codingQuestion.id}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        className={isMobile ? "fixed inset-y-0 left-0 z-50 m-0 rounded-none w-full max-w-sm transform transition-transform duration-300 ease-in-out" +
-          (sidebarOpen ? " translate-x-0" : " -translate-x-full") : ""}
+        className={
+          isMobile
+            ? "fixed inset-y-0 left-0 z-50 m-0 rounded-none w-full max-w-sm transform transition-transform duration-300 ease-in-out" +
+              (sidebarOpen ? " translate-x-0" : " -translate-x-full")
+            : ""
+        }
       />
-      
+
       {/* Add overlay when sidebar is open on mobile */}
       {isMobile && sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
+
       {/* Header with NexPractice theming */}
-      <header className="flex items-center justify-between px-3 py-2 border-b border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-r from-white via-slate-50 to-white dark:from-black dark:via-neutral-900 dark:to-black shadow-sm relative overflow-hidden backdrop-blur-sm z-30 min-h-[44px]">
-        {/* Left section: Logo, Explore Nex, and sidebar toggle */}
-        <div className="flex items-center gap-3 min-w-0 relative z-10">
-          <button
-            className="mr-1 flex items-center justify-center rounded-lg h-8 w-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-black border border-indigo-100 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-neutral-800 text-indigo-700 dark:text-gray-200 shadow-sm transition-all duration-200 hover:scale-105"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open questions sidebar"
-          >
-            <div className="flex flex-col justify-center items-center w-4 h-4 gap-[2px]">
-              <div className="w-full h-[1.5px] bg-current rounded-full"></div>
-              <div className="w-full h-[1.5px] bg-current rounded-full"></div>
-              <div className="w-full h-[1.5px] bg-current rounded-full"></div>
-            </div>
-          </button>
-          <div className="flex items-center gap-1 min-w-0">
-            <div className="relative flex items-center justify-center w-7 h-7 transition-transform hover:scale-105 group">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-neutral-800 dark:to-neutral-900 rounded-lg transform rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
-              <div className="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-600 dark:from-neutral-700 dark:to-neutral-800 rounded-lg transform -rotate-3 opacity-80 group-hover:opacity-90 transition-all duration-300"></div>
-              <div className="relative z-10 flex items-center justify-center w-6 h-6 bg-white dark:bg-neutral-900 rounded-lg shadow-inner overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-neutral-900 dark:to-black opacity-40"></div>
-                <div className="relative">
-                  <Code className="w-3.5 h-3.5 text-indigo-600 dark:text-gray-200" />
-                  <div className="absolute inset-0 bg-indigo-500/10 dark:bg-gray-200/10 animate-pulse-slow rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </div>
-            </div>
-            </div>
-            <div className="group min-w-0">
-              <h1 className="text-base font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 dark:from-blue-200 dark:via-gray-400 dark:to-blue-200 truncate">NexPractice</h1>
-              <div className="h-0.5 w-8 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 dark:from-blue-900 dark:via-gray-700 dark:to-blue-900 rounded-full group-hover:animate-gradient-x"></div>
-          </div>
-            {/* Explore Nex button with modern explore icon */}
-            <a
-              href="/explore-nex"
-              className="ml-2 flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/80 dark:bg-neutral-800/80 border border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 font-normal hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-sm"
-              style={{ fontSize: '0.92rem' }}
-            >
-              <Compass className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 mr-1" />
-              Explore Nex
-            </a>
-          </div>
-        </div>
+      <Header
+        profilePic={profilePic}
+        session={session}
+        setSidebarOpen={setSidebarOpen}
+        handleFullscreenToggle={handleFullscreenToggle}
+        isFullscreen={isFullscreen}
+        isMobile={isMobile}
+        runCode={runCode}
+        submitCode={submitCode}
+        isRunning={isRunning}
+        isSubmitting={isSubmitting}
+        loadingPhrase={loadingPhrase}
+      />
 
-        {/* Center section: Run/Submit and Mobile Navigation Tabs */}
-        <div className="hidden md:flex flex-1 items-center justify-center gap-3 mx-4 px-4 border-x border-indigo-100 dark:border-indigo-900/40 min-w-0">
-          <Button
-            size="sm"
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-sm gap-1 min-w-28 relative overflow-hidden group transition-all duration-200 hover:shadow-md"
-            onClick={runCode}
-            disabled={isRunning}
-          >
-            {isRunning ? (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient-x"></div>
-                <div className="relative z-10 flex items-center space-x-1">
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
-                  </span>
-                  <span className="text-sm font-medium text-white animate-pulse">
-                    {loadingPhrase || "Processing..."}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-indigo-700 transition-all duration-300 group-hover:scale-105"></div>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20"></div>
-                <span className="relative z-10 flex items-center">
-                  <Play className="h-4 w-4 mr-1.5" />
-            Run Code
-                </span>
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-800 dark:hover:text-indigo-200 transition-all duration-200 gap-1 min-w-28 relative overflow-hidden group"
-            onClick={submitCode}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-100 via-purple-100 to-indigo-100 dark:from-indigo-900/30 dark:via-purple-900/30 dark:to-indigo-900/30 animate-gradient-x"></div>
-                <div className="relative z-10 flex items-center space-x-1">
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                  </span>
-                  <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300 animate-pulse truncate max-w-24">
-                    Submitting...
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-r from-white to-slate-100 dark:from-slate-900 dark:to-slate-800/80 opacity-50 group-hover:opacity-80 transition-all duration-300"></div>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-200/80 dark:bg-indigo-700/40 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-600/40 transition-colors"></div>
-                <span className="relative z-10 flex items-center">
-                  <Send className="h-4 w-4 mr-1.5" />
-            Submit
-                </span>
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Empty space for layout balance in mobile */}
-        <div className="md:hidden w-16"></div>
-
-        {/* Right section: Actions/Profile */}
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="hidden md:flex items-center gap-2 mr-2">
-            {/* Random Challenge button with tooltip and animations */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/nexpractice/problem/random"
-                    className="random-challenge-icon flex items-center justify-center rounded-lg h-7 w-7 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-neutral-900 dark:to-black border border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors group"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const icon = e.currentTarget;
-                      const mainContent = document.querySelector('main');
-                      
-                      // Add loading animation to icon
-                      icon.classList.add('loading');
-                      
-                      // Add blur animation to background
-                      if (mainContent) {
-                        mainContent.classList.add('background-blur');
-                      }
-                      
-                      // Navigate after animation
-                      setTimeout(() => {
-                        window.location.href = '/nexpractice/problem/random';
-                      }, 800);
-                    }}
-                  >
-                    <Shuffle className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 transition-transform group-hover:rotate-12" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">Random Challenge</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {/* Remove Daily Challenge button */}
-            {/* Add Back to Practice button */}
-            <a
-              href="/nexpractice"
-              className="ml-2 flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold shadow hover:scale-105 transition-all border border-indigo-200 dark:border-indigo-700/40"
-              style={{ fontSize: '0.95rem' }}
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to NexPractice
-            </a>
-            <Button variant="ghost" size="icon" className="ml-2 rounded-full hover:bg-indigo-100 dark:hover:bg-slate-800/60 focus:bg-indigo-200 dark:focus:bg-slate-700/80 border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors" onClick={handleFullscreenToggle} aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
-              {isFullscreen ? (
-                <Minimize2 className="h-5 w-5 text-indigo-700 dark:text-indigo-200" />
-              ) : (
-                <Maximize2 className="h-5 w-5 text-indigo-700 dark:text-indigo-200" />
-              )}
-            </Button>
-              {/* Theme Switcher */}
-            <ModeToggle />
-          </div>
-          {/* ...existing theme/profile popover... */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center justify-center rounded-full overflow-hidden border-2 border-indigo-100 dark:border-indigo-800/50 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-medium relative overflow-hidden">
-                      {profilePic ? (
-                        <img src={profilePic} alt={session?.user?.name || "User"} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-sm font-semibold">{session?.user?.name ? session.user.name.charAt(0).toUpperCase() : "U"}</span>
-                      )}
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-slate-900"></div>
-                    </div>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-0 border-indigo-100 dark:border-indigo-900/50 shadow-lg rounded-xl overflow-hidden" align="end">
-                  <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/30 dark:to-indigo-900/20 px-4 py-3 border-b border-indigo-100 dark:border-indigo-900/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-semibold relative overflow-hidden">
-                        {profilePic ? (
-                          <img src={profilePic} alt={session?.user?.name || "User"} className="w-full h-full object-cover" />
-                        ) : (
-                          <span>{session?.user?.name ? session.user.name.charAt(0).toUpperCase() : "U"}</span>
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-slate-800 dark:text-slate-200">{session?.user?.name || "Guest User"}</div>
-                        <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center">
-                          <Crown className="h-3 w-3 mr-1 text-amber-500" />
-                          {session?.user?.role === "ADMIN" ? "Admin" : "Student"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="py-2">
-                    <div className="px-2">
-                      <a
-                        href={session?.user?.username ? `/profile/${session.user.username}` : "/profile"}
-                        className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-                          <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <div>
-                          <div className="font-medium">Your Profile</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">View and edit your details</div>
-                        </div>
-                      </a>
-                    </div>
-                    <div className="h-px bg-slate-200 dark:bg-slate-700/50 my-2"></div>
-                    <div className="px-2">
-                      <button
-                        className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 dark:hover:text-red-400 rounded-md transition-colors w-full text-left"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                          <LogOut className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        </div>
-                        <div>
-                          <div className="font-medium">Sign Out</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">Log out of your account</div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-        </div>
-      </header>
-      
       {/* Main content with resizable panels */}
-      <div ref={containerRef} className="flex flex-1 overflow-hidden">
-        {/* Left panel - Problem description */}
-        <div
-          className={`h-full overflow-auto bg-white dark:bg-black ${
-            hasMounted && isMobile ? (activePanel === "problem" ? "block w-full" : "hidden") : "border-r border-indigo-100 dark:border-indigo-900/50"
-          } ${hasMounted && isMobile ? "pb-24" : ""}`}
-          style={{ width: hasMounted && isMobile ? "100%" : `${leftPanelWidth}%` }}
-        >
-          <div className="p-3 md:px-5 md:py-3">
-            {/* Use the new ProblemHeader component */}
-            <ProblemHeader 
-              problemNumber={problemNumber}
-              problemTitle={problemTitle}
-              difficulty={difficulty}
-              isLeftPanelExpanded={isLeftPanelExpanded}
-              toggleLeftPanelExpansion={toggleLeftPanelExpansion}
-              isMobile={isMobile}
-              getDifficultyBadge={getDifficultyBadge}
-              solvedBy={codingQuestion.question?.solvedBy || 1248}
-              tags={codingQuestion.question?.tags || [{ name: 'Array' }, { name: 'Hash Table' }, { name: 'Two Pointers' }]}
-            />
-
-            {/* Problem content tabs with new gradient background */}
-            <Tabs defaultValue="description" className="mt-2 mb-5" onValueChange={handleTabChange}>
-              <TabsList className="flex flex-nowrap justify-start overflow-x-auto overflow-y-hidden px-3 scroll-pl-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-indigo-200 dark:scrollbar-thumb-indigo-900/40 bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-indigo-50/90 dark:from-black dark:via-neutral-900 dark:to-black rounded-xl backdrop-blur-sm border border-indigo-100/90 dark:border-indigo-900/40 shadow-sm p-2">
-                <TabsTrigger
-                  value="description"
-                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 snap-start data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
-                >
-                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
-                  </div>
-                  <div className="relative z-10 flex items-center">
-                    <FileText className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
-                    <span className="font-medium">Description</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="solution"
-                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
-                >
-                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
-                  </div>
-                  <div className="relative z-10 flex items-center">
-                    <BookOpenCheck className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
-                    <span className="font-medium">Solution</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="submissions"
-                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
-                >
-                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
-                  </div>
-                  <div className="relative z-10 flex items-center">
-                    <BarChart2 className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
-                    <span className="font-medium">Submissions</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="discussion"
-                  className="flex-shrink-0 min-w-[110px] px-3 rounded-lg py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-300"
-                >
-                  <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                    <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 dark:from-white/5 dark:to-white/0"></div>
-                  </div>
-                  <div className="relative z-10 flex items-center">
-                    <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400 transition-colors" />
-                    <span className="font-medium">Discussion</span>
-                  </div>
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="description" className="mt-3 space-y-5 focus-visible:outline-none focus-visible:ring-0">
-                {/* Problem description with content-card styling */}
-                <div style={{ 
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  padding: '0',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(226, 232, 240, 0.8)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
-                  position: 'relative',
-                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
-                }} className="dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
-                  {/* Premium top accent bar */}
-                  <div style={{ 
-                    height: '3px', 
-                    width: '100%', 
-                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
-                    opacity: 0.8
-                  }}></div>
-                  <article className="problem-description prose prose-indigo dark:prose-invert max-w-none px-7 py-5" style={{ borderRadius: '0' }}>
-                    <div
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description) }}
-                    />
-                  </article>
-                  
-                  {/* Streak information card */}
-                  <div className="mx-4 mt-3 mb-5 p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5 mb-1">
-                      <Flame className="h-4 w-4" /> About Streaks
-                    </h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      To maintain your streak, solve at least one <strong>new problem</strong> each day. 
-                      Re-solving previously completed problems doesn't count towards your streak.
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Example test cases with test-case-card styling */}
-                {examples.map((tc: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
-                  <div key={tc.id} className="test-case-card relative group transition-all duration-300 hover:shadow-md">
-                    {/* Top decorative gradient bar */}
-                    <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    
-                    {/* Example header */}
-                    <div className="px-4 py-3 flex items-center gap-2 bg-gradient-to-r from-indigo-50/90 to-purple-50/70 dark:from-indigo-900/30 dark:to-purple-900/20 border-b border-indigo-100 dark:border-indigo-800/40">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold shadow-sm">
-                          {idx + 1}
-                        </div>
-                      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 tracking-tight">Example {idx + 1}</h3>
-                      </div>
-                    
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* INPUT section with enhanced styling */}
-                      <div className="rounded-lg overflow-hidden border border-slate-200/80 dark:border-slate-700/60 transition-all duration-300 group-hover:shadow group-hover:border-indigo-200 dark:group-hover:border-indigo-800/40">
-                        <div className="relative px-3 py-2 bg-gradient-to-r from-slate-100 to-indigo-50/70 dark:from-slate-800 dark:to-indigo-900/30 border-b border-slate-200 dark:border-slate-700/70">
-                          <div className="absolute left-0 inset-y-0 w-1 bg-indigo-500"></div>
-                          <div className="flex items-center">
-                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 mr-2"></div>
-                            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Input</span>
-                            <span className="ml-auto text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Data</span>
-                          </div>
-                        </div>
-                        <div className="p-3 font-mono text-sm text-indigo-700 dark:text-indigo-300 bg-white/50 dark:bg-slate-800/50 overflow-auto">
-                          {formatTestCase(tc.input)}
-                        </div>
-                      </div>
-                      
-                      {/* OUTPUT section with enhanced styling */}
-                      <div className="rounded-lg overflow-hidden shadow-sm border border-green-200/70 dark:border-green-900/30 transition-all duration-300 group-hover:shadow">
-                        <div className="relative px-3 py-2 bg-gradient-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-b border-green-200 dark:border-green-900/30">
-                          <div className="absolute left-0 inset-y-0 w-1 bg-green-500"></div>
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                            <span className="text-sm font-medium text-green-700 dark:text-green-300">Output</span>
-                            <span className="ml-auto text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Result</span>
-                          </div>
-                        </div>
-                        <div className="p-3 font-mono text-sm text-green-700 dark:text-green-300 bg-white/50 dark:bg-slate-800/50 overflow-auto">
-                          {formatTestCase(tc.output)}
-                        </div>
-                      </div>
-                      
-                      {/* EXPLANATION section with enhanced styling */}
-                      {tc.explanation && (
-                        <div className="md:col-span-2 rounded-lg overflow-hidden shadow-sm border border-purple-200/50 dark:border-purple-900/20 transition-all duration-300 group-hover:shadow">
-                          <div className="relative px-3 py-2 bg-gradient-to-r from-purple-50 to-pink-50/30 dark:from-purple-900/20 dark:to-pink-900/10 border-b border-purple-200/50 dark:border-purple-900/20">
-                            <div className="absolute left-0 inset-y-0 w-1 bg-purple-500"></div>
-                            <div className="flex items-center">
-                              <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
-                              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Explanation</span>
-                              <span className="ml-auto text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Details</span>
-                            </div>
-                          </div>
-                          <div className="p-3 font-mono text-sm text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-slate-800/50 overflow-auto">
-                            {formatTestCase(tc.explanation || '')}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </TabsContent>
-              
-              <TabsContent value="solution" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-                <div style={{ 
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  padding: '0',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(226, 232, 240, 0.8)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
-                  position: 'relative',
-                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
-                }} className="group hover:translate-y-[-2px] dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
-                  {/* Premium top accent bar */}
-                  <div style={{ 
-                    height: '3px', 
-                    width: '100%', 
-                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
-                    opacity: 0.8
-                  }}></div>
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <div className="relative w-16 h-16 mb-4">
-                      <div className="absolute inset-0 rounded-full bg-indigo-100 dark:bg-indigo-900/30 animate-pulse"></div>
-                      <div className="absolute inset-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 opacity-20 blur-lg animate-pulse delay-75"></div>
-                      <div className="absolute inset-0 rounded-full flex items-center justify-center">
-                        <BookOpenCheck className="h-10 w-10 relative z-10 text-indigo-500 dark:text-indigo-400 animate-float" />
-                      </div>
-                    </div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Solution Locked</h3>
-                    <p className="text-slate-600 dark:text-slate-400 text-center max-w-sm">
-                      Solutions will be available after you successfully solve the problem or unlock with premium access.
-                    </p>
-                    <div className="mt-6 flex items-center gap-4">
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/40 dark:hover:to-purple-900/40 text-indigo-700 dark:text-indigo-30 border-indigo-200 dark:border-indigo-800/50"
-                      >
-                        <Code className="h-3.5 w-3.5 mr-1" />
-                        Solve First
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100/80 hover:to-orange-100/80 dark:from-amber-900/20 dark:to-orange-900/20 dark:hover:from-amber-900/40 dark:hover:to-orange-900/40 text-amber-700 dark:text-amber-30 border-amber-200 dark:border-amber-800/50"
-                      >
-                        <Crown className="h-3.5 w-3.5 mr-1" />
-                        Premium Access
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="submissions" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-                <div style={{ 
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  padding: '0',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(226, 232, 240, 0.8)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
-                  position: 'relative',
-                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
-                }} className="dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
-                  {/* Premium top accent bar */}
-                  <div style={{ 
-                    height: '3px', 
-                    width: '100%', 
-                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
-                    opacity: 0.8
-                  }}></div>
-                  <div className="p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center">
-                        <BarChart2 className="h-5 w-5 mr-2 text-indigo-500 dark:text-indigo-400" />
-                        Your Submissions
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-8 text-xs"
-                          disabled={submissionsLoading}
-                        >
-                          <Filter className="h-3 w-3 mr-1" />
-                          Filter
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="h-8 text-xs bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
-                          onClick={() => fetchSubmissions(currentPage)}
-                          disabled={submissionsLoading}
-                          aria-label="Refresh submissions"
-                        >
-                          <RefreshCw className={`h-3 w-3 mr-1 ${submissionsLoading ? 'animate-spin' : ''}`} />
-                          {submissionsLoading ? 'Loading...' : 'Refresh'}
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {submissionsError && (
-                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg p-3 mb-4 text-red-600 dark:text-red-400 text-sm flex items-start">
-                        <AlertTriangle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <p>{submissionsError}</p>
-                      </div>
-                    )}
-                    
-                    {submissions.length === 0 && !submissionsLoading && !submissionsError ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                          <BarChart2 className="h-8 w-8 text-slate-400 dark:text-slate-600" />
-                        </div>
-                        <h4 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">No submissions found</h4>
-                        <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-6">
-                          You haven't submitted any solutions to this problem yet. Write some code and submit it to see your results here.
-                        </p>
-                        <Button
-                          onClick={() => setActivePanel("code")}
-                          className="gap-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
-                        >
-                          <Code className="h-4 w-4 mr-1" />
-                          Start Coding
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        {selectedSubmission ? (
-                          // Detail view for a selected submission
-                          <div className="bg-white dark:bg-black rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                            {/* Header with back button */}
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-50 via-slate-50 to-indigo-50 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-800 border-b border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="flex items-center text-slate-700 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50 transition-all duration-200 gap-1"
-                                onClick={closeSubmissionDetails}
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                                <span className="font-medium">Back to Submissions</span>
-                              </Button>
-                              <div className="flex items-center space-x-2">
-                                <div className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-full text-xs font-medium text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                                  <Clock className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-                                  {formatSubmissionDate(selectedSubmission.submittedAt)}
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs h-8 bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200"
-                                  onClick={() => loadSubmissionCode(selectedSubmission)}
-                                >
-                                  <Copy className="h-3.5 w-3.5 mr-1.5" />
-                                  Load Code
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Top status banner based on submission status */}
-                            <div className={`w-full px-5 py-2.5 
-                              ${selectedSubmission.status === 'ACCEPTED' 
-                                ? 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/30 border-b border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-300' 
-                                : selectedSubmission.status === 'FAILED' || selectedSubmission.status === 'WRONG_ANSWER'
-                                ? 'bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-900/30 border-b border-red-200 dark:border-red-900/30 text-red-800 dark:text-red-300'
-                                : 'bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/30 border-b border-orange-200 dark:border-orange-900/30 text-orange-800 dark:text-orange-300'
-                              } text-sm font-medium flex items-center justify-between`}>
-                              <div className="flex items-center">
-                                {selectedSubmission.status === 'ACCEPTED' ? (
-                                  <CheckCircle className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
-                                ) : selectedSubmission.status === 'FAILED' || selectedSubmission.status === 'WRONG_ANSWER' ? (
-                                  <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-400" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
-                                )}
-                                <span>
-                                  {selectedSubmission.status === 'ACCEPTED' 
-                                    ? 'Solution Accepted' 
-                                    : selectedSubmission.status === 'FAILED' || selectedSubmission.status === 'WRONG_ANSWER'
-                                    ? 'Solution Failed'
-                                    : selectedSubmission.status || 'Submission Status'}
-                                </span>
-                              </div>
-                              <div className="flex items-center text-xs">
-                                {selectedSubmission.testcasesPassed !== undefined && selectedSubmission.totalTestcases !== undefined && (
-                                  <div className="flex items-center">
-                                    <span className="mr-2">Test Cases:</span>
-                                    <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-800/60 rounded-full px-2 py-0.5 backdrop-blur-sm shadow-sm">
-                                      <span className={selectedSubmission.status === 'ACCEPTED' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                                        {selectedSubmission.testcasesPassed}
-                                      </span>
-                                      <span>/</span>
-                                      <span>{selectedSubmission.totalTestcases}</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Submission content */}
-                            <div className="p-5">
-                              {/* Performance metrics */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                                  <div className="absolute inset-0 bg-grid-pattern opacity-[0.015] pointer-events-none"></div>
-                                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-xl"></div>
-
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
-                                      <Clock className="h-4 w-4 mr-1.5 text-indigo-500 dark:text-indigo-400" />
-                                      Runtime
-                                    </h3>
-                                    <div className="text-xs px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md flex items-center">
-                                      <Zap className="h-3 w-3 mr-0.5 text-amber-500 dark:text-amber-400" />
-                                      Performance
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300 mb-1 flex items-baseline">
-                                    {selectedSubmission.runtime || 'N/A'}
-                                    <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">seconds</span>
-                                  </div>
-
-                                  {selectedSubmission.executionTimePercentile && (
-                                    <div className="flex items-center mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                      <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                        <div 
-                                          className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 dark:from-emerald-400 dark:to-emerald-500"
-                                          style={{ width: `${selectedSubmission.executionTimePercentile}%` }}
-                                        ></div>
-                                      </div>
-                                      <span className="ml-2">
-                                        Faster than {selectedSubmission.executionTimePercentile}%
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                                  <div className="absolute inset-0 bg-grid-pattern opacity-[0.015] pointer-events-none"></div>
-                                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-xl"></div>
-
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
-                                      <Database className="h-4 w-4 mr-1.5 text-purple-500 dark:text-purple-400" />
-                                      Memory
-                                    </h3>
-                                    <div className="text-xs px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-md flex items-center">
-                                      <Server className="h-3 w-3 mr-0.5 text-purple-500 dark:text-purple-400" />
-                                      Usage
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="text-3xl font-bold text-purple-700 dark:text-purple-300 mb-1 flex items-baseline">
-                                    {selectedSubmission.memory 
-                                      ? (Number(selectedSubmission.memory) > 1024 
-                                          ? `${(Number(selectedSubmission.memory) / 1024).toFixed(1)}` 
-                                          : selectedSubmission.memory)
-                                      : 'N/A'}
-                                    <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">
-                                      {selectedSubmission.memory 
-                                        ? (Number(selectedSubmission.memory) > 1024 ? 'MB' : 'KB')
-                                        : ''}
-                                    </span>
-                                  </div>
-
-                                  {selectedSubmission.memoryPercentile && (
-                                    <div className="flex items-center mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                      <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                        <div 
-                                          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400 dark:from-purple-400 dark:to-purple-500"
-                                          style={{ width: `${selectedSubmission.memoryPercentile}%` }}
-                                        ></div>
-                                      </div>
-                                      <span className="ml-2">
-                                        Less than {selectedSubmission.memoryPercentile}%
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                                  <div className="absolute inset-0 bg-grid-pattern opacity-[0.015] pointer-events-none"></div>
-                                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-xl"></div>
-
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
-                                      <Code2 className="h-4 w-4 mr-1.5 text-blue-500 dark:text-blue-400" />
-                                      Language
-                                    </h3>
-                                  </div>
-                                  
-                                  <div className="flex flex-col">
-                                    <div className="text-xl font-bold text-blue-700 dark:text-blue-300 flex items-center">
-                                      <div className={`w-2.5 h-2.5 rounded-full ${getLanguageColor(parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)} mr-2`}></div>
-                                      {parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name}
-                                    </div>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 ml-4.5">
-                                      {parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").version}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center justify-between mt-3 text-xs">
-                                    <div className="text-slate-500 dark:text-slate-400 flex items-center">
-                                      <Calendar className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
-                                      {formatSubmissionDate(selectedSubmission.submittedAt)}
-                                    </div>
-                                    <div className="text-slate-500 dark:text-slate-400 flex items-center">
-                                      <Hash className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
-                                      {selectedSubmission.id.substring(0, 8)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Code editor */}
-                              <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
-                                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                                  <div className="flex items-center">
-                                    <div className="flex items-center space-x-1.5 pl-2">
-                                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                    </div>
-                                    <div className="flex-1 flex justify-center">
-                                      <div className="px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-200/50 dark:bg-slate-700/50 rounded-full flex items-center border border-slate-300/30 dark:border-slate-600/30">
-                                        <FileCode className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-400" />
-                                        Submitted Code
-                                      </div>
-                                    </div>
-                                    <div className="pr-2 flex items-center">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 w-7 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
-                                        onClick={() => {
-                                          if (selectedSubmission?.code) {
-                                            navigator.clipboard.writeText(selectedSubmission.code);
-                                            toast({
-                                              title: "Code copied",
-                                              description: "The code has been copied to your clipboard",
-                                            });
-                                          }
-                                        }}
-                                      >
-                                        <Copy className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="relative">
-                                  <div className="h-[500px] w-full border-0 overflow-hidden">
-                                    <Editor
-                                      height="500px"
-                                      defaultLanguage={getMonacoLanguage(parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)}
-                                      defaultValue={selectedSubmission.code || '// No code available'}
-                                      theme={appTheme === 'dark' ? 'vs-dark' : 'light'}
-                                      options={{
-                                        readOnly: true,
-                                        minimap: { enabled: true },
-                                        scrollBeyondLastLine: false,
-                                        fontSize: fontSize,
-                                        tabSize: tabSize,
-                                        wordWrap: 'on',
-                                        lineNumbers: 'on',
-                                        fontFamily: 'JetBrains Mono, Consolas, monospace',
-                                        automaticLayout: true,
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="absolute top-2 right-2 z-10 flex gap-1.5">
-                                    <div className="px-2.5 py-1 bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-sm border border-slate-200/50 dark:border-slate-600/50">
-                                      <div className={`w-2 h-2 rounded-full ${getLanguageColor(parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)}`}></div>
-                                      {parseLanguageName(JUDGE0_LANGUAGES[selectedSubmission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          // List view of all submissions
-                          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 mb-4">
-                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                              <thead className="bg-slate-50 dark:bg-slate-800">
-                                <tr>
-                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                    Status
-                                  </th>
-                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                    Runtime
-                                  </th>
-                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                    Memory
-                                  </th>
-                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                    Language
-                                  </th>
-                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                    Submitted
-                                  </th>
-                                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                    Actions
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className={`bg-white dark:bg-black divide-y divide-slate-200 dark:divide-slate-700 ${submissionsLoading ? 'opacity-60' : ''}`}>
-                                {submissionsLoading && submissions.length === 0 ? (
-                                  <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                                      <div className="flex flex-col items-center">
-                                        <Loader2 className="h-8 w-8 animate-spin text-indigo-500 dark:text-indigo-400 mb-3" />
-                                        <p>Loading submissions...</p>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ) : (
-                                  submissions.map((submission) => (
-                                    <tr 
-                                      key={submission.id} 
-                                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                                      onClick={() => viewSubmissionDetails(submission)}
-                                    >
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                          {renderSubmissionStatus(submission)}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 dark:text-slate-300">
-                                        <div className="flex items-center">
-                                          <Clock className="h-3.5 w-3.5 mr-1 text-indigo-500 dark:text-indigo-400" />
-                                          <span className="mr-1 font-medium">{submission.runtime ? `${submission.runtime}s` : 'N/A'}</span>
-                                          {submission.executionTimePercentile && (
-                                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                                              (faster than {submission.executionTimePercentile}%)
-                                            </span>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 dark:text-slate-300">
-                                        <div className="flex items-center">
-                                          <Database className="h-3.5 w-3.5 mr-1 text-indigo-500 dark:text-indigo-400" />
-                                          <span className="mr-1 font-medium">
-                                            {submission.memory 
-                                              ? (Number(submission.memory) > 1024 
-                                                  ? `${(Number(submission.memory) / 1024).toFixed(1)}MB` 
-                                                  : `${Number(submission.memory)}KB`)
-                                              : 'N/A'}
-                                          </span>
-                                          {submission.memoryPercentile && (
-                                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                                              (less than {submission.memoryPercentile}%)
-                                            </span>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        <div className="text-sm text-slate-700 dark:text-slate-300 flex items-center">
-                                          <div className={`w-2 h-2 rounded-full ${getLanguageColor(parseLanguageName(JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES] || "Unknown").name)} mr-1.5`}></div>
-                                          {JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES] ? (
-                                            <div className="flex flex-col">
-                                              <span className="font-medium">
-                                                {parseLanguageName(JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES]).name}
-                                              </span>
-                                              <span className="text-xs text-slate-500 dark:text-slate-400">
-                                                {parseLanguageName(JUDGE0_LANGUAGES[submission.language as keyof typeof JUDGE0_LANGUAGES]).version}
-                                              </span>
-                                            </div>
-                                          ) : "Unknown"}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                                        {formatSubmissionDate(submission.submittedAt)}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                                        <div className="flex space-x-2">
-                                          <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-7 w-7 rounded-full"
-                                            onClick={(e) => loadSubmissionCode(submission, e)}
-                                          >
-                                            <Copy className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-                                          </Button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                        
-                        {/* Pagination - only show when in list view */}
-                        {!selectedSubmission && totalPages > 1 && (
-                          <div className="flex items-center justify-center gap-2 mt-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => fetchSubmissions(1)}
-                              disabled={currentPage === 1 || submissionsLoading}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                              <ChevronLeft className="h-4 w-4 -ml-2" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => fetchSubmissions(currentPage - 1)}
-                              disabled={currentPage === 1 || submissionsLoading}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            
-                            <div className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                              Page {currentPage} of {totalPages}
-                            </div>
-                            
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => fetchSubmissions(currentPage + 1)}
-                              disabled={currentPage === totalPages || submissionsLoading}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => fetchSubmissions(totalPages)}
-                              disabled={currentPage === totalPages || submissionsLoading}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                              <ChevronRight className="h-4 w-4 -ml-2" />
-                            </Button>
-                          </div>
-                        )}
-                        
-                        {/* Stats Summary - only show in list view */}
-                        {!selectedSubmission && submissions.length > 0 && (
-                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 text-sm text-slate-700 dark:text-slate-300 flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center">
-                                <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                                <span>Accepted: {submissions.filter(s => s.status === 'ACCEPTED').length}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                                <span>Failed: {submissions.filter(s => s.status !== 'ACCEPTED').length}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                                <span>Total: {submissions.length}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
-                              <Info className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-400" />
-                              Submissions are scored based on runtime and memory usage
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="discussion" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-                <div style={{ 
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  padding: '0',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.85))',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(226, 232, 240, 0.8)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
-                  position: 'relative',
-                  transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
-                }} className="dark:!bg-gradient-to-br dark:!from-gray-900/95 dark:!to-slate-900/90 dark:!border-slate-700/40 dark:!shadow-[0_10px_25px_-5px_rgba(0,0,0,0.2),0_8px_10px_-6px_rgba(0,0,0,0.2)]">
-                  {/* Premium top accent bar */}
-                  <div style={{ 
-                    height: '3px', 
-                    width: '100%', 
-                    background: 'linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)',
-                    opacity: 0.8
-                  }}></div>
-                  <div className="p-5">
-                    <div className="relative w-16 h-16 mb-4 mx-auto">
-                      <div className="absolute inset-0 rounded-full bg-purple-100 dark:bg-purple-900/30 animate-pulse"></div>
-                      <div className="absolute inset-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 opacity-20 blur-lg animate-pulse delay-100"></div>
-                      <div className="absolute inset-0 rounded-full flex items-center justify-center">
-                        <MessageSquare className="h-10 w-10 relative z-10 text-purple-500 dark:text-purple-400 animate-float" />
-                      </div>
-                    </div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2 text-center">Join the Discussion</h3>
-                    <p className="text-slate-600 dark:text-slate-400 text-center max-w-sm mx-auto">
-                      Connect with other developers, share your approach, and learn alternative solutions.
-                    </p>
-                    <div className="mt-6 flex justify-center">
-                      <Button 
-                        className="gap-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md shadow-purple-500/20"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                        View Discussion
-                      </Button>
-                    </div>
-                    <div className="mt-4 flex items-center justify-center text-xs text-slate-500 dark:text-slate-400 gap-1">
-                      <Users className="h-3 w-3 mr-1" />
-                      <span>328 developers participating</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-        
-        {/* Horizontal resizer - only visible on desktop */}
-        {!isMobile && (
-          <div
-            className="relative w-1 h-full flex-shrink-0 z-10 group cursor-ew-resize"
-            onMouseDown={startHorizontalResize}
-          >
-            <div className="absolute inset-0 w-1 h-full bg-indigo-100 dark:bg-indigo-900/30 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-700/50 transition-colors duration-300"></div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-12 bg-white dark:bg-slate-800 rounded-md border border-indigo-200 dark:border-indigo-800/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
-              <Grip className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
-            </div>
-          </div>
-        )}
-
-        {/* Right panel container */}
-        <div
-          className={`flex flex-col h-full ${hasMounted && isMobile && activePanel === "problem" ? "hidden" : ""}`}
-          style={{ width: hasMounted && isMobile ? "100%" : `${100 - leftPanelWidth}%` }}
-        >
-          {/* Code editor */}
-          <div
-            className={`flex flex-col overflow-hidden ${
-              hasMounted && isMobile ? (activePanel === "code" ? "block" : "hidden") : ""
-            } ${hasMounted && isMobile ? "pb-24" : ""}`}
-            style={{
-              flexBasis: hasMounted && isMobile ? "100%" : `${editorHeight}%`,
-              flexGrow: 0,
-              flexShrink: 1,
-              minHeight: 0,
-              maxHeight: hasMounted && isMobile ? "100%" : `${editorHeight}%`,
-              height: hasMounted && isMobile ? "100%" : undefined,
-              transition: "all 0.3s ease-in-out" // Add smooth transition
-            }}
-          >
-            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50 flex-shrink-0">
-              <div className="flex items-center">
-                <div className="flex items-center mr-3 md:mr-4">
-                  {/* Logo - "N" on mobile, "NexEditor" on desktop */}
-                  <div className="flex items-center justify-center w-7 h-7 md:w-auto md:h-auto">
-                    <span className="hidden md:block text-base font-semibold text-indigo-700 dark:text-indigo-300 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-300 dark:via-purple-300 dark:to-indigo-300">
-                    NexEditor
-                  </span>
-                    <div className="md:hidden flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold text-lg shadow-sm">
-                      N
-                    </div>
-                  </div>
-                </div>
-                {/* Custom Language Dropdown */}
-                <Popover open={languageDropdownOpen} onOpenChange={setLanguageDropdownOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mr-2 flex items-center gap-1 md:gap-2 border-indigo-200 dark:border-indigo-800/50 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/90 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 min-w-[120px] md:min-w-[180px] h-8 md:h-9 pl-1 md:pl-2 pr-2 md:pr-3 overflow-hidden group relative"
-                    >
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500"></div>
-                      <div className="flex items-center gap-1 md:gap-2 overflow-hidden">
-                        <div className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900 dark:to-indigo-800/30 rounded-md border border-indigo-200 dark:border-indigo-700/30 shadow-sm flex-shrink-0">
-                          {LANGUAGE_ICONS[language as keyof typeof LANGUAGE_ICONS] || (
-                            <Code className="h-3 w-3 md:h-3.5 md:w-3.5 text-indigo-500 dark:text-indigo-400" />
-                          )}
-                        </div>
-                        <div className="flex flex-col leading-none overflow-hidden">
-                          <span className="font-medium text-xs md:text-sm truncate">
-                            {parseLanguageName(JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]).name}
-                          </span>
-                          <span className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 truncate">
-                            {parseLanguageName(JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]).version}
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronDown className="h-3 w-3 ml-auto opacity-60 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-[680px] p-0 max-h-[600px] overflow-hidden flex flex-col border-indigo-100 dark:border-indigo-900/50 shadow-lg rounded-xl">
-                    <div className="language-dropdown-header sticky top-0 z-30 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-5 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
-                          <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-base">Select Programming Language</h3>
-                        </div>
-                        <div className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-30 px-2 py-0.5 rounded-full font-medium">
-                          {Object.keys(JUDGE0_LANGUAGES).length} languages available
-                        </div>
-                      </div>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input 
-                          placeholder="Search languages..." 
-                          className="pl-10 py-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg"
-                          value={searchLanguage}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLanguage(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="overflow-y-auto flex-1 p-4 custom-scrollbar bg-gradient-to-br from-slate-50/50 to-white dark:from-slate-900 dark:to-slate-800/90">
-                      <div className="language-grid grid grid-cols-3 gap-x-3 gap-y-2.5">
-                        {Object.entries(JUDGE0_LANGUAGES)
-                          .filter(([id, name]) => 
-                            !searchLanguage || name.toLowerCase().includes(searchLanguage.toLowerCase()))
-                          .map(([langId, langName]: [string, string], index: number, array: [string, string][]) => {
-                            const { name, version } = parseLanguageName(langName);
-                            const isSelected: boolean = language === langId;
-                            const showDivider: boolean = index > 0 && index % 6 === 0 && index !== array.length - 1;
-                            return (
-                              <Fragment key={`lang-${langId}`}>
-                                {showDivider && (
-                                  <div className="col-span-3 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent my-2.5"></div>
-                                )}
-                                <div
-                                  className={`language-item group h-14 rounded-lg px-3 transition-all duration-200 hover:shadow-md border ${
-                                    isSelected 
-                                      ? 'border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/70 dark:bg-indigo-900/20' 
-                                      : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800/60'
-                                  } ${isSelected ? 'active' : ''}`}
-                                  onClick={() => {
-                                    handleLanguageChange(langId);
-                                    setLanguageDropdownOpen(false);
-                                  }}
-                                >
-                                  <div className="flex items-center gap-3 w-full h-full overflow-hidden">
-                                    <div className="language-icon-container flex-shrink-0 w-7 h-7 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm group-hover:from-indigo-50 group-hover:to-indigo-100 dark:group-hover:from-indigo-900/20 dark:group-hover:to-indigo-900/30 transition-all duration-200">
-                                      {LANGUAGE_ICONS[langId] || (
-                                        <div className="flex items-center justify-center w-full h-full">
-                                          <Code className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-col leading-tight overflow-hidden flex-1">
-                                      <span className="font-medium truncate text-slate-700 dark:text-slate-300 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
-                                        {name}
-                </span>
-                                      {version && (
-                                        <span className="version truncate text-xs text-slate-500 dark:text-slate-400 group-hover:text-indigo-500/70 dark:group-hover:text-indigo-400/70 transition-colors">
-                                          {version}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {isSelected && (
-                                      <div className="flex-shrink-0 h-5 w-5 bg-indigo-500 dark:bg-indigo-400 rounded-full flex items-center justify-center">
-                                        <Check className="h-3 w-3 text-white" />
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </Fragment>
-                            );
-                          })}
-              </div>
-              
-                      {searchLanguage && Object.entries(JUDGE0_LANGUAGES).filter(([id, name]) => 
-                        name.toLowerCase().includes(searchLanguage.toLowerCase())).length === 0 && (
-                        <div className="text-center py-12 px-4">
-                          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
-                            <Search className="h-6 w-6 text-slate-400" />
-                          </div>
-                          <h4 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-1">No Results Found</h4>
-                          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                            We couldn't find any programming language matching "{searchLanguage}"
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                        <div className="text-sm text-slate-600 dark:text-slate-300">
-                          Currently using: <span className="font-semibold text-indigo-600 dark:text-indigo-400 ml-1">{parseLanguageName(JUDGE0_LANGUAGES[language as keyof typeof JUDGE0_LANGUAGES]).name}</span>
-                        </div>
-                      </div>
-                      {searchLanguage && (
-                        <Button 
-                          variant="outline"
-                          size="sm" 
-                          onClick={() => setSearchLanguage("")}
-                          className="h-8 text-xs border-indigo-200 dark:border-indigo-800/50 bg-white dark:bg-slate-800"
-                        >
-                          <X className="h-3.5 w-3.5 mr-1.5" />
-                          Clear Search
-                        </Button>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {/* Move Focus Mode button to the right, before Format */}
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Mobile Run and Submit buttons */}
-                {hasMounted && isMobile && (
-                  <div className="flex items-center gap-1.5">
-                <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50"
-                      onClick={runCode}
-                      disabled={isRunning}
-                    >
-                      {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                      {!isRunning && <span className="text-xs ml-1">Run</span>}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-8 px-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white"
-                      onClick={submitCode}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                      {!isSubmitting && <span className="text-xs ml-1">Submit</span>}
-                    </Button>
-                  </div>
-                )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleFocusMode}
-                  className="gap-1.5 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hidden md:flex"
-                >
-                  {focusMode ? (
-                    <>
-                      <Minimize2 className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-                      <span className="hidden sm:inline">Exit Focus</span>
-                    </>
-                  ) : (
-                    <>
-                      <Maximize2 className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-                      <span className="hidden sm:inline">Focus Mode</span>
-                    </>
-                  )}
-                </Button>
-                {/* Format button with spinner and tooltip */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden md:flex text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                      onClick={formatCode}
-                      disabled={isFormatting}
-                    >
-                      {isFormatting ? (
-                        <>
-                          <span className="relative h-3.5 w-3.5 mr-1.5">
-                            <RotateCw className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400 animate-spin" />
-                            <span className="absolute inset-0 h-3.5 w-3.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full animate-ping opacity-75"></span>
-                          </span>
-                          <span>Formatting...</span>
-                        </>
-                      ) : formatSuccess ? (
-                        <>
-                          <span className="relative h-3.5 w-3.5 mr-1.5">
-                            <Check className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />
-                            <span className="absolute inset-0 h-3.5 w-3.5 bg-green-100 dark:bg-green-900/30 rounded-full animate-ping opacity-75"></span>
-                          </span>
-                          <span className="text-green-600 dark:text-green-400">Formatted!</span>
-                        </>
-                      ) : noChangesNeeded ? (
-                        <>
-                          <span className="relative h-3.5 w-3.5 mr-1.5">
-                            <Check className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
-                          </span>
-                          <span className="text-blue-600 dark:text-blue-400">Already formatted</span>
-                        </>
-                      ) : (
-                        <>
-                          <Code className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-400" />
-                          <span>Format</span>
-                        </>
-                      )}
-                </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-3 text-xs" align="end">
-                    <div className="text-slate-700 dark:text-slate-300 space-y-2.5">
-                      <div>
-                        <p className="font-medium text-sm">Format your code</p>
-                        <p className="text-slate-500 dark:text-slate-400 mt-1">
-                          Formats the code according to language-specific rules.
-                        </p>
-                      </div>
-                      
-                      <div className="border-t border-slate-200 dark:border-slate-700 pt-2.5">
-                        <p className="font-medium">Supported Languages:</p>
-                        <ul className="mt-1 space-y-1 text-slate-500 dark:text-slate-400">
-                          <li className="flex items-center">
-                            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                            Java, JavaScript, TypeScript, Python, C, C++
-                          </li>
-                          <li className="flex items-center">
-                            <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                            Other languages use basic indentation
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      <div className="border-t border-slate-200 dark:border-slate-700 pt-2.5">
-                        <p className="font-medium">Keyboard shortcuts:</p>
-                        <div className="flex items-center mt-1">
-                          <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono text-[10px] mr-1.5">
-                            {appTheme === 'dark' ? 'Shift+Alt+F' : 'Alt+Shift+F'}
-                          </kbd>
-                          <span className="text-slate-500 dark:text-slate-400">or</span>
-                          <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono text-[10px] mx-1.5">
-                            Ctrl+K
-                          </kbd>
-                          <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono text-[10px]">
-                            Ctrl+F
-                          </kbd>
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-30"
-                  asChild
-                >
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <span><Settings className="h-4 w-4 cursor-pointer" /></span>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-72 p-0 border border-indigo-200/80 dark:border-indigo-800/50 shadow-xl rounded-xl overflow-hidden">
-                      {/* Gradient purple header */}
-                      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 dark:from-indigo-600 dark:via-purple-600 dark:to-indigo-700 p-4 relative flex items-center justify-between">
-                        <div className="absolute top-0 left-0 right-0 h-px bg-white/20"></div>
-                        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:16px_16px]"></div>
-                         <h3 className="text-sm font-medium text-purple-900 dark:text-purple-100 flex items-center justify-between">
-                          <Settings className="h-4 w-4 mr-2 text-white/80" />
-                          <span className="text-white font-semibold">Editor Settings</span>
-                         </h3>
-                        <div className="h-5 w-5 rounded-full bg-white/10 flex items-center justify-center">
-                          <Code className="h-3 w-3 text-white/70" />
-                        </div>
-                      </div>
-                       
-                      <div className="p-4 bg-gradient-to-b from-white to-indigo-50/50 dark:from-slate-900 dark:to-purple-900/20 border-t border-indigo-100 dark:border-indigo-900/30">
-                         <div className="mb-4">
-                          <label className="block text-xs font-medium mb-2 text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
-                             <span className="flex items-center">
-                              <MonitorSmartphone className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-300" />
-                              Theme
-                             </span>
-                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{editorTheme === "vs-dark" ? "Dark" : "Light"}</span>
-                           </label>
-                        <div className="flex gap-2">
-                             <button 
-                               onClick={() => setEditorTheme("vs-dark")}
-                               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 flex-1 ${
-                                 editorTheme === "vs-dark" 
-                                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm" 
-                                 : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40"
-                               }`}>
-                               <span className="flex items-center justify-center">
-                                 <Moon className="h-3 w-3 mr-1.5" />
-                                 Dark
-                               </span>
-                             </button>
-                             <button 
-                               onClick={() => setEditorTheme("light")}
-                               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 flex-1 ${
-                                 editorTheme === "light" 
-                                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm" 
-                                 : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40"
-                               }`}>
-                               <span className="flex items-center justify-center">
-                                 <Sun className="h-3 w-3 mr-1.5" />
-                                 Light
-                               </span>
-                             </button>
-                        </div>
-                      </div>
-                         <div className="mb-4">
-                          <label className="block text-xs font-medium mb-2 text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
-                             <span className="flex items-center">
-                              <Type className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-300" />
-                              Font Size
-                             </span>
-                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{fontSize}px</span>
-                           </label>
-                           <div className="relative mt-2">
-                            <div className="h-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full w-full overflow-hidden">
-                               <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-400 dark:to-purple-400"
-                                style={{ width: `${((fontSize - 12) / 12) * 100}%` }}
-                              ></div>
-                      </div>
-                             <input 
-                               type="range" 
-                               min="12" 
-                               max="24" 
-                               value={fontSize} 
-                               onChange={e => setFontSize(Number(e.target.value))} 
-                               className="absolute inset-0 w-full h-1.5 opacity-0 cursor-pointer" 
-                             />
-                      </div>
-                           <div className="flex justify-between mt-1.5">
-                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">12px</span>
-                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">24px</span>
-                           </div>
-                         </div>
-                         <div className="mb-4">
-                          <label className="block text-xs font-medium mb-2 text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
-                             <span className="flex items-center">
-                              <Indent className="h-3.5 w-3.5 mr-1.5 text-indigo-500 dark:text-indigo-300" />
-                              Tab Size
-                             </span>
-                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{tabSize} spaces</span>
-                           </label>
-                           <div className="relative mt-2">
-                            <div className="h-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full w-full overflow-hidden">
-                               <div 
-                                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 dark:from-purple-400 dark:to-pink-400" 
-                                style={{ width: `${((tabSize - 2) / 6) * 100}%` }}
-                              ></div>
-                             </div>
-                             <input 
-                               type="range" 
-                               min="2" 
-                               max="8" 
-                               value={tabSize} 
-                               onChange={e => setTabSize(Number(e.target.value))} 
-                               className="absolute inset-0 w-full h-1.5 opacity-0 cursor-pointer" 
-                             />
-                           </div>
-                           <div className="flex justify-between mt-1.5">
-                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">2 spaces</span>
-                            <span className="text-[10px] text-indigo-500/70 dark:text-indigo-400/70">8 spaces</span>
-                           </div>
-                         </div>
-                         
-                         {/* Footer with reset button */}
-                         <div className="pt-3 mt-3 border-t border-indigo-200 dark:border-indigo-800/50">
-                      <button
-                        onClick={() => setCode(preloadCode)}
-                             className="w-full py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white font-medium text-xs hover:from-indigo-600 hover:via-purple-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20 relative overflow-hidden group"
-                      >
-                             <span className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.2)_20%,rgba(255,255,255,0)_60%)] translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
-                             <span className="relative flex items-center justify-center">
-                               <RefreshCw className="h-3 w-3 mr-1.5" />
-                        Reset Code
-                             </span>
-                      </button>
-                         </div>
-                       </div>
-                    </PopoverContent>
-                  </Popover>
-                </Button>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-auto" style={{ minHeight: 0 }}>
-              {/* Editor wrapper with subtle background gradient */}
-              <div className="h-full w-full relative bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-                {editorLoading || initialLoading ? (
-                  <div className="flex items-center justify-center h-full w-full overflow-hidden">
-                    <div className="w-full h-full flex flex-col">
-                      {/* Premium skeleton loader */}
-                      <div className="h-full w-full relative overflow-hidden rounded-md">
-                        {/* Background with subtle gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/40 to-purple-50/40 dark:from-indigo-900/10 dark:to-purple-900/10"></div>
-                        {/* Animated gradient overlay */}
-                        <div className="absolute inset-0 bg-[linear-gradient(110deg,transparent_33%,rgba(79,70,229,0.05)_50%,transparent_66%)] dark:bg-[linear-gradient(110deg,transparent_33%,rgba(79,70,229,0.1)_50%,transparent_66%)] bg-size-200 animate-shimmer"></div>
-                        {/* Content placeholder */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="space-y-8 w-1/2 max-w-md">
-                            <div className="flex items-center space-x-3">
-                              <div className="h-10 w-10 rounded-full bg-indigo-100/60 dark:bg-indigo-900/20 flex items-center justify-center">
-                                <Code className="h-5 w-5 text-indigo-400/60 dark:text-indigo-400/40" />
-                              </div>
-                              <div className="h-3 bg-indigo-200/60 dark:bg-indigo-700/30 rounded-md w-36"></div>
-                            </div>
-                            <div className="space-y-3">
-                              <div className="h-3 bg-slate-200/60 dark:bg-slate-700/30 rounded-md w-full"></div>
-                              <div className="h-3 bg-slate-200/60 dark:bg-slate-700/30 rounded-md w-5/6"></div>
-                              <div className="h-3 bg-slate-200/60 dark:bg-slate-700/30 rounded-md w-4/6"></div>
-                            </div>
-                            <div className="space-y-3">
-                              <div className="h-3 bg-indigo-200/40 dark:bg-indigo-800/20 rounded-md w-full"></div>
-                              <div className="h-3 bg-indigo-200/40 dark:bg-indigo-800/20 rounded-md w-3/4"></div>
-                              <div className="h-3 bg-indigo-200/40 dark:bg-indigo-800/20 rounded-md w-5/6"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <CodeEditor 
-                    code={code} 
-                    onChange={setCode} 
-                    language={language} 
-                    theme={editorTheme} 
-                    fontSize={fontSize} 
-                    tabSize={tabSize}
-                    onEditorMount={(editor, monaco) => {
-                      // Keep the editor references
-                      editorRef.current = editor;
-                      monacoRef.current = monaco;
-                      
-                      // Call our new handler to load code correctly
-                      handleEditorDidMount(editor, monaco);
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Vertical resizer - only visible on desktop */}
+      <div
+        ref={containerRef}
+        className="flex flex-1 overflow-hidden bg-[#f2f3f5] dark:bg-black flex-col"
+      >
+        <div className="flex flex-1 w-full">
+          <LeftPanel
+            hasMounted={hasMounted}
+            isMobile={isMobile}
+            activePanel={activePanel}
+            leftPanelWidth={`${leftPanelWidth}%`}
+            handleTabChange={handleTabChange}
+            problemNumber={problemNumber}
+            problemTitle={problemTitle}
+            difficulty={difficulty}
+            isLeftPanelExpanded={isLeftPanelExpanded}
+            toggleLeftPanelExpansion={toggleLeftPanelExpansion}
+            getDifficultyBadge={getDifficultyBadge}
+            codingQuestion={codingQuestion}
+            description={description}
+            examples={examples}
+            formatTestCase={formatTestCase}
+            submissions={submissions}
+            submissionsLoading={submissionsLoading}
+            submissionsError={submissionsError}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            selectedSubmission={selectedSubmission}
+            fetchSubmissions={fetchSubmissions}
+            viewSubmissionDetails={viewSubmissionDetails}
+            closeSubmissionDetails={closeSubmissionDetails}
+            loadSubmissionCode={loadSubmissionCode}
+            renderSubmissionStatus={renderSubmissionStatus}
+            formatSubmissionDate={formatSubmissionDate}
+            getLanguageColor={getLanguageColor}
+            parseLanguageName={parseLanguageName}
+            JUDGE0_LANGUAGES={JUDGE0_LANGUAGES}
+            getMonacoLanguage={getMonacoLanguage}
+            fontSize={fontSize}
+            tabSize={tabSize}
+            appTheme={appTheme ?? "light"}
+            setActivePanel={setActivePanel}
+            toast={toast}
+          />
+          {/* Horizontal resizer - only visible on desktop */}
           {!isMobile && (
             <div
-              className="relative h-1 w-full flex-shrink-0 z-10 group cursor-ns-resize"
-              onMouseDown={startVerticalResize}
+              className="relative w-1 flex-shrink-0 z-10 group cursor-ew-resize"
+              onMouseDown={startHorizontalResize}
             >
-              <div className="absolute inset-0 h-1 w-full bg-indigo-100 dark:bg-indigo-900/30 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-700/50 transition-colors duration-300"></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-6 w-12 bg-white dark:bg-slate-800 rounded-md border border-indigo-200 dark:border-indigo-800/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
-                <Grip className="h-4 w-4 text-indigo-500 dark:text-indigo-400 rotate-90" />
+              <div className="absolute inset-0 w-[6px] my-4 h-[calc(100vh-8rem)]  transition-colors duration-300 rounded-full flex items-center justify-center">
+                <div className="absolute h-10 w-[6px] rounded-full bg-[#1f1f1f]"></div>
               </div>
             </div>
           )}
+          {/* Right panel container */}
+          <RightPanel
+            hasMounted={hasMounted}
+            isMobile={isMobile}
+            activePanel={activePanel}
+            leftPanelWidth={leftPanelWidth}
+            editorHeight={editorHeight}
+            language={language}
+            editorTheme={editorTheme}
+            fontSize={fontSize}
+            tabSize={tabSize}
+            code={code}
+            isRunning={isRunning}
+            isSubmitting={isSubmitting}
+            isFormatting={isFormatting}
+            formatSuccess={formatSuccess}
+            editorLoading={editorLoading}
+            initialLoading={initialLoading}
+            searchLanguage={searchLanguage}
+            languageDropdownOpen={languageDropdownOpen}
+            JUDGE0_LANGUAGES={JUDGE0_LANGUAGES}
+            setCode={setCode}
+            setFontSize={setFontSize}
+            setTabSize={setTabSize}
+            setEditorTheme={setEditorTheme}
+            setSearchLanguage={setSearchLanguage}
+            setLanguageDropdownOpen={setLanguageDropdownOpen}
+            setFormatSuccess={setFormatSuccess}
+            runCode={runCode}
+            submitCode={submitCode}
+            formatCode={formatCode}
+            toggleFocusMode={toggleFocusMode}
+            handleLanguageChange={handleLanguageChange}
+            parseLanguageName={parseLanguageName}
+            focusMode={focusMode}
+            preloadCode={preloadCode}
+            editorRef={editorRef}
+            monacoRef={monacoRef}
+            handleEditorDidMount={handleEditorDidMount}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            showEvaluatingSkeletons={showEvaluatingSkeletons}
+            skeletonTab={skeletonTab}
+            sampleTestResults={sampleTestResults}
+            sampleExecutionStatus={sampleExecutionStatus}
+            formatTestCase={formatTestCase}
+            examples={examples}
+            copiedInput={copiedInput}
+            copiedOutput={copiedOutput}
+            setCopiedInput={setCopiedInput}
+            setCopiedOutput={setCopiedOutput}
+            executingHiddenTestcases={executingHiddenTestcases}
+            hiddenTestResults={hiddenTestResults}
+            totalHiddenTestcases={totalHiddenTestcases}
+            completedHiddenTestcases={completedHiddenTestcases}
+            passedHiddenTestcases={passedHiddenTestcases}
+            skippedHiddenTestcases={skippedHiddenTestcases}
+            hiddenExecutionStatus={hiddenExecutionStatus}
+            showCelebration={showCelebration}
+            customTestResult={customTestResult}
+            runCustomTestcase={runCustomTestcase}
+          />
+        </div>
+        <div className="p-3 bg-[#f2f3f5] dark:bg-[black]">
+          <div className="h-[50px] rounded-lg w-full bg-[white] dark:bg-[#1f1f1f] flex items-center justify-center gap-4 px-4">
+            <button
+              className="bg-[#f2f3f5] dark:bg-[#2C2C2C] hover:bg-[#087bff] dark:hover:bg-[#333333] text-[#087bff] hover:text-[white] dark:hover:text-[#087bff]/80 px-4 rounded-md flex items-center gap-2 transition-all duration-200 justify-center border border-[#e4e6eb] dark:border-[#3C3C3C] h-[34px] min-w-[100px]"
+              onClick={runCode}
+              disabled={isRunning}
+            >
+              {isRunning ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border border-[#087bff] border-t-transparent"></div>
+                  <span className="font-medium">Executing...</span>
+                </>
+              ) : (
+                <>
+                  <FaPlay className="h-3 w-3" />
+                  <span className="font-medium">Run</span>
+                </>
+              )}
+            </button>
 
-          {/* Results panel */}
-          <div
-            className={`flex flex-col overflow-hidden ${
-              hasMounted && isMobile ? (activePanel === "results" ? "block" : "hidden") : ""
-            } ${hasMounted && isMobile ? "pb-24" : ""}`}
-            style={{
-              flexBasis: hasMounted && isMobile ? "100%" : `${100 - editorHeight}%`,
-              flexGrow: 0,
-              flexShrink: 0,
-              minHeight: 0,
-              maxHeight: hasMounted && isMobile ? "100%" : `${100 - editorHeight}%`,
-              height: hasMounted && isMobile ? "100%" : undefined,
-              transition: "all 0.3s ease-in-out" // Add smooth transition
-            }}
-          >
-            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-black border-b border-indigo-100 dark:border-indigo-900/50">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
-                <span className="font-medium text-slate-700 dark:text-slate-300">Results</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-7 w-7 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-500 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300"
-                  onClick={toggleResultsPanelFullscreen}
-                  aria-label={isResultsPanelFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                >
-                  {isResultsPanelFullscreen ? (
-                    <Minimize2 className="h-4 w-4" />
-                  ) : (
-                    <Maximize2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            
-            {/* Results Content */}
-            <div className="flex-1 relative bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800/80 overflow-auto pb-20">
-              {/* Background decorative elements */}
-              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-full blur-3xl -z-0"></div>
-              <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-purple-50/30 dark:bg-purple-900/10 rounded-full blur-3xl -z-0"></div>
-              
-              {/* Tabs for Results Panel */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-4 relative z-10">
-                <TabsList className="flex flex-nowrap justify-start overflow-x-auto overflow-y-hidden px-3 scroll-pl-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-indigo-200 dark:scrollbar-thumb-indigo-900/40 bg-slate-100 dark:bg-slate-800/70 rounded-lg backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 gap-1.5 p-2">
-                  <TabsTrigger
-                    value="sample"
-                    className="flex-shrink-0 min-w-[140px] px-3 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
-                  >
-                    <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                      <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    </div>
-                    <FileText className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400" />
-                    Sample Testcases
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="hidden"
-                    className="flex-shrink-0 min-w-[140px] px-3 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
-                  >
-                    <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                      <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    </div>
-                    <BarChart2 className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400" />
-                    Hidden Testcases
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="custom"
-                    className="flex-shrink-0 min-w-[140px] px-3 rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group"
-                  >
-                    <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity">
-                      <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                    </div>
-                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-indigo-500/70 dark:text-indigo-400/70 group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400" />
-                    Custom Testcase
-                  </TabsTrigger>
-                </TabsList>
-                
-                {/* Sample Testcases Tab */}
-                <TabsContent value="sample" className="focus-visible:outline-none focus-visible:ring-0">
-                  {showEvaluatingSkeletons && skeletonTab === "sample" ? (
-                    <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-300">
-                      {/* Summary skeleton */}
-                      <div className="flex items-center justify-between mb-2">
-                        <Skeleton className="h-5 w-40 bg-slate-200/70 dark:bg-slate-700/50" />
-                        <Skeleton className="h-6 w-28 rounded-full bg-slate-200/70 dark:bg-slate-700/50" />
-                      </div>
-                      
-                      {/* Test cases skeletons */}
-                      <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                        {/* Header skeleton */}
-                        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/70 dark:to-slate-800/50 flex justify-between">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-6 w-6 rounded-full bg-slate-200/70 dark:bg-slate-700/50" />
-                            <Skeleton className="h-5 w-24 bg-slate-200/70 dark:bg-slate-700/50" />
-                          </div>
-                          <Skeleton className="h-6 w-20 rounded-full bg-slate-200/70 dark:bg-slate-700/50" />
-                        </div>
-                        
-                        {/* Content skeleton */}
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Input skeleton */}
-                          <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                            <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50">
-                              <Skeleton className="h-4 w-16 bg-slate-200/70 dark:bg-slate-700/50" />
-                            </div>
-                            <div className="p-3 space-y-2">
-                              <Skeleton className="h-4 w-full bg-slate-200/70 dark:bg-slate-700/50" />
-                              <Skeleton className="h-4 w-3/4 bg-slate-200/70 dark:bg-slate-700/50" />
-                              <Skeleton className="h-4 w-1/2 bg-slate-200/70 dark:bg-slate-700/50" />
-                            </div>
-                          </div>
-                          
-                          {/* Expected Output skeleton */}
-                          <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                            <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50">
-                              <Skeleton className="h-4 w-36 bg-slate-200/70 dark:bg-slate-700/50" />
-                            </div>
-                            <div className="p-3 space-y-2">
-                              <Skeleton className="h-4 w-full bg-slate-200/70 dark:bg-slate-700/50" />
-                              <Skeleton className="h-4 w-2/3 bg-slate-200/70 dark:bg-slate-700/50" />
-                              <Skeleton className="h-4 w-1/4 bg-slate-200/70 dark:bg-slate-700/50" />
-                            </div>
-                          </div>
-                          
-                          {/* Your Output skeleton - professional loading style */}
-                          <div className="rounded-lg overflow-hidden md:col-span-2 border border-indigo-200 dark:border-indigo-900/30 relative overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-indigo-50/50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-indigo-900/20 animate-gradient-x"></div>
-                            <div className="px-3 py-1.5 border-b border-indigo-200 dark:border-indigo-900/30 bg-slate-50 dark:bg-slate-800/60 relative z-10 flex justify-between items-center">
-                              <div className="flex items-center space-x-2">
-                                <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse-opacity"></div>
-                                <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                                  Executing the code...
-                                </span>
-                              </div>
-                            </div>
-                            <div className="relative z-10">
-                              <div className="p-3 space-y-2">
-                                <Skeleton className="h-5 w-full bg-indigo-100/70 dark:bg-indigo-900/30" />
-                                <Skeleton className="h-5 w-4/5 bg-indigo-100/70 dark:bg-indigo-900/30" />
-                                <Skeleton className="h-5 w-2/3 bg-indigo-100/70 dark:bg-indigo-900/30" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Footer skeleton */}
-                        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
-                          <Skeleton className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/50" />
-                          <Skeleton className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/50" />
-                        </div>
-                      </div>
-                    </div>
-                  ) : sampleTestResults.length > 0 && activeTab === "sample" ? (
-                    <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-3 duration-500">
-                      {/* Summary badge */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm text-slate-700 dark:text-slate-300">
-                          <span className="font-medium">{sampleTestResults.length}</span> sample test cases evaluated
-                        </div>
-                        {sampleExecutionStatus && (
-                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium shadow-sm
-                            ${sampleExecutionStatus === 'success' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200/70 dark:border-green-900/30 text-green-700 dark:text-green-400' : 
-                            sampleExecutionStatus === 'warning' ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/70 dark:border-amber-900/30 text-amber-700 dark:text-amber-400' :
-                            'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200/70 dark:border-red-900/30 text-red-700 dark:text-red-400'}`}>
-                            {sampleExecutionStatus === 'success' ? (
-                              <><Check className="h-3 w-3 mr-1.5" />All Sample Testcases Passed</>
-                            ) : sampleExecutionStatus === 'warning' ? (
-                              <><AlertTriangle className="h-3 w-3 mr-1.5" />Partially Passed</>
-                            ) : (
-                              <><XCircle className="h-3 w-3 mr-1.5" />No Sample Testcases Passed</>
-                            )}
-                        </div>
-                        )}
-                    </div>
-                    
-                      {/* Nested tabs for multiple test cases */}
-                      <Tabs defaultValue={`sample-testcase-0`} className="w-full">
-                        <TabsList className="flex flex-nowrap overflow-x-auto px-3 scrollbar-thin scrollbar-thumb-indigo-200 dark:scrollbar-thumb-indigo-900/40 bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 rounded-lg backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 gap-1.5 p-2">
-                          {sampleTestResults.map((result, idx) => (
-                            <TabsTrigger
-                              key={`sample-trigger-${result.id || idx}`}
-                              value={`sample-testcase-${idx}`}
-                              className="flex-shrink-0 min-w-[85px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
-                            >
-                              <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
-                                <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
-                              </div>
-                              <div className="flex items-center justify-center gap-1.5">
-                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium
-                                  ${result.isCorrect 
-                                    ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
-                                    : 'bg-gradient-to-br from-red-500 to-rose-600'}`}>
-                                  {result.isCorrect ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                </div>
-                                <span className="font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test {idx + 1}</span>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover:opacity-100 group-data-[state=active]:opacity-0 transition-opacity"></div>
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        
-                        {sampleTestResults.map((result, idx) => (
-                          <TabsContent key={`sample-content-${result.id || idx}`} value={`sample-testcase-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                            <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                              <div className={`px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between
-                                ${result.isCorrect 
-                                  ? 'bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10' 
-                                  : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
-                                    ? 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-900/10'
-                                    : result.verdict === "Compilation Error" || result.compileOutput
-                                      ? 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-900/10'
-                                      : 'bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10'}`}>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium
-                                    ${result.isCorrect 
-                                      ? 'bg-green-500'
-                                      : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
-                                        ? 'bg-amber-500'
-                                        : result.verdict === "Compilation Error" || result.compileOutput
-                                          ? 'bg-amber-500'
-                                          : 'bg-red-500'}`}>
-                                    {idx + 1}
-                                  </div>
-                                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                                    {result.isCorrect 
-                                      ? 'Passed' 
-                                      : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
-                                        ? 'Time Limit Exceeded'
-                                        : result.verdict === "Compilation Error" || result.compileOutput
-                                          ? 'Compilation Error'
-                                          : 'Failed'}
-                                  </span>
-                                </div>
-                                
-                                <div className="flex items-center">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
-                                    ${result.isCorrect 
-                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                      : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")
-                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                        : result.verdict === "Compilation Error" || result.compileOutput
-                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                    {result.isCorrect ? (
-                                      <><Check className="h-3 w-3 mr-1" />Correct</>
-                                    ) : result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit") ? (
-                                      <><Clock className="h-3 w-3 mr-1" />Time Limit</>
-                                    ) : result.verdict === "Compilation Error" || result.compileOutput ? (
-                                      <><AlertTriangle className="h-3 w-3 mr-1" />Compile Error</>
-                                    ) : (
-                                      <><X className="h-3 w-3 mr-1" />Incorrect</>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    Input
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(result.input)}
-                                  </div>
-                                </div>
-                                
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    Expected Output
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(result.expectedOutput)}
-                                  </div>
-                                </div>
-                                
-                                {/* Only show the Your Output section if there are no errors/warnings/time limit exceeded */}
-                                {!(result.stderr || result.compileOutput || result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit") || result.verdict === "Compilation Error") && (
-                                  <div className={`rounded-lg overflow-hidden md:col-span-2 
-                                    ${result.isCorrect 
-                                      ? 'border border-green-200 dark:border-green-900/30' 
-                                      : 'border border-red-200 dark:border-red-900/30'}`}>
-                                    <div className={`px-3 py-1.5 border-b flex items-center
-                                      ${result.isCorrect 
-                                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-400' 
-                                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/30 text-red-800 dark:text-red-400'}`}>
-                                      {result.isCorrect ? (
-                                        <Check className="h-3 w-3 mr-1.5" />
-                                      ) : (
-                                        <X className="h-3 w-3 mr-1.5" />
-                                      )}
-                                      Your Output
-                                    </div>
-                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-30">
-                                      {formatTestCase(result.actualOutput)}
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Show Time Limit Exceeded message instead of output */}
-                                {(result.verdict === "Time Limit Exceeded" || (result.status && result.status.id === 5) || result.verdict?.toLowerCase()?.includes("time limit")) && (
-                                  <div className="rounded-lg overflow-hidden border border-amber-200 dark:border-amber-900/30 md:col-span-2">
-                                    <div className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 border-b border-amber-200 dark:border-amber-900/30 text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center">
-                                      <Clock className="h-3 w-3 mr-1.5" />
-                                      Time Limit Exceeded
-                                    </div>
-                                    <div className="p-3 bg-white dark:bg-slate-800/30">
-                                      <p className="text-sm text-amber-700 dark:text-amber-400">
-                                        Your solution took too long to execute. Try optimizing your algorithm to run within the time limit.
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Show Compilation Error message */}
-                                {(result.verdict === "Compilation Error" || result.compileOutput) && (
-                                  <div className="rounded-lg overflow-hidden border border-amber-200 dark:border-amber-900/30 md:col-span-2">
-                                    <div className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 border-b border-amber-200 dark:border-amber-900/30 text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center">
-                                      <AlertTriangle className="h-3 w-3 mr-1.5" />
-                                      Compilation Error
-                                    </div>
-                                    <div className="p-3 bg-white dark:bg-slate-800/30">
-                                      <div className="text-sm text-amber-700 dark:text-amber-400 font-mono whitespace-pre-wrap">
-                                        {result.compileOutput || "Your code has syntax errors and could not be compiled."}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Show Runtime Error message */}
-                                {result.stderr && !(result.verdict === "Compilation Error" || result.compileOutput) && (
-                                  <div className="rounded-lg overflow-hidden border border-red-200 dark:border-red-900/30 md:col-span-2">
-                                    <div className="bg-red-50 dark:bg-red-900/20 px-3 py-1.5 border-b border-red-200 dark:border-red-900/30 text-xs font-medium text-red-800 dark:text-red-400 flex items-center">
-                                      <AlertCircle className="h-3 w-3 mr-1.5" />
-                                      Runtime Error
-                                    </div>
-                                    <div className="p-3 bg-white dark:bg-slate-800/30">
-                                      <div className="text-sm text-red-700 dark:text-red-400 font-mono whitespace-pre-wrap">
-                                        {result.stderr}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
-                                <div className="flex items-center">
-                                  <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1.5" />
-                                  <span className="text-xs text-slate-500 dark:text-slate-400">Execution Time: {result.executionTime || 'N/A'}</span>
-                        </div>
-                                <div className="flex items-center">
-                                  <Cpu className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1.5" />
-                                  <span className="text-xs text-slate-500 dark:text-slate-400">Memory Used: {result.memoryUsed || 'N/A'}</span>
-                      </div>
-                    </div>
-                      </div>
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                        </div>
-                  ) : (
-                    // Display sample test cases when no code has been run
-                    <div className="space-y-4">
-                      {/* Summary banner for sample test cases */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm text-slate-700 dark:text-slate-300">
-                          <span className="font-medium">{examples.length}</span> sample test cases available
-                        </div>
-                        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200/70 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 shadow-sm">
-                          <Play className="h-3 w-3 mr-1.5" />
-                          Run Code to Test
-                      </div>
-                    </div>
-                    
-                      {/* Tabs for each sample testcase */}
-                      <Tabs defaultValue={`example-0`} className="w-full">
-                        <TabsList className="bg-gradient-to-r from-slate-100/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-900/30 p-1 rounded-lg overflow-hidden backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/30 shadow-sm mb-3 w-full flex flex-wrap">
-                          {examples.map((example: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
-                            <TabsTrigger
-                              key={`example-trigger-${example.id || idx}`}
-                              value={`example-${idx}`}
-                              className="flex-1 min-w-[100px] rounded-md py-2 data-[state=active]:bg-white data-[state=active]:dark:bg-black/95 data-[state=active]:text-indigo-700 data-[state=active]:dark:text-indigo-30 data-[state=active]:shadow-sm relative overflow-hidden group transition-all duration-150"
-                            >
-                              <div className="absolute inset-0 opacity-0 group-data-[state=active]:opacity-100 transition-opacity duration-300">
-                                <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-900/30 dark:to-purple-900/20 opacity-0 group-data-[state=active]:opacity-100 transition-opacity"></div>
-                  </div>
-                              <div className="flex items-center justify-center gap-1.5">
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium bg-gradient-to-br from-indigo-500 to-purple-600">
-                                  {idx + 1}
-                                </div>
-                                <span className="hidden sm:inline font-medium text-sm group-data-[state=active]:text-indigo-600 dark:group-data-[state=active]:text-indigo-400">Test {idx + 1}</span>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover:opacity-100 group-data-[state=active]:opacity-0 transition-opacity"></div>
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        
-                        {examples.map((example: {id: string, input: string, output: string, explanation?: string}, idx: number) => (
-                          <TabsContent key={`example-content-${example.id || idx}`} value={`example-${idx}`} className="focus-visible:outline-none focus-visible:ring-0">
-                  <div className="bg-white dark:bg-black rounded-lg shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                              <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-900/10">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium bg-indigo-500">
-                                    {idx + 1}
-                                  </div>
-                                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                                    Sample Test Case
-                                  </span>
-                          </div>
-                        </div>
-                              
-                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    Input
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(example.input)}
-                                  </div>
-                      </div>
-                      
-                                <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
-                                  <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    Expected Output
-                                  </div>
-                                  <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                    {formatTestCase(example.output)}
-                                </div>
-                      </div>
-                      
-                                {/* Explanation if available */}
-                                {example.explanation && (
-                                  <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50 md:col-span-2">
-                                    <div className="bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700/50 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center">
-                                      <Info className="h-3 w-3 mr-1.5 text-indigo-500 dark:text-indigo-400" />
-                                      Explanation
-                          </div>
-                                    <div className="p-3 font-mono text-sm bg-white dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
-                                      {formatTestCase(example.explanation)}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2 border-t border-slate-200 dark:border-slate-700/50 flex justify-between items-center">
-                                <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  Run code to test your solution against this example
-                                </div>
-                              </div>
-                        </div>
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                  </div>
-                  )}
-                </TabsContent>
-                
-                {/* Hidden Testcases Tab */}
-                <TabsContent value="hidden" className="focus-visible:outline-none focus-visible:ring-0">
-                  <HiddenTestcasesTab
-                    executingHiddenTestcases={executingHiddenTestcases}
-                    hiddenTestResults={hiddenTestResults}
-                    totalHiddenTestcases={totalHiddenTestcases}
-                    completedHiddenTestcases={completedHiddenTestcases}
-                    passedHiddenTestcases={passedHiddenTestcases}
-                    skippedHiddenTestcases={skippedHiddenTestcases}
-                    hiddenExecutionStatus={hiddenExecutionStatus}
-                    isRunning={isRunning}
-                    isSubmitting={isSubmitting}
-                    submitCode={submitCode}
-                  />
-                </TabsContent>
-
-                {/* Confetti celebration overlay */}
-                {showCelebration && (
-                  <div className="fixed inset-0 pointer-events-none z-50">
-                    {/* This div is just a container for the confetti effect */}
-                  </div>
-                )}
-              </Tabs>
-            </div>
+            <button
+              className="bg-[#f2f3f5] dark:bg-[#2C2C2C] hover:bg-[#1cd04c] dark:hover:bg-[#333333] text-[#27B940] hover:text-[white] dark:hover:text-[#27B940]/80 px-4 rounded-md flex items-center gap-2 transition-all duration-200 justify-center border border-[#e4e6eb] dark:border-[#3C3C3C] h-[34px] min-w-[120px]"
+              onClick={submitCode}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border border-[#27B940] border-t-transparent"></div>
+                  <span className="font-medium">Submitting...</span>
+                </>
+              ) : (
+                <>
+                  <FiUploadCloud className="h-4 w-4" />
+                  <span className="font-medium">Submit</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Floating Mobile Navigation Tabs */}
       {hasMounted && isMobile && (
-        <div className="md:hidden fixed bottom-8 left-0 right-0 flex justify-center z-50 px-4">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-full p-1.5 flex items-center w-full max-w-xs shadow-xl border border-indigo-100/50 dark:border-indigo-800/30">
-            <button 
-              onClick={() => setActivePanel("problem")} 
-              className={`flex-1 py-2.5 px-3 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-300
-              ${activePanel === "problem" 
-                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md" 
-                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"}`}
-            >
-              <FileText className="h-4 w-4" />
-              <span>Problem</span>
-            </button>
-            <button 
-              onClick={() => setActivePanel("code")} 
-              className={`flex-1 py-2.5 px-3 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-300
-              ${activePanel === "code" 
-                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md" 
-                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"}`}
-            >
-              <Code className="h-4 w-4" />
-              <span>Code</span>
-            </button>
-            <button 
-              onClick={() => setActivePanel("results")} 
-              className={`flex-1 py-2.5 px-3 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-300
-              ${activePanel === "results" 
-                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md" 
-                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"}`}
-            >
-              <Terminal className="h-4 w-4" />
-              <span>Results</span>
-            </button>
-          </div>
-        </div>
+        <FloatingMobileTab
+          activePanel={activePanel}
+          setActivePanel={setActivePanel}
+        />
       )}
     </div>
-  )
-} 
+  );
+}

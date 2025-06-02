@@ -1381,7 +1381,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
       `}</style>
       
       {/* Main content */}
-      <main className="container py-6">
+      <main className="w-full px-4 py-6">
         {/* Hero section */}
         <section className="relative overflow-hidden rounded-2xl mb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-slate-50 to-cyan-50 dark:from-blue-950/90 dark:via-slate-950/80 dark:to-cyan-950/70">
