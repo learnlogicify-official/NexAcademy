@@ -47,6 +47,7 @@ model User {
   streak             UserStreak?
   xp                 UserXP?
   xpEvents           UserXPEvent[]
+  problemTimeSpent   ProblemTimeSpent[]
 
   @@index([role])
   @@index([role, createdAt])
@@ -167,6 +168,7 @@ model Question {
   versions            QuestionVersion[]
   sections            SectionQuestion[]
   userProblemSettings UserProblemSettings[]
+  problemTimeSpent    ProblemTimeSpent[]
 
   @@index([folderId])
   @@index([creatorId])
@@ -583,6 +585,34 @@ model PlatformData {
   @@index([userId, platform])
   @@index([userId])
   @@index([platform])
+}
+
+model ProblemTimeSpent {
+  id          String   @id @default(cuid())
+  userId      String
+  problemId   String
+  timeSpentMs Int      @default(0)
+  lastActive  DateTime @default(now())
+  sessionCount Int     @default(0)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem     Question @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, problemId])
+  @@index([userId])
+  @@index([problemId])
+}
+
+model ProblemAverageTime {
+  id            String   @id @default(cuid())
+  problemId     String   @unique
+  averageTimeMs Float
+  lastUpdated   DateTime @default(now())
+  sampleSize    Int      @default(0)
+
+  @@index([problemId])
+  @@index([lastUpdated])
 }
 
 /// Valid roles for users:

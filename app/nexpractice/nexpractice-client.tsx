@@ -59,6 +59,7 @@ import { useMobile } from "@/hooks/use-mobile"
 type ProblemStatsProps = {
   totalSolved: number;
   streak: number;
+  averageTimeMinutes: number;
 };
 
 // Define GraphQL queries - Split into smaller, focused queries
@@ -128,6 +129,7 @@ const GET_CODING_PROBLEMS = gql`
         totalSubmissions
         acceptedSubmissions
         accuracy
+        averageTimeSpentMs
       }
       totalCount
     }
@@ -1032,7 +1034,7 @@ const codingProblems = [
     )
   }
 // Main component
-export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsProps) {
+export default function NexPracticeClient({ totalSolved, streak, averageTimeMinutes }: ProblemStatsProps) {
     const [mounted, setMounted] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -1160,7 +1162,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
     }));
   }, [tagsData?.tags]);
   
-  // Memoized problems data converted to UI format
+  // Process all questions with the batch-fetched data
   const formattedProblems = useMemo(() => {
     if (!problemsData?.codingQuestions?.codingQuestions) return [];
     
@@ -1185,6 +1187,12 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
       } else if (userStatus.attemptCount > 0) {
         status = "In Progress";
       }
+
+      // Format average time spent
+      const avgTimeSpent = problem.averageTimeSpentMs 
+        ? `${Math.round(problem.averageTimeSpentMs / 60000)} min` // Convert ms to minutes
+        : "-";
+
       return {
         id: problem.questionId,
         title: problem.question.name,
@@ -1195,7 +1203,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
         status: status,
         lastAttempt: userStatus.lastSubmittedAt ? new Date(userStatus.lastSubmittedAt).toLocaleDateString() : "-",
         attempts: userStatus.attemptCount || 0,
-        timeSpent: status === "Not Started" ? "-" : `${Math.floor(Math.random() * 45) + 5} min`, // Still using random for demo
+        timeSpent: avgTimeSpent,
         solvedByCount: problem.solvedByCount || 0,
         accuracy: problem.accuracy || 0,
         acceptedSubmissions: problem.acceptedSubmissions || 0,
@@ -1442,8 +1450,29 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
 
                   <Button
                     variant="outline"
-                    className="relative overflow-hidden border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 gap-2 shadow-sm px-4 py-4 h-10 group"
-                    onClick={getRandomProblem}
+                    className="random-problem-btn relative overflow-hidden border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 gap-2 shadow-sm px-4 py-4 h-10 group"
+                    onClick={() => {
+                      // Add loading state to button
+                      const button = document.querySelector('.random-problem-btn');
+                      if (button) {
+                        button.classList.add('loading');
+                      }
+
+                      // Navigate to random problem API endpoint
+                      fetch('/api/problem/random')
+                        .then(response => {
+                          if (response.redirected) {
+                            window.location.href = response.url;
+                          }
+                        })
+                        .catch(error => {
+                          console.error('Error fetching random problem:', error);
+                          // Remove loading state on error
+                          if (button) {
+                            button.classList.remove('loading');
+                          }
+                        });
+                    }}
                   >
                     <div className="absolute inset-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(56,182,255,0.1),transparent_65%)] dark:bg-[radial-gradient(circle_at_50%_120%,rgba(56,182,255,0.2),transparent_65%)]"></div>
                     <div className="relative flex items-center">
@@ -1489,7 +1518,7 @@ export default function NexPracticeClient({ totalSolved, streak }: ProblemStatsP
 
                 <StatCard
                   label="Avg. Time"
-                  value={performanceStats.averageTime}
+                  value={averageTimeMinutes > 0 ? `${averageTimeMinutes} min` : "-"}
                   bgColor="from-sky-50/90 to-sky-100/80 dark:from-sky-900/30 dark:to-sky-800/30"
                   textColor="text-sky-700 dark:text-sky-300"
                   borderColor="border-sky-200 dark:border-sky-700/50"

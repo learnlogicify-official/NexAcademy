@@ -150,6 +150,7 @@ import CodeEditorSection from "./components/CodeEditorSection";
 import SampleTestcaseTab from "./components/SampleTestcaseTab";
 import ResultsSection from "./components/ResultsSection";
 import RightPanel from "./components/RightPanel";
+import { useTimeTracking } from '@/app/hooks/useTimeTracking';
 
 // Judge0 API language mapping
 const JUDGE0_LANGUAGES = {
@@ -650,7 +651,11 @@ const injectStyles = () => {
   }
 }
 
-export default function ProblemClientPage({ codingQuestion, defaultLanguage, preloadCode }: ProblemClientPageProps) {
+export default function ProblemClientPage({
+  codingQuestion,
+  defaultLanguage,
+  preloadCode,
+}: ProblemClientPageProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -3013,212 +3018,224 @@ export default function ProblemClientPage({ codingQuestion, defaultLanguage, pre
     }
   };
 
+  // Just call the hook without destructuring its return value
+  useTimeTracking({
+    problemId: codingQuestion.question.id,
+    onTimeUpdate: (timeSpent) => {
+      // Optional: Update UI with current time spent
+      console.log('Time spent:', timeSpent);
+    },
+  });
+
   if (!hasMounted) return null;
 
   return (
-    <div className="flex flex-col h-screen w-screen fixed inset-0 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
-      {/* Expandable Coding Questions Sidebar - ensure it's completely hidden by default on mobile */}
-      <CodingQuestionsSidebar
-        currentQuestionId={codingQuestion.questionId || codingQuestion.id}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        className={
-          isMobile
-            ? "fixed inset-y-0 left-0 z-50 m-0 rounded-none w-full max-w-sm transform transition-transform duration-300 ease-in-out" +
-              (sidebarOpen ? " translate-x-0" : " -translate-x-full")
-            : ""
-        }
-      />
-
-      {/* Add overlay when sidebar is open on mobile */}
-      {isMobile && sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
-          onClick={() => setSidebarOpen(false)}
+    <div className="relative">
+      <div className="flex flex-col h-screen w-screen fixed inset-0 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden">
+        {/* Expandable Coding Questions Sidebar - ensure it's completely hidden by default on mobile */}
+        <CodingQuestionsSidebar
+          currentQuestionId={codingQuestion.questionId || codingQuestion.id}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          className={
+            isMobile
+              ? "fixed inset-y-0 left-0 z-50 m-0 rounded-none w-full max-w-sm transform transition-transform duration-300 ease-in-out" +
+                (sidebarOpen ? " translate-x-0" : " -translate-x-full")
+              : ""
+          }
         />
-      )}
 
-      {/* Header with NexPractice theming */}
-      <Header
-        profilePic={profilePic}
-        session={session}
-        setSidebarOpen={setSidebarOpen}
-        handleFullscreenToggle={handleFullscreenToggle}
-        isFullscreen={isFullscreen}
-        isMobile={isMobile}
-        runCode={runCode}
-        submitCode={submitCode}
-        isRunning={isRunning}
-        isSubmitting={isSubmitting}
-        loadingPhrase={loadingPhrase}
-      />
-
-      {/* Main content with resizable panels */}
-      <div
-        ref={containerRef}
-        className="flex flex-1 overflow-hidden bg-[#f2f3f5] dark:bg-black flex-col"
-      >
-        <div className="flex flex-1 w-full">
-          <LeftPanel
-            hasMounted={hasMounted}
-            isMobile={isMobile}
-            activePanel={activePanel}
-            leftPanelWidth={`${leftPanelWidth}%`}
-            handleTabChange={handleTabChange}
-            problemNumber={problemNumber}
-            problemTitle={problemTitle}
-            difficulty={difficulty}
-            isLeftPanelExpanded={isLeftPanelExpanded}
-            toggleLeftPanelExpansion={toggleLeftPanelExpansion}
-            getDifficultyBadge={getDifficultyBadge}
-            codingQuestion={codingQuestion}
-            description={description}
-            examples={examples}
-            formatTestCase={formatTestCase}
-            submissions={submissions}
-            submissionsLoading={submissionsLoading}
-            submissionsError={submissionsError}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            selectedSubmission={selectedSubmission}
-            fetchSubmissions={fetchSubmissions}
-            viewSubmissionDetails={viewSubmissionDetails}
-            closeSubmissionDetails={closeSubmissionDetails}
-            loadSubmissionCode={loadSubmissionCode}
-            renderSubmissionStatus={renderSubmissionStatus}
-            formatSubmissionDate={formatSubmissionDate}
-            getLanguageColor={getLanguageColor}
-            parseLanguageName={parseLanguageName}
-            JUDGE0_LANGUAGES={JUDGE0_LANGUAGES}
-            getMonacoLanguage={getMonacoLanguage}
-            fontSize={fontSize}
-            tabSize={tabSize}
-            appTheme={appTheme ?? "light"}
-            setActivePanel={setActivePanel}
-            toast={toast}
+        {/* Add overlay when sidebar is open on mobile */}
+        {isMobile && sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setSidebarOpen(false)}
           />
-          {/* Horizontal resizer - only visible on desktop */}
-          {!isMobile && (
-            <div
-              className="relative w-1 flex-shrink-0 z-10 group cursor-ew-resize"
-              onMouseDown={startHorizontalResize}
-            >
-              <div className="absolute inset-0 w-[6px] my-4 h-[calc(100vh-8rem)]  transition-colors duration-300 rounded-full flex items-center justify-center">
-                <div className="absolute h-10 w-[6px] rounded-full bg-[#1f1f1f]"></div>
+        )}
+
+        {/* Header with NexPractice theming */}
+        <Header
+          profilePic={profilePic}
+          session={session}
+          setSidebarOpen={setSidebarOpen}
+          handleFullscreenToggle={handleFullscreenToggle}
+          isFullscreen={isFullscreen}
+          isMobile={isMobile}
+          runCode={runCode}
+          submitCode={submitCode}
+          isRunning={isRunning}
+          isSubmitting={isSubmitting}
+          loadingPhrase={loadingPhrase}
+          questionId={codingQuestion.question.id}
+        />
+
+        {/* Main content with resizable panels */}
+        <div
+          ref={containerRef}
+          className="flex flex-1 overflow-hidden bg-[#f2f3f5] dark:bg-black flex-col"
+        >
+          <div className="flex flex-1 w-full">
+            <LeftPanel
+              hasMounted={hasMounted}
+              isMobile={isMobile}
+              activePanel={activePanel}
+              leftPanelWidth={`${leftPanelWidth}%`}
+              handleTabChange={handleTabChange}
+              problemNumber={problemNumber}
+              problemTitle={problemTitle}
+              difficulty={difficulty}
+              isLeftPanelExpanded={isLeftPanelExpanded}
+              toggleLeftPanelExpansion={toggleLeftPanelExpansion}
+              getDifficultyBadge={getDifficultyBadge}
+              codingQuestion={codingQuestion}
+              description={description}
+              examples={examples}
+              formatTestCase={formatTestCase}
+              submissions={submissions}
+              submissionsLoading={submissionsLoading}
+              submissionsError={submissionsError}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              selectedSubmission={selectedSubmission}
+              fetchSubmissions={fetchSubmissions}
+              viewSubmissionDetails={viewSubmissionDetails}
+              closeSubmissionDetails={closeSubmissionDetails}
+              loadSubmissionCode={loadSubmissionCode}
+              renderSubmissionStatus={renderSubmissionStatus}
+              formatSubmissionDate={formatSubmissionDate}
+              getLanguageColor={getLanguageColor}
+              parseLanguageName={parseLanguageName}
+              JUDGE0_LANGUAGES={JUDGE0_LANGUAGES}
+              getMonacoLanguage={getMonacoLanguage}
+              fontSize={fontSize}
+              tabSize={tabSize}
+              appTheme={appTheme ?? "light"}
+              setActivePanel={setActivePanel}
+              toast={toast}
+            />
+            {/* Horizontal resizer - only visible on desktop */}
+            {!isMobile && (
+              <div
+                className="relative w-1 flex-shrink-0 z-10 group cursor-ew-resize"
+                onMouseDown={startHorizontalResize}
+              >
+                <div className="absolute inset-0 w-[6px] my-4 h-[calc(100vh-8rem)]  transition-colors duration-300 rounded-full flex items-center justify-center">
+                  <div className="absolute h-10 w-[6px] rounded-full bg-[#1f1f1f]"></div>
+                </div>
               </div>
-            </div>
-          )}
-          {/* Right panel container */}
-          <RightPanel
-            hasMounted={hasMounted}
-            isMobile={isMobile}
-            activePanel={activePanel}
-            leftPanelWidth={leftPanelWidth}
-            editorHeight={editorHeight}
-            language={language}
-            editorTheme={editorTheme}
-            fontSize={fontSize}
-            tabSize={tabSize}
-            code={code}
-            isRunning={isRunning}
-            isSubmitting={isSubmitting}
-            isFormatting={isFormatting}
-            formatSuccess={formatSuccess}
-            editorLoading={editorLoading}
-            initialLoading={initialLoading}
-            searchLanguage={searchLanguage}
-            languageDropdownOpen={languageDropdownOpen}
-            JUDGE0_LANGUAGES={JUDGE0_LANGUAGES}
-            setCode={setCode}
-            setFontSize={setFontSize}
-            setTabSize={setTabSize}
-            setEditorTheme={setEditorTheme}
-            setSearchLanguage={setSearchLanguage}
-            setLanguageDropdownOpen={setLanguageDropdownOpen}
-            setFormatSuccess={setFormatSuccess}
-            runCode={runCode}
-            submitCode={submitCode}
-            formatCode={formatCode}
-            toggleFocusMode={toggleFocusMode}
-            handleLanguageChange={handleLanguageChange}
-            parseLanguageName={parseLanguageName}
-            focusMode={focusMode}
-            preloadCode={preloadCode}
-            editorRef={editorRef}
-            monacoRef={monacoRef}
-            handleEditorDidMount={handleEditorDidMount}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            showEvaluatingSkeletons={showEvaluatingSkeletons}
-            skeletonTab={skeletonTab}
-            sampleTestResults={sampleTestResults}
-            sampleExecutionStatus={sampleExecutionStatus}
-            formatTestCase={formatTestCase}
-            examples={examples}
-            copiedInput={copiedInput}
-            copiedOutput={copiedOutput}
-            setCopiedInput={setCopiedInput}
-            setCopiedOutput={setCopiedOutput}
-            executingHiddenTestcases={executingHiddenTestcases}
-            hiddenTestResults={hiddenTestResults}
-            totalHiddenTestcases={totalHiddenTestcases}
-            completedHiddenTestcases={completedHiddenTestcases}
-            passedHiddenTestcases={passedHiddenTestcases}
-            skippedHiddenTestcases={skippedHiddenTestcases}
-            hiddenExecutionStatus={hiddenExecutionStatus}
-            showCelebration={showCelebration}
-            customTestResult={customTestResult}
-            runCustomTestcase={runCustomTestcase}
-          />
-        </div>
-        <div className="p-3 bg-[#f2f3f5] dark:bg-[black]">
-          <div className="h-[50px] rounded-lg w-full bg-[white] dark:bg-[#1f1f1f] flex items-center justify-center gap-4 px-4">
-            <button
-              className="bg-[#f2f3f5] dark:bg-[#2C2C2C] hover:bg-[#087bff] dark:hover:bg-[#333333] text-[#087bff] hover:text-[white] dark:hover:text-[#087bff]/80 px-4 rounded-md flex items-center gap-2 transition-all duration-200 justify-center border border-[#e4e6eb] dark:border-[#3C3C3C] h-[34px] min-w-[100px]"
-              onClick={runCode}
-              disabled={isRunning}
-            >
-              {isRunning ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border border-[#087bff] border-t-transparent"></div>
-                  <span className="font-medium">Executing...</span>
-                </>
-              ) : (
-                <>
-                  <FaPlay className="h-3 w-3" />
-                  <span className="font-medium">Run</span>
-                </>
-              )}
-            </button>
+            )}
+            {/* Right panel container */}
+            <RightPanel
+              hasMounted={hasMounted}
+              isMobile={isMobile}
+              activePanel={activePanel}
+              leftPanelWidth={leftPanelWidth}
+              editorHeight={editorHeight}
+              language={language}
+              editorTheme={editorTheme}
+              fontSize={fontSize}
+              tabSize={tabSize}
+              code={code}
+              isRunning={isRunning}
+              isSubmitting={isSubmitting}
+              isFormatting={isFormatting}
+              formatSuccess={formatSuccess}
+              editorLoading={editorLoading}
+              initialLoading={initialLoading}
+              searchLanguage={searchLanguage}
+              languageDropdownOpen={languageDropdownOpen}
+              JUDGE0_LANGUAGES={JUDGE0_LANGUAGES}
+              setCode={setCode}
+              setFontSize={setFontSize}
+              setTabSize={setTabSize}
+              setEditorTheme={setEditorTheme}
+              setSearchLanguage={setSearchLanguage}
+              setLanguageDropdownOpen={setLanguageDropdownOpen}
+              setFormatSuccess={setFormatSuccess}
+              runCode={runCode}
+              submitCode={submitCode}
+              formatCode={formatCode}
+              toggleFocusMode={toggleFocusMode}
+              handleLanguageChange={handleLanguageChange}
+              parseLanguageName={parseLanguageName}
+              focusMode={focusMode}
+              preloadCode={preloadCode}
+              editorRef={editorRef}
+              monacoRef={monacoRef}
+              handleEditorDidMount={handleEditorDidMount}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              showEvaluatingSkeletons={showEvaluatingSkeletons}
+              skeletonTab={skeletonTab}
+              sampleTestResults={sampleTestResults}
+              sampleExecutionStatus={sampleExecutionStatus}
+              formatTestCase={formatTestCase}
+              examples={examples}
+              copiedInput={copiedInput}
+              copiedOutput={copiedOutput}
+              setCopiedInput={setCopiedInput}
+              setCopiedOutput={setCopiedOutput}
+              executingHiddenTestcases={executingHiddenTestcases}
+              hiddenTestResults={hiddenTestResults}
+              totalHiddenTestcases={totalHiddenTestcases}
+              completedHiddenTestcases={completedHiddenTestcases}
+              passedHiddenTestcases={passedHiddenTestcases}
+              skippedHiddenTestcases={skippedHiddenTestcases}
+              hiddenExecutionStatus={hiddenExecutionStatus}
+              showCelebration={showCelebration}
+              customTestResult={customTestResult}
+              runCustomTestcase={runCustomTestcase}
+            />
+          </div>
+          <div className="p-3 bg-[#f2f3f5] dark:bg-[black]">
+            <div className="h-[50px] rounded-lg w-full bg-[white] dark:bg-[#1f1f1f] flex items-center justify-center gap-4 px-4">
+              <button
+                className="bg-[#f2f3f5] dark:bg-[#2C2C2C] hover:bg-[#087bff] dark:hover:bg-[#333333] text-[#087bff] hover:text-[white] dark:hover:text-[#087bff]/80 px-4 rounded-md flex items-center gap-2 transition-all duration-200 justify-center border border-[#e4e6eb] dark:border-[#3C3C3C] h-[34px] min-w-[100px]"
+                onClick={runCode}
+                disabled={isRunning}
+              >
+                {isRunning ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border border-[#087bff] border-t-transparent"></div>
+                    <span className="font-medium">Executing...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaPlay className="h-3 w-3" />
+                    <span className="font-medium">Run</span>
+                  </>
+                )}
+              </button>
 
-            <button
-              className="bg-[#f2f3f5] dark:bg-[#2C2C2C] hover:bg-[#1cd04c] dark:hover:bg-[#333333] text-[#27B940] hover:text-[white] dark:hover:text-[#27B940]/80 px-4 rounded-md flex items-center gap-2 transition-all duration-200 justify-center border border-[#e4e6eb] dark:border-[#3C3C3C] h-[34px] min-w-[120px]"
-              onClick={submitCode}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border border-[#27B940] border-t-transparent"></div>
-                  <span className="font-medium">Submitting...</span>
-                </>
-              ) : (
-                <>
-                  <FiUploadCloud className="h-4 w-4" />
-                  <span className="font-medium">Submit</span>
-                </>
-              )}
-            </button>
+              <button
+                className="bg-[#f2f3f5] dark:bg-[#2C2C2C] hover:bg-[#1cd04c] dark:hover:bg-[#333333] text-[#27B940] hover:text-[white] dark:hover:text-[#27B940]/80 px-4 rounded-md flex items-center gap-2 transition-all duration-200 justify-center border border-[#e4e6eb] dark:border-[#3C3C3C] h-[34px] min-w-[120px]"
+                onClick={submitCode}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border border-[#27B940] border-t-transparent"></div>
+                    <span className="font-medium">Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiUploadCloud className="h-4 w-4" />
+                    <span className="font-medium">Submit</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Floating Mobile Navigation Tabs */}
-      {hasMounted && isMobile && (
-        <FloatingMobileTab
-          activePanel={activePanel}
-          setActivePanel={setActivePanel}
-        />
-      )}
+        {/* Floating Mobile Navigation Tabs */}
+        {hasMounted && isMobile && (
+          <FloatingMobileTab
+            activePanel={activePanel}
+            setActivePanel={setActivePanel}
+          />
+        )}
+      </div>
     </div>
   );
 }

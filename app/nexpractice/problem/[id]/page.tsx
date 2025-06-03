@@ -10,7 +10,7 @@ interface ProblemPageProps {
 
 export default async function CodeChallenge({ params }: ProblemPageProps) {
   // Ensure params is properly awaited by explicitly extracting the id
-  const id = params.id;
+  const id = await Promise.resolve(params.id);
   
   // Fetch coding question and related data by questionId (not id)
   const codingQuestion = await prisma.codingQuestion.findUnique({

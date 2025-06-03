@@ -11,7 +11,15 @@ const NexPracticeClient = dynamic(() => import('./nexpractice-client'), {
 });
 
 // Client component wrapper
-export default function ClientWrapper({ totalSolved, streak }: { totalSolved: number; streak: number }) {
+export default function ClientWrapper({ 
+  totalSolved, 
+  streak, 
+  averageTimeMinutes 
+}: { 
+  totalSolved: number; 
+  streak: number; 
+  averageTimeMinutes: number; 
+}) {
   const [mounted, setMounted] = useState(false);
   
   // Dispatch routeChangeComplete event when this component mounts
@@ -33,5 +41,5 @@ export default function ClientWrapper({ totalSolved, streak }: { totalSolved: nu
   
   if (!mounted) return null;
   
-  return <NexPracticeClient totalSolved={totalSolved} streak={streak} />;
+  return <NexPracticeClient totalSolved={totalSolved} streak={streak} averageTimeMinutes={averageTimeMinutes} />;
 } 

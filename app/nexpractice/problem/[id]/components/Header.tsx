@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import {
   Maximize2,
@@ -32,6 +34,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HiMenuAlt1 } from "react-icons/hi";
+import { useTimeTracking } from '@/app/hooks/useTimeTracking';
+
 interface HeaderProps {
   profilePic: string | null;
   session: any;
@@ -44,6 +48,7 @@ interface HeaderProps {
   isRunning: boolean;
   isSubmitting: boolean;
   loadingPhrase: string;
+  questionId: string;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -58,9 +63,18 @@ const Header: React.FC<HeaderProps> = ({
   isRunning,
   isSubmitting,
   loadingPhrase,
+  questionId,
 }) => {
+  // Keep tracking but don't display
+  useTimeTracking({
+    problemId: questionId,
+    onTimeUpdate: () => {
+      // We're not displaying the time anymore
+    },
+  });
+
   return (
-    <header className="flex items-center justify-between px-4 pt-2 bg-[#f2f3f5] dark:bg-black  overflow-hidden  min-h-[44px]">
+    <header className="flex items-center justify-between px-4 pt-2 bg-[#f2f3f5] dark:bg-black overflow-hidden min-h-[44px]">
       {/* Left section: Logo, Explore Nex, and sidebar toggle */}
       <div className="flex items-center gap-2 min-w-0 relative z-10">
         <TooltipProvider delayDuration={0}>
@@ -125,10 +139,21 @@ const Header: React.FC<HeaderProps> = ({
                     mainContent.classList.add("background-blur");
                   }
 
-                  // Navigate after animation
-                  setTimeout(() => {
-                    window.location.href = "/nexpractice/problem/random";
-                  }, 800);
+                  // Navigate to random problem API endpoint
+                  fetch('/api/problem/random')
+                    .then(response => {
+                      if (response.redirected) {
+                        window.location.href = response.url;
+                      }
+                    })
+                    .catch(error => {
+                      console.error('Error fetching random problem:', error);
+                      // Remove loading animations on error
+                      icon.classList.remove("loading");
+                      if (mainContent) {
+                        mainContent.classList.remove("background-blur");
+                      }
+                    });
                 }}
               >
                 <LuShuffle />
@@ -140,6 +165,11 @@ const Header: React.FC<HeaderProps> = ({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+      </div>
+
+      {/* Center section - Time spent */}
+      <div className="flex items-center gap-2">
+        {/* Time spent display removed */}
       </div>
 
       {/* Empty space for layout balance in mobile */}

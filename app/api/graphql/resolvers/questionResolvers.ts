@@ -1751,6 +1751,39 @@ export const questionResolvers = {
       ]);
       if (total === 0) return 0;
       return Math.round((accepted / total) * 100);
+    },
+    averageTimeSpentMs: async (parent: any) => {
+      // Get cached average time
+      const cachedAverage = await prisma.problemAverageTime.findUnique({
+        where: {
+          problemId: parent.questionId
+        }
+      });
+
+      if (cachedAverage) {
+        return Math.round(cachedAverage.averageTimeMs);
+      }
+
+      // Fallback to direct calculation if no cached data
+      const timeSpentRecords = await prisma.problemTimeSpent.findMany({
+        where: {
+          problemId: parent.questionId,
+          timeSpentMs: {
+            gt: 0
+          }
+        },
+        select: {
+          timeSpentMs: true
+        }
+      });
+
+      if (timeSpentRecords.length === 0) return null;
+
+      const totalTime = timeSpentRecords.reduce(
+        (sum: number, record: { timeSpentMs: number }) => sum + record.timeSpentMs,
+        0
+      );
+      return Math.round(totalTime / timeSpentRecords.length);
     }
   }
 }; 

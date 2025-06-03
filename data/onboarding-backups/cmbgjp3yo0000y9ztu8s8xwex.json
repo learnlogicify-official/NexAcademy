@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-06-03T13:20:54.006Z",
+  "data": {
+    "username": "sachin",
+    "userBio": "Tech Enthusiast",
+    "userInterests": [
+      "Game Dev",
+      "DevOps",
+      "Full Stack"
+    ],
+    "programmingLanguage": "C++ (GCC 8.3.0)",
+    "learningPath": "Data Structures & Algorithms",
+    "skillLevel": "Intermediate",
+    "profilePicture": "https://res.cloudinary.com/dm05srb3x/image/upload/v1748956821/mlss2jtlmketkxkj9jjd.jpg"
+  }
+}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "@/styles/globals.css"
+import "./nexpractice/styles/animations.css"
 import { Suspense } from "react"
 import { Providers } from "./providers"
 import { ProfilePicProvider } from "@/components/ProfilePicContext"

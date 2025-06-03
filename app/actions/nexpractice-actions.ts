@@ -20,6 +20,7 @@ export async function getUserProblemStats() {
     return {
       totalSolved: 0,
       streak: 0,
+      averageTimeMinutes: 0,
       activityData: [] as ActivityData[]
     }
   }
@@ -35,6 +36,25 @@ export async function getUserProblemStats() {
     ` as any[];
     
     const totalSolved = parseInt(totalSolvedQuery[0]?.count || '0');
+    
+    // Get average time spent on problems (only for problems the user has worked on)
+    let averageTimeMinutes = 0;
+    try {
+      const averageTimeQuery = await prisma.$queryRaw`
+        SELECT AVG("timeSpentMs") as avg_time
+        FROM "ProblemTimeSpent"
+        WHERE "userId" = ${session.user.id}
+        AND "timeSpentMs" > 0
+      ` as any[];
+      
+      const avgTimeMs = averageTimeQuery[0]?.avg_time;
+      if (avgTimeMs && avgTimeMs > 0) {
+        // Convert milliseconds to minutes and round to nearest whole number
+        averageTimeMinutes = Math.round(Number(avgTimeMs) / (1000 * 60));
+      }
+    } catch (err) {
+      console.error('Error fetching average time data:', err);
+    }
     
     // Get streak data
     const streakData = await getUserStreak(session.user.id);
@@ -137,6 +157,7 @@ export async function getUserProblemStats() {
     return {
       totalSolved,
       streak: streakData.currentStreak || 0,
+      averageTimeMinutes,
       activityData
     }
   } catch (error) {
@@ -144,6 +165,7 @@ export async function getUserProblemStats() {
     return {
       totalSolved: 0,
       streak: 0,
+      averageTimeMinutes: 0,
       activityData: [] as ActivityData[]
     }
   }

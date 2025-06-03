@@ -88,6 +88,7 @@ export const questionTypeDefs = gql`
     totalSubmissions: Int!
     acceptedSubmissions: Int!
     accuracy: Float!
+    averageTimeSpentMs: Float
   }
 
   type MCQOption {
