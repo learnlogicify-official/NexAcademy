@@ -55,11 +55,70 @@ export const codeExecutionResolvers = {
   
   Mutation: {
     // Run code against sample test cases only
-    runCode: async (_: any, { input }: { input: { sourceCode: string; languageId: number; problemId: string; executionId?: string } }, context: Context) => {
+    runCode: async (_: any, { input }: { 
+      input: { 
+        sourceCode: string; 
+        languageId: number; 
+        problemId: string; 
+        executionId?: string;
+        customInput?: string;
+        judge0Settings?: {
+          cpu_time_limit?: number;
+          cpu_extra_time?: number;
+          wall_time_limit?: number;
+          memory_limit?: number;
+          stack_limit?: number;
+          compilation_time_limit?: number;
+          max_file_size?: number;
+          max_processes_and_or_threads?: number;
+        }
+      } 
+    }, context: Context) => {
       try {
-        const { sourceCode, languageId, problemId, executionId = generateUUID() } = input;
+        const { sourceCode, languageId, problemId, executionId = generateUUID(), customInput, judge0Settings } = input;
         
-        // Fetch sample test cases for this problem
+        // If customInput is provided, run only with that input
+        if (customInput !== undefined) {
+          const testCase: Judge0TestCase = {
+            input: customInput,
+            expectedOutput: "" // For custom input, we don't have expected output
+          };
+
+          const executionResults = await runWithJudge0({
+            sourceCode,
+            languageId,
+            testCases: [testCase],
+            executionSettings: judge0Settings
+          });
+
+          if (executionResults.length > 0) {
+            const result = executionResults[0];
+            return {
+              success: true,
+              message: "Custom test case executed",
+              results: [{
+                id: 'custom',
+                input: customInput,
+                expectedOutput: "",
+                actualOutput: result.output,
+                stderr: result.stderr,
+                compileOutput: result.compile_output,
+                status: {
+                  id: result.status.id,
+                  description: result.status.description
+                },
+                verdict: result.verdict,
+                isCorrect: true, // Always true for custom input as there's no expected output
+                executionTime: result.time,
+                memoryUsed: result.memory
+              }],
+              allTestsPassed: true,
+              totalTests: 1
+            };
+          }
+        }
+        
+        // If no customInput, proceed with sample test cases
         const codingQuestion = await prisma.codingQuestion.findUnique({
           where: { questionId: problemId },
           include: {
@@ -114,7 +173,8 @@ export const codeExecutionResolvers = {
           sourceCode,
           languageId,
           testCases: judge0TestCases,
-          progressCallback
+          progressCallback,
+          executionSettings: judge0Settings
         });
         
         // Format results to match GraphQL schema

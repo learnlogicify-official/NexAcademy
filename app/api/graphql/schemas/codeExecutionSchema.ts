@@ -88,6 +88,8 @@ export const codeExecutionTypeDefs = gql`
     # User's timezone offset in minutes for proper streak calculation
     timezoneOffset: Int
     judge0Settings: Judge0Settings
+    # Custom input for running code with specific input
+    customInput: String
   }
 
   # Extend the Query type to include code execution info

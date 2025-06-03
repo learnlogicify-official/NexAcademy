@@ -2981,7 +2981,7 @@ export default function ProblemClientPage({
             sourceCode: code,
             languageId: langId,
             problemId: codingQuestion.questionId,
-            customInput: input, // Assuming your backend supports this
+            customInput: input,
             judge0Settings: {
               compilation_time_limit: 30,
               cpu_time_limit: 5,
