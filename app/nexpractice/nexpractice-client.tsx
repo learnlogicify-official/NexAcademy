@@ -1458,12 +1458,22 @@ export default function NexPracticeClient({ totalSolved, streak, averageTimeMinu
                         button.classList.add('loading');
                       }
 
-                      // Navigate to random problem API endpoint
-                      fetch('/api/problem/random')
+                      // Use relative URL to avoid protocol issues
+                      fetch('/api/problem/random', {
+                        headers: {
+                          'Accept': 'application/json',
+                        },
+                        // Add credentials to ensure cookies are sent
+                        credentials: 'same-origin'
+                      })
                         .then(response => {
+                          if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                          }
                           if (response.redirected) {
                             window.location.href = response.url;
                           }
+                          return response.json();
                         })
                         .catch(error => {
                           console.error('Error fetching random problem:', error);
