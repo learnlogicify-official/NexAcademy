@@ -57,7 +57,8 @@ export async function GET(request: Request) {
     const redirectUrl = `${baseUrl}/nexpractice/problem/${randomProblem.id}`;
 
     // Redirect to the problem page
-    return NextResponse.redirect(redirectUrl);
+    // return NextResponse.redirect(redirectUrl);
+    return NextResponse.json({ redirectUrl });
   } catch (error) {
     console.error('Error fetching random problem:', error);
     return NextResponse.json(

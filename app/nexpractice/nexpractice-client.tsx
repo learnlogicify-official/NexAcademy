@@ -1470,10 +1470,12 @@ export default function NexPracticeClient({ totalSolved, streak, averageTimeMinu
                           if (!response.ok) {
                             throw new Error(`HTTP error! status: ${response.status}`);
                           }
-                          if (response.redirected) {
-                            window.location.href = response.url;
-                          }
                           return response.json();
+                        })
+                        .then(data => {
+                          if (data.redirectUrl) {
+                            window.location.href = data.redirectUrl;
+                          }
                         })
                         .catch(error => {
                           console.error('Error fetching random problem:', error);
