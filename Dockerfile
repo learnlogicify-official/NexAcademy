@@ -6,6 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm install --frozen-lockfile
+# Install specific version of framer-motion that's compatible with Next.js
+RUN npm install framer-motion@10.16.4
 
 # Install Chrome for Puppeteer
 RUN npx puppeteer browsers install chrome
